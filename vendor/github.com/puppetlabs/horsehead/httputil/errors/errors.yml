@@ -1,0 +1,29 @@
+version: 1
+domain:
+  key: lih
+  title: Insights HTTP Library
+sections:
+  #
+  # API errors
+  #
+  api:
+    title: API errors
+    errors:
+      resource_serialization_error:
+        title: Resource serialization error
+        description: >
+          The resource you requested could not be serialized for the wire.
+      cached_resource_not_available_error:
+        title: Cached resource not available
+        description: >
+          The resource you requested is not available at the specified cache revision.
+        metadata:
+          http:
+            status: 416
+      resource_modified_error:
+        title: Resource modified
+        description: >
+          The resource you provided failed to meet the criteria for updating because it has changed.
+        metadata:
+          http:
+            status: 412

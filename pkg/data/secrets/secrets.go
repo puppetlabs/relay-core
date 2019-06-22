@@ -8,7 +8,7 @@ import (
 )
 
 type Store interface {
-	GetScopedSession(gid string, jwt string) (ScopedSession, errors.Error)
+	GetScopedSession(workflowName, taskName, token string) (ScopedSession, errors.Error)
 }
 
 type ScopedSession interface {

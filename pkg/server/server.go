@@ -4,32 +4,44 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"path"
+	"strings"
 
 	"github.com/puppetlabs/horsehead/netutil"
+	"github.com/puppetlabs/nebula-tasks/pkg/config"
+	"github.com/puppetlabs/nebula-tasks/pkg/data/secrets"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
-	"github.com/puppetlabs/nebula-tasks/pkg/metadata-api/config"
-	"github.com/puppetlabs/nebula-tasks/pkg/metadata-api/data/metadata"
-	"github.com/puppetlabs/nebula-tasks/pkg/metadata-api/data/secrets"
 )
 
+// Server listens on a host and port and contains sub routers to route
+// requests to.
 type Server struct {
+	// bindAddr is the address and port to listen on
 	bindAddr string
-	sec      *secrets.Store
-	md       *metadata.Metadata
+
+	// secretsHander handles requests to secrets on the /secrets/* path
+	secretsHandler *secretsHandler
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// routing tree:
-	// if the path is empty, then 404
-	// otherwise, see if the next path segment matches "secret",
-	// if it does, then route to the secret http sever to handle secret fetching
-	// do the same if it matches "metadata", but instead route to the metadata http sever
+	var head string
+
+	head, r.URL.Path = shiftPath(r.URL.Path)
+
+	if head == "secrets" {
+		s.secretsHandler.ServeHTTP(w, r)
+
+		return
+	}
+
+	http.NotFound(w, r)
 }
 
-func (s *Server) Run(ctx context.Context) errors.Error {
+// Run created a new network listener and handles shutdowns when the context closes.
+func (s *Server) Run(ctx context.Context) error {
 	ln, err := net.Listen("tcp", s.bindAddr)
 	if err != nil {
-		return errors.NewMetadataAPIServerError().WithCause(err)
+		return errors.NewServerRunError().WithCause(err)
 	}
 
 	ln = netutil.NewTCPKeepAliveListener(ln.(*net.TCPListener))
@@ -40,16 +52,29 @@ func (s *Server) Run(ctx context.Context) errors.Error {
 	defer srv.Shutdown(ctx)
 
 	if err := srv.Serve(ln); err != nil {
-		return errors.NewMetadataAPIServerError().WithCause(err)
+		return errors.NewServerRunError().WithCause(err)
 	}
 
 	return nil
 }
 
-func New(cfg *config.Config, sec *secrets.Store, md *metadata.Metadata) *Server {
+// New returns a new Server that routes requests to sub-routers. It is also responsible
+// for binding to a listener and is the first point of entry for http requests.
+func New(cfg *config.Config, sec secrets.Store) *Server {
 	return &Server{
-		bindAddr: cfg.BindAddr,
-		sec:      sec,
-		md:       md,
+		bindAddr:       cfg.BindAddr,
+		secretsHandler: &secretsHandler{sec: sec},
 	}
+}
+
+// shiftPath takes a URI path and returns the first segment as the head
+// and the remaining segments as the tail.
+func shiftPath(p string) (head, tail string) {
+	p = path.Clean("/" + p)
+	i := strings.Index(p[1:], "/") + 1
+	if i <= 0 {
+		return p[1:], "/"
+	}
+
+	return p[1:i], p[i:]
 }
