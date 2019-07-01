@@ -3,7 +3,7 @@
 
 
 nebula-slack-notification:
-	@cmd/nebula-slack-notification/build.sh
+	@cmd/nebula-slack-notification/build
 
 run-nebula-slack-notification:
-	@cmd/nebula-slack-notification/run.sh
+	@cmd/nebula-slack-notification/run

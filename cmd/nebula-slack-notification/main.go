@@ -7,11 +7,12 @@ import (
 	"os"
 )
 
-var channel = flag.String("channel", "", "The slack channel to notify")
-var message = flag.String("message", "", "The message to notify the channel with")
-var username = flag.String("username", "Nebula", "The username to publish the message as")
 
 func main() {
+	var channel = flag.String("channel", "", "The slack channel to notify")
+	var message = flag.String("message", "", "The message to notify the channel with")
+	var username = flag.String("username", "Nebula", "The username to publish the message as")
+
 	flag.Parse()
 	if "" == *channel || "" == *message {
 		fmt.Println("Missing required flag(s)")
