@@ -1,0 +1,316 @@
+package secretauth
+
+import (
+	"fmt"
+	"log"
+	"time"
+
+	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/util/workqueue"
+
+	"github.com/kr/pretty"
+	nebapps "github.com/puppetlabs/nebula-tasks/pkg/apis/nebula.puppet.com/v1"
+	"github.com/puppetlabs/nebula-tasks/pkg/config"
+	"github.com/puppetlabs/nebula-tasks/pkg/data/secrets/vault"
+	clientset "github.com/puppetlabs/nebula-tasks/pkg/generated/clientset/versioned"
+	informers "github.com/puppetlabs/nebula-tasks/pkg/generated/informers/externalversions"
+	sainformers "github.com/puppetlabs/nebula-tasks/pkg/generated/informers/externalversions/nebula.puppet.com/v1"
+)
+
+const (
+	defaultVaultAddr     = "http://vault.default.svc.cluster.local"
+	metadataServiceImage = "pcr-internal.puppet.net/nebula/nebula-metadata-service:latest"
+	maxRetries           = 10
+)
+
+type Controller struct {
+	kubeclient       kubernetes.Interface
+	clientset        clientset.Interface
+	workqueue        workqueue.RateLimitingInterface
+	saInformer       sainformers.SecretAuthInformer
+	saInformerSynced cache.InformerSynced
+	informerFactory  informers.SharedInformerFactory
+	vaultClient      *vault.VaultAuth
+}
+
+func (c *Controller) Run(stopCh chan struct{}) error {
+	defer utilruntime.HandleCrash()
+	defer c.workqueue.ShutDown()
+
+	c.informerFactory.Start(stopCh)
+
+	if ok := cache.WaitForCacheSync(stopCh, c.saInformerSynced); !ok {
+		return fmt.Errorf("failed to wait for informer cache to sync")
+	}
+
+	go wait.Until(c.worker, time.Second, stopCh)
+	go wait.Until(c.worker, time.Second, stopCh)
+
+	<-stopCh
+
+	return nil
+}
+
+func (c *Controller) worker() {
+	for c.processNextWorkItem() {
+	}
+}
+
+func (c *Controller) processNextWorkItem() bool {
+	key, shutdown := c.workqueue.Get()
+
+	if shutdown {
+		return false
+	}
+
+	defer c.workqueue.Done(key)
+
+	err := c.processSingleItem(key.(string))
+	c.handleErr(err, key)
+
+	return true
+}
+
+func (c *Controller) handleErr(err error, key interface{}) {
+	if err == nil {
+		c.workqueue.Forget(key)
+		return
+	}
+
+	// requeue if we can still retry to process the resource
+	if c.workqueue.NumRequeues(key) < maxRetries {
+		log.Printf("error syncing secretauth %v: %v", key, err)
+		c.workqueue.AddRateLimited(key)
+		return
+	}
+
+	// otherwise report the error to kubernetes and drop the key from the queue
+	log.Printf("dropping secretauth from queue %v: %v", key, err)
+	utilruntime.HandleError(err)
+	c.workqueue.Forget(key)
+}
+
+func (c *Controller) processSingleItem(key string) error {
+	namespace, name, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		return err
+	}
+
+	sa, err := c.clientset.NebulaV1().SecretAuths(namespace).Get(name, metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	saccount, err := c.kubeclient.CoreV1().ServiceAccounts(namespace).Create(serviceAccount(namespace, sa))
+	if err != nil {
+		return err
+	}
+
+	rbac, err := c.kubeclient.RbacV1().ClusterRoleBindings().Create(roleBinding(namespace, sa))
+	if err != nil {
+		return err
+	}
+
+	pod, err := c.kubeclient.CoreV1().Pods(namespace).Create(metadataServicePod(namespace, saccount, sa))
+	if err != nil {
+		return err
+	}
+
+	service, err := c.kubeclient.CoreV1().Services(namespace).Create(metadataServiceService(namespace))
+	if err != nil {
+		return err
+	}
+
+	saCopy := sa.DeepCopy()
+	saCopy.Status.MetadataServiceHost = fmt.Sprintf("http://%s.%s.svc.cluster.local", service.GetName(), namespace)
+	saCopy.Status.MetadataServicePod, err = cache.MetaNamespaceKeyFunc(pod)
+	if err != nil {
+		return err
+	}
+
+	saCopy.Status.MetadataServiceService, err = cache.MetaNamespaceKeyFunc(service)
+	if err != nil {
+		return err
+	}
+
+	saCopy.Status.ServiceAccount, err = cache.MetaNamespaceKeyFunc(saccount)
+	if err != nil {
+		return err
+	}
+
+	saCopy.Status.ClusterRoleBinding, err = cache.MetaNamespaceKeyFunc(rbac)
+	if err != nil {
+		return err
+	}
+
+	saCopy, err = c.clientset.NebulaV1().SecretAuths(namespace).Update(saCopy)
+	if err != nil {
+		return err
+	}
+
+	pretty.Println(saCopy)
+
+	return nil
+}
+
+func (c *Controller) enqueueSecretAuth(obj interface{}) {
+	sa := obj.(*nebapps.SecretAuth)
+	pretty.Println(sa)
+
+	key, err := cache.MetaNamespaceKeyFunc(sa)
+	if err != nil {
+		utilruntime.HandleError(err)
+
+		return
+	}
+
+	c.workqueue.Add(key)
+}
+
+func NewController(cfg *config.SecretAuthControllerConfig, vaultClient *vault.Vault) (*Controller, error) {
+	kcfg, err := clientcmd.BuildConfigFromFlags(cfg.KubeMasterURL, cfg.Kubeconfig)
+	if err != nil {
+		return nil, err
+	}
+
+	kc, err := kubernetes.NewForConfig(kcfg)
+	if err != nil {
+		return nil, err
+	}
+
+	nebclient, err := clientset.NewForConfig(kcfg)
+	if err != nil {
+		return nil, err
+	}
+
+	nebInformerFactory := informers.NewSharedInformerFactory(nebclient, time.Second*30)
+	saInformer := nebInformerFactory.Nebula().V1().SecretAuths()
+
+	c := &Controller{
+		kubeclient:       kc,
+		clientset:        nebclient,
+		workqueue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "SecretAuths"),
+		saInformer:       saInformer,
+		saInformerSynced: saInformer.Informer().HasSynced,
+		informerFactory:  nebInformerFactory,
+		vaultClient:      vaultClient,
+	}
+
+	saInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: c.enqueueSecretAuth,
+	})
+
+	return c, nil
+}
+
+func serviceAccount(namespace string, sa *nebapps.SecretAuth) *corev1.ServiceAccount {
+	return &corev1.ServiceAccount{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "ServiceAccount",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      getName(sa),
+			Namespace: namespace,
+		},
+	}
+}
+
+func roleBinding(namespace string, sa *nebapps.SecretAuth) *rbacv1.ClusterRoleBinding {
+	return &rbacv1.ClusterRoleBinding{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "rbac.authorization.k8s.io/v1",
+			Kind:       "ClusterRoleBinding",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      getName(sa),
+			Namespace: namespace,
+		},
+		RoleRef: rbacv1.RoleRef{
+			Kind:     "ClusterRole",
+			APIGroup: "rbac.authorization.k8s.io",
+			Name:     "system:auth-delegator",
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Name:      getName(sa),
+				Kind:      "ServiceAccount",
+				Namespace: namespace,
+			},
+		},
+	}
+}
+
+func metadataServicePod(namespace string, saccount *corev1.ServiceAccount, sa *nebapps.SecretAuth) *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "metadata-service-api",
+			Namespace: namespace,
+			Labels: map[string]string{
+				"app": "metadata-service-api",
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name:            "metadata-service-api",
+					Image:           metadataServiceImage,
+					ImagePullPolicy: corev1.PullIfNotPresent,
+					Args:            podArgs(sa),
+				},
+			},
+			ServiceAccountName: saccount.GetName(),
+		},
+	}
+}
+
+func metadataServiceService(namespace string) *corev1.Service {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "metadata-service-api",
+			Namespace: namespace,
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Port:       80,
+					TargetPort: intstr.FromInt(7000),
+				},
+			},
+			Selector: map[string]string{
+				"app": "metadata-service-api",
+			},
+		},
+	}
+}
+
+func podArgs(sa *nebapps.SecretAuth) []string {
+	args := []string{}
+
+	va := defaultVaultAddr
+
+	if sa.Spec.VaultAddr != "" {
+		va = sa.Spec.VaultAddr
+	}
+
+	args = append(args, "-vault-addr", va)
+
+	return args
+}
+
+func getName(sa *nebapps.SecretAuth) string {
+	return fmt.Sprintf("%s-%d", sa.Spec.WorkflowID, sa.Spec.RunNum)
+}

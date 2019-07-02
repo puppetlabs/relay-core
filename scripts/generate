@@ -1,0 +1,17 @@
+#!/bin/bash
+
+set -euo pipefail
+
+# this generator script has elements borrowed from the kubernetes example controller
+
+PROJECT_ROOT="$(cd "$(dirname "$0")/.."; pwd -P)"
+MODULE="github.com/puppetlabs/nebula-tasks"
+CODEGEN_IMAGE=k8s-codegen:latest
+
+cmd="./generate-groups.sh "deepcopy,client,informer,lister" \
+    ${MODULE}/pkg/generated \
+    ${MODULE}/pkg/apis \
+    nebula.puppet.com:v1"
+
+docker build -f "${PROJECT_ROOT}/scripts/Dockerfile.codegen" -t "${CODEGEN_IMAGE}" "${PROJECT_ROOT}"
+docker run -it --rm -v "${PROJECT_ROOT}":/go/src/"${MODULE}" "${CODEGEN_IMAGE}" bash -c "$cmd"

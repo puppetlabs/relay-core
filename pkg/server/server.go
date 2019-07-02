@@ -60,7 +60,7 @@ func (s *Server) Run(ctx context.Context) error {
 
 // New returns a new Server that routes requests to sub-routers. It is also responsible
 // for binding to a listener and is the first point of entry for http requests.
-func New(cfg *config.Config, sec secrets.Store) *Server {
+func New(cfg *config.MetadataServerConfig, sec secrets.Store) *Server {
 	return &Server{
 		bindAddr:       cfg.BindAddr,
 		secretsHandler: &secretsHandler{sec: sec},
