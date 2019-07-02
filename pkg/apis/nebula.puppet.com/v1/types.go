@@ -28,6 +28,8 @@ type SecretAuthStatus struct {
 	MetadataServiceService string `json:"metadataServiceService"`
 	ServiceAccount         string `json:"serviceAccount"`
 	ClusterRoleBinding     string `json:"clusterRoleBinding"`
+	VaultPolicy            string `json:"vaultPolicy"`
+	VaultAuthRole          string `json:"vaultAuthRole"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

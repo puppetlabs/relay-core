@@ -73,10 +73,6 @@ github.com/imdario/mergo
 github.com/inconshreveable/log15
 # github.com/json-iterator/go v0.0.0-20180701071628-ab8a2e0c74be
 github.com/json-iterator/go
-# github.com/kr/pretty v0.1.0
-github.com/kr/pretty
-# github.com/kr/text v0.1.0
-github.com/kr/text
 # github.com/mattn/go-colorable v0.1.2
 github.com/mattn/go-colorable
 # github.com/mattn/go-isatty v0.0.8

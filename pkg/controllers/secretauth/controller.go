@@ -18,7 +18,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/workqueue"
 
-	"github.com/kr/pretty"
 	nebapps "github.com/puppetlabs/nebula-tasks/pkg/apis/nebula.puppet.com/v1"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
 	"github.com/puppetlabs/nebula-tasks/pkg/data/secrets/vault"
@@ -28,11 +27,19 @@ import (
 )
 
 const (
-	defaultVaultAddr     = "http://vault.default.svc.cluster.local"
-	metadataServiceImage = "pcr-internal.puppet.net/nebula/nebula-metadata-service:latest"
-	maxRetries           = 10
+	// default image:tag to use for nebula-metadata-api
+	metadataServiceImage = "pcr-internal.puppet.net/nebula/nebula-metadata-api:latest"
+	// default maximum retry attempts to create resources spawned from SecretAuth creations
+	maxRetries = 10
 )
 
+// Controller watches for nebulav1.SecretAuth resource changes.
+// If a SecretAuth resource is created, the controller will create a service acccount + rbac
+// for the namespace, then inform vault that that service account is allowed to access
+// readonly secrets under a preconfigured path related to a nebula workflow. It will then
+// spin up a pod running an instance of nebula-metadata-api that knows how to
+// ask kubernetes for the service account token, that it will use to proxy secrets
+// between the task pods and the vault server.
 type Controller struct {
 	kubeclient       kubernetes.Interface
 	clientset        clientset.Interface
@@ -43,6 +50,9 @@ type Controller struct {
 	vaultClient      *vault.VaultAuth
 }
 
+// Run starts all required informers and spawns two worker goroutines
+// that will pull resource objects off the workqueue. This method blocks
+// until stopCh is closed or an earlier bootstrap call results in an error.
 func (c *Controller) Run(stopCh chan struct{}) error {
 	defer utilruntime.HandleCrash()
 	defer c.workqueue.ShutDown()
@@ -81,6 +91,10 @@ func (c *Controller) processNextWorkItem() bool {
 	return true
 }
 
+// handleErr takes an error and the k8s object key that caused it
+// and tries to requeue the object for processing. If we have requeued
+// that key the maximum number of times, then we drop the object from the
+// queue and tell kubernetes runtime to handle the error.
 func (c *Controller) handleErr(err error, key interface{}) {
 	if err == nil {
 		c.workqueue.Forget(key)
@@ -100,7 +114,13 @@ func (c *Controller) handleErr(err error, key interface{}) {
 	c.workqueue.Forget(key)
 }
 
+// processSingleItem is responsible for creating all the resouces required for
+// secret handling and authentication.
+// TODO break this logic out into smaller chunks... especially the calls to the vault api
 func (c *Controller) processSingleItem(key string) error {
+	log.Println("syncing SecretAuth", key)
+	defer log.Println("done syncing SecretAuth", key)
+
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		return err
@@ -114,23 +134,62 @@ func (c *Controller) processSingleItem(key string) error {
 		return err
 	}
 
-	saccount, err := c.kubeclient.CoreV1().ServiceAccounts(namespace).Create(serviceAccount(namespace, sa))
+	if sa.Status.ServiceAccount != "" {
+		log.Printf("resources for %s have already been created", key)
+		return nil
+	}
+
+	var (
+		saccount *corev1.ServiceAccount
+		rbac     *rbacv1.ClusterRoleBinding
+		pod      *corev1.Pod
+		service  *corev1.Service
+	)
+
+	log.Println("creating service account for", sa.Spec.WorkflowID)
+	saccount, err = c.kubeclient.CoreV1().ServiceAccounts(namespace).Create(serviceAccount(namespace, sa))
+	if errors.IsAlreadyExists(err) {
+		saccount, err = c.kubeclient.CoreV1().ServiceAccounts(namespace).Get(getName(sa), metav1.GetOptions{})
+	}
 	if err != nil {
 		return err
 	}
 
-	rbac, err := c.kubeclient.RbacV1().ClusterRoleBindings().Create(roleBinding(namespace, sa))
+	log.Println("creating role bindings for", sa.Spec.WorkflowID)
+	rbac, err = c.kubeclient.RbacV1().ClusterRoleBindings().Create(roleBinding(namespace, sa))
+	if errors.IsAlreadyExists(err) {
+		rbac, err = c.kubeclient.RbacV1().ClusterRoleBindings().Get(getName(sa), metav1.GetOptions{})
+	}
 	if err != nil {
 		return err
 	}
 
-	pod, err := c.kubeclient.CoreV1().Pods(namespace).Create(metadataServicePod(namespace, saccount, sa))
+	log.Println("creating metadata service pod for", sa.Spec.WorkflowID)
+	pod, err = c.kubeclient.CoreV1().Pods(namespace).Create(metadataServicePod(namespace, saccount, sa, c.vaultClient.Address()))
+	if errors.IsAlreadyExists(err) {
+		pod, err = c.kubeclient.CoreV1().Pods(namespace).Get("metadata-service-api", metav1.GetOptions{})
+	}
 	if err != nil {
 		return err
 	}
 
-	service, err := c.kubeclient.CoreV1().Services(namespace).Create(metadataServiceService(namespace))
+	log.Println("creating pod service for", sa.Spec.WorkflowID)
+	service, err = c.kubeclient.CoreV1().Services(namespace).Create(metadataServiceService(namespace))
+	if errors.IsAlreadyExists(err) {
+		service, err = c.kubeclient.CoreV1().Services(namespace).Get("metadata-service-api", metav1.GetOptions{})
+	}
 	if err != nil {
+		return err
+	}
+
+	log.Println("writing vault readonly access policy for ", sa.Spec.WorkflowID)
+	// now we let vault know about the service account
+	if err := c.vaultClient.WritePolicy(namespace, sa.Spec.WorkflowID); err != nil {
+		return err
+	}
+
+	log.Println("enabling vault access for workflow service account for ", sa.Spec.WorkflowID)
+	if err := c.vaultClient.WriteRole(namespace, saccount.GetName(), namespace); err != nil {
 		return err
 	}
 
@@ -156,19 +215,20 @@ func (c *Controller) processSingleItem(key string) error {
 		return err
 	}
 
+	saCopy.Status.VaultPolicy = namespace
+	saCopy.Status.VaultAuthRole = namespace
+
+	log.Println("updating secretauth resource status for ", sa.Spec.WorkflowID)
 	saCopy, err = c.clientset.NebulaV1().SecretAuths(namespace).Update(saCopy)
 	if err != nil {
 		return err
 	}
-
-	pretty.Println(saCopy)
 
 	return nil
 }
 
 func (c *Controller) enqueueSecretAuth(obj interface{}) {
 	sa := obj.(*nebapps.SecretAuth)
-	pretty.Println(sa)
 
 	key, err := cache.MetaNamespaceKeyFunc(sa)
 	if err != nil {
@@ -180,7 +240,7 @@ func (c *Controller) enqueueSecretAuth(obj interface{}) {
 	c.workqueue.Add(key)
 }
 
-func NewController(cfg *config.SecretAuthControllerConfig, vaultClient *vault.Vault) (*Controller, error) {
+func NewController(cfg *config.SecretAuthControllerConfig, vaultClient *vault.VaultAuth) (*Controller, error) {
 	kcfg, err := clientcmd.BuildConfigFromFlags(cfg.KubeMasterURL, cfg.Kubeconfig)
 	if err != nil {
 		return nil, err
@@ -254,7 +314,7 @@ func roleBinding(namespace string, sa *nebapps.SecretAuth) *rbacv1.ClusterRoleBi
 	}
 }
 
-func metadataServicePod(namespace string, saccount *corev1.ServiceAccount, sa *nebapps.SecretAuth) *corev1.Pod {
+func metadataServicePod(namespace string, saccount *corev1.ServiceAccount, sa *nebapps.SecretAuth, vaultAddr string) *corev1.Pod {
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "metadata-service-api",
@@ -269,7 +329,10 @@ func metadataServicePod(namespace string, saccount *corev1.ServiceAccount, sa *n
 					Name:            "metadata-service-api",
 					Image:           metadataServiceImage,
 					ImagePullPolicy: corev1.PullIfNotPresent,
-					Args:            podArgs(sa),
+					Args: []string{
+						"-vault-addr",
+						vaultAddr,
+					},
 				},
 			},
 			ServiceAccountName: saccount.GetName(),
@@ -295,20 +358,6 @@ func metadataServiceService(namespace string) *corev1.Service {
 			},
 		},
 	}
-}
-
-func podArgs(sa *nebapps.SecretAuth) []string {
-	args := []string{}
-
-	va := defaultVaultAddr
-
-	if sa.Spec.VaultAddr != "" {
-		va = sa.Spec.VaultAddr
-	}
-
-	args = append(args, "-vault-addr", va)
-
-	return args
 }
 
 func getName(sa *nebapps.SecretAuth) string {
