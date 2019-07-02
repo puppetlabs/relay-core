@@ -1,5 +1,12 @@
 package config
 
-type Config struct {
+type MetadataServerConfig struct {
 	BindAddr string
+}
+
+type SecretAuthControllerConfig struct {
+	Kubeconfig    string
+	KubeMasterURL string
+	VaultAddr     string
+	VaultToken    string
 }
