@@ -332,6 +332,10 @@ func metadataServicePod(namespace string, saccount *corev1.ServiceAccount, sa *n
 					Args: []string{
 						"-vault-addr",
 						vaultAddr,
+						"-vault-role",
+						namespace,
+						"-workflow-name",
+						sa.Spec.WorkflowID,
 					},
 				},
 			},
