@@ -165,7 +165,8 @@ func (c *Controller) processSingleItem(key string) error {
 	}
 
 	log.Println("creating metadata service pod for", sa.Spec.WorkflowID)
-	pod, err = c.kubeclient.CoreV1().Pods(namespace).Create(metadataServicePod(namespace, saccount, sa, c.vaultClient.Address()))
+	pod, err = c.kubeclient.CoreV1().Pods(namespace).Create(metadataServicePod(namespace,
+		saccount, sa, c.vaultClient.Address(), c.vaultClient.EngineMount()))
 	if errors.IsAlreadyExists(err) {
 		pod, err = c.kubeclient.CoreV1().Pods(namespace).Get("metadata-service-api", metav1.GetOptions{})
 	}
@@ -314,7 +315,8 @@ func roleBinding(namespace string, sa *nebulav1.SecretAuth) *rbacv1.ClusterRoleB
 	}
 }
 
-func metadataServicePod(namespace string, saccount *corev1.ServiceAccount, sa *nebulav1.SecretAuth, vaultAddr string) *corev1.Pod {
+func metadataServicePod(namespace string,
+	saccount *corev1.ServiceAccount, sa *nebulav1.SecretAuth, vaultAddr, vaultEngineMount string) *corev1.Pod {
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "metadata-service-api",
@@ -336,6 +338,8 @@ func metadataServicePod(namespace string, saccount *corev1.ServiceAccount, sa *n
 						namespace,
 						"-workflow-name",
 						sa.Spec.WorkflowID,
+						"-vault-engine-mount",
+						vaultEngineMount,
 					},
 				},
 			},

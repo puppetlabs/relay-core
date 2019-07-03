@@ -22,6 +22,10 @@ func (v VaultAuth) Address() string {
 	return v.client.Address()
 }
 
+func (v VaultAuth) EngineMount() string {
+	return v.engineMount
+}
+
 // WritePolicy creates a readonly policy granting an entity access to only
 // their secrets under a given path using workflowID
 func (v *VaultAuth) WritePolicy(policyName, workflowID string) error {
