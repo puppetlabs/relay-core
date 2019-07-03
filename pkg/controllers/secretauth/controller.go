@@ -331,9 +331,10 @@ func metadataServicePod(namespace string,
 					Name:            "metadata-service-api",
 					Image:           metadataServiceImage,
 					ImagePullPolicy: corev1.PullIfNotPresent,
-					Args: []string{
+					Command: []string{
+						"/usr/bin/nebula-metadata-api",
 						"-vault-addr",
-						vaultAddr,
+						defaultVaultAddr,
 						"-vault-role",
 						namespace,
 						"-workflow-name",
