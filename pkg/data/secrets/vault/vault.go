@@ -92,7 +92,7 @@ func (v *vaultLoggedInClient) mountPath(key string) string {
 func (v *vaultLoggedInClient) extractValue(sec *vaultapi.Secret) (string, errors.Error) {
 	vaultData, _ := sec.Data["data"].(map[string]interface{})
 
-	val, ok := vaultData["secretRef"]
+	val, ok := vaultData["value"]
 	if !ok {
 		return "", errors.NewSecretsMissingSecretRef().Bug()
 	}
