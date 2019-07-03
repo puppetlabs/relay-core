@@ -102,7 +102,7 @@ func (v *VaultAuth) DeleteRole(namespace string) error {
 
 // buildMountPath takes a workflowID and returns a mount path with a trailing /
 func (v *VaultAuth) buildMountPath(workflowID string) string {
-	return path.Join(v.engineMount, "workflows", workflowID, "/")
+	return path.Join(v.engineMount, "data", "workflows", workflowID, "/")
 }
 
 // roleMountPath takes a namespace and returns a role path using the vault

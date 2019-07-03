@@ -80,6 +80,54 @@ func NewSecretsGetError(key string) Error {
 	return NewSecretsGetErrorBuilder(key).Build()
 }
 
+// SecretsK8sServiceAccountTokenReadErrorCode is the code for an instance of "k8s_service_account_token_read_error".
+const SecretsK8sServiceAccountTokenReadErrorCode = "nt_secrets_k8s_service_account_token_read_error"
+
+// IsSecretsK8sServiceAccountTokenReadError tests whether a given error is an instance of "k8s_service_account_token_read_error".
+func IsSecretsK8sServiceAccountTokenReadError(err errawr.Error) bool {
+	return err != nil && err.Is(SecretsK8sServiceAccountTokenReadErrorCode)
+}
+
+// IsSecretsK8sServiceAccountTokenReadError tests whether a given error is an instance of "k8s_service_account_token_read_error".
+func (External) IsSecretsK8sServiceAccountTokenReadError(err errawr.Error) bool {
+	return IsSecretsK8sServiceAccountTokenReadError(err)
+}
+
+// SecretsK8sServiceAccountTokenReadErrorBuilder is a builder for "k8s_service_account_token_read_error" errors.
+type SecretsK8sServiceAccountTokenReadErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "k8s_service_account_token_read_error" from this builder.
+func (b *SecretsK8sServiceAccountTokenReadErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "there was an error reading the service account token from the secret file",
+		Technical: "there was an error reading the service account token from the secret file",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "k8s_service_account_token_read_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     SecretsSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "K8s service account token read error",
+		Version:          1,
+	}
+}
+
+// NewSecretsK8sServiceAccountTokenReadErrorBuilder creates a new error builder for the code "k8s_service_account_token_read_error".
+func NewSecretsK8sServiceAccountTokenReadErrorBuilder() *SecretsK8sServiceAccountTokenReadErrorBuilder {
+	return &SecretsK8sServiceAccountTokenReadErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewSecretsK8sServiceAccountTokenReadError creates a new error with the code "k8s_service_account_token_read_error".
+func NewSecretsK8sServiceAccountTokenReadError() Error {
+	return NewSecretsK8sServiceAccountTokenReadErrorBuilder().Build()
+}
+
 // SecretsKeyNotFoundCode is the code for an instance of "key_not_found".
 const SecretsKeyNotFoundCode = "nt_secrets_key_not_found"
 
@@ -270,6 +318,54 @@ func NewSecretsSessionSetupErrorBuilder() *SecretsSessionSetupErrorBuilder {
 // NewSecretsSessionSetupError creates a new error with the code "session_setup_error".
 func NewSecretsSessionSetupError() Error {
 	return NewSecretsSessionSetupErrorBuilder().Build()
+}
+
+// SecretsVaultLoginErrorCode is the code for an instance of "vault_login_error".
+const SecretsVaultLoginErrorCode = "nt_secrets_vault_login_error"
+
+// IsSecretsVaultLoginError tests whether a given error is an instance of "vault_login_error".
+func IsSecretsVaultLoginError(err errawr.Error) bool {
+	return err != nil && err.Is(SecretsVaultLoginErrorCode)
+}
+
+// IsSecretsVaultLoginError tests whether a given error is an instance of "vault_login_error".
+func (External) IsSecretsVaultLoginError(err errawr.Error) bool {
+	return IsSecretsVaultLoginError(err)
+}
+
+// SecretsVaultLoginErrorBuilder is a builder for "vault_login_error" errors.
+type SecretsVaultLoginErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "vault_login_error" from this builder.
+func (b *SecretsVaultLoginErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "there was an error logging into the vault server",
+		Technical: "there was an error logging into the vault server",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "vault_login_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     SecretsSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Vault login error",
+		Version:          1,
+	}
+}
+
+// NewSecretsVaultLoginErrorBuilder creates a new error builder for the code "vault_login_error".
+func NewSecretsVaultLoginErrorBuilder() *SecretsVaultLoginErrorBuilder {
+	return &SecretsVaultLoginErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewSecretsVaultLoginError creates a new error with the code "vault_login_error".
+func NewSecretsVaultLoginError() Error {
+	return NewSecretsVaultLoginErrorBuilder().Build()
 }
 
 // SecretsVaultSetupErrorCode is the code for an instance of "vault_setup_error".

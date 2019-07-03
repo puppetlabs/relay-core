@@ -1,7 +1,8 @@
 package config
 
 type MetadataServerConfig struct {
-	BindAddr string
+	BindAddr  string
+	VaultAddr string
 }
 
 type SecretAuthControllerConfig struct {

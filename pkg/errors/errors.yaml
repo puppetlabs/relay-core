@@ -30,6 +30,12 @@ sections:
       malformed_value:
         title: Malformed value
         description: the value for secretRef is not a string
+      k8s_service_account_token_read_error:
+        title: K8s service account token read error
+        description: there was an error reading the service account token from the secret file
+      vault_login_error:
+        title: Vault login error
+        description: there was an error logging into the vault server
   server:
     title: Sever errors
     errors:

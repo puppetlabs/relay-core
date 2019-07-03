@@ -18,7 +18,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/workqueue"
 
-	nebapps "github.com/puppetlabs/nebula-tasks/pkg/apis/nebula.puppet.com/v1"
+	nebulav1 "github.com/puppetlabs/nebula-tasks/pkg/apis/nebula.puppet.com/v1"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
 	"github.com/puppetlabs/nebula-tasks/pkg/data/secrets/vault"
 	clientset "github.com/puppetlabs/nebula-tasks/pkg/generated/clientset/versioned"
@@ -228,7 +228,7 @@ func (c *Controller) processSingleItem(key string) error {
 }
 
 func (c *Controller) enqueueSecretAuth(obj interface{}) {
-	sa := obj.(*nebapps.SecretAuth)
+	sa := obj.(*nebulav1.SecretAuth)
 
 	key, err := cache.MetaNamespaceKeyFunc(sa)
 	if err != nil {
@@ -276,7 +276,7 @@ func NewController(cfg *config.SecretAuthControllerConfig, vaultClient *vault.Va
 	return c, nil
 }
 
-func serviceAccount(namespace string, sa *nebapps.SecretAuth) *corev1.ServiceAccount {
+func serviceAccount(namespace string, sa *nebulav1.SecretAuth) *corev1.ServiceAccount {
 	return &corev1.ServiceAccount{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
@@ -289,7 +289,7 @@ func serviceAccount(namespace string, sa *nebapps.SecretAuth) *corev1.ServiceAcc
 	}
 }
 
-func roleBinding(namespace string, sa *nebapps.SecretAuth) *rbacv1.ClusterRoleBinding {
+func roleBinding(namespace string, sa *nebulav1.SecretAuth) *rbacv1.ClusterRoleBinding {
 	return &rbacv1.ClusterRoleBinding{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "rbac.authorization.k8s.io/v1",
@@ -314,7 +314,7 @@ func roleBinding(namespace string, sa *nebapps.SecretAuth) *rbacv1.ClusterRoleBi
 	}
 }
 
-func metadataServicePod(namespace string, saccount *corev1.ServiceAccount, sa *nebapps.SecretAuth, vaultAddr string) *corev1.Pod {
+func metadataServicePod(namespace string, saccount *corev1.ServiceAccount, sa *nebulav1.SecretAuth, vaultAddr string) *corev1.Pod {
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "metadata-service-api",
@@ -360,6 +360,6 @@ func metadataServiceService(namespace string) *corev1.Service {
 	}
 }
 
-func getName(sa *nebapps.SecretAuth) string {
+func getName(sa *nebulav1.SecretAuth) string {
 	return fmt.Sprintf("%s-%d", sa.Spec.WorkflowID, sa.Spec.RunNum)
 }

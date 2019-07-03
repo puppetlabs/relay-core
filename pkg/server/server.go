@@ -51,6 +51,10 @@ func (s *Server) Run(ctx context.Context) error {
 
 	defer srv.Shutdown(ctx)
 
+	if err := s.secretsHandler.sec.Login(ctx); err != nil {
+		return err
+	}
+
 	if err := srv.Serve(ln); err != nil {
 		return errors.NewServerRunError().WithCause(err)
 	}

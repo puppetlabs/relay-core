@@ -8,9 +8,6 @@ import (
 )
 
 type Store interface {
-	GetScopedSession(workflowName, taskName, token string) (ScopedSession, errors.Error)
-}
-
-type ScopedSession interface {
+	Login(ctx context.Context) errors.Error
 	Get(ctx context.Context, key string) (*Secret, errors.Error)
 }
