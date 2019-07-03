@@ -6,7 +6,6 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -29,6 +28,8 @@ import (
 const (
 	// default image:tag to use for nebula-metadata-api
 	metadataServiceImage = "pcr-internal.puppet.net/nebula/nebula-metadata-api:latest"
+	// default name for the workflow metadata api pod and service
+	metadataServiceName = "workflow-metadata-api"
 	// default maximum retry attempts to create resources spawned from SecretAuth creations
 	maxRetries = 10
 )
@@ -140,14 +141,14 @@ func (c *Controller) processSingleItem(key string) error {
 	}
 
 	var (
-		saccount *corev1.ServiceAccount
-		rbac     *rbacv1.ClusterRoleBinding
-		pod      *corev1.Pod
-		service  *corev1.Service
+		saccount  *corev1.ServiceAccount
+		pod       *corev1.Pod
+		service   *corev1.Service
+		configMap *corev1.ConfigMap
 	)
 
 	log.Println("creating service account for", sa.Spec.WorkflowID)
-	saccount, err = c.kubeclient.CoreV1().ServiceAccounts(namespace).Create(serviceAccount(namespace, sa))
+	saccount, err = c.kubeclient.CoreV1().ServiceAccounts(namespace).Create(serviceAccount(sa))
 	if errors.IsAlreadyExists(err) {
 		saccount, err = c.kubeclient.CoreV1().ServiceAccounts(namespace).Get(getName(sa), metav1.GetOptions{})
 	}
@@ -155,29 +156,29 @@ func (c *Controller) processSingleItem(key string) error {
 		return err
 	}
 
-	log.Println("creating role bindings for", sa.Spec.WorkflowID)
-	rbac, err = c.kubeclient.RbacV1().ClusterRoleBindings().Create(roleBinding(namespace, sa))
-	if errors.IsAlreadyExists(err) {
-		rbac, err = c.kubeclient.RbacV1().ClusterRoleBindings().Get(getName(sa), metav1.GetOptions{})
-	}
-	if err != nil {
-		return err
-	}
-
 	log.Println("creating metadata service pod for", sa.Spec.WorkflowID)
-	pod, err = c.kubeclient.CoreV1().Pods(namespace).Create(metadataServicePod(namespace,
+	pod, err = c.kubeclient.CoreV1().Pods(namespace).Create(metadataServicePod(
 		saccount, sa, c.vaultClient.Address(), c.vaultClient.EngineMount()))
 	if errors.IsAlreadyExists(err) {
-		pod, err = c.kubeclient.CoreV1().Pods(namespace).Get("metadata-service-api", metav1.GetOptions{})
+		pod, err = c.kubeclient.CoreV1().Pods(namespace).Get(metadataServiceName, metav1.GetOptions{})
 	}
 	if err != nil {
 		return err
 	}
 
 	log.Println("creating pod service for", sa.Spec.WorkflowID)
-	service, err = c.kubeclient.CoreV1().Services(namespace).Create(metadataServiceService(namespace))
+	service, err = c.kubeclient.CoreV1().Services(namespace).Create(metadataServiceService(sa))
 	if errors.IsAlreadyExists(err) {
-		service, err = c.kubeclient.CoreV1().Services(namespace).Get("metadata-service-api", metav1.GetOptions{})
+		service, err = c.kubeclient.CoreV1().Services(namespace).Get(metadataServiceName, metav1.GetOptions{})
+	}
+	if err != nil {
+		return err
+	}
+
+	log.Println("creating config map for", sa.Spec.WorkflowID)
+	configMap, err = c.kubeclient.CoreV1().ConfigMaps(namespace).Create(workflowConfigMap(sa))
+	if errors.IsAlreadyExists(err) {
+		configMap, err = c.kubeclient.CoreV1().ConfigMaps(namespace).Get(getName(sa), metav1.GetOptions{})
 	}
 	if err != nil {
 		return err
@@ -195,7 +196,6 @@ func (c *Controller) processSingleItem(key string) error {
 	}
 
 	saCopy := sa.DeepCopy()
-	saCopy.Status.MetadataServiceHost = fmt.Sprintf("http://%s.%s.svc.cluster.local", service.GetName(), namespace)
 	saCopy.Status.MetadataServicePod, err = cache.MetaNamespaceKeyFunc(pod)
 	if err != nil {
 		return err
@@ -211,7 +211,7 @@ func (c *Controller) processSingleItem(key string) error {
 		return err
 	}
 
-	saCopy.Status.ClusterRoleBinding, err = cache.MetaNamespaceKeyFunc(rbac)
+	saCopy.Status.ConfigMap, err = cache.MetaNamespaceKeyFunc(configMap)
 	if err != nil {
 		return err
 	}
@@ -277,7 +277,7 @@ func NewController(cfg *config.SecretAuthControllerConfig, vaultClient *vault.Va
 	return c, nil
 }
 
-func serviceAccount(namespace string, sa *nebulav1.SecretAuth) *corev1.ServiceAccount {
+func serviceAccount(sa *nebulav1.SecretAuth) *corev1.ServiceAccount {
 	return &corev1.ServiceAccount{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
@@ -285,75 +285,63 @@ func serviceAccount(namespace string, sa *nebulav1.SecretAuth) *corev1.ServiceAc
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      getName(sa),
-			Namespace: namespace,
+			Namespace: sa.GetNamespace(),
 		},
-	}
-}
-
-func roleBinding(namespace string, sa *nebulav1.SecretAuth) *rbacv1.ClusterRoleBinding {
-	return &rbacv1.ClusterRoleBinding{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "rbac.authorization.k8s.io/v1",
-			Kind:       "ClusterRoleBinding",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      getName(sa),
-			Namespace: namespace,
-		},
-		RoleRef: rbacv1.RoleRef{
-			Kind:     "ClusterRole",
-			APIGroup: "rbac.authorization.k8s.io",
-			Name:     "system:auth-delegator",
-		},
-		Subjects: []rbacv1.Subject{
+		ImagePullSecrets: []corev1.LocalObjectReference{
 			{
-				Name:      getName(sa),
-				Kind:      "ServiceAccount",
-				Namespace: namespace,
+				Name: "image-pull-secret",
 			},
 		},
 	}
 }
 
-func metadataServicePod(namespace string,
-	saccount *corev1.ServiceAccount, sa *nebulav1.SecretAuth, vaultAddr, vaultEngineMount string) *corev1.Pod {
+func metadataServicePod(saccount *corev1.ServiceAccount, sa *nebulav1.SecretAuth, vaultAddr, vaultEngineMount string) *corev1.Pod {
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "metadata-service-api",
-			Namespace: namespace,
+			Name:      metadataServiceName,
+			Namespace: sa.GetNamespace(),
 			Labels: map[string]string{
-				"app": "metadata-service-api",
+				"app": metadataServiceName,
 			},
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
 				{
-					Name:            "metadata-service-api",
+					Name:            metadataServiceName,
 					Image:           metadataServiceImage,
 					ImagePullPolicy: corev1.PullIfNotPresent,
 					Command: []string{
 						"/usr/bin/nebula-metadata-api",
+						"-bind-addr",
+						":7000",
 						"-vault-addr",
 						defaultVaultAddr,
 						"-vault-role",
-						namespace,
+						sa.GetNamespace(),
 						"-workflow-name",
 						sa.Spec.WorkflowID,
 						"-vault-engine-mount",
 						vaultEngineMount,
 					},
+					Ports: []corev1.ContainerPort{
+						{
+							Name:          "http",
+							ContainerPort: 7000,
+						},
+					},
 				},
 			},
 			ServiceAccountName: saccount.GetName(),
+			RestartPolicy:      corev1.RestartPolicyOnFailure,
 		},
 	}
 }
 
-func metadataServiceService(namespace string) *corev1.Service {
+func metadataServiceService(sa *nebulav1.SecretAuth) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "metadata-service-api",
-			Namespace: namespace,
+			Name:      metadataServiceName,
+			Namespace: sa.GetNamespace(),
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
@@ -363,8 +351,20 @@ func metadataServiceService(namespace string) *corev1.Service {
 				},
 			},
 			Selector: map[string]string{
-				"app": "metadata-service-api",
+				"app": metadataServiceName,
 			},
+		},
+	}
+}
+
+func workflowConfigMap(sa *nebulav1.SecretAuth) *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      getName(sa),
+			Namespace: sa.GetNamespace(),
+		},
+		Data: map[string]string{
+			"metadata-api-url": fmt.Sprintf("http://%s.%s", metadataServiceName, sa.GetNamespace()),
 		},
 	}
 }
