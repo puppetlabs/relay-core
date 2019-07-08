@@ -5,6 +5,10 @@ import (
 	"log"
 	"time"
 
+	tekv1alpha1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
+	tekclientset "github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
+	tekinformers "github.com/tektoncd/pipeline/pkg/client/informers/externalversions"
+	tekv1informer "github.com/tektoncd/pipeline/pkg/client/informers/externalversions/pipeline/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -42,30 +46,50 @@ const (
 // ask kubernetes for the service account token, that it will use to proxy secrets
 // between the task pods and the vault server.
 type Controller struct {
-	kubeclient       kubernetes.Interface
-	clientset        clientset.Interface
-	workqueue        workqueue.RateLimitingInterface
-	saInformer       sainformers.SecretAuthInformer
-	saInformerSynced cache.InformerSynced
-	informerFactory  informers.SharedInformerFactory
-	vaultClient      *vault.VaultAuth
+	kubeclient kubernetes.Interface
+	nebclient  clientset.Interface
+	tekclient  tekclientset.Interface
+
+	nebInformerFactory informers.SharedInformerFactory
+	saInformer         sainformers.SecretAuthInformer
+	saInformerSynced   cache.InformerSynced
+
+	tekInformerFactory tekinformers.SharedInformerFactory
+	plrInformer        tekv1informer.PipelineRunInformer
+	plrInformerSynced  cache.InformerSynced
+
+	workqueue    workqueue.RateLimitingInterface
+	plrworkqueue workqueue.RateLimitingInterface
+
+	vaultClient *vault.VaultAuth
 }
 
 // Run starts all required informers and spawns two worker goroutines
 // that will pull resource objects off the workqueue. This method blocks
 // until stopCh is closed or an earlier bootstrap call results in an error.
-func (c *Controller) Run(stopCh chan struct{}) error {
+func (c *Controller) Run(numWorkers int, stopCh chan struct{}) error {
 	defer utilruntime.HandleCrash()
 	defer c.workqueue.ShutDown()
 
-	c.informerFactory.Start(stopCh)
+	c.nebInformerFactory.Start(stopCh)
 
 	if ok := cache.WaitForCacheSync(stopCh, c.saInformerSynced); !ok {
 		return fmt.Errorf("failed to wait for informer cache to sync")
 	}
 
-	go wait.Until(c.worker, time.Second, stopCh)
-	go wait.Until(c.worker, time.Second, stopCh)
+	c.tekInformerFactory.Start(stopCh)
+
+	if ok := cache.WaitForCacheSync(stopCh, c.plrInformerSynced); !ok {
+		return fmt.Errorf("failed to wait for informer cache to sync")
+	}
+
+	for i := 0; i < numWorkers; i++ {
+		go wait.Until(c.worker, time.Second, stopCh)
+	}
+
+	for i := 0; i < numWorkers; i++ {
+		go wait.Until(c.plrworker, time.Second, stopCh)
+	}
 
 	<-stopCh
 
@@ -74,6 +98,11 @@ func (c *Controller) Run(stopCh chan struct{}) error {
 
 func (c *Controller) worker() {
 	for c.processNextWorkItem() {
+	}
+}
+
+func (c *Controller) plrworker() {
+	for c.processNextPLRWorkItem() {
 	}
 }
 
@@ -87,6 +116,21 @@ func (c *Controller) processNextWorkItem() bool {
 	defer c.workqueue.Done(key)
 
 	err := c.processSingleItem(key.(string))
+	c.handleErr(err, key)
+
+	return true
+}
+
+func (c *Controller) processNextPLRWorkItem() bool {
+	key, shutdown := c.plrworkqueue.Get()
+
+	if shutdown {
+		return false
+	}
+
+	defer c.workqueue.Done(key)
+
+	err := c.processPipelineRunChange(key.(string))
 	c.handleErr(err, key)
 
 	return true
@@ -127,7 +171,7 @@ func (c *Controller) processSingleItem(key string) error {
 		return err
 	}
 
-	sa, err := c.clientset.NebulaV1().SecretAuths(namespace).Get(name, metav1.GetOptions{})
+	sa, err := c.nebclient.NebulaV1().SecretAuths(namespace).Get(name, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		return nil
 	}
@@ -220,7 +264,7 @@ func (c *Controller) processSingleItem(key string) error {
 	saCopy.Status.VaultAuthRole = namespace
 
 	log.Println("updating secretauth resource status for ", sa.Spec.WorkflowID)
-	saCopy, err = c.clientset.NebulaV1().SecretAuths(namespace).Update(saCopy)
+	saCopy, err = c.nebclient.NebulaV1().SecretAuths(namespace).Update(saCopy)
 	if err != nil {
 		return err
 	}
@@ -241,6 +285,109 @@ func (c *Controller) enqueueSecretAuth(obj interface{}) {
 	c.workqueue.Add(key)
 }
 
+func (c *Controller) enqueuePipelineRunChange(old, obj interface{}) {
+	// old is ignored because we only care about the current state
+	plr := obj.(*tekv1alpha1.PipelineRun)
+
+	key, err := cache.MetaNamespaceKeyFunc(plr)
+	if err != nil {
+		utilruntime.HandleError(err)
+
+		return
+	}
+
+	c.plrworkqueue.Add(key)
+}
+
+func (c *Controller) processPipelineRunChange(key string) error {
+	log.Println("syncing PipelineRun change", key)
+	defer log.Println("done syncing PipelineRun change", key)
+
+	namespace, name, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		return err
+	}
+
+	plr, err := c.tekclient.TektonV1alpha1().PipelineRuns(namespace).Get(name, metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		// TODO if the pipeline run isn't found, then we will still need to clean up SecretAuth
+		// resources, but the business logic for this still needs to be defined
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	if plr.IsDone() {
+		sas, err := c.nebclient.NebulaV1().SecretAuths(namespace).List(metav1.ListOptions{})
+		if err != nil {
+			return err
+		}
+
+		for _, sa := range sas.Items {
+			log.Println("deleting resources created by:", sa.GetName())
+
+			{
+				namespace, name, err := cache.SplitMetaNamespaceKey(sa.Status.MetadataServicePod)
+				if err != nil {
+					return err
+				}
+
+				if err := c.kubeclient.CoreV1().Pods(namespace).Delete(name, &metav1.DeleteOptions{}); err != nil {
+					return err
+				}
+			}
+
+			{
+				namespace, name, err := cache.SplitMetaNamespaceKey(sa.Status.MetadataServiceService)
+				if err != nil {
+					return err
+				}
+
+				if err := c.kubeclient.CoreV1().Services(namespace).Delete(name, &metav1.DeleteOptions{}); err != nil {
+					return err
+				}
+			}
+
+			{
+				namespace, name, err := cache.SplitMetaNamespaceKey(sa.Status.ServiceAccount)
+				if err != nil {
+					return err
+				}
+
+				if err := c.kubeclient.CoreV1().ServiceAccounts(namespace).Delete(name, &metav1.DeleteOptions{}); err != nil {
+					return err
+				}
+			}
+
+			{
+				namespace, name, err := cache.SplitMetaNamespaceKey(sa.Status.ConfigMap)
+				if err != nil {
+					return err
+				}
+
+				if err := c.kubeclient.CoreV1().ConfigMaps(namespace).Delete(name, &metav1.DeleteOptions{}); err != nil {
+					return err
+				}
+			}
+
+			if err := c.vaultClient.DeleteRole(sa.Status.VaultAuthRole); err != nil {
+				return err
+			}
+
+			if err := c.vaultClient.DeletePolicy(sa.Status.VaultPolicy); err != nil {
+				return err
+			}
+
+			if err := c.nebclient.NebulaV1().SecretAuths(sa.GetNamespace()).Delete(sa.GetName(), &metav1.DeleteOptions{}); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
 func NewController(cfg *config.SecretAuthControllerConfig, vaultClient *vault.VaultAuth) (*Controller, error) {
 	kcfg, err := clientcmd.BuildConfigFromFlags(cfg.KubeMasterURL, cfg.Kubeconfig)
 	if err != nil {
@@ -257,21 +404,38 @@ func NewController(cfg *config.SecretAuthControllerConfig, vaultClient *vault.Va
 		return nil, err
 	}
 
+	tekclient, err := tekclientset.NewForConfig(kcfg)
+	if err != nil {
+		return nil, err
+	}
+
 	nebInformerFactory := informers.NewSharedInformerFactory(nebclient, time.Second*30)
 	saInformer := nebInformerFactory.Nebula().V1().SecretAuths()
 
+	tekInformerFactory := tekinformers.NewSharedInformerFactory(tekclient, time.Second*30)
+	plrInformer := tekInformerFactory.Tekton().V1alpha1().PipelineRuns()
+
 	c := &Controller{
-		kubeclient:       kc,
-		clientset:        nebclient,
-		workqueue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "SecretAuths"),
-		saInformer:       saInformer,
-		saInformerSynced: saInformer.Informer().HasSynced,
-		informerFactory:  nebInformerFactory,
-		vaultClient:      vaultClient,
+		kubeclient:         kc,
+		nebclient:          nebclient,
+		tekclient:          tekclient,
+		workqueue:          workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "SecretAuths"),
+		plrworkqueue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "PipelineRuns"),
+		nebInformerFactory: nebInformerFactory,
+		saInformer:         saInformer,
+		saInformerSynced:   saInformer.Informer().HasSynced,
+		tekInformerFactory: tekInformerFactory,
+		plrInformer:        plrInformer,
+		plrInformerSynced:  plrInformer.Informer().HasSynced,
+		vaultClient:        vaultClient,
 	}
 
 	saInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: c.enqueueSecretAuth,
+	})
+
+	plrInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: c.enqueuePipelineRunChange,
 	})
 
 	return c, nil

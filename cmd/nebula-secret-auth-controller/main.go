@@ -37,7 +37,7 @@ func main() {
 	stopCh := make(chan struct{})
 	defer close(stopCh)
 
-	go controller.Run(stopCh)
+	go controller.Run(2, stopCh)
 
 	termCh := make(chan os.Signal, 1)
 	signal.Notify(termCh, syscall.SIGTERM)
