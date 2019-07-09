@@ -28,6 +28,7 @@ import (
 )
 
 const (
+	defaultVaultAddr = "http://secrets-vault.default:8200"
 	// default image:tag to use for nebula-metadata-api
 	metadataServiceImage = "pcr-internal.puppet.net/nebula/nebula-metadata-api:latest"
 	// default name for the workflow metadata api pod and service
