@@ -12,6 +12,8 @@ import (
 	"github.com/puppetlabs/nebula-tasks/pkg/server"
 )
 
+// defaultServiceAccountTokenPath is the default path to use for reading the service account
+// JWT that is passed to vault for logging in.
 const defaultServiceAccountTokenPath = "/var/run/secrets/kubernetes.io/serviceaccount/token"
 
 func main() {
@@ -20,7 +22,7 @@ func main() {
 	vaultRole := flag.String("vault-role", "", "the role to use when logging into the vault server")
 	serviceAccountTokenPath := flag.String("service-account-token-path",
 		defaultServiceAccountTokenPath, "the path to k8s pod service account token")
-	workflowName := flag.String("workflow-name", "", "the name of the workflow these secrets are scoped to")
+	workflowID := flag.String("workflow-id", "", "the id of the workflow these secrets are scoped to")
 	vaultEngineMount := flag.String("vault-engine-mount", "nebula", "the engine mount to use when crafting secret paths")
 
 	flag.Parse()
@@ -33,7 +35,7 @@ func main() {
 		Addr:                       *vaultAddr,
 		K8sServiceAccountTokenPath: *serviceAccountTokenPath,
 		Role:                       *vaultRole,
-		WorkflowName:               *workflowName,
+		Bucket:                     *workflowID,
 		EngineMount:                *vaultEngineMount,
 	})
 	if err != nil {

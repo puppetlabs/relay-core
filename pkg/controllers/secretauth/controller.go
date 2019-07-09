@@ -14,12 +14,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/util/workqueue"
 
 	nebulav1 "github.com/puppetlabs/nebula-tasks/pkg/apis/nebula.puppet.com/v1"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
@@ -58,8 +56,8 @@ type Controller struct {
 	plrInformer        tekv1informer.PipelineRunInformer
 	plrInformerSynced  cache.InformerSynced
 
-	workqueue    workqueue.RateLimitingInterface
-	plrworkqueue workqueue.RateLimitingInterface
+	saworker  *worker
+	plrworker *worker
 
 	vaultClient *vault.VaultAuth
 }
@@ -69,7 +67,8 @@ type Controller struct {
 // until stopCh is closed or an earlier bootstrap call results in an error.
 func (c *Controller) Run(numWorkers int, stopCh chan struct{}) error {
 	defer utilruntime.HandleCrash()
-	defer c.workqueue.ShutDown()
+	defer c.saworker.shutdown()
+	defer c.plrworker.shutdown()
 
 	c.nebInformerFactory.Start(stopCh)
 
@@ -83,80 +82,12 @@ func (c *Controller) Run(numWorkers int, stopCh chan struct{}) error {
 		return fmt.Errorf("failed to wait for informer cache to sync")
 	}
 
-	for i := 0; i < numWorkers; i++ {
-		go wait.Until(c.worker, time.Second, stopCh)
-	}
-
-	for i := 0; i < numWorkers; i++ {
-		go wait.Until(c.plrworker, time.Second, stopCh)
-	}
+	c.saworker.run(numWorkers, stopCh)
+	c.plrworker.run(numWorkers, stopCh)
 
 	<-stopCh
 
 	return nil
-}
-
-func (c *Controller) worker() {
-	for c.processNextWorkItem() {
-	}
-}
-
-func (c *Controller) plrworker() {
-	for c.processNextPLRWorkItem() {
-	}
-}
-
-func (c *Controller) processNextWorkItem() bool {
-	key, shutdown := c.workqueue.Get()
-
-	if shutdown {
-		return false
-	}
-
-	defer c.workqueue.Done(key)
-
-	err := c.processSingleItem(key.(string))
-	c.handleErr(err, key)
-
-	return true
-}
-
-func (c *Controller) processNextPLRWorkItem() bool {
-	key, shutdown := c.plrworkqueue.Get()
-
-	if shutdown {
-		return false
-	}
-
-	defer c.workqueue.Done(key)
-
-	err := c.processPipelineRunChange(key.(string))
-	c.handleErr(err, key)
-
-	return true
-}
-
-// handleErr takes an error and the k8s object key that caused it
-// and tries to requeue the object for processing. If we have requeued
-// that key the maximum number of times, then we drop the object from the
-// queue and tell kubernetes runtime to handle the error.
-func (c *Controller) handleErr(err error, key interface{}) {
-	if err == nil {
-		c.workqueue.Forget(key)
-		return
-	}
-
-	// requeue if we can still retry to process the resource
-	if c.workqueue.NumRequeues(key) < maxRetries {
-		log.Printf("error syncing secretauth %v: %v", key, err)
-		c.workqueue.AddRateLimited(key)
-		return
-	}
-
-	// otherwise report the error to kubernetes and drop the key from the queue
-	log.Printf("dropping secretauth from queue %v: %v", key, err)
-	utilruntime.HandleError(err)
-	c.workqueue.Forget(key)
 }
 
 // processSingleItem is responsible for creating all the resouces required for
@@ -282,7 +213,7 @@ func (c *Controller) enqueueSecretAuth(obj interface{}) {
 		return
 	}
 
-	c.workqueue.Add(key)
+	c.saworker.add(key)
 }
 
 func (c *Controller) enqueuePipelineRunChange(old, obj interface{}) {
@@ -296,7 +227,7 @@ func (c *Controller) enqueuePipelineRunChange(old, obj interface{}) {
 		return
 	}
 
-	c.plrworkqueue.Add(key)
+	c.plrworker.add(key)
 }
 
 func (c *Controller) processPipelineRunChange(key string) error {
@@ -419,8 +350,6 @@ func NewController(cfg *config.SecretAuthControllerConfig, vaultClient *vault.Va
 		kubeclient:         kc,
 		nebclient:          nebclient,
 		tekclient:          tekclient,
-		workqueue:          workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "SecretAuths"),
-		plrworkqueue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "PipelineRuns"),
 		nebInformerFactory: nebInformerFactory,
 		saInformer:         saInformer,
 		saInformerSynced:   saInformer.Informer().HasSynced,
@@ -429,6 +358,9 @@ func NewController(cfg *config.SecretAuthControllerConfig, vaultClient *vault.Va
 		plrInformerSynced:  plrInformer.Informer().HasSynced,
 		vaultClient:        vaultClient,
 	}
+
+	c.saworker = newWorker("SecretAuths", (*c).processSingleItem, defaultMaxRetries)
+	c.plrworker = newWorker("PipelineRuns", (*c).processPipelineRunChange, defaultMaxRetries)
 
 	saInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: c.enqueueSecretAuth,

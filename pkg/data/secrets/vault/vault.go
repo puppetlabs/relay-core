@@ -43,10 +43,10 @@ func (v *Vault) Login(ctx context.Context) errors.Error {
 	}
 
 	vc := &vaultLoggedInClient{
-		client:       v.api,
-		workflowName: v.cfg.WorkflowName,
-		engineMount:  v.cfg.EngineMount,
-		token:        token,
+		client:      v.api,
+		bucket:      v.cfg.Bucket,
+		engineMount: v.cfg.EngineMount,
+		token:       token,
 	}
 
 	v.session = vc
@@ -71,10 +71,10 @@ func NewVaultWithKubernetesAuth(cfg *Config) (*Vault, errors.Error) {
 }
 
 type vaultLoggedInClient struct {
-	client       *vaultapi.Client
-	workflowName string
-	token        string
-	engineMount  string
+	client      *vaultapi.Client
+	bucket      string
+	token       string
+	engineMount string
 }
 
 // read is just a shortcut to the Vault client's Read method
@@ -84,7 +84,7 @@ func (v *vaultLoggedInClient) read(path string) (*vaultapi.Secret, error) {
 
 // mountPath returns a vault-api style path to the secret
 func (v *vaultLoggedInClient) mountPath(key string) string {
-	return path.Join(v.engineMount, "data", "workflows", v.workflowName, key)
+	return path.Join(v.engineMount, "data", "workflows", v.bucket, key)
 }
 
 // extractValue fetches the secret value from the secretRef key (standard location for nebula
