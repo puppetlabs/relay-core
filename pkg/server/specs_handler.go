@@ -21,12 +21,12 @@ type specsHandler struct {
 func (h *specsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	config, err := rest.InClusterConfig()
 	if nil != err {
-		// TODO: return an error!
+		utilapi.WriteError(r.Context(), w, err)
 		return
 	}
 	client, err := kubernetes.NewForConfig(config)
 	if nil != err {
-		// TODO: return an error!
+		utilapi.WriteError(r.Context(), w, err)
 		return
 	}
 	var key string
@@ -40,12 +40,12 @@ func (h *specsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	configMap, err := client.CoreV1().ConfigMaps(h.namespace).Get(key, metav1.GetOptions{})
 	if nil != err {
-		// TODO: return an error!
+		utilapi.WriteError(r.Context(), w, err)
 		return
 	}
 	var spec interface{}
 	if err := json.Unmarshal([]byte(configMap.Data["spec.json"]), &spec); nil != err {
-		// TODO: return an error!
+		utilapi.WriteError(r.Context(), w, err)
 		return
 	}
 	spec = h.expandSecrets(r.Context(), spec)
