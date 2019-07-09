@@ -24,11 +24,13 @@ func main() {
 		defaultServiceAccountTokenPath, "the path to k8s pod service account token")
 	workflowID := flag.String("workflow-id", "", "the id of the workflow these secrets are scoped to")
 	vaultEngineMount := flag.String("vault-engine-mount", "nebula", "the engine mount to use when crafting secret paths")
+	namespace := flag.String("namespace", "", "the kubernetes namespace that contains the workflow")
 
 	flag.Parse()
 
 	cfg := config.MetadataServerConfig{
-		BindAddr: *bindAddr,
+		BindAddr:  *bindAddr,
+		Namespace: *namespace,
 	}
 
 	vc, err := vault.NewVaultWithKubernetesAuth(&vault.Config{

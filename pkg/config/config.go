@@ -5,6 +5,7 @@ package config
 type MetadataServerConfig struct {
 	BindAddr  string
 	VaultAddr string
+	Namespace string
 }
 
 // SecretAuthControllerConfig is the configuration object used to
