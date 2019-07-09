@@ -8,6 +8,7 @@ import (
 
 	utilapi "github.com/puppetlabs/horsehead/httputil/api"
 	"github.com/puppetlabs/nebula-tasks/pkg/data/secrets"
+	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -21,12 +22,18 @@ type specsHandler struct {
 func (h *specsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	config, err := rest.InClusterConfig()
 	if nil != err {
-		utilapi.WriteError(r.Context(), w, err)
+		utilapi.WriteError(
+			r.Context(),
+			w,
+			errors.NewServerInClusterConfigError().WithCause(err))
 		return
 	}
 	client, err := kubernetes.NewForConfig(config)
 	if nil != err {
-		utilapi.WriteError(r.Context(), w, err)
+		utilapi.WriteError(
+			r.Context(),
+			w,
+			errors.NewServerNewK8sClientError().WithCause(err))
 		return
 	}
 	var key string
@@ -40,12 +47,18 @@ func (h *specsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	configMap, err := client.CoreV1().ConfigMaps(h.namespace).Get(key, metav1.GetOptions{})
 	if nil != err {
-		utilapi.WriteError(r.Context(), w, err)
+		utilapi.WriteError(
+			r.Context(),
+			w,
+			errors.NewServerGetConfigMapError(key, h.namespace).WithCause(err))
 		return
 	}
 	var spec interface{}
 	if err := json.Unmarshal([]byte(configMap.Data["spec.json"]), &spec); nil != err {
-		utilapi.WriteError(r.Context(), w, err)
+		utilapi.WriteError(
+			r.Context(),
+			w,
+			errors.NewServerConfigMapJSONError(key, h.namespace).WithCause(err))
 		return
 	}
 	spec = h.expandSecrets(r.Context(), spec)

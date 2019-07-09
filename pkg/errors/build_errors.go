@@ -423,6 +423,204 @@ var ServerSection = &impl.ErrorSection{
 	Title: "Sever errors",
 }
 
+// ServerConfigMapJSONErrorCode is the code for an instance of "config_map_json_error".
+const ServerConfigMapJSONErrorCode = "nt_server_config_map_json_error"
+
+// IsServerConfigMapJSONError tests whether a given error is an instance of "config_map_json_error".
+func IsServerConfigMapJSONError(err errawr.Error) bool {
+	return err != nil && err.Is(ServerConfigMapJSONErrorCode)
+}
+
+// IsServerConfigMapJSONError tests whether a given error is an instance of "config_map_json_error".
+func (External) IsServerConfigMapJSONError(err errawr.Error) bool {
+	return IsServerConfigMapJSONError(err)
+}
+
+// ServerConfigMapJSONErrorBuilder is a builder for "config_map_json_error" errors.
+type ServerConfigMapJSONErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "config_map_json_error" from this builder.
+func (b *ServerConfigMapJSONErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "error when parsing the \"spec.json\" field of the {{namespace}}/{{name}} config map data",
+		Technical: "error when parsing the \"spec.json\" field of the {{namespace}}/{{name}} config map data",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "config_map_json_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     ServerSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "ConfigMap spec.json parse error",
+		Version:          1,
+	}
+}
+
+// NewServerConfigMapJSONErrorBuilder creates a new error builder for the code "config_map_json_error".
+func NewServerConfigMapJSONErrorBuilder(name string, namespace string) *ServerConfigMapJSONErrorBuilder {
+	return &ServerConfigMapJSONErrorBuilder{arguments: impl.ErrorArguments{
+		"name":      impl.NewErrorArgument(name, "The name of the config map"),
+		"namespace": impl.NewErrorArgument(namespace, "The namespace of the config map"),
+	}}
+}
+
+// NewServerConfigMapJSONError creates a new error with the code "config_map_json_error".
+func NewServerConfigMapJSONError(name string, namespace string) Error {
+	return NewServerConfigMapJSONErrorBuilder(name, namespace).Build()
+}
+
+// ServerGetConfigMapErrorCode is the code for an instance of "get_config_map_error".
+const ServerGetConfigMapErrorCode = "nt_server_get_config_map_error"
+
+// IsServerGetConfigMapError tests whether a given error is an instance of "get_config_map_error".
+func IsServerGetConfigMapError(err errawr.Error) bool {
+	return err != nil && err.Is(ServerGetConfigMapErrorCode)
+}
+
+// IsServerGetConfigMapError tests whether a given error is an instance of "get_config_map_error".
+func (External) IsServerGetConfigMapError(err errawr.Error) bool {
+	return IsServerGetConfigMapError(err)
+}
+
+// ServerGetConfigMapErrorBuilder is a builder for "get_config_map_error" errors.
+type ServerGetConfigMapErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "get_config_map_error" from this builder.
+func (b *ServerGetConfigMapErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "error when getting config map {{namespace}}/{{name}}",
+		Technical: "error when getting config map {{namespace}}/{{name}}",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "get_config_map_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     ServerSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "ConfigMap GET failed",
+		Version:          1,
+	}
+}
+
+// NewServerGetConfigMapErrorBuilder creates a new error builder for the code "get_config_map_error".
+func NewServerGetConfigMapErrorBuilder(name string, namespace string) *ServerGetConfigMapErrorBuilder {
+	return &ServerGetConfigMapErrorBuilder{arguments: impl.ErrorArguments{
+		"name":      impl.NewErrorArgument(name, "The name of the config map"),
+		"namespace": impl.NewErrorArgument(namespace, "The namespace of the config map"),
+	}}
+}
+
+// NewServerGetConfigMapError creates a new error with the code "get_config_map_error".
+func NewServerGetConfigMapError(name string, namespace string) Error {
+	return NewServerGetConfigMapErrorBuilder(name, namespace).Build()
+}
+
+// ServerInClusterConfigErrorCode is the code for an instance of "in_cluster_config_error".
+const ServerInClusterConfigErrorCode = "nt_server_in_cluster_config_error"
+
+// IsServerInClusterConfigError tests whether a given error is an instance of "in_cluster_config_error".
+func IsServerInClusterConfigError(err errawr.Error) bool {
+	return err != nil && err.Is(ServerInClusterConfigErrorCode)
+}
+
+// IsServerInClusterConfigError tests whether a given error is an instance of "in_cluster_config_error".
+func (External) IsServerInClusterConfigError(err errawr.Error) bool {
+	return IsServerInClusterConfigError(err)
+}
+
+// ServerInClusterConfigErrorBuilder is a builder for "in_cluster_config_error" errors.
+type ServerInClusterConfigErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "in_cluster_config_error" from this builder.
+func (b *ServerInClusterConfigErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "error fetching the in cluster config",
+		Technical: "error fetching the in cluster config",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "in_cluster_config_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     ServerSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Config fetch error",
+		Version:          1,
+	}
+}
+
+// NewServerInClusterConfigErrorBuilder creates a new error builder for the code "in_cluster_config_error".
+func NewServerInClusterConfigErrorBuilder() *ServerInClusterConfigErrorBuilder {
+	return &ServerInClusterConfigErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewServerInClusterConfigError creates a new error with the code "in_cluster_config_error".
+func NewServerInClusterConfigError() Error {
+	return NewServerInClusterConfigErrorBuilder().Build()
+}
+
+// ServerNewK8sClientErrorCode is the code for an instance of "new_k8s_client_error".
+const ServerNewK8sClientErrorCode = "nt_server_new_k8s_client_error"
+
+// IsServerNewK8sClientError tests whether a given error is an instance of "new_k8s_client_error".
+func IsServerNewK8sClientError(err errawr.Error) bool {
+	return err != nil && err.Is(ServerNewK8sClientErrorCode)
+}
+
+// IsServerNewK8sClientError tests whether a given error is an instance of "new_k8s_client_error".
+func (External) IsServerNewK8sClientError(err errawr.Error) bool {
+	return IsServerNewK8sClientError(err)
+}
+
+// ServerNewK8sClientErrorBuilder is a builder for "new_k8s_client_error" errors.
+type ServerNewK8sClientErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "new_k8s_client_error" from this builder.
+func (b *ServerNewK8sClientErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "error creating a Kubernetes client",
+		Technical: "error creating a Kubernetes client",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "new_k8s_client_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     ServerSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Kubernetes client create error",
+		Version:          1,
+	}
+}
+
+// NewServerNewK8sClientErrorBuilder creates a new error builder for the code "new_k8s_client_error".
+func NewServerNewK8sClientErrorBuilder() *ServerNewK8sClientErrorBuilder {
+	return &ServerNewK8sClientErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewServerNewK8sClientError creates a new error with the code "new_k8s_client_error".
+func NewServerNewK8sClientError() Error {
+	return NewServerNewK8sClientErrorBuilder().Build()
+}
+
 // ServerRunErrorCode is the code for an instance of "run_error".
 const ServerRunErrorCode = "nt_server_run_error"
 

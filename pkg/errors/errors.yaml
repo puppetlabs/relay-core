@@ -42,3 +42,25 @@ sections:
       run_error:
         title: Run error
         description: an error occurred which running the server
+      in_cluster_config_error:
+        title: Config fetch error
+        description: error fetching the in cluster config
+      new_k8s_client_error:
+        title: Kubernetes client create error
+        description: error creating a Kubernetes client
+      get_config_map_error:
+        title: ConfigMap GET failed
+        description: error when getting config map {{namespace}}/{{name}}
+        arguments:
+          name:
+            description: The name of the config map
+          namespace:
+            description: The namespace of the config map
+      config_map_json_error:
+        title: ConfigMap spec.json parse error
+        description: error when parsing the "spec.json" field of the {{namespace}}/{{name}} config map data
+        arguments:
+          name:
+            description: The name of the config map
+          namespace:
+            description: The namespace of the config map
