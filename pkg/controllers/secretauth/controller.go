@@ -418,6 +418,8 @@ func metadataServicePod(saccount *corev1.ServiceAccount, sa *nebulav1.SecretAuth
 						sa.Spec.WorkflowID,
 						"-vault-engine-mount",
 						vaultEngineMount,
+						"-namespace",
+						sa.GetNamespace(),
 					},
 					Ports: []corev1.ContainerPort{
 						{
