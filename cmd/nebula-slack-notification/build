@@ -14,4 +14,4 @@ cd "$root"
 go build -installsuffix cgo -mod readonly -o ./cmd/nebula-slack-notification/main."$GOOS-$GOARCH" ./cmd/nebula-slack-notification/main.go
 
 cd "$root/cmd/nebula-slack-notification"
-docker build -t nebula-slack-notification .
+docker build -t puppet/nebula-slack-notification:latest .
