@@ -1,0 +1,10 @@
+#!/bin/bash
+
+go_test() {
+    go test -race -mod=vendor ./...
+}
+
+# this ensures that we are in the correct directory context
+cd "$(dirname "$0")"/..
+
+go_test

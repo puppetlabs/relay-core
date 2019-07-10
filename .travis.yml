@@ -1,0 +1,32 @@
+language: go
+go:
+- 1.12.x
+env:
+  global:
+  - GO111MODULE=on
+jobs:
+  include:
+  - stage: test
+    script:
+    - "./scripts/ci test"
+  - stage: build
+    before_script:
+    - if [ ! -d "$HOME/google-cloud-sdk/bin" ]; then rm -rf $HOME/google-cloud-sdk; export CLOUDSDK_CORE_DISABLE_PROMPTS=1; curl https://sdk.cloud.google.com | bash; fi
+    - source "$HOME"/google-cloud-sdk/path.bash.inc
+    - openssl aes-256-cbc -K $encrypted_35392154f715_key -iv $encrypted_35392154f715_iv -in nebula-gcloud-service-account.json.enc -out scripts/nebula-gcloud-service-account.json -d
+    - gcloud auth activate-service-account --key-file scripts/nebula-gcloud-service-account.json
+    - gcloud --quiet auth configure-docker
+    script:
+    - "./scripts/ci build"
+    - "./scripts/ci release"
+notifications:
+  email: false
+  slack:
+    on_success: change
+    on_failure: change
+    template:
+    - "<%{compare_url}|%{commit_subject}> | %{author}"
+    - "%{repository_slug} %{branch} | <%{build_url}|#%{build_number}> %{result} in
+      %{elapsed_time}"
+    rooms:
+      secure: sTvyXPL00HHFJM6zDFG9XimZQRcE2hauE7iASHr+E3fWq4O1NqyDIv7X+btSGD/Q3Ju09CMrMulrrKZ2dNBD4XrMNaTztQAu+CP7Kbbwxa6cGKhTQJxDrq0wQ+QlER/FTm6TcTOFpl6zQqtDkorEZuNH1p9SAi66MwxZJHN5bX/IU/6wNfrl7zOLMmNEP1vNKpxHl0ULVTMD8min/+aDu+aVmC1+sbioJ22YTvRcUiM1tBtfPT1gL0c4k084xvK7tjLzoc73USWvZZfw6EUnC7bAD5CdJ5WbXs4WQA0Z8+sBWrUZk3eiebjRYTfEc1O7ky7dtVdsovJLdDUlFkQxvgUTW3ypOwfL59+xLKgQjDQtebIAO2T6tdvmkxlM8BxfK3RVbGJodvius9+S0TuHGzMeW5aCR58mKK12JkH3D1XNpQ6zUnca1/gG89QZh6PNwCppceIu0wnyf6oR/TfTXrRkx/qJ0ZbgX1AKMgTiIOV4QO6j7uFDon3pqvBMBZz3GBf/TKpp1mkc7/NO7HE6JskXttHFaHeAlm3CDtcoPbc70bVfPbTp7JGHMlIJ1ByvLgJ9o3SR1V5TkjMF0rk/AjhXAmkAPg3V3hIIUdf1MnOzA5bwqDtfK0FDxSGffFDJgg5FuMhZQyzxEQrtUPiGU5CykYD/H1UAAX8xwm9NsQo=
