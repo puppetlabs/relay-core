@@ -78,7 +78,7 @@ func (h *specsHandler) expandSecrets(ctx context.Context, spec interface{}) inte
 		if nil != secretName {
 			sec, err := h.secretStore.Get(ctx, *secretName)
 			if err != nil || nil == sec {
-				log.Printf("failed to get secret=%v: %v", secretName, err)
+				log.Printf("failed to get secret=%s: %v", *secretName, err)
 				return ""
 			}
 			return sec.Value
