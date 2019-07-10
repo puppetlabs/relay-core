@@ -19,21 +19,25 @@ const defaultServiceAccountTokenPath = "/var/run/secrets/kubernetes.io/serviceac
 func main() {
 	bindAddr := flag.String("bind-addr", "localhost:7000", "host and port to bind the server to")
 	vaultAddr := flag.String("vault-addr", "http://localhost:8200", "address to the vault server")
+	vaultToken := flag.String("vault-token", "", "Specify in place of -vault-role and -service-account-token-path for using a basic vault token auth")
 	vaultRole := flag.String("vault-role", "", "the role to use when logging into the vault server")
 	serviceAccountTokenPath := flag.String("service-account-token-path",
 		defaultServiceAccountTokenPath, "the path to k8s pod service account token")
 	workflowID := flag.String("workflow-id", "", "the id of the workflow these secrets are scoped to")
 	vaultEngineMount := flag.String("vault-engine-mount", "nebula", "the engine mount to use when crafting secret paths")
+	namespace := flag.String("namespace", "", "the kubernetes namespace that contains the workflow")
 
 	flag.Parse()
 
 	cfg := config.MetadataServerConfig{
-		BindAddr: *bindAddr,
+		BindAddr:  *bindAddr,
+		Namespace: *namespace,
 	}
 
 	vc, err := vault.NewVaultWithKubernetesAuth(&vault.Config{
 		Addr:                       *vaultAddr,
 		K8sServiceAccountTokenPath: *serviceAccountTokenPath,
+		Token:                      *vaultToken,
 		Role:                       *vaultRole,
 		Bucket:                     *workflowID,
 		EngineMount:                *vaultEngineMount,

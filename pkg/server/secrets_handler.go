@@ -15,7 +15,7 @@ func (h *secretsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var key string
 
 	key, r.URL.Path = shiftPath(r.URL.Path)
-	if key == "" || key == "/" {
+	if key == "" || "" != r.URL.Path {
 		http.NotFound(w, r)
 
 		return

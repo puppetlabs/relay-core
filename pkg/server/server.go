@@ -21,6 +21,9 @@ type Server struct {
 
 	// secretsHander handles requests to secrets on the /secrets/* path
 	secretsHandler *secretsHandler
+
+	// specsHandler handles requests to specs on the /specs/* path
+	specsHandler *specsHandler
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -30,6 +33,11 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if head == "secrets" {
 		s.secretsHandler.ServeHTTP(w, r)
+
+		return
+	}
+	if head == "specs" {
+		s.specsHandler.ServeHTTP(w, r)
 
 		return
 	}
@@ -68,6 +76,10 @@ func New(cfg *config.MetadataServerConfig, sec secrets.Store) *Server {
 	return &Server{
 		bindAddr:       cfg.BindAddr,
 		secretsHandler: &secretsHandler{sec: sec},
+		specsHandler: &specsHandler{
+			secretStore: sec,
+			namespace:   cfg.Namespace,
+		},
 	}
 }
 
@@ -77,7 +89,7 @@ func shiftPath(p string) (head, tail string) {
 	p = path.Clean("/" + p)
 	i := strings.Index(p[1:], "/") + 1
 	if i <= 0 {
-		return p[1:], "/"
+		return p[1:], ""
 	}
 
 	return p[1:i], p[i:]
