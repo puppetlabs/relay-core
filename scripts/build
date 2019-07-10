@@ -1,10 +1,12 @@
 #!/bin/bash
 
+set -euo pipefail
+
 build_images() {
     for cmd in ./cmd/*; do
         local command_name="$(basename "${cmd}")"
 
-        source "${cmd}"/build.sh
+        source "${cmd}"/build-info.sh
 
         docker_file=Dockerfile."${command_name}"
         cp ./scripts/Dockerfile.template "${docker_file}"
