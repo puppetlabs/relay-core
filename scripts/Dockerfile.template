@@ -1,0 +1,11 @@
+FROM golang:1.12-alpine as builder
+ENV GO111MODULE on
+ENV CGO_ENABLED 0
+WORKDIR /go/src/github.com/puppetlabs/nebula-tasks
+COPY . .
+RUN go build -a -installsuffix cgo -mod vendor -o __OUTPUTBIN__ __GOMAIN__
+
+FROM alpine:latest
+COPY --from=builder /go/src/github.com/puppetlabs/nebula-tasks/__OUTPUTBIN__ /usr/bin/__OUTPUTBIN__
+RUN apk update && apk --no-cache add git gcc bind-dev musl-dev ca-certificates && update-ca-certificates
+CMD ["__DOCKER_CMD__"]

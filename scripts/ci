@@ -1,0 +1,19 @@
+#!/bin/bash
+
+set -euo pipefail
+
+source ./"$(dirname "$0")"/build-info.sh
+
+if [[ "$TRAVIS_EVENT_TYPE" == "pull_request" ]]; then
+        export NO_DOCKER_PUSH=yes
+fi
+
+if [[ "$TRAVIS_BRANCH" != "master" ]]; then
+        export NO_DOCKER_PUSH=yes
+fi
+
+if [ -n "${DIRTY}" ]; then
+        export NO_DOCKER_PUSH=yes
+fi
+
+./"$(dirname "$0")"/"$*"

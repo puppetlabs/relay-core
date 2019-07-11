@@ -1,0 +1,66 @@
+version: 1
+domain:
+  key: nt
+  title: Nebula Tasks
+sections:
+  secrets:
+    title: Secrets errors
+    errors:
+      vault_setup_error:
+        title: Vault client setup error
+        description: there was an error setting up the Vault client
+      session_setup_error:
+        title: Session setup error
+        description: there was an error setting up the secret engine session
+      get_error:
+        title: Get error
+        description: failed to get the secret at key {{key}}
+        arguments:
+          key:
+            description: the key that had the failure
+      key_not_found:
+        title: Key not found
+        description: key {{key}} not found
+        arguments:
+          key:
+            description: the key that is missing
+      missing_secret_ref:
+        title: Missing secretRef
+        description: secretRef is missing
+      malformed_value:
+        title: Malformed value
+        description: the value for secretRef is not a string
+      k8s_service_account_token_read_error:
+        title: K8s service account token read error
+        description: there was an error reading the service account token from the secret file
+      vault_login_error:
+        title: Vault login error
+        description: there was an error logging into the vault server
+  server:
+    title: Sever errors
+    errors:
+      run_error:
+        title: Run error
+        description: an error occurred which running the server
+      in_cluster_config_error:
+        title: Config fetch error
+        description: error fetching the in cluster config
+      new_k8s_client_error:
+        title: Kubernetes client create error
+        description: error creating a Kubernetes client
+      get_config_map_error:
+        title: ConfigMap GET failed
+        description: error when getting config map {{namespace}}/{{name}}
+        arguments:
+          name:
+            description: The name of the config map
+          namespace:
+            description: The namespace of the config map
+      config_map_json_error:
+        title: ConfigMap spec.json parse error
+        description: error when parsing the "spec.json" field of the {{namespace}}/{{name}} config map data
+        arguments:
+          name:
+            description: The name of the config map
+          namespace:
+            description: The namespace of the config map

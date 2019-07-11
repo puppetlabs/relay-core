@@ -1,0 +1,15 @@
+version: 1
+domain:
+  key: lin
+  title: Insights Net Utils Library
+sections:
+  #
+  # Backoff errors
+  #
+  backoff:
+    title: Net util backoff errors
+    errors:
+      context_cancelled_error:
+        title: Context cancelled
+        description: >
+          Context cancelled when attempting to wait for a backoff
