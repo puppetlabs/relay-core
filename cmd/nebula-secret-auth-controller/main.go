@@ -17,11 +17,13 @@ func main() {
 	vaultAddr := flag.String("vault-addr", "http://localhost:8200", "address to the vault server")
 	vaultToken := flag.String("vault-token", "", "token used to authenticate with the vault server")
 	vaultEngineMount := flag.String("vault-engine-mount", "nebula", "the engine mount to craft paths from")
+	metadataServiceImage := flag.String("metadata-service-image", "gcr.io/nebula-235818/nebula-metadata-api:latest", "the image and tag to use for the metadata service api")
 
 	flag.Parse()
 
 	cfg := &config.SecretAuthControllerConfig{
-		Kubeconfig: *kubeconfig,
+		Kubeconfig:           *kubeconfig,
+		MetadataServiceImage: *metadataServiceImage,
 	}
 
 	vc, err := vault.NewVaultAuth(*vaultAddr, *vaultToken, *vaultEngineMount)
