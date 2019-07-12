@@ -28,9 +28,6 @@ import (
 )
 
 const (
-	defaultVaultAddr = "http://secrets-vault.default:8200"
-	// default image:tag to use for nebula-metadata-api
-	metadataServiceImage = "gcr.io/nebula-235818/nebula-metadata-api:latest"
 	// default name for the workflow metadata api pod and service
 	metadataServiceName = "workflow-metadata-api"
 	// default maximum retry attempts to create resources spawned from SecretAuth creations
