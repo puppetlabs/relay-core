@@ -28,9 +28,6 @@ import (
 )
 
 const (
-	defaultVaultAddr = "http://secrets-vault.default:8200"
-	// default image:tag to use for nebula-metadata-api
-	metadataServiceImage = "pcr-internal.puppet.net/nebula/nebula-metadata-api:latest"
 	// default name for the workflow metadata api pod and service
 	metadataServiceName = "workflow-metadata-api"
 	// default maximum retry attempts to create resources spawned from SecretAuth creations
@@ -61,6 +58,8 @@ type Controller struct {
 	plrworker *worker
 
 	vaultClient *vault.VaultAuth
+
+	cfg *config.SecretAuthControllerConfig
 }
 
 // Run starts all required informers and spawns two worker goroutines
@@ -134,7 +133,7 @@ func (c *Controller) processSingleItem(key string) error {
 
 	log.Println("creating metadata service pod for", sa.Spec.WorkflowID)
 	pod, err = c.kubeclient.CoreV1().Pods(namespace).Create(metadataServicePod(
-		saccount, sa, c.vaultClient.Address(), c.vaultClient.EngineMount()))
+		c.cfg, saccount, sa, c.vaultClient.Address(), c.vaultClient.EngineMount()))
 	if errors.IsAlreadyExists(err) {
 		pod, err = c.kubeclient.CoreV1().Pods(namespace).Get(metadataServiceName, metav1.GetOptions{})
 	}
@@ -358,6 +357,7 @@ func NewController(cfg *config.SecretAuthControllerConfig, vaultClient *vault.Va
 		plrInformer:        plrInformer,
 		plrInformerSynced:  plrInformer.Informer().HasSynced,
 		vaultClient:        vaultClient,
+		cfg:                cfg,
 	}
 
 	c.saworker = newWorker("SecretAuths", (*c).processSingleItem, defaultMaxRetries)
@@ -392,7 +392,9 @@ func serviceAccount(sa *nebulav1.SecretAuth) *corev1.ServiceAccount {
 	}
 }
 
-func metadataServicePod(saccount *corev1.ServiceAccount, sa *nebulav1.SecretAuth, vaultAddr, vaultEngineMount string) *corev1.Pod {
+func metadataServicePod(cfg *config.SecretAuthControllerConfig, saccount *corev1.ServiceAccount,
+	sa *nebulav1.SecretAuth, vaultAddr, vaultEngineMount string) *corev1.Pod {
+
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      metadataServiceName,
@@ -405,14 +407,14 @@ func metadataServicePod(saccount *corev1.ServiceAccount, sa *nebulav1.SecretAuth
 			Containers: []corev1.Container{
 				{
 					Name:            metadataServiceName,
-					Image:           metadataServiceImage,
+					Image:           cfg.MetadataServiceImage,
 					ImagePullPolicy: corev1.PullIfNotPresent,
 					Command: []string{
 						"/usr/bin/nebula-metadata-api",
 						"-bind-addr",
 						":7000",
 						"-vault-addr",
-						defaultVaultAddr,
+						vaultAddr,
 						"-vault-role",
 						sa.GetNamespace(),
 						"-workflow-name",
