@@ -171,26 +171,10 @@ func (c *Controller) processSingleItem(key string) error {
 	}
 
 	saCopy := sa.DeepCopy()
-	saCopy.Status.MetadataServicePod, err = cache.MetaNamespaceKeyFunc(pod)
-	if err != nil {
-		return err
-	}
-
-	saCopy.Status.MetadataServiceService, err = cache.MetaNamespaceKeyFunc(service)
-	if err != nil {
-		return err
-	}
-
-	saCopy.Status.ServiceAccount, err = cache.MetaNamespaceKeyFunc(saccount)
-	if err != nil {
-		return err
-	}
-
-	saCopy.Status.ConfigMap, err = cache.MetaNamespaceKeyFunc(configMap)
-	if err != nil {
-		return err
-	}
-
+	saCopy.Status.MetadataServicePod = pod.GetName()
+	saCopy.Status.MetadataServiceService = service.GetName()
+	saCopy.Status.ServiceAccount = saccount.GetName()
+	saCopy.Status.ConfigMap = configMap.GetName()
 	saCopy.Status.VaultPolicy = namespace
 	saCopy.Status.VaultAuthRole = namespace
 
@@ -258,48 +242,20 @@ func (c *Controller) processPipelineRunChange(key string) error {
 		for _, sa := range sas.Items {
 			log.Println("deleting resources created by:", sa.GetName())
 
-			{
-				namespace, name, err := cache.SplitMetaNamespaceKey(sa.Status.MetadataServicePod)
-				if err != nil {
-					return err
-				}
-
-				if err := c.kubeclient.CoreV1().Pods(namespace).Delete(name, &metav1.DeleteOptions{}); err != nil {
-					return err
-				}
+			if err := c.kubeclient.CoreV1().Pods(namespace).Delete(sa.Status.MetadataServicePod, &metav1.DeleteOptions{}); err != nil {
+				return err
 			}
 
-			{
-				namespace, name, err := cache.SplitMetaNamespaceKey(sa.Status.MetadataServiceService)
-				if err != nil {
-					return err
-				}
-
-				if err := c.kubeclient.CoreV1().Services(namespace).Delete(name, &metav1.DeleteOptions{}); err != nil {
-					return err
-				}
+			if err := c.kubeclient.CoreV1().Services(namespace).Delete(sa.Status.MetadataServiceService, &metav1.DeleteOptions{}); err != nil {
+				return err
 			}
 
-			{
-				namespace, name, err := cache.SplitMetaNamespaceKey(sa.Status.ServiceAccount)
-				if err != nil {
-					return err
-				}
-
-				if err := c.kubeclient.CoreV1().ServiceAccounts(namespace).Delete(name, &metav1.DeleteOptions{}); err != nil {
-					return err
-				}
+			if err := c.kubeclient.CoreV1().ServiceAccounts(namespace).Delete(sa.Status.ServiceAccount, &metav1.DeleteOptions{}); err != nil {
+				return err
 			}
 
-			{
-				namespace, name, err := cache.SplitMetaNamespaceKey(sa.Status.ConfigMap)
-				if err != nil {
-					return err
-				}
-
-				if err := c.kubeclient.CoreV1().ConfigMaps(namespace).Delete(name, &metav1.DeleteOptions{}); err != nil {
-					return err
-				}
+			if err := c.kubeclient.CoreV1().ConfigMaps(namespace).Delete(sa.Status.ConfigMap, &metav1.DeleteOptions{}); err != nil {
+				return err
 			}
 
 			if err := c.vaultClient.DeleteRole(sa.Status.VaultAuthRole); err != nil {
