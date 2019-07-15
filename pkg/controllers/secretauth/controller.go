@@ -10,6 +10,7 @@ import (
 	tekinformers "github.com/tektoncd/pipeline/pkg/client/informers/externalversions"
 	tekv1informer "github.com/tektoncd/pipeline/pkg/client/informers/externalversions/pipeline/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -117,6 +118,7 @@ func (c *Controller) processSingleItem(key string) error {
 
 	var (
 		saccount  *corev1.ServiceAccount
+		rbac      *rbacv1.ClusterRoleBinding
 		pod       *corev1.Pod
 		service   *corev1.Service
 		configMap *corev1.ConfigMap
@@ -126,6 +128,15 @@ func (c *Controller) processSingleItem(key string) error {
 	saccount, err = c.kubeclient.CoreV1().ServiceAccounts(namespace).Create(serviceAccount(sa))
 	if errors.IsAlreadyExists(err) {
 		saccount, err = c.kubeclient.CoreV1().ServiceAccounts(namespace).Get(getName(sa), metav1.GetOptions{})
+	}
+	if err != nil {
+		return err
+	}
+
+	log.Println("creating role bindings for", sa.Spec.WorkflowID)
+	rbac, err = c.kubeclient.RbacV1().ClusterRoleBindings().Create(rbacRoleBinding(sa))
+	if errors.IsAlreadyExists(err) {
+		rbac, err = c.kubeclient.RbacV1().ClusterRoleBindings().Get(getName(sa), metav1.GetOptions{})
 	}
 	if err != nil {
 		return err
@@ -175,6 +186,7 @@ func (c *Controller) processSingleItem(key string) error {
 	saCopy.Status.MetadataServiceService = service.GetName()
 	saCopy.Status.ServiceAccount = saccount.GetName()
 	saCopy.Status.ConfigMap = configMap.GetName()
+	saCopy.Status.ClusterRoleBinding = rbac.GetName()
 	saCopy.Status.VaultPolicy = namespace
 	saCopy.Status.VaultAuthRole = namespace
 
@@ -344,6 +356,31 @@ func serviceAccount(sa *nebulav1.SecretAuth) *corev1.ServiceAccount {
 		ImagePullSecrets: []corev1.LocalObjectReference{
 			{
 				Name: "image-pull-secret",
+			},
+		},
+	}
+}
+
+func rbacRoleBinding(sa *nebulav1.SecretAuth) *rbacv1.ClusterRoleBinding {
+	return &rbacv1.ClusterRoleBinding{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "rbac.authorization.k8s.io/v1",
+			Kind:       "ClusterRoleBinding",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      getName(sa),
+			Namespace: sa.GetNamespace(),
+		},
+		RoleRef: rbacv1.RoleRef{
+			Kind:     "ClusterRole",
+			APIGroup: "rbac.authorization.k8s.io",
+			Name:     "admin",
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Name:      getName(sa),
+				Kind:      "ServiceAccount",
+				Namespace: sa.GetNamespace(),
 			},
 		},
 	}

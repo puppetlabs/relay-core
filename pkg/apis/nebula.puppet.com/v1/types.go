@@ -26,6 +26,7 @@ type SecretAuthStatus struct {
 	MetadataServicePod     string `json:"metadataServicePod"`
 	MetadataServiceService string `json:"metadataServiceService"`
 	ServiceAccount         string `json:"serviceAccount"`
+	ClusterRoleBinding     string `json:"clusterRoleBinding"`
 	ConfigMap              string `json:"configMap"`
 	VaultPolicy            string `json:"vaultPolicy"`
 	VaultAuthRole          string `json:"vaultAuthRole"`
