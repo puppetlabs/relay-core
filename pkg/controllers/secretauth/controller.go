@@ -215,6 +215,7 @@ func (c *Controller) enqueuePipelineRunChange(old, obj interface{}) {
 }
 
 func (c *Controller) processPipelineRunChange(key string) error {
+	return nil
 	log.Println("syncing PipelineRun change", key)
 	defer log.Println("done syncing PipelineRun change", key)
 
