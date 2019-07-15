@@ -417,7 +417,7 @@ func metadataServicePod(cfg *config.SecretAuthControllerConfig, saccount *corev1
 						vaultAddr,
 						"-vault-role",
 						sa.GetNamespace(),
-						"-workflow-name",
+						"-workflow-id",
 						sa.Spec.WorkflowID,
 						"-vault-engine-mount",
 						vaultEngineMount,
