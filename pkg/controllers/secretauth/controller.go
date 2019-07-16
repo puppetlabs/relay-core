@@ -112,6 +112,8 @@ func (c *Controller) processSingleItem(key string) error {
 		return err
 	}
 
+	// if anything fails while creating resources, the status object will not be filled out
+	// and saved. this means that if any of the keys are empty, we haven't created resources yet.
 	if sa.Status.ServiceAccount != "" {
 		log.Printf("resources for %s have already been created", key)
 		return nil
@@ -162,6 +164,15 @@ func (c *Controller) processSingleItem(key string) error {
 		return err
 	}
 
+	// wait for pod to start before updating our status
+	log.Println("waiting for metadata pod to become ready")
+
+	if err := c.waitForPod(pod); err != nil {
+		return err
+	}
+
+	log.Println("metadata pod is ready")
+
 	log.Println("creating config map for", sa.Spec.WorkflowID)
 	configMap, err = c.kubeclient.CoreV1().ConfigMaps(namespace).Create(workflowConfigMap(sa))
 	if errors.IsAlreadyExists(err) {
@@ -179,11 +190,6 @@ func (c *Controller) processSingleItem(key string) error {
 
 	log.Println("enabling vault access for workflow service account for ", sa.Spec.WorkflowID)
 	if err := c.vaultClient.WriteRole(namespace, saccount.GetName(), namespace); err != nil {
-		return err
-	}
-
-	// wait for pod to start before updating our status
-	if err := c.waitForPod(pod); err != nil {
 		return err
 	}
 
@@ -221,12 +227,15 @@ func (c *Controller) waitForPod(pod *corev1.Pod) error {
 	for event := range watcher.ResultChan() {
 		switch event.Type {
 		case watch.Modified:
-			pod = event.Object.(*corev1.Pod)
+			pod := event.Object.(*corev1.Pod)
 
+		conditionLoop:
 			for _, cond := range pod.Status.Conditions {
 				if cond.Type == corev1.PodReady && cond.Status == corev1.ConditionTrue {
 					conditionMet = true
 					watcher.Stop()
+
+					break conditionLoop
 				}
 			}
 		}
@@ -268,7 +277,6 @@ func (c *Controller) enqueuePipelineRunChange(old, obj interface{}) {
 }
 
 func (c *Controller) processPipelineRunChange(key string) error {
-	return nil
 	log.Println("syncing PipelineRun change", key)
 	defer log.Println("done syncing PipelineRun change", key)
 
