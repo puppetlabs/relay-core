@@ -516,7 +516,7 @@ func workflowConfigMap(sa *nebulav1.SecretAuth) *corev1.ConfigMap {
 			Namespace: sa.GetNamespace(),
 		},
 		Data: map[string]string{
-			"metadata-api-url": fmt.Sprintf("http://%s.%s", metadataServiceName, sa.GetNamespace()),
+			"metadata-api-url": fmt.Sprintf("http://%s.%s.svc.cluster.local", metadataServiceName, sa.GetNamespace()),
 		},
 	}
 }
