@@ -13,6 +13,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/watch"
@@ -185,13 +186,13 @@ func (c *Controller) processSingleItem(key string) error {
 	}
 
 	// wait for pod to start before updating our status
-	log.Println("waiting for metadata pod to become ready")
+	log.Println("waiting for metadata service to become ready")
 
-	if err := c.waitForPod(pod); err != nil {
+	if err := c.waitForEndpoint(service); err != nil {
 		return err
 	}
 
-	log.Println("metadata pod is ready")
+	log.Println("metadata service is ready")
 
 	saCopy := sa.DeepCopy()
 	saCopy.Status.MetadataServicePod = pod.GetName()
@@ -206,6 +207,46 @@ func (c *Controller) processSingleItem(key string) error {
 	saCopy, err = c.nebclient.NebulaV1().SecretAuths(namespace).Update(saCopy)
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (c *Controller) waitForEndpoint(service *corev1.Service) error {
+	var conditionMet bool
+
+	timeout := int64(30)
+
+	listOptions := metav1.ListOptions{
+		FieldSelector:  fields.OneTermEqualSelector("metadata.name", service.GetName()).String(),
+		TimeoutSeconds: &timeout,
+	}
+
+	watcher, err := c.kubeclient.CoreV1().Endpoints(service.GetNamespace()).Watch(listOptions)
+	if err != nil {
+		return err
+	}
+
+eventLoop:
+	for event := range watcher.ResultChan() {
+		switch event.Type {
+		case watch.Added:
+			watcher.Stop()
+			conditionMet = true
+			break eventLoop
+
+			// endpoints := event.Object.(*corev1.Endpoints)
+			// if endpoints.GetName() == service.GetName() {
+			// 	watcher.Stop()
+			// 	conditionMet = true
+
+			// 	break eventLoop
+			// }
+		}
+	}
+
+	if !conditionMet {
+		return fmt.Errorf("timeout occurred while waiting for the metadata service to be ready")
 	}
 
 	return nil
