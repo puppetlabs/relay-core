@@ -15,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/tools/cache"
@@ -181,6 +182,11 @@ func (c *Controller) processSingleItem(key string) error {
 		return err
 	}
 
+	// wait for pod to start before updating our status
+	if err := c.waitForPod(pod); err != nil {
+		return err
+	}
+
 	saCopy := sa.DeepCopy()
 	saCopy.Status.MetadataServicePod = pod.GetName()
 	saCopy.Status.MetadataServiceService = service.GetName()
@@ -194,6 +200,41 @@ func (c *Controller) processSingleItem(key string) error {
 	saCopy, err = c.nebclient.NebulaV1().SecretAuths(namespace).Update(saCopy)
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (c *Controller) waitForPod(pod *corev1.Pod) error {
+	var conditionMet bool
+
+	timeout := int64(30)
+
+	solist := metav1.SingleObject(pod.ObjectMeta)
+	solist.TimeoutSeconds = &timeout
+
+	watcher, err := c.kubeclient.CoreV1().Pods(pod.GetNamespace()).Watch(solist)
+	if err != nil {
+		return err
+	}
+
+	for event := range watcher.ResultChan() {
+		switch event.Type {
+		case watch.Modified:
+			pod = event.Object.(*corev1.Pod)
+
+			for _, cond := range pod.Status.Conditions {
+				if cond.Type == corev1.PodReady && cond.Status == corev1.ConditionTrue {
+					conditionMet = true
+					watcher.Stop()
+				}
+			}
+		}
+	}
+
+	// this will not be true if the Watch call times out
+	if !conditionMet {
+		return fmt.Errorf("timeout occurred while waiting for metadata api pod to be ready")
 	}
 
 	return nil
@@ -422,6 +463,14 @@ func metadataServicePod(cfg *config.SecretAuthControllerConfig, saccount *corev1
 						{
 							Name:          "http",
 							ContainerPort: 7000,
+						},
+					},
+					ReadinessProbe: &corev1.Probe{
+						Handler: corev1.Handler{
+							HTTPGet: &corev1.HTTPGetAction{
+								Path: "/healthz",
+								Port: intstr.FromInt(7000),
+							},
 						},
 					},
 				},

@@ -24,6 +24,10 @@ type Server struct {
 
 	// specsHandler handles requests to specs on the /specs/* path
 	specsHandler *specsHandler
+
+	// healthCheckHandler handles requests to check the readiness and health of
+	// the metadata server
+	healthCheckHandler *healthCheckHandler
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -38,6 +42,11 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if head == "specs" {
 		s.specsHandler.ServeHTTP(w, r)
+
+		return
+	}
+	if head == "healthz" {
+		s.healthCheckHandler.ServeHTTP(w, r)
 
 		return
 	}
@@ -80,6 +89,7 @@ func New(cfg *config.MetadataServerConfig, sec secrets.Store) *Server {
 			secretStore: sec,
 			namespace:   cfg.Namespace,
 		},
+		healthCheckHandler: &healthCheckHandler{},
 	}
 }
 
