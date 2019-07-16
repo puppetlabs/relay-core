@@ -18,6 +18,7 @@ func main() {
 	vaultToken := flag.String("vault-token", "", "token used to authenticate with the vault server")
 	vaultEngineMount := flag.String("vault-engine-mount", "nebula", "the engine mount to craft paths from")
 	metadataServiceImage := flag.String("metadata-service-image", "gcr.io/nebula-235818/nebula-metadata-api:latest", "the image and tag to use for the metadata service api")
+	numWorkers := flag.Int("num-workers", 2, "the number of worker threads to spawn that process SecretAuth resources")
 
 	flag.Parse()
 
@@ -39,7 +40,7 @@ func main() {
 	stopCh := make(chan struct{})
 	defer close(stopCh)
 
-	go controller.Run(2, stopCh)
+	go controller.Run(*numWorkers, stopCh)
 
 	termCh := make(chan os.Signal, 1)
 	signal.Notify(termCh, syscall.SIGTERM)
