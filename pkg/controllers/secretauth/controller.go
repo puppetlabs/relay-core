@@ -136,6 +136,17 @@ func (c *Controller) processSingleItem(key string) error {
 		return err
 	}
 
+	log.Println("writing vault readonly access policy for ", sa.Spec.WorkflowID)
+	// now we let vault know about the service account
+	if err := c.vaultClient.WritePolicy(namespace, sa.Spec.WorkflowID); err != nil {
+		return err
+	}
+
+	log.Println("enabling vault access for workflow service account for ", sa.Spec.WorkflowID)
+	if err := c.vaultClient.WriteRole(namespace, saccount.GetName(), namespace); err != nil {
+		return err
+	}
+
 	log.Println("creating role bindings for", sa.Spec.WorkflowID)
 	rbac, err = c.kubeclient.RbacV1().ClusterRoleBindings().Create(rbacRoleBinding(sa))
 	if errors.IsAlreadyExists(err) {
@@ -164,15 +175,6 @@ func (c *Controller) processSingleItem(key string) error {
 		return err
 	}
 
-	// wait for pod to start before updating our status
-	log.Println("waiting for metadata pod to become ready")
-
-	if err := c.waitForPod(pod); err != nil {
-		return err
-	}
-
-	log.Println("metadata pod is ready")
-
 	log.Println("creating config map for", sa.Spec.WorkflowID)
 	configMap, err = c.kubeclient.CoreV1().ConfigMaps(namespace).Create(workflowConfigMap(sa))
 	if errors.IsAlreadyExists(err) {
@@ -182,16 +184,14 @@ func (c *Controller) processSingleItem(key string) error {
 		return err
 	}
 
-	log.Println("writing vault readonly access policy for ", sa.Spec.WorkflowID)
-	// now we let vault know about the service account
-	if err := c.vaultClient.WritePolicy(namespace, sa.Spec.WorkflowID); err != nil {
+	// wait for pod to start before updating our status
+	log.Println("waiting for metadata pod to become ready")
+
+	if err := c.waitForPod(pod); err != nil {
 		return err
 	}
 
-	log.Println("enabling vault access for workflow service account for ", sa.Spec.WorkflowID)
-	if err := c.vaultClient.WriteRole(namespace, saccount.GetName(), namespace); err != nil {
-		return err
-	}
+	log.Println("metadata pod is ready")
 
 	saCopy := sa.DeepCopy()
 	saCopy.Status.MetadataServicePod = pod.GetName()
