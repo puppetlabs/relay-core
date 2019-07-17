@@ -331,42 +331,55 @@ func (c *Controller) processPipelineRunChange(key string) error {
 			return err
 		}
 
+		core := c.kubeclient.CoreV1()
+		rbac := c.kubeclient.RbacV1()
+		sac := c.nebclient.NebulaV1().SecretAuths(namespace)
+		opts := &metav1.DeleteOptions{}
+
 		for _, sa := range sas.Items {
 			klog.Infof("deleting resources created by %s", sa.GetName())
 
-			if err := c.kubeclient.CoreV1().Pods(namespace).Delete(sa.Status.MetadataServicePod, &metav1.DeleteOptions{}); err != nil {
+			err = core.Pods(namespace).Delete(sa.Status.MetadataServicePod, opts)
+			if err != nil {
 				return err
 			}
 
-			if err := c.kubeclient.CoreV1().Services(namespace).Delete(sa.Status.MetadataServiceService, &metav1.DeleteOptions{}); err != nil {
+			err = core.Services(namespace).Delete(sa.Status.MetadataServiceService, opts)
+			if err != nil {
 				return err
 			}
 
-			if err := c.kubeclient.CoreV1().ServiceAccounts(namespace).Delete(sa.Status.ServiceAccount, &metav1.DeleteOptions{}); err != nil {
+			err = core.ServiceAccounts(namespace).Delete(sa.Status.ServiceAccount, opts)
+			if err != nil {
 				return err
 			}
 
-			if err := c.kubeclient.CoreV1().ConfigMaps(namespace).Delete(sa.Status.ConfigMap, &metav1.DeleteOptions{}); err != nil {
+			err = core.ConfigMaps(namespace).Delete(sa.Status.ConfigMap, opts)
+			if err != nil {
 				return err
 			}
 
-			if err := c.kubeclient.RbacV1().RoleBindings(namespace).Delete(sa.Status.RoleBinding, &metav1.DeleteOptions{}); err != nil {
+			err = rbac.RoleBindings(namespace).Delete(sa.Status.RoleBinding, opts)
+			if err != nil {
 				return err
 			}
 
-			if err := c.kubeclient.RbacV1().Roles(namespace).Delete(sa.Status.Role, &metav1.DeleteOptions{}); err != nil {
+			err = rbac.Roles(namespace).Delete(sa.Status.Role, opts)
+			if err != nil {
 				return err
 			}
 
-			if err := c.vaultClient.DeleteRole(sa.Status.VaultAuthRole); err != nil {
+			err = c.vaultClient.DeleteRole(sa.Status.VaultAuthRole)
+			if err != nil {
 				return err
 			}
 
-			if err := c.vaultClient.DeletePolicy(sa.Status.VaultPolicy); err != nil {
+			err = c.vaultClient.DeletePolicy(sa.Status.VaultPolicy)
+			if err != nil {
 				return err
 			}
 
-			if err := c.nebclient.NebulaV1().SecretAuths(sa.GetNamespace()).Delete(sa.GetName(), &metav1.DeleteOptions{}); err != nil {
+			if err := sac.Delete(sa.GetName(), opts); err != nil {
 				return err
 			}
 		}
