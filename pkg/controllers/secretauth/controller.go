@@ -3,7 +3,6 @@ package secretauth
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 
@@ -15,7 +14,6 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/watch"
@@ -23,6 +21,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/klog"
 
 	nebulav1 "github.com/puppetlabs/nebula-tasks/pkg/apis/nebula.puppet.com/v1"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
@@ -35,8 +34,6 @@ import (
 const (
 	// default name for the workflow metadata api pod and service
 	metadataServiceName = "workflow-metadata-api"
-	// default maximum retry attempts to create resources spawned from SecretAuth creations
-	maxRetries = 10
 )
 
 // Controller watches for nebulav1.SecretAuth resource changes.
@@ -47,22 +44,18 @@ const (
 // ask kubernetes for the service account token, that it will use to proxy secrets
 // between the task pods and the vault server.
 type Controller struct {
-	kubeclient kubernetes.Interface
-	nebclient  clientset.Interface
-	tekclient  tekclientset.Interface
-
+	kubeclient         kubernetes.Interface
+	nebclient          clientset.Interface
+	tekclient          tekclientset.Interface
 	nebInformerFactory informers.SharedInformerFactory
 	saInformer         sainformers.SecretAuthInformer
 	saInformerSynced   cache.InformerSynced
-
 	tekInformerFactory tekinformers.SharedInformerFactory
 	plrInformer        tekv1informer.PipelineRunInformer
 	plrInformerSynced  cache.InformerSynced
-
-	saworker  *worker
-	plrworker *worker
-
-	vaultClient *vault.VaultAuth
+	saworker           *worker
+	plrworker          *worker
+	vaultClient        *vault.VaultAuth
 
 	cfg *config.SecretAuthControllerConfig
 }
@@ -99,8 +92,8 @@ func (c *Controller) Run(numWorkers int, stopCh chan struct{}) error {
 // secret handling and authentication.
 // TODO break this logic out into smaller chunks... especially the calls to the vault api
 func (c *Controller) processSingleItem(key string) error {
-	log.Println("syncing SecretAuth", key)
-	defer log.Println("done syncing SecretAuth", key)
+	klog.Infof("syncing SecretAuth %s", key)
+	defer klog.Infof("done syncing SecretAuth %s", key)
 
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
@@ -118,103 +111,97 @@ func (c *Controller) processSingleItem(key string) error {
 	// if anything fails while creating resources, the status object will not be filled out
 	// and saved. this means that if any of the keys are empty, we haven't created resources yet.
 	if sa.Status.ServiceAccount != "" {
-		log.Printf("resources for %s have already been created", key)
+		klog.Infof("resources have already been created %s", key)
 		return nil
 	}
 
 	var (
 		saccount  *corev1.ServiceAccount
-		rbac      *rbacv1.ClusterRoleBinding
+		role      *rbacv1.Role
+		binding   *rbacv1.RoleBinding
 		pod       *corev1.Pod
 		service   *corev1.Service
 		configMap *corev1.ConfigMap
 	)
 
-	log.Println("creating service account for", sa.Spec.WorkflowID)
-	saccount, err = c.kubeclient.CoreV1().ServiceAccounts(namespace).Create(serviceAccount(sa))
-	if errors.IsAlreadyExists(err) {
-		saccount, err = c.kubeclient.CoreV1().ServiceAccounts(namespace).Get(getName(sa), metav1.GetOptions{})
-	}
+	saccount, err = createServiceAccount(c.kubeclient, sa)
 	if err != nil {
 		return err
 	}
 
-	log.Println("writing vault readonly access policy for ", sa.Spec.WorkflowID)
+	klog.Infof("writing vault readonly access policy %s", sa.Spec.WorkflowID)
 	// now we let vault know about the service account
 	if err := c.vaultClient.WritePolicy(namespace, sa.Spec.WorkflowID); err != nil {
 		return err
 	}
 
-	log.Println("enabling vault access for workflow service account for ", sa.Spec.WorkflowID)
+	klog.Infof("enabling vault access for workflow service account %s", sa.Spec.WorkflowID)
 	if err := c.vaultClient.WriteRole(namespace, saccount.GetName(), namespace); err != nil {
 		return err
 	}
 
-	log.Println("creating role bindings for", sa.Spec.WorkflowID)
-	rbac, err = c.kubeclient.RbacV1().ClusterRoleBindings().Create(rbacRoleBinding(sa))
-	if errors.IsAlreadyExists(err) {
-		rbac, err = c.kubeclient.RbacV1().ClusterRoleBindings().Get(getName(sa), metav1.GetOptions{})
-	}
+	role, binding, err = createRBAC(c.kubeclient, sa)
 	if err != nil {
 		return err
 	}
 
-	log.Println("creating metadata service pod for", sa.Spec.WorkflowID)
-	pod, err = c.kubeclient.CoreV1().Pods(namespace).Create(metadataServicePod(
-		c.cfg, saccount, sa, c.vaultClient.Address(), c.vaultClient.EngineMount()))
-	if errors.IsAlreadyExists(err) {
-		pod, err = c.kubeclient.CoreV1().Pods(namespace).Get(metadataServiceName, metav1.GetOptions{})
-	}
+	pod, err = createMetadataAPIPod(
+		c.kubeclient,
+		c.cfg.MetadataServiceImage,
+		saccount,
+		sa,
+		c.vaultClient.Address(),
+		c.vaultClient.EngineMount(),
+	)
 	if err != nil {
 		return err
 	}
 
-	log.Println("creating pod service for", sa.Spec.WorkflowID)
-	service, err = c.kubeclient.CoreV1().Services(namespace).Create(metadataServiceService(sa))
-	if errors.IsAlreadyExists(err) {
-		service, err = c.kubeclient.CoreV1().Services(namespace).Get(metadataServiceName, metav1.GetOptions{})
-	}
+	service, err = createMetadataAPIService(c.kubeclient, sa)
 	if err != nil {
 		return err
 	}
 
-	// wait for pod to start before updating our status
-	log.Println("waiting for metadata service to become ready")
-
-	if _, err := c.waitForPod(pod); err != nil {
-		return err
-	}
-
-	// ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-	// if err := c.waitForServiceToActuallyBeUp(ctx, service); err != nil {
-	// 	return err
-	// }
-
-	// cancel()
-
-	<-time.After(time.Second * 6)
-
-	log.Println("metadata service is ready")
-
-	log.Println("creating config map for", sa.Spec.WorkflowID)
-	configMap, err = c.kubeclient.CoreV1().ConfigMaps(namespace).Create(workflowConfigMap(service, sa))
-	if errors.IsAlreadyExists(err) {
-		configMap, err = c.kubeclient.CoreV1().ConfigMaps(namespace).Get(getName(sa), metav1.GetOptions{})
-	}
+	configMap, err = createWorkflowConfigMap(c.kubeclient, service, sa)
 	if err != nil {
 		return err
 	}
+
+	klog.Infof("waiting for metadata service to become ready %s", sa.Spec.WorkflowID)
+
+	// This waits for a Modified watch event on a service's Endpoint object.
+	// When this event is received, it will check it's addresses to see if there's
+	// pods that are ready to be served.
+	if err := c.waitForEndpoint(service); err != nil {
+		return err
+	}
+
+	// Because of a possible race condition bug in the kernel network stack, there's a very
+	// tiny window of time where packets will get dropped if you try to make requests to the ports
+	// that are supposed to be forwarded to underlying pods. This unfortunately happens quite frequently
+	// since we exec task pods from Tekton very quickly. This function will make GET requests in a loop
+	// to the readiness endpoint of the pod (via the service dns) to make sure it actually gets a 200
+	// response before setting the status object on SecretAuth resources.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+
+	if err := c.waitForServiceToActuallyBeUp(ctx, service); err != nil {
+		return err
+	}
+
+	klog.Infof("metadata service is ready %s", sa.Spec.WorkflowID)
 
 	saCopy := sa.DeepCopy()
 	saCopy.Status.MetadataServicePod = pod.GetName()
 	saCopy.Status.MetadataServiceService = service.GetName()
 	saCopy.Status.ServiceAccount = saccount.GetName()
 	saCopy.Status.ConfigMap = configMap.GetName()
-	saCopy.Status.ClusterRoleBinding = rbac.GetName()
+	saCopy.Status.Role = role.GetName()
+	saCopy.Status.RoleBinding = binding.GetName()
 	saCopy.Status.VaultPolicy = namespace
 	saCopy.Status.VaultAuthRole = namespace
 
-	log.Println("updating secretauth resource status for ", sa.Spec.WorkflowID)
+	klog.Info("updating secretauth resource status for ", sa.Spec.WorkflowID)
 	saCopy, err = c.nebclient.NebulaV1().SecretAuths(namespace).Update(saCopy)
 	if err != nil {
 		return err
@@ -234,11 +221,8 @@ func (c *Controller) waitForEndpoint(service *corev1.Service) error {
 		return err
 	}
 
-	listOptions := metav1.ListOptions{
-		FieldSelector:   fields.OneTermEqualSelector("metadata.name", endpoints.GetName()).String(),
-		ResourceVersion: endpoints.ObjectMeta.ResourceVersion,
-		TimeoutSeconds:  &timeout,
-	}
+	listOptions := metav1.SingleObject(endpoints.ObjectMeta)
+	listOptions.TimeoutSeconds = &timeout
 
 	watcher, err := c.kubeclient.CoreV1().Endpoints(endpoints.GetNamespace()).Watch(listOptions)
 	if err != nil {
@@ -295,44 +279,6 @@ func (c *Controller) waitForServiceToActuallyBeUp(ctx context.Context, service *
 	return nil
 }
 
-func (c *Controller) waitForPod(pod *corev1.Pod) (*corev1.Pod, error) {
-	var conditionMet bool
-
-	timeout := int64(50)
-
-	solist := metav1.SingleObject(pod.ObjectMeta)
-	solist.TimeoutSeconds = &timeout
-
-	watcher, err := c.kubeclient.CoreV1().Pods(pod.GetNamespace()).Watch(solist)
-	if err != nil {
-		return nil, err
-	}
-
-	for event := range watcher.ResultChan() {
-		switch event.Type {
-		case watch.Modified:
-			pod = event.Object.(*corev1.Pod)
-
-		conditionLoop:
-			for _, cond := range pod.Status.Conditions {
-				if cond.Type == corev1.PodReady && cond.Status == corev1.ConditionTrue {
-					conditionMet = true
-					watcher.Stop()
-
-					break conditionLoop
-				}
-			}
-		}
-	}
-
-	// this will not be true if the Watch call times out
-	if !conditionMet {
-		return nil, fmt.Errorf("timeout occurred while waiting for metadata api pod to be ready")
-	}
-
-	return pod, nil
-}
-
 func (c *Controller) enqueueSecretAuth(obj interface{}) {
 	sa := obj.(*nebulav1.SecretAuth)
 
@@ -361,8 +307,8 @@ func (c *Controller) enqueuePipelineRunChange(old, obj interface{}) {
 }
 
 func (c *Controller) processPipelineRunChange(key string) error {
-	log.Println("syncing PipelineRun change", key)
-	defer log.Println("done syncing PipelineRun change", key)
+	klog.Infof("syncing PipelineRun change %s", key)
+	defer klog.Infof("done syncing PipelineRun change %s", key)
 
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
@@ -386,7 +332,7 @@ func (c *Controller) processPipelineRunChange(key string) error {
 		}
 
 		for _, sa := range sas.Items {
-			log.Println("deleting resources created by:", sa.GetName())
+			klog.Infof("deleting resources created by %s", sa.GetName())
 
 			if err := c.kubeclient.CoreV1().Pods(namespace).Delete(sa.Status.MetadataServicePod, &metav1.DeleteOptions{}); err != nil {
 				return err
@@ -401,6 +347,14 @@ func (c *Controller) processPipelineRunChange(key string) error {
 			}
 
 			if err := c.kubeclient.CoreV1().ConfigMaps(namespace).Delete(sa.Status.ConfigMap, &metav1.DeleteOptions{}); err != nil {
+				return err
+			}
+
+			if err := c.kubeclient.RbacV1().RoleBindings(namespace).Delete(sa.Status.RoleBinding, &metav1.DeleteOptions{}); err != nil {
+				return err
+			}
+
+			if err := c.kubeclient.RbacV1().Roles(namespace).Delete(sa.Status.Role, &metav1.DeleteOptions{}); err != nil {
 				return err
 			}
 
@@ -476,65 +430,114 @@ func NewController(cfg *config.SecretAuthControllerConfig, vaultClient *vault.Va
 	return c, nil
 }
 
-func serviceAccount(sa *nebulav1.SecretAuth) *corev1.ServiceAccount {
-	return &corev1.ServiceAccount{
+func createServiceAccount(kc kubernetes.Interface, sa *nebulav1.SecretAuth) (*corev1.ServiceAccount, error) {
+	saccount := &corev1.ServiceAccount{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
 			Kind:       "ServiceAccount",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      getName(sa),
+			Name:      getName(sa, ""),
+			Namespace: sa.GetNamespace(),
+			Labels:    getLabels(sa, nil),
+		},
+	}
+
+	klog.Infof("creating service account %s", sa.Spec.WorkflowID)
+	saccount, err := kc.CoreV1().ServiceAccounts(sa.GetNamespace()).Create(saccount)
+	if errors.IsAlreadyExists(err) {
+		saccount, err = kc.CoreV1().ServiceAccounts(sa.GetNamespace()).Get(getName(sa, ""), metav1.GetOptions{})
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return saccount, nil
+}
+
+func createRBAC(kc kubernetes.Interface, sa *nebulav1.SecretAuth) (*rbacv1.Role, *rbacv1.RoleBinding, error) {
+	var err error
+
+	role := &rbacv1.Role{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "rbac.authorization.k8s.io/v1",
+			Kind:       "Role",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      getName(sa, ""),
 			Namespace: sa.GetNamespace(),
 		},
-		ImagePullSecrets: []corev1.LocalObjectReference{
+		Rules: []rbacv1.PolicyRule{
 			{
-				Name: "image-pull-secret",
+				APIGroups: []string{""},
+				Resources: []string{"configmaps"},
+				Verbs:     []string{"list", "watch", "get"},
 			},
 		},
 	}
-}
 
-func rbacRoleBinding(sa *nebulav1.SecretAuth) *rbacv1.ClusterRoleBinding {
-	return &rbacv1.ClusterRoleBinding{
+	binding := &rbacv1.RoleBinding{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "rbac.authorization.k8s.io/v1",
-			Kind:       "ClusterRoleBinding",
+			Kind:       "RoleBinding",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      getName(sa),
+			Name:      getName(sa, ""),
 			Namespace: sa.GetNamespace(),
 		},
 		RoleRef: rbacv1.RoleRef{
-			Kind:     "ClusterRole",
+			Kind:     "Role",
 			APIGroup: "rbac.authorization.k8s.io",
-			Name:     "admin",
+			Name:     getName(sa, ""),
 		},
 		Subjects: []rbacv1.Subject{
 			{
-				Name:      getName(sa),
+				Name:      getName(sa, ""),
 				Kind:      "ServiceAccount",
 				Namespace: sa.GetNamespace(),
 			},
 		},
 	}
+
+	klog.Infof("creating role %s", sa.Spec.WorkflowID)
+	role, err = kc.RbacV1().Roles(sa.GetNamespace()).Create(role)
+	if errors.IsAlreadyExists(err) {
+		role, err = kc.RbacV1().Roles(sa.GetNamespace()).Get(getName(sa, ""), metav1.GetOptions{})
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+
+	klog.Infof("creating role binding %s", sa.Spec.WorkflowID)
+	binding, err = kc.RbacV1().RoleBindings(sa.GetNamespace()).Create(binding)
+	if errors.IsAlreadyExists(err) {
+		binding, err = kc.RbacV1().RoleBindings(sa.GetNamespace()).Get(getName(sa, ""), metav1.GetOptions{})
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return role, binding, nil
 }
 
-func metadataServicePod(cfg *config.SecretAuthControllerConfig, saccount *corev1.ServiceAccount,
-	sa *nebulav1.SecretAuth, vaultAddr, vaultEngineMount string) *corev1.Pod {
+func createMetadataAPIPod(kc kubernetes.Interface, image string, saccount *corev1.ServiceAccount,
+	sa *nebulav1.SecretAuth, vaultAddr, vaultEngineMount string) (*corev1.Pod, error) {
 
-	return &corev1.Pod{
+	name := getName(sa, metadataServiceName)
+
+	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      metadataServiceName,
+			Name:      name,
 			Namespace: sa.GetNamespace(),
 			Labels: map[string]string{
-				"app": metadataServiceName,
+				"app": name,
 			},
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
 				{
-					Name:            metadataServiceName,
-					Image:           cfg.MetadataServiceImage,
+					Name:            name,
+					Image:           image,
 					ImagePullPolicy: corev1.PullIfNotPresent,
 					Command: []string{
 						"/usr/bin/nebula-metadata-api",
@@ -571,12 +574,24 @@ func metadataServicePod(cfg *config.SecretAuthControllerConfig, saccount *corev1
 			RestartPolicy:      corev1.RestartPolicyOnFailure,
 		},
 	}
+
+	klog.Infof("creating metadata service pod %s", sa.Spec.WorkflowID)
+
+	pod, err := kc.CoreV1().Pods(sa.GetNamespace()).Create(pod)
+	if errors.IsAlreadyExists(err) {
+		pod, err = kc.CoreV1().Pods(sa.GetNamespace()).Get(name, metav1.GetOptions{})
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return pod, nil
 }
 
-func metadataServiceService(sa *nebulav1.SecretAuth) *corev1.Service {
-	return &corev1.Service{
+func createMetadataAPIService(kc kubernetes.Interface, sa *nebulav1.SecretAuth) (*corev1.Service, error) {
+	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      metadataServiceName,
+			Name:      getName(sa, metadataServiceName),
 			Namespace: sa.GetNamespace(),
 		},
 		Spec: corev1.ServiceSpec{
@@ -587,24 +602,68 @@ func metadataServiceService(sa *nebulav1.SecretAuth) *corev1.Service {
 				},
 			},
 			Selector: map[string]string{
-				"app": metadataServiceName,
+				"app": getName(sa, metadataServiceName),
 			},
 		},
 	}
+
+	klog.Infof("creating pod service %s", sa.Spec.WorkflowID)
+
+	service, err := kc.CoreV1().Services(sa.GetNamespace()).Create(service)
+	if errors.IsAlreadyExists(err) {
+		service, err = kc.CoreV1().Services(sa.GetNamespace()).Get(getName(sa, metadataServiceName), metav1.GetOptions{})
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return service, nil
 }
 
-func workflowConfigMap(service *corev1.Service, sa *nebulav1.SecretAuth) *corev1.ConfigMap {
-	return &corev1.ConfigMap{
+func createWorkflowConfigMap(kc kubernetes.Interface, service *corev1.Service, sa *nebulav1.SecretAuth) (*corev1.ConfigMap, error) {
+	configMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      getName(sa),
+			Name:      getName(sa, ""),
 			Namespace: sa.GetNamespace(),
 		},
 		Data: map[string]string{
 			"metadata-api-url": fmt.Sprintf("http://%s.%s.svc.cluster.local", service.GetName(), sa.GetNamespace()),
 		},
 	}
+
+	klog.Infof("creating config map %s", sa.Spec.WorkflowID)
+	configMap, err := kc.CoreV1().ConfigMaps(sa.GetNamespace()).Create(configMap)
+	if errors.IsAlreadyExists(err) {
+		configMap, err = kc.CoreV1().ConfigMaps(sa.GetNamespace()).Get(getName(sa, ""), metav1.GetOptions{})
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return configMap, nil
 }
 
-func getName(sa *nebulav1.SecretAuth) string {
-	return fmt.Sprintf("%s-%d", sa.Spec.WorkflowID, sa.Spec.RunNum)
+func getName(sa *nebulav1.SecretAuth, name string) string {
+	prefix := "workflow-run"
+
+	if name == "" {
+		return fmt.Sprintf("%s-%s", prefix, sa.Spec.WorkflowRunID)
+	}
+
+	return fmt.Sprintf("%s-%s-%s", prefix, sa.Spec.WorkflowRunID, name)
+}
+
+func getLabels(sa *nebulav1.SecretAuth, additional map[string]string) map[string]string {
+	labels := map[string]string{
+		"workflow-run-id": sa.Spec.WorkflowRunID,
+		"workflow-id":     sa.Spec.WorkflowID,
+	}
+
+	if additional != nil {
+		for k, v := range additional {
+			labels[k] = v
+		}
+	}
+
+	return labels
 }
