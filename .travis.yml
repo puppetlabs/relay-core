@@ -6,9 +6,9 @@ env:
   - GO111MODULE=on
 jobs:
   include:
-  - stage: test
-    script:
-    - "./scripts/ci test"
+  # - stage: test
+  #   script:
+  #   - "./scripts/ci test"
   - stage: build
     before_script:
     - if [ ! -d "$HOME/google-cloud-sdk/bin" ]; then rm -rf $HOME/google-cloud-sdk; export CLOUDSDK_CORE_DISABLE_PROMPTS=1; curl https://sdk.cloud.google.com | bash; fi
