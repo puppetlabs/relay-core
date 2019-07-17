@@ -485,6 +485,7 @@ func createRBAC(kc kubernetes.Interface, sa *nebulav1.SecretAuth) (*rbacv1.Role,
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      getName(sa, ""),
 			Namespace: sa.GetNamespace(),
+			Labels:    getLabels(sa, nil),
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -503,6 +504,7 @@ func createRBAC(kc kubernetes.Interface, sa *nebulav1.SecretAuth) (*rbacv1.Role,
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      getName(sa, ""),
 			Namespace: sa.GetNamespace(),
+			Labels:    getLabels(sa, nil),
 		},
 		RoleRef: rbacv1.RoleRef{
 			Kind:     "Role",
@@ -548,9 +550,9 @@ func createMetadataAPIPod(kc kubernetes.Interface, image string, saccount *corev
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: sa.GetNamespace(),
-			Labels: map[string]string{
+			Labels: getLabels(sa, map[string]string{
 				"app": name,
-			},
+			}),
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
@@ -608,10 +610,15 @@ func createMetadataAPIPod(kc kubernetes.Interface, image string, saccount *corev
 }
 
 func createMetadataAPIService(kc kubernetes.Interface, sa *nebulav1.SecretAuth) (*corev1.Service, error) {
+	name := getName(sa, metadataServiceName)
+
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      getName(sa, metadataServiceName),
+			Name:      name,
 			Namespace: sa.GetNamespace(),
+			Labels: getLabels(sa, map[string]string{
+				"app": name,
+			}),
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
@@ -621,7 +628,7 @@ func createMetadataAPIService(kc kubernetes.Interface, sa *nebulav1.SecretAuth) 
 				},
 			},
 			Selector: map[string]string{
-				"app": getName(sa, metadataServiceName),
+				"app": name,
 			},
 		},
 	}
@@ -630,7 +637,7 @@ func createMetadataAPIService(kc kubernetes.Interface, sa *nebulav1.SecretAuth) 
 
 	service, err := kc.CoreV1().Services(sa.GetNamespace()).Create(service)
 	if errors.IsAlreadyExists(err) {
-		service, err = kc.CoreV1().Services(sa.GetNamespace()).Get(getName(sa, metadataServiceName), metav1.GetOptions{})
+		service, err = kc.CoreV1().Services(sa.GetNamespace()).Get(name, metav1.GetOptions{})
 	}
 	if err != nil {
 		return nil, err
@@ -644,6 +651,7 @@ func createWorkflowConfigMap(kc kubernetes.Interface, service *corev1.Service, s
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      getName(sa, ""),
 			Namespace: sa.GetNamespace(),
+			Labels:    getLabels(sa, nil),
 		},
 		Data: map[string]string{
 			"metadata-api-url": fmt.Sprintf("http://%s.%s.svc.cluster.local", service.GetName(), sa.GetNamespace()),
