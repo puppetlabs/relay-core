@@ -1,8 +1,10 @@
 package secretauth
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"time"
 
 	tekv1alpha1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
@@ -176,15 +178,6 @@ func (c *Controller) processSingleItem(key string) error {
 		return err
 	}
 
-	log.Println("creating config map for", sa.Spec.WorkflowID)
-	configMap, err = c.kubeclient.CoreV1().ConfigMaps(namespace).Create(workflowConfigMap(sa))
-	if errors.IsAlreadyExists(err) {
-		configMap, err = c.kubeclient.CoreV1().ConfigMaps(namespace).Get(getName(sa), metav1.GetOptions{})
-	}
-	if err != nil {
-		return err
-	}
-
 	// wait for pod to start before updating our status
 	log.Println("waiting for metadata service to become ready")
 
@@ -192,7 +185,23 @@ func (c *Controller) processSingleItem(key string) error {
 		return err
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	if err := c.waitForServiceToActuallyBeUp(ctx, service); err != nil {
+		return err
+	}
+
+	cancel()
+
 	log.Println("metadata service is ready")
+
+	log.Println("creating config map for", sa.Spec.WorkflowID)
+	configMap, err = c.kubeclient.CoreV1().ConfigMaps(namespace).Create(workflowConfigMap(service, sa))
+	if errors.IsAlreadyExists(err) {
+		configMap, err = c.kubeclient.CoreV1().ConfigMaps(namespace).Get(getName(sa), metav1.GetOptions{})
+	}
+	if err != nil {
+		return err
+	}
 
 	saCopy := sa.DeepCopy()
 	saCopy.Status.MetadataServicePod = pod.GetName()
@@ -260,7 +269,31 @@ eventLoop:
 	return nil
 }
 
-func (c *Controller) waitForPod(pod *corev1.Pod) error {
+func (c *Controller) waitForServiceToActuallyBeUp(ctx context.Context, service *corev1.Service) error {
+	u := fmt.Sprintf("http://%s.%s.svc.cluster.local/healthz", service.GetName(), service.GetNamespace())
+
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timeout occurred while waiting for the metadata service to be ready")
+		default:
+			resp, err := http.Get(u)
+			if err != nil {
+				break
+			}
+
+			if resp.StatusCode == http.StatusOK {
+				return nil
+			}
+		}
+
+		<-time.After(time.Millisecond * 500)
+	}
+
+	return nil
+}
+
+func (c *Controller) waitForPod(pod *corev1.Pod) (*corev1.Pod, error) {
 	var conditionMet bool
 
 	timeout := int64(30)
@@ -270,13 +303,13 @@ func (c *Controller) waitForPod(pod *corev1.Pod) error {
 
 	watcher, err := c.kubeclient.CoreV1().Pods(pod.GetNamespace()).Watch(solist)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	for event := range watcher.ResultChan() {
 		switch event.Type {
 		case watch.Modified:
-			pod := event.Object.(*corev1.Pod)
+			pod = event.Object.(*corev1.Pod)
 
 		conditionLoop:
 			for _, cond := range pod.Status.Conditions {
@@ -292,10 +325,10 @@ func (c *Controller) waitForPod(pod *corev1.Pod) error {
 
 	// this will not be true if the Watch call times out
 	if !conditionMet {
-		return fmt.Errorf("timeout occurred while waiting for metadata api pod to be ready")
+		return nil, fmt.Errorf("timeout occurred while waiting for metadata api pod to be ready")
 	}
 
-	return nil
+	return pod, nil
 }
 
 func (c *Controller) enqueueSecretAuth(obj interface{}) {
@@ -558,14 +591,14 @@ func metadataServiceService(sa *nebulav1.SecretAuth) *corev1.Service {
 	}
 }
 
-func workflowConfigMap(sa *nebulav1.SecretAuth) *corev1.ConfigMap {
+func workflowConfigMap(service *corev1.Service, sa *nebulav1.SecretAuth) *corev1.ConfigMap {
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      getName(sa),
 			Namespace: sa.GetNamespace(),
 		},
 		Data: map[string]string{
-			"metadata-api-url": fmt.Sprintf("http://%s.%s.svc.cluster.local", metadataServiceName, sa.GetNamespace()),
+			"metadata-api-url": fmt.Sprintf("http://%s.%s.svc.cluster.local", service.GetName(), sa.GetNamespace()),
 		},
 	}
 }
