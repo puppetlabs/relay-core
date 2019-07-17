@@ -263,17 +263,23 @@ func (c *Controller) waitForServiceToActuallyBeUp(ctx context.Context, service *
 		case <-ctx.Done():
 			return fmt.Errorf("timeout occurred while waiting for the metadata service to be ready")
 		default:
+			<-time.After(time.Millisecond * 750)
+
 			resp, err := http.Get(u)
 			if err != nil {
-				break
+				klog.Infof("got an error when probing the metadata api %s", err)
+
+				continue
 			}
 
-			if resp.StatusCode == http.StatusOK {
-				return nil
+			if resp.StatusCode != http.StatusOK {
+				klog.Infof("got an invalid status code when probing the metadata api %d", resp.StatusCode)
+
+				continue
 			}
+
+			return nil
 		}
-
-		<-time.After(time.Millisecond * 500)
 	}
 
 	return nil
