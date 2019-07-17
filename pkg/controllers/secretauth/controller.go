@@ -181,16 +181,18 @@ func (c *Controller) processSingleItem(key string) error {
 	// wait for pod to start before updating our status
 	log.Println("waiting for metadata service to become ready")
 
-	if err := c.waitForEndpoint(service); err != nil {
+	if _, err := c.waitForPod(pod); err != nil {
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-	if err := c.waitForServiceToActuallyBeUp(ctx, service); err != nil {
-		return err
-	}
+	// ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	// if err := c.waitForServiceToActuallyBeUp(ctx, service); err != nil {
+	// 	return err
+	// }
 
-	cancel()
+	// cancel()
+
+	<-time.After(time.Second * 6)
 
 	log.Println("metadata service is ready")
 
@@ -296,7 +298,7 @@ func (c *Controller) waitForServiceToActuallyBeUp(ctx context.Context, service *
 func (c *Controller) waitForPod(pod *corev1.Pod) (*corev1.Pod, error) {
 	var conditionMet bool
 
-	timeout := int64(30)
+	timeout := int64(50)
 
 	solist := metav1.SingleObject(pod.ObjectMeta)
 	solist.TimeoutSeconds = &timeout

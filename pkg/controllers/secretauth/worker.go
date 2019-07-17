@@ -1,6 +1,7 @@
 package secretauth
 
 import (
+	"log"
 	"time"
 
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -43,6 +44,8 @@ func (w *worker) handleError(err error, key interface{}) {
 
 		return
 	}
+
+	log.Println("handling error", err)
 
 	if w.workqueue.NumRequeues(key) < w.maxRetries {
 		w.workqueue.AddRateLimited(key)
