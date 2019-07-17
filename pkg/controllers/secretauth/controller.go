@@ -213,17 +213,23 @@ func (c *Controller) processSingleItem(key string) error {
 }
 
 func (c *Controller) waitForEndpoint(service *corev1.Service) error {
-	var conditionMet bool
+	var (
+		conditionMet bool
+		timeout      = int64(30)
+	)
 
-	timeout := int64(30)
+	endpoints, err := c.kubeclient.CoreV1().Endpoints(service.GetNamespace()).Get(service.GetName(), metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
 
 	listOptions := metav1.ListOptions{
-		FieldSelector:   fields.OneTermEqualSelector("metadata.name", service.GetName()).String(),
-		ResourceVersion: service.ObjectMeta.ResourceVersion,
+		FieldSelector:   fields.OneTermEqualSelector("metadata.name", endpoints.GetName()).String(),
+		ResourceVersion: endpoints.ObjectMeta.ResourceVersion,
 		TimeoutSeconds:  &timeout,
 	}
 
-	watcher, err := c.kubeclient.CoreV1().Endpoints(service.GetNamespace()).Watch(listOptions)
+	watcher, err := c.kubeclient.CoreV1().Endpoints(endpoints.GetNamespace()).Watch(listOptions)
 	if err != nil {
 		return err
 	}
@@ -231,18 +237,19 @@ func (c *Controller) waitForEndpoint(service *corev1.Service) error {
 eventLoop:
 	for event := range watcher.ResultChan() {
 		switch event.Type {
-		case watch.Added:
-			watcher.Stop()
-			conditionMet = true
-			break eventLoop
+		case watch.Modified:
+			endpoints := event.Object.(*corev1.Endpoints)
 
-			// endpoints := event.Object.(*corev1.Endpoints)
-			// if endpoints.GetName() == service.GetName() {
-			// 	watcher.Stop()
-			// 	conditionMet = true
+			if endpoints.Subsets != nil && len(endpoints.Subsets) > 0 {
+				for _, subset := range endpoints.Subsets {
+					if subset.Addresses != nil && len(subset.Addresses) > 0 {
+						watcher.Stop()
+						conditionMet = true
 
-			// 	break eventLoop
-			// }
+						break eventLoop
+					}
+				}
+			}
 		}
 	}
 
