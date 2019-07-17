@@ -218,8 +218,9 @@ func (c *Controller) waitForEndpoint(service *corev1.Service) error {
 	timeout := int64(30)
 
 	listOptions := metav1.ListOptions{
-		FieldSelector:  fields.OneTermEqualSelector("metadata.name", service.GetName()).String(),
-		TimeoutSeconds: &timeout,
+		FieldSelector:   fields.OneTermEqualSelector("metadata.name", service.GetName()).String(),
+		ResourceVersion: service.ObjectMeta.ResourceVersion,
+		TimeoutSeconds:  &timeout,
 	}
 
 	watcher, err := c.kubeclient.CoreV1().Endpoints(service.GetNamespace()).Watch(listOptions)
