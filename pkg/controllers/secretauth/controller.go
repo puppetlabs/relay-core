@@ -21,6 +21,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog"
 
 	nebulav1 "github.com/puppetlabs/nebula-tasks/pkg/apis/nebula.puppet.com/v1"
@@ -34,6 +35,9 @@ import (
 const (
 	// default name for the workflow metadata api pod and service
 	metadataServiceName = "metadata-api"
+
+	// name for the image pull secret used by the metadata API, if needed
+	metadataImagePullSecretName = "metadata-api-docker-registry"
 )
 
 // Controller watches for nebulav1.SecretAuth resource changes.
@@ -44,6 +48,7 @@ const (
 // ask kubernetes for the service account token, that it will use to proxy secrets
 // between the task pods and the vault server.
 type Controller struct {
+	kubeclientconfig   clientcmd.ClientConfig
 	kubeclient         kubernetes.Interface
 	nebclient          clientset.Interface
 	tekclient          tekclientset.Interface
@@ -116,6 +121,7 @@ func (c *Controller) processSingleItem(key string) error {
 	}
 
 	var (
+		ips       *corev1.Secret
 		saccount  *corev1.ServiceAccount
 		role      *rbacv1.Role
 		binding   *rbacv1.RoleBinding
@@ -124,7 +130,15 @@ func (c *Controller) processSingleItem(key string) error {
 		configMap *corev1.ConfigMap
 	)
 
-	saccount, err = createServiceAccount(c.kubeclient, sa)
+	if c.cfg.MetadataServiceImagePullSecret != "" {
+		klog.Info("copying secret for metadata service image")
+		ips, err = copyImagePullSecret(c.kubeclientconfig, c.kubeclient, sa, c.cfg.MetadataServiceImagePullSecret)
+		if err != nil {
+			return err
+		}
+	}
+
+	saccount, err = createServiceAccount(c.kubeclient, sa, ips)
 	if err != nil {
 		return err
 	}
@@ -197,6 +211,10 @@ func (c *Controller) processSingleItem(key string) error {
 	saCopy.Status.RoleBinding = binding.GetName()
 	saCopy.Status.VaultPolicy = namespace
 	saCopy.Status.VaultAuthRole = namespace
+
+	if ips != nil {
+		saCopy.Status.MetadataServiceImagePullSecret = ips.GetName()
+	}
 
 	klog.Info("updating secretauth resource status for ", sa.Spec.WorkflowID)
 	saCopy, err = c.nebclient.NebulaV1().SecretAuths(namespace).Update(saCopy)
@@ -357,6 +375,13 @@ func (c *Controller) processPipelineRunChange(key string) error {
 				return err
 			}
 
+			if sa.Status.MetadataServiceImagePullSecret != "" {
+				err = core.Secrets(namespace).Delete(sa.Status.MetadataServiceImagePullSecret, opts)
+				if err != nil {
+					return err
+				}
+			}
+
 			err = rbac.RoleBindings(namespace).Delete(sa.Status.RoleBinding, opts)
 			if err != nil {
 				return err
@@ -387,22 +412,27 @@ func (c *Controller) processPipelineRunChange(key string) error {
 }
 
 func NewController(cfg *config.SecretAuthControllerConfig, vaultClient *vault.VaultAuth) (*Controller, error) {
-	kcfg, err := clientcmd.BuildConfigFromFlags(cfg.KubeMasterURL, cfg.Kubeconfig)
+	kcfg := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		&clientcmd.ClientConfigLoadingRules{ExplicitPath: cfg.Kubeconfig},
+		&clientcmd.ConfigOverrides{ClusterInfo: clientcmdapi.Cluster{Server: cfg.KubeMasterURL}},
+	)
+
+	kcc, err := kcfg.ClientConfig()
 	if err != nil {
 		return nil, err
 	}
 
-	kc, err := kubernetes.NewForConfig(kcfg)
+	kc, err := kubernetes.NewForConfig(kcc)
 	if err != nil {
 		return nil, err
 	}
 
-	nebclient, err := clientset.NewForConfig(kcfg)
+	nebclient, err := clientset.NewForConfig(kcc)
 	if err != nil {
 		return nil, err
 	}
 
-	tekclient, err := tekclientset.NewForConfig(kcfg)
+	tekclient, err := tekclientset.NewForConfig(kcc)
 	if err != nil {
 		return nil, err
 	}
@@ -414,6 +444,7 @@ func NewController(cfg *config.SecretAuthControllerConfig, vaultClient *vault.Va
 	plrInformer := tekInformerFactory.Tekton().V1alpha1().PipelineRuns()
 
 	c := &Controller{
+		kubeclientconfig:   kcfg,
 		kubeclient:         kc,
 		nebclient:          nebclient,
 		tekclient:          tekclient,
@@ -441,7 +472,47 @@ func NewController(cfg *config.SecretAuthControllerConfig, vaultClient *vault.Va
 	return c, nil
 }
 
-func createServiceAccount(kc kubernetes.Interface, sa *nebulav1.SecretAuth) (*corev1.ServiceAccount, error) {
+func copyImagePullSecret(kcfg clientcmd.ClientConfig, kc kubernetes.Interface, sa *nebulav1.SecretAuth, imagePullSecretKey string) (*corev1.Secret, error) {
+	namespace, name, err := cache.SplitMetaNamespaceKey(imagePullSecretKey)
+	if err != nil {
+		return nil, err
+	} else if namespace == "" {
+		namespace, _, _ = kcfg.Namespace()
+	}
+
+	ref, err := kc.CoreV1().Secrets(namespace).Get(name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	if ref.Type != corev1.SecretType("kubernetes.io/dockerconfigjson") {
+		klog.Warningf("image pull secret is not of type kubernetes.io/dockerconfigjson")
+	}
+
+	secret := &corev1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Secret",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      metadataImagePullSecretName,
+			Namespace: sa.GetNamespace(),
+		},
+		Type: ref.Type,
+		Data: ref.Data,
+	}
+
+	secret, err = kc.CoreV1().Secrets(sa.GetNamespace()).Create(secret)
+	if errors.IsAlreadyExists(err) {
+		secret, err = kc.CoreV1().Secrets(sa.GetNamespace()).Get(secret.GetName(), metav1.GetOptions{})
+	} else if err != nil {
+		return nil, err
+	}
+
+	return secret, nil
+}
+
+func createServiceAccount(kc kubernetes.Interface, sa *nebulav1.SecretAuth, imagePullSecret *corev1.Secret) (*corev1.ServiceAccount, error) {
 	saccount := &corev1.ServiceAccount{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
@@ -452,6 +523,12 @@ func createServiceAccount(kc kubernetes.Interface, sa *nebulav1.SecretAuth) (*co
 			Namespace: sa.GetNamespace(),
 			Labels:    getLabels(sa, nil),
 		},
+	}
+
+	if imagePullSecret != nil {
+		saccount.ImagePullSecrets = []corev1.LocalObjectReference{
+			{Name: imagePullSecret.GetName()},
+		}
 	}
 
 	klog.Infof("creating service account %s", sa.Spec.WorkflowID)
