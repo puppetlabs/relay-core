@@ -33,7 +33,7 @@ import (
 
 const (
 	// default name for the workflow metadata api pod and service
-	metadataServiceName = "workflow-metadata-api"
+	metadataServiceName = "metadata-api"
 )
 
 // Controller watches for nebulav1.SecretAuth resource changes.
@@ -536,20 +536,18 @@ func createRBAC(kc kubernetes.Interface, sa *nebulav1.SecretAuth) (*rbacv1.Role,
 func createMetadataAPIPod(kc kubernetes.Interface, image string, saccount *corev1.ServiceAccount,
 	sa *nebulav1.SecretAuth, vaultAddr, vaultEngineMount string) (*corev1.Pod, error) {
 
-	name := getName(sa, metadataServiceName)
-
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
+			Name:      metadataServiceName,
 			Namespace: sa.GetNamespace(),
 			Labels: getLabels(sa, map[string]string{
-				"app": name,
+				"app": metadataServiceName,
 			}),
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
 				{
-					Name:            name,
+					Name:            metadataServiceName,
 					Image:           image,
 					ImagePullPolicy: corev1.PullIfNotPresent,
 					Command: []string{
@@ -592,7 +590,7 @@ func createMetadataAPIPod(kc kubernetes.Interface, image string, saccount *corev
 
 	pod, err := kc.CoreV1().Pods(sa.GetNamespace()).Create(pod)
 	if errors.IsAlreadyExists(err) {
-		pod, err = kc.CoreV1().Pods(sa.GetNamespace()).Get(name, metav1.GetOptions{})
+		pod, err = kc.CoreV1().Pods(sa.GetNamespace()).Get(metadataServiceName, metav1.GetOptions{})
 	}
 	if err != nil {
 		return nil, err
@@ -602,14 +600,12 @@ func createMetadataAPIPod(kc kubernetes.Interface, image string, saccount *corev
 }
 
 func createMetadataAPIService(kc kubernetes.Interface, sa *nebulav1.SecretAuth) (*corev1.Service, error) {
-	name := getName(sa, metadataServiceName)
-
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
+			Name:      metadataServiceName,
 			Namespace: sa.GetNamespace(),
 			Labels: getLabels(sa, map[string]string{
-				"app": name,
+				"app": metadataServiceName,
 			}),
 		},
 		Spec: corev1.ServiceSpec{
@@ -620,7 +616,7 @@ func createMetadataAPIService(kc kubernetes.Interface, sa *nebulav1.SecretAuth) 
 				},
 			},
 			Selector: map[string]string{
-				"app": name,
+				"app": metadataServiceName,
 			},
 		},
 	}
@@ -629,7 +625,7 @@ func createMetadataAPIService(kc kubernetes.Interface, sa *nebulav1.SecretAuth) 
 
 	service, err := kc.CoreV1().Services(sa.GetNamespace()).Create(service)
 	if errors.IsAlreadyExists(err) {
-		service, err = kc.CoreV1().Services(sa.GetNamespace()).Get(name, metav1.GetOptions{})
+		service, err = kc.CoreV1().Services(sa.GetNamespace()).Get(metadataServiceName, metav1.GetOptions{})
 	}
 	if err != nil {
 		return nil, err
@@ -663,7 +659,7 @@ func createWorkflowConfigMap(kc kubernetes.Interface, service *corev1.Service, s
 }
 
 func getName(sa *nebulav1.SecretAuth, name string) string {
-	prefix := "workflow-run"
+	prefix := "wr"
 
 	if name == "" {
 		return fmt.Sprintf("%s-%s", prefix, sa.Spec.WorkflowRunID)
