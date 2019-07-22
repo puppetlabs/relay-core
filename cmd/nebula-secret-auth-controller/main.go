@@ -6,10 +6,13 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
 	"github.com/puppetlabs/nebula-tasks/pkg/controllers/secretauth"
 	"github.com/puppetlabs/nebula-tasks/pkg/data/secrets/vault"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/klog"
 )
 
 func main() {
@@ -21,6 +24,9 @@ func main() {
 	numWorkers := flag.Int("num-workers", 2, "the number of worker threads to spawn that process SecretAuth resources")
 
 	flag.Parse()
+
+	klogFlags := flag.NewFlagSet("klog", flag.ExitOnError)
+	klog.InitFlags(klogFlags)
 
 	cfg := &config.SecretAuthControllerConfig{
 		Kubeconfig:           *kubeconfig,
@@ -40,6 +46,7 @@ func main() {
 	stopCh := make(chan struct{})
 	defer close(stopCh)
 
+	go wait.Forever(klog.Flush, time.Second*2)
 	go controller.Run(*numWorkers, stopCh)
 
 	termCh := make(chan os.Signal, 1)
