@@ -1,7 +1,6 @@
 package secretauth
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"time"
@@ -16,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -176,16 +176,13 @@ func (c *Controller) processSingleItem(key string) error {
 		return err
 	}
 
-	// Because of a possible race condition bug in the kernel network stack, there's a very
+	// Because of a possible race condition bug in the kernel or kubelet network stack, there's a very
 	// tiny window of time where packets will get dropped if you try to make requests to the ports
 	// that are supposed to be forwarded to underlying pods. This unfortunately happens quite frequently
 	// since we exec task pods from Tekton very quickly. This function will make GET requests in a loop
 	// to the readiness endpoint of the pod (via the service dns) to make sure it actually gets a 200
 	// response before setting the status object on SecretAuth resources.
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-	defer cancel()
-
-	if err := c.waitForServiceToActuallyBeUp(ctx, service); err != nil {
+	if err := c.waitForSuccessfulServiceResponse(service); err != nil {
 		return err
 	}
 
@@ -255,34 +252,29 @@ eventLoop:
 	return nil
 }
 
-func (c *Controller) waitForServiceToActuallyBeUp(ctx context.Context, service *corev1.Service) error {
-	u := fmt.Sprintf("http://%s.%s.svc.cluster.local/healthz", service.GetName(), service.GetNamespace())
+func (c *Controller) waitForSuccessfulServiceResponse(service *corev1.Service) error {
+	var (
+		u        = fmt.Sprintf("http://%s.%s.svc.cluster.local/healthz", service.GetName(), service.GetNamespace())
+		interval = time.Millisecond * 750
+		timeout  = time.Second * 10
+	)
 
-	for {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("timeout occurred while waiting for the metadata service to be ready")
-		default:
-			<-time.After(time.Millisecond * 750)
+	return wait.PollImmediate(interval, timeout, func() (bool, error) {
+		resp, err := http.Get(u)
+		if err != nil {
+			klog.Infof("got an error when probing the metadata api %s", err)
 
-			resp, err := http.Get(u)
-			if err != nil {
-				klog.Infof("got an error when probing the metadata api %s", err)
-
-				continue
-			}
-
-			if resp.StatusCode != http.StatusOK {
-				klog.Infof("got an invalid status code when probing the metadata api %d", resp.StatusCode)
-
-				continue
-			}
-
-			return nil
+			return false, nil
 		}
-	}
 
-	return nil
+		if resp.StatusCode != http.StatusOK {
+			klog.Infof("got an invalid status code when probing the metadata api %d", resp.StatusCode)
+
+			return false, nil
+		}
+
+		return true, nil
+	})
 }
 
 func (c *Controller) enqueueSecretAuth(obj interface{}) {
