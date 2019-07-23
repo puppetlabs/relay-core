@@ -27,14 +27,15 @@ type SecretAuthSpec struct {
 }
 
 type SecretAuthStatus struct {
-	MetadataServicePod     string `json:"metadataServicePod"`
-	MetadataServiceService string `json:"metadataServiceService"`
-	ServiceAccount         string `json:"serviceAccount"`
-	Role                   string `json:"Role"`
-	RoleBinding            string `json:"RoleBinding"`
-	ConfigMap              string `json:"configMap"`
-	VaultPolicy            string `json:"vaultPolicy"`
-	VaultAuthRole          string `json:"vaultAuthRole"`
+	MetadataServicePod             string `json:"metadataServicePod"`
+	MetadataServiceService         string `json:"metadataServiceService"`
+	MetadataServiceImagePullSecret string `json:"metadataServiceImagePullSecret"`
+	ServiceAccount                 string `json:"serviceAccount"`
+	Role                           string `json:"Role"`
+	RoleBinding                    string `json:"RoleBinding"`
+	ConfigMap                      string `json:"configMap"`
+	VaultPolicy                    string `json:"vaultPolicy"`
+	VaultAuthRole                  string `json:"vaultAuthRole"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
