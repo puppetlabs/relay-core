@@ -159,6 +159,9 @@ func (c *Controller) processSingleItem(key string) error {
 		return err
 	}
 
+	// It is possible that the metadata service and this controller talk to
+	// different Vault endpoints: each might be talking to a Vault agent (for
+	// caching or additional security) instead of directly to the Vault server.
 	podVaultAddr := c.cfg.MetadataServiceVaultAddr
 	if podVaultAddr == "" {
 		podVaultAddr = c.vaultClient.Address()
@@ -417,6 +420,9 @@ func (c *Controller) processPipelineRunChange(key string) error {
 }
 
 func NewController(cfg *config.SecretAuthControllerConfig, vaultClient *vault.VaultAuth) (*Controller, error) {
+	// The following two statements are essentially equivalent to calling
+	// clientcmd.BuildConfigFromFlags(), but we need the Namespace() method from
+	// the clientcmd.ClientConfig, so we have to unwrap it.
 	kcfg := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 		&clientcmd.ClientConfigLoadingRules{ExplicitPath: cfg.Kubeconfig},
 		&clientcmd.ConfigOverrides{ClusterInfo: clientcmdapi.Cluster{Server: cfg.KubeMasterURL}},
