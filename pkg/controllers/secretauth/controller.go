@@ -159,12 +159,17 @@ func (c *Controller) processSingleItem(key string) error {
 		return err
 	}
 
+	podVaultAddr := c.cfg.MetadataServiceVaultAddr
+	if podVaultAddr == "" {
+		podVaultAddr = c.vaultClient.Address()
+	}
+
 	pod, err = createMetadataAPIPod(
 		c.kubeclient,
 		c.cfg.MetadataServiceImage,
 		saccount,
 		sa,
-		c.vaultClient.Address(),
+		podVaultAddr,
 		c.vaultClient.EngineMount(),
 	)
 	if err != nil {

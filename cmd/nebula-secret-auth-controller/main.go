@@ -26,6 +26,7 @@ func main() {
 	vaultEngineMount := fs.String("vault-engine-mount", "nebula", "the engine mount to craft paths from")
 	metadataServiceImage := fs.String("metadata-service-image", "gcr.io/nebula-235818/nebula-metadata-api:latest", "the image and tag to use for the metadata service api")
 	metadataServiceImagePullSecret := fs.String("metadata-service-image-pull-secret", "", "the optionally namespaced name of the image pull secret to use for the metadata service")
+	metadataServiceVaultAddr := fs.String("metadata-service-vault-addr", "", "the address to use when authenticating the metadata service to Vault")
 	numWorkers := fs.Int("num-workers", 2, "the number of worker threads to spawn that process SecretAuth resources")
 
 	fs.Parse(os.Args[1:])
@@ -38,6 +39,7 @@ func main() {
 
 		MetadataServiceImage:           *metadataServiceImage,
 		MetadataServiceImagePullSecret: *metadataServiceImagePullSecret,
+		MetadataServiceVaultAddr:       *metadataServiceVaultAddr,
 	}
 
 	vc, err := vault.NewVaultAuth(*vaultAddr, *vaultToken, *vaultEngineMount)

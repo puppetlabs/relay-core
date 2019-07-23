@@ -20,4 +20,5 @@ type SecretAuthControllerConfig struct {
 
 	MetadataServiceImage           string
 	MetadataServiceImagePullSecret string
+	MetadataServiceVaultAddr       string
 }
