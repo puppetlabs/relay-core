@@ -4,6 +4,7 @@ go 1.12
 
 require (
 	github.com/hashicorp/vault/api v1.0.2
+	github.com/inconshreveable/log15 v0.0.0-20180818164646-67afb5ed74ec
 	github.com/knative/pkg v0.0.0-20190624141606-d82505e6c5b4 // indirect
 	github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a // indirect
 	github.com/puppetlabs/errawr-gen v1.0.0
