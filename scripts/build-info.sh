@@ -18,7 +18,7 @@ if [[ "$TRAVIS_EVENT_TYPE" == "pull_request" ]]; then
         export NO_DOCKER_PUSH=yes
 fi
 
-if [[ "$BRANCH" != "master" ]]; then
+if [[ "$TRAVIS_BRANCH" != "master" ]]; then
         export NO_DOCKER_PUSH=yes
 fi
 
