@@ -18,17 +18,24 @@ type SecretAuth struct {
 }
 
 type SecretAuthSpec struct {
+	// WorkflowID is used to build paths to secrets in vault.
 	WorkflowID string `json:"workflowID"`
-	RunNum     int    `json:"runNum"`
+	// WorkflowRunID is used to namespace objects when they are created.
+	// It's more than likely that this will be the same as the k8s namespace,
+	// but still required as they can be different.
+	WorkflowRunID string `json:"workflowRunID"`
 }
 
 type SecretAuthStatus struct {
-	MetadataServicePod     string `json:"metadataServicePod"`
-	MetadataServiceService string `json:"metadataServiceService"`
-	ServiceAccount         string `json:"serviceAccount"`
-	ConfigMap              string `json:"configMap"`
-	VaultPolicy            string `json:"vaultPolicy"`
-	VaultAuthRole          string `json:"vaultAuthRole"`
+	MetadataServicePod             string `json:"metadataServicePod"`
+	MetadataServiceService         string `json:"metadataServiceService"`
+	MetadataServiceImagePullSecret string `json:"metadataServiceImagePullSecret"`
+	ServiceAccount                 string `json:"serviceAccount"`
+	Role                           string `json:"Role"`
+	RoleBinding                    string `json:"RoleBinding"`
+	ConfigMap                      string `json:"configMap"`
+	VaultPolicy                    string `json:"vaultPolicy"`
+	VaultAuthRole                  string `json:"vaultAuthRole"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

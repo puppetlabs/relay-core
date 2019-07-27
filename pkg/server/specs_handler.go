@@ -69,8 +69,8 @@ func (h *specsHandler) expandSecrets(ctx context.Context, spec interface{}) inte
 	switch v := spec.(type) {
 	case []interface{}:
 		result := make([]interface{}, len(v))
-		for _, elm := range v {
-			result = append(result, h.expandSecrets(ctx, elm))
+		for index, elm := range v {
+			result[index] = h.expandSecrets(ctx, elm)
 		}
 		return result
 	case map[string]interface{}:

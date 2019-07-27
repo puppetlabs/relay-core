@@ -6,6 +6,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/klog"
 )
 
 const defaultMaxRetries = 10
@@ -43,6 +44,8 @@ func (w *worker) handleError(err error, key interface{}) {
 
 		return
 	}
+
+	klog.Infof("handling error %s", err)
 
 	if w.workqueue.NumRequeues(key) < w.maxRetries {
 		w.workqueue.AddRateLimited(key)

@@ -14,6 +14,11 @@ type MetadataServerConfig struct {
 type SecretAuthControllerConfig struct {
 	Kubeconfig    string
 	KubeMasterURL string
-	VaultAddr     string
-	VaultToken    string
+
+	VaultAddr  string
+	VaultToken string
+
+	MetadataServiceImage           string
+	MetadataServiceImagePullSecret string
+	MetadataServiceVaultAddr       string
 }
