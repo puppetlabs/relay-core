@@ -25,6 +25,493 @@ var Domain = &impl.ErrorDomain{
 	Title: "Nebula Tasks",
 }
 
+// K8sProvisionerSection defines a section of errors with the following scope:
+// K8s provisioner errors
+var K8sProvisionerSection = &impl.ErrorSection{
+	Key:   "k8s_provisioner",
+	Title: "K8s provisioner errors",
+}
+
+// K8sProvisionerAuthErrorCode is the code for an instance of "auth_error".
+const K8sProvisionerAuthErrorCode = "nt_k8s_provisioner_auth_error"
+
+// IsK8sProvisionerAuthError tests whether a given error is an instance of "auth_error".
+func IsK8sProvisionerAuthError(err errawr.Error) bool {
+	return err != nil && err.Is(K8sProvisionerAuthErrorCode)
+}
+
+// IsK8sProvisionerAuthError tests whether a given error is an instance of "auth_error".
+func (External) IsK8sProvisionerAuthError(err errawr.Error) bool {
+	return IsK8sProvisionerAuthError(err)
+}
+
+// K8sProvisionerAuthErrorBuilder is a builder for "auth_error" errors.
+type K8sProvisionerAuthErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "auth_error" from this builder.
+func (b *K8sProvisionerAuthErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "failed to authenticate",
+		Technical: "failed to authenticate",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "auth_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     K8sProvisionerSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Auth error",
+		Version:          1,
+	}
+}
+
+// NewK8sProvisionerAuthErrorBuilder creates a new error builder for the code "auth_error".
+func NewK8sProvisionerAuthErrorBuilder() *K8sProvisionerAuthErrorBuilder {
+	return &K8sProvisionerAuthErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewK8sProvisionerAuthError creates a new error with the code "auth_error".
+func NewK8sProvisionerAuthError() Error {
+	return NewK8sProvisionerAuthErrorBuilder().Build()
+}
+
+// K8sProvisionerClientSetupErrorCode is the code for an instance of "client_setup_error".
+const K8sProvisionerClientSetupErrorCode = "nt_k8s_provisioner_client_setup_error"
+
+// IsK8sProvisionerClientSetupError tests whether a given error is an instance of "client_setup_error".
+func IsK8sProvisionerClientSetupError(err errawr.Error) bool {
+	return err != nil && err.Is(K8sProvisionerClientSetupErrorCode)
+}
+
+// IsK8sProvisionerClientSetupError tests whether a given error is an instance of "client_setup_error".
+func (External) IsK8sProvisionerClientSetupError(err errawr.Error) bool {
+	return IsK8sProvisionerClientSetupError(err)
+}
+
+// K8sProvisionerClientSetupErrorBuilder is a builder for "client_setup_error" errors.
+type K8sProvisionerClientSetupErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "client_setup_error" from this builder.
+func (b *K8sProvisionerClientSetupErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "failed to setup the client",
+		Technical: "failed to setup the client",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "client_setup_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     K8sProvisionerSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Client setup error",
+		Version:          1,
+	}
+}
+
+// NewK8sProvisionerClientSetupErrorBuilder creates a new error builder for the code "client_setup_error".
+func NewK8sProvisionerClientSetupErrorBuilder() *K8sProvisionerClientSetupErrorBuilder {
+	return &K8sProvisionerClientSetupErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewK8sProvisionerClientSetupError creates a new error with the code "client_setup_error".
+func NewK8sProvisionerClientSetupError() Error {
+	return NewK8sProvisionerClientSetupErrorBuilder().Build()
+}
+
+// K8sProvisionerClusterManagerSetupErrorCode is the code for an instance of "cluster_manager_setup_error".
+const K8sProvisionerClusterManagerSetupErrorCode = "nt_k8s_provisioner_cluster_manager_setup_error"
+
+// IsK8sProvisionerClusterManagerSetupError tests whether a given error is an instance of "cluster_manager_setup_error".
+func IsK8sProvisionerClusterManagerSetupError(err errawr.Error) bool {
+	return err != nil && err.Is(K8sProvisionerClusterManagerSetupErrorCode)
+}
+
+// IsK8sProvisionerClusterManagerSetupError tests whether a given error is an instance of "cluster_manager_setup_error".
+func (External) IsK8sProvisionerClusterManagerSetupError(err errawr.Error) bool {
+	return IsK8sProvisionerClusterManagerSetupError(err)
+}
+
+// K8sProvisionerClusterManagerSetupErrorBuilder is a builder for "cluster_manager_setup_error" errors.
+type K8sProvisionerClusterManagerSetupErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "cluster_manager_setup_error" from this builder.
+func (b *K8sProvisionerClusterManagerSetupErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "failed to setup the cluster manager",
+		Technical: "failed to setup the cluster manager",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "cluster_manager_setup_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     K8sProvisionerSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Cluster manager setup error",
+		Version:          1,
+	}
+}
+
+// NewK8sProvisionerClusterManagerSetupErrorBuilder creates a new error builder for the code "cluster_manager_setup_error".
+func NewK8sProvisionerClusterManagerSetupErrorBuilder() *K8sProvisionerClusterManagerSetupErrorBuilder {
+	return &K8sProvisionerClusterManagerSetupErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewK8sProvisionerClusterManagerSetupError creates a new error with the code "cluster_manager_setup_error".
+func NewK8sProvisionerClusterManagerSetupError() Error {
+	return NewK8sProvisionerClusterManagerSetupErrorBuilder().Build()
+}
+
+// K8sProvisionerCredentialsFileErrorCode is the code for an instance of "credentials_file_error".
+const K8sProvisionerCredentialsFileErrorCode = "nt_k8s_provisioner_credentials_file_error"
+
+// IsK8sProvisionerCredentialsFileError tests whether a given error is an instance of "credentials_file_error".
+func IsK8sProvisionerCredentialsFileError(err errawr.Error) bool {
+	return err != nil && err.Is(K8sProvisionerCredentialsFileErrorCode)
+}
+
+// IsK8sProvisionerCredentialsFileError tests whether a given error is an instance of "credentials_file_error".
+func (External) IsK8sProvisionerCredentialsFileError(err errawr.Error) bool {
+	return IsK8sProvisionerCredentialsFileError(err)
+}
+
+// K8sProvisionerCredentialsFileErrorBuilder is a builder for "credentials_file_error" errors.
+type K8sProvisionerCredentialsFileErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "credentials_file_error" from this builder.
+func (b *K8sProvisionerCredentialsFileErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "failed to write credentials file",
+		Technical: "failed to write credentials file",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "credentials_file_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     K8sProvisionerSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Credentials file error",
+		Version:          1,
+	}
+}
+
+// NewK8sProvisionerCredentialsFileErrorBuilder creates a new error builder for the code "credentials_file_error".
+func NewK8sProvisionerCredentialsFileErrorBuilder() *K8sProvisionerCredentialsFileErrorBuilder {
+	return &K8sProvisionerCredentialsFileErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewK8sProvisionerCredentialsFileError creates a new error with the code "credentials_file_error".
+func NewK8sProvisionerCredentialsFileError() Error {
+	return NewK8sProvisionerCredentialsFileErrorBuilder().Build()
+}
+
+// K8sProvisionerKopsExecErrorCode is the code for an instance of "kops_exec_error".
+const K8sProvisionerKopsExecErrorCode = "nt_k8s_provisioner_kops_exec_error"
+
+// IsK8sProvisionerKopsExecError tests whether a given error is an instance of "kops_exec_error".
+func IsK8sProvisionerKopsExecError(err errawr.Error) bool {
+	return err != nil && err.Is(K8sProvisionerKopsExecErrorCode)
+}
+
+// IsK8sProvisionerKopsExecError tests whether a given error is an instance of "kops_exec_error".
+func (External) IsK8sProvisionerKopsExecError(err errawr.Error) bool {
+	return IsK8sProvisionerKopsExecError(err)
+}
+
+// K8sProvisionerKopsExecErrorBuilder is a builder for "kops_exec_error" errors.
+type K8sProvisionerKopsExecErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "kops_exec_error" from this builder.
+func (b *K8sProvisionerKopsExecErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "failed to run kops",
+		Technical: "failed to run kops",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "kops_exec_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     K8sProvisionerSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Kops exec error",
+		Version:          1,
+	}
+}
+
+// NewK8sProvisionerKopsExecErrorBuilder creates a new error builder for the code "kops_exec_error".
+func NewK8sProvisionerKopsExecErrorBuilder() *K8sProvisionerKopsExecErrorBuilder {
+	return &K8sProvisionerKopsExecErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewK8sProvisionerKopsExecError creates a new error with the code "kops_exec_error".
+func NewK8sProvisionerKopsExecError() Error {
+	return NewK8sProvisionerKopsExecErrorBuilder().Build()
+}
+
+// K8sProvisionerSpecDecoderErrorCode is the code for an instance of "spec_decoder_error".
+const K8sProvisionerSpecDecoderErrorCode = "nt_k8s_provisioner_spec_decoder_error"
+
+// IsK8sProvisionerSpecDecoderError tests whether a given error is an instance of "spec_decoder_error".
+func IsK8sProvisionerSpecDecoderError(err errawr.Error) bool {
+	return err != nil && err.Is(K8sProvisionerSpecDecoderErrorCode)
+}
+
+// IsK8sProvisionerSpecDecoderError tests whether a given error is an instance of "spec_decoder_error".
+func (External) IsK8sProvisionerSpecDecoderError(err errawr.Error) bool {
+	return IsK8sProvisionerSpecDecoderError(err)
+}
+
+// K8sProvisionerSpecDecoderErrorBuilder is a builder for "spec_decoder_error" errors.
+type K8sProvisionerSpecDecoderErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "spec_decoder_error" from this builder.
+func (b *K8sProvisionerSpecDecoderErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "failed to decode the spec",
+		Technical: "failed to decode the spec",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "spec_decoder_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     K8sProvisionerSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Spec decoder error",
+		Version:          1,
+	}
+}
+
+// NewK8sProvisionerSpecDecoderErrorBuilder creates a new error builder for the code "spec_decoder_error".
+func NewK8sProvisionerSpecDecoderErrorBuilder() *K8sProvisionerSpecDecoderErrorBuilder {
+	return &K8sProvisionerSpecDecoderErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewK8sProvisionerSpecDecoderError creates a new error with the code "spec_decoder_error".
+func NewK8sProvisionerSpecDecoderError() Error {
+	return NewK8sProvisionerSpecDecoderErrorBuilder().Build()
+}
+
+// K8sProvisionerStateStoreErrorCode is the code for an instance of "state_store_error".
+const K8sProvisionerStateStoreErrorCode = "nt_k8s_provisioner_state_store_error"
+
+// IsK8sProvisionerStateStoreError tests whether a given error is an instance of "state_store_error".
+func IsK8sProvisionerStateStoreError(err errawr.Error) bool {
+	return err != nil && err.Is(K8sProvisionerStateStoreErrorCode)
+}
+
+// IsK8sProvisionerStateStoreError tests whether a given error is an instance of "state_store_error".
+func (External) IsK8sProvisionerStateStoreError(err errawr.Error) bool {
+	return IsK8sProvisionerStateStoreError(err)
+}
+
+// K8sProvisionerStateStoreErrorBuilder is a builder for "state_store_error" errors.
+type K8sProvisionerStateStoreErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "state_store_error" from this builder.
+func (b *K8sProvisionerStateStoreErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "failed to get the URL and path for the state store",
+		Technical: "failed to get the URL and path for the state store",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "state_store_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     K8sProvisionerSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "State store error",
+		Version:          1,
+	}
+}
+
+// NewK8sProvisionerStateStoreErrorBuilder creates a new error builder for the code "state_store_error".
+func NewK8sProvisionerStateStoreErrorBuilder() *K8sProvisionerStateStoreErrorBuilder {
+	return &K8sProvisionerStateStoreErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewK8sProvisionerStateStoreError creates a new error with the code "state_store_error".
+func NewK8sProvisionerStateStoreError() Error {
+	return NewK8sProvisionerStateStoreErrorBuilder().Build()
+}
+
+// K8sProvisionerStorageCreationFailedCode is the code for an instance of "storage_creation_failed".
+const K8sProvisionerStorageCreationFailedCode = "nt_k8s_provisioner_storage_creation_failed"
+
+// IsK8sProvisionerStorageCreationFailed tests whether a given error is an instance of "storage_creation_failed".
+func IsK8sProvisionerStorageCreationFailed(err errawr.Error) bool {
+	return err != nil && err.Is(K8sProvisionerStorageCreationFailedCode)
+}
+
+// IsK8sProvisionerStorageCreationFailed tests whether a given error is an instance of "storage_creation_failed".
+func (External) IsK8sProvisionerStorageCreationFailed(err errawr.Error) bool {
+	return IsK8sProvisionerStorageCreationFailed(err)
+}
+
+// K8sProvisionerStorageCreationFailedBuilder is a builder for "storage_creation_failed" errors.
+type K8sProvisionerStorageCreationFailedBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "storage_creation_failed" from this builder.
+func (b *K8sProvisionerStorageCreationFailedBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "failed to create the state storage bucket",
+		Technical: "failed to create the state storage bucket",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "storage_creation_failed",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     K8sProvisionerSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Storage creation failed",
+		Version:          1,
+	}
+}
+
+// NewK8sProvisionerStorageCreationFailedBuilder creates a new error builder for the code "storage_creation_failed".
+func NewK8sProvisionerStorageCreationFailedBuilder() *K8sProvisionerStorageCreationFailedBuilder {
+	return &K8sProvisionerStorageCreationFailedBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewK8sProvisionerStorageCreationFailed creates a new error with the code "storage_creation_failed".
+func NewK8sProvisionerStorageCreationFailed() Error {
+	return NewK8sProvisionerStorageCreationFailedBuilder().Build()
+}
+
+// K8sProvisionerSupportValidationErrorCode is the code for an instance of "support_validation_error".
+const K8sProvisionerSupportValidationErrorCode = "nt_k8s_provisioner_support_validation_error"
+
+// IsK8sProvisionerSupportValidationError tests whether a given error is an instance of "support_validation_error".
+func IsK8sProvisionerSupportValidationError(err errawr.Error) bool {
+	return err != nil && err.Is(K8sProvisionerSupportValidationErrorCode)
+}
+
+// IsK8sProvisionerSupportValidationError tests whether a given error is an instance of "support_validation_error".
+func (External) IsK8sProvisionerSupportValidationError(err errawr.Error) bool {
+	return IsK8sProvisionerSupportValidationError(err)
+}
+
+// K8sProvisionerSupportValidationErrorBuilder is a builder for "support_validation_error" errors.
+type K8sProvisionerSupportValidationErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "support_validation_error" from this builder.
+func (b *K8sProvisionerSupportValidationErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "{{msg}}",
+		Technical: "{{msg}}",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "support_validation_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     K8sProvisionerSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Support validation error",
+		Version:          1,
+	}
+}
+
+// NewK8sProvisionerSupportValidationErrorBuilder creates a new error builder for the code "support_validation_error".
+func NewK8sProvisionerSupportValidationErrorBuilder(msg string) *K8sProvisionerSupportValidationErrorBuilder {
+	return &K8sProvisionerSupportValidationErrorBuilder{arguments: impl.ErrorArguments{"msg": impl.NewErrorArgument(msg, "the message describing what failed")}}
+}
+
+// NewK8sProvisionerSupportValidationError creates a new error with the code "support_validation_error".
+func NewK8sProvisionerSupportValidationError(msg string) Error {
+	return NewK8sProvisionerSupportValidationErrorBuilder(msg).Build()
+}
+
+// K8sProvisionerUnknownProviderCode is the code for an instance of "unknown_provider".
+const K8sProvisionerUnknownProviderCode = "nt_k8s_provisioner_unknown_provider"
+
+// IsK8sProvisionerUnknownProvider tests whether a given error is an instance of "unknown_provider".
+func IsK8sProvisionerUnknownProvider(err errawr.Error) bool {
+	return err != nil && err.Is(K8sProvisionerUnknownProviderCode)
+}
+
+// IsK8sProvisionerUnknownProvider tests whether a given error is an instance of "unknown_provider".
+func (External) IsK8sProvisionerUnknownProvider(err errawr.Error) bool {
+	return IsK8sProvisionerUnknownProvider(err)
+}
+
+// K8sProvisionerUnknownProviderBuilder is a builder for "unknown_provider" errors.
+type K8sProvisionerUnknownProviderBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "unknown_provider" from this builder.
+func (b *K8sProvisionerUnknownProviderBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "provider {{provider}} does not exist",
+		Technical: "provider {{provider}} does not exist",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "unknown_provider",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     K8sProvisionerSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Unknown provider",
+		Version:          1,
+	}
+}
+
+// NewK8sProvisionerUnknownProviderBuilder creates a new error builder for the code "unknown_provider".
+func NewK8sProvisionerUnknownProviderBuilder(provider string) *K8sProvisionerUnknownProviderBuilder {
+	return &K8sProvisionerUnknownProviderBuilder{arguments: impl.ErrorArguments{"provider": impl.NewErrorArgument(provider, "the name of the provider")}}
+}
+
+// NewK8sProvisionerUnknownProvider creates a new error with the code "unknown_provider".
+func NewK8sProvisionerUnknownProvider(provider string) Error {
+	return NewK8sProvisionerUnknownProviderBuilder(provider).Build()
+}
+
 // SecretsSection defines a section of errors with the following scope:
 // Secrets errors
 var SecretsSection = &impl.ErrorSection{
@@ -667,4 +1154,155 @@ func NewServerRunErrorBuilder() *ServerRunErrorBuilder {
 // NewServerRunError creates a new error with the code "run_error".
 func NewServerRunError() Error {
 	return NewServerRunErrorBuilder().Build()
+}
+
+// TaskUtilSection defines a section of errors with the following scope:
+// Task util errors
+var TaskUtilSection = &impl.ErrorSection{
+	Key:   "task_util",
+	Title: "Task util errors",
+}
+
+// TaskUtilDefaultJSONSpecDecodingErrorCode is the code for an instance of "default_json_spec_decoding_error".
+const TaskUtilDefaultJSONSpecDecodingErrorCode = "nt_task_util_default_json_spec_decoding_error"
+
+// IsTaskUtilDefaultJSONSpecDecodingError tests whether a given error is an instance of "default_json_spec_decoding_error".
+func IsTaskUtilDefaultJSONSpecDecodingError(err errawr.Error) bool {
+	return err != nil && err.Is(TaskUtilDefaultJSONSpecDecodingErrorCode)
+}
+
+// IsTaskUtilDefaultJSONSpecDecodingError tests whether a given error is an instance of "default_json_spec_decoding_error".
+func (External) IsTaskUtilDefaultJSONSpecDecodingError(err errawr.Error) bool {
+	return IsTaskUtilDefaultJSONSpecDecodingError(err)
+}
+
+// TaskUtilDefaultJSONSpecDecodingErrorBuilder is a builder for "default_json_spec_decoding_error" errors.
+type TaskUtilDefaultJSONSpecDecodingErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "default_json_spec_decoding_error" from this builder.
+func (b *TaskUtilDefaultJSONSpecDecodingErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "failed to decode spec from json content",
+		Technical: "failed to decode spec from json content",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "default_json_spec_decoding_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     TaskUtilSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Default JSON spec decoding error",
+		Version:          1,
+	}
+}
+
+// NewTaskUtilDefaultJSONSpecDecodingErrorBuilder creates a new error builder for the code "default_json_spec_decoding_error".
+func NewTaskUtilDefaultJSONSpecDecodingErrorBuilder() *TaskUtilDefaultJSONSpecDecodingErrorBuilder {
+	return &TaskUtilDefaultJSONSpecDecodingErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewTaskUtilDefaultJSONSpecDecodingError creates a new error with the code "default_json_spec_decoding_error".
+func NewTaskUtilDefaultJSONSpecDecodingError() Error {
+	return NewTaskUtilDefaultJSONSpecDecodingErrorBuilder().Build()
+}
+
+// TaskUtilDefaultSpecPlanFailedCode is the code for an instance of "default_spec_plan_failed".
+const TaskUtilDefaultSpecPlanFailedCode = "nt_task_util_default_spec_plan_failed"
+
+// IsTaskUtilDefaultSpecPlanFailed tests whether a given error is an instance of "default_spec_plan_failed".
+func IsTaskUtilDefaultSpecPlanFailed(err errawr.Error) bool {
+	return err != nil && err.Is(TaskUtilDefaultSpecPlanFailedCode)
+}
+
+// IsTaskUtilDefaultSpecPlanFailed tests whether a given error is an instance of "default_spec_plan_failed".
+func (External) IsTaskUtilDefaultSpecPlanFailed(err errawr.Error) bool {
+	return IsTaskUtilDefaultSpecPlanFailed(err)
+}
+
+// TaskUtilDefaultSpecPlanFailedBuilder is a builder for "default_spec_plan_failed" errors.
+type TaskUtilDefaultSpecPlanFailedBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "default_spec_plan_failed" from this builder.
+func (b *TaskUtilDefaultSpecPlanFailedBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "using the default plan failed with {{reason}}",
+		Technical: "using the default plan failed with {{reason}}",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "default_spec_plan_failed",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     TaskUtilSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Default spec plan failed",
+		Version:          1,
+	}
+}
+
+// NewTaskUtilDefaultSpecPlanFailedBuilder creates a new error builder for the code "default_spec_plan_failed".
+func NewTaskUtilDefaultSpecPlanFailedBuilder(reason string) *TaskUtilDefaultSpecPlanFailedBuilder {
+	return &TaskUtilDefaultSpecPlanFailedBuilder{arguments: impl.ErrorArguments{"reason": impl.NewErrorArgument(reason, "the reason the plan failed to execute")}}
+}
+
+// NewTaskUtilDefaultSpecPlanFailed creates a new error with the code "default_spec_plan_failed".
+func NewTaskUtilDefaultSpecPlanFailed(reason string) Error {
+	return NewTaskUtilDefaultSpecPlanFailedBuilder(reason).Build()
+}
+
+// TaskUtilSpecLoaderErrorCode is the code for an instance of "spec_loader_error".
+const TaskUtilSpecLoaderErrorCode = "nt_task_util_spec_loader_error"
+
+// IsTaskUtilSpecLoaderError tests whether a given error is an instance of "spec_loader_error".
+func IsTaskUtilSpecLoaderError(err errawr.Error) bool {
+	return err != nil && err.Is(TaskUtilSpecLoaderErrorCode)
+}
+
+// IsTaskUtilSpecLoaderError tests whether a given error is an instance of "spec_loader_error".
+func (External) IsTaskUtilSpecLoaderError(err errawr.Error) bool {
+	return IsTaskUtilSpecLoaderError(err)
+}
+
+// TaskUtilSpecLoaderErrorBuilder is a builder for "spec_loader_error" errors.
+type TaskUtilSpecLoaderErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "spec_loader_error" from this builder.
+func (b *TaskUtilSpecLoaderErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "fetching the spec failed with: {{msg}}",
+		Technical: "fetching the spec failed with: {{msg}}",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "spec_loader_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     TaskUtilSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Spec loader error",
+		Version:          1,
+	}
+}
+
+// NewTaskUtilSpecLoaderErrorBuilder creates a new error builder for the code "spec_loader_error".
+func NewTaskUtilSpecLoaderErrorBuilder(msg string) *TaskUtilSpecLoaderErrorBuilder {
+	return &TaskUtilSpecLoaderErrorBuilder{arguments: impl.ErrorArguments{"msg": impl.NewErrorArgument(msg, "the message describing the error")}}
+}
+
+// NewTaskUtilSpecLoaderError creates a new error with the code "spec_loader_error".
+func NewTaskUtilSpecLoaderError(msg string) Error {
+	return NewTaskUtilSpecLoaderErrorBuilder(msg).Build()
 }

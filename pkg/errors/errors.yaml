@@ -64,3 +64,62 @@ sections:
             description: The name of the config map
           namespace:
             description: The namespace of the config map
+
+  k8s_provisioner:
+    title: K8s provisioner errors
+    errors:
+      spec_decoder_error:
+        title: Spec decoder error
+        description: failed to decode the spec
+      storage_creation_failed:
+        title: Storage creation failed
+        description: failed to create the state storage bucket
+      state_store_error:
+        title: State store error
+        description: failed to get the URL and path for the state store
+      support_validation_error:
+        title: Support validation error
+        description: "{{msg}}"
+        arguments:
+          msg:
+            description: the message describing what failed
+      client_setup_error:
+        title: Client setup error
+        description: failed to setup the client
+      cluster_manager_setup_error:
+        title: Cluster manager setup error
+        description: failed to setup the cluster manager
+      unknown_provider:
+        title: Unknown provider
+        description: provider {{provider}} does not exist
+        arguments:
+          provider:
+            description: the name of the provider
+      credentials_file_error:
+        title: Credentials file error
+        description: failed to write credentials file
+      auth_error:
+        title: Auth error
+        description: failed to authenticate
+      kops_exec_error:
+        title: Kops exec error
+        description: failed to run kops
+
+  task_util:
+    title: Task util errors
+    errors:
+      spec_loader_error:
+        title: Spec loader error
+        description: "fetching the spec failed with: {{msg}}"
+        arguments:
+          msg:
+            description: the message describing the error
+      default_json_spec_decoding_error:
+        title: Default JSON spec decoding error
+        description: failed to decode spec from json content
+      default_spec_plan_failed:
+        title: Default spec plan failed
+        description: using the default plan failed with {{reason}}
+        arguments:
+          reason:
+            description: the reason the plan failed to execute
