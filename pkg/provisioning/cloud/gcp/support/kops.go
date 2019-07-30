@@ -10,6 +10,7 @@ import (
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/taskutil"
 	"google.golang.org/api/googleapi"
+	"google.golang.org/api/option"
 )
 
 // KopsSupport provides functionality that supports the running of kops commands.
@@ -43,14 +44,14 @@ func NewKopsSupport(projectID, serviceAccountContent, storeName string) (*KopsSu
 
 	ctx := context.Background()
 
-	gclient, err := gcs.NewClient(ctx)
+	p, err := writeCredentialsFile(serviceAccountContent)
 	if err != nil {
 		return nil, errors.NewK8sProvisionerClientSetupError().WithCause(err)
 	}
 
-	p, err := writeCredentialsFile(serviceAccountContent)
-	if err != nil {
-		return nil, errors.NewK8sProvisionerClientSetupError().WithCause(err)
+	gclient, gerr := gcs.NewClient(ctx, option.WithCredentialsFile(p))
+	if gerr != nil {
+		return nil, errors.NewK8sProvisionerClientSetupError().WithCause(gerr)
 	}
 
 	return &KopsSupport{

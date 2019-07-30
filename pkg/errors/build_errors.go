@@ -272,6 +272,54 @@ func NewK8sProvisionerKopsExecError() Error {
 	return NewK8sProvisionerKopsExecErrorBuilder().Build()
 }
 
+// K8sProvisionerReadinessTimeoutErrorCode is the code for an instance of "readiness_timeout_error".
+const K8sProvisionerReadinessTimeoutErrorCode = "nt_k8s_provisioner_readiness_timeout_error"
+
+// IsK8sProvisionerReadinessTimeoutError tests whether a given error is an instance of "readiness_timeout_error".
+func IsK8sProvisionerReadinessTimeoutError(err errawr.Error) bool {
+	return err != nil && err.Is(K8sProvisionerReadinessTimeoutErrorCode)
+}
+
+// IsK8sProvisionerReadinessTimeoutError tests whether a given error is an instance of "readiness_timeout_error".
+func (External) IsK8sProvisionerReadinessTimeoutError(err errawr.Error) bool {
+	return IsK8sProvisionerReadinessTimeoutError(err)
+}
+
+// K8sProvisionerReadinessTimeoutErrorBuilder is a builder for "readiness_timeout_error" errors.
+type K8sProvisionerReadinessTimeoutErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "readiness_timeout_error" from this builder.
+func (b *K8sProvisionerReadinessTimeoutErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "failed to wait for the cluster to be ready. timeout reached.",
+		Technical: "failed to wait for the cluster to be ready. timeout reached.",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "readiness_timeout_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     K8sProvisionerSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Readiness timeout error",
+		Version:          1,
+	}
+}
+
+// NewK8sProvisionerReadinessTimeoutErrorBuilder creates a new error builder for the code "readiness_timeout_error".
+func NewK8sProvisionerReadinessTimeoutErrorBuilder() *K8sProvisionerReadinessTimeoutErrorBuilder {
+	return &K8sProvisionerReadinessTimeoutErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewK8sProvisionerReadinessTimeoutError creates a new error with the code "readiness_timeout_error".
+func NewK8sProvisionerReadinessTimeoutError() Error {
+	return NewK8sProvisionerReadinessTimeoutErrorBuilder().Build()
+}
+
 // K8sProvisionerSpecDecoderErrorCode is the code for an instance of "spec_decoder_error".
 const K8sProvisionerSpecDecoderErrorCode = "nt_k8s_provisioner_spec_decoder_error"
 

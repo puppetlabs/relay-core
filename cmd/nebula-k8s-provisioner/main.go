@@ -5,8 +5,8 @@ import (
 	"flag"
 	"log"
 	"os"
+	"time"
 
-	"github.com/kr/pretty"
 	"github.com/puppetlabs/nebula-tasks/pkg/provisioning"
 	"github.com/puppetlabs/nebula-tasks/pkg/provisioning/models"
 	"github.com/puppetlabs/nebula-tasks/pkg/taskutil"
@@ -17,6 +17,8 @@ func main() {
 	specFile := flag.String("spec-file", "", "filepath to json formatted spec. overrides -spec-url.")
 
 	flag.Parse()
+
+	log.Println("provisioning k8s cluster")
 
 	var spec models.K8sProvisionerSpec
 
@@ -44,12 +46,15 @@ func main() {
 		log.Fatal(err)
 	}
 
-	ctx := context.Background()
+	// TODO: we need to figure out how to better provision a cluster and report readiness.
+	// Currently we set a massively long timeout, which is a non-ideal solution.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
+	defer cancel()
 
 	state, err := manager.Synchronize(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	pretty.Println(state)
+	log.Println(state.Status)
 }

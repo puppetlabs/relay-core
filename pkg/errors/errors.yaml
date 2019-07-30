@@ -104,6 +104,9 @@ sections:
       kops_exec_error:
         title: Kops exec error
         description: failed to run kops
+      readiness_timeout_error:
+        title: Readiness timeout error
+        description: failed to wait for the cluster to be ready. timeout reached.
 
   task_util:
     title: Task util errors
