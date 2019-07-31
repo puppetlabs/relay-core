@@ -9,7 +9,13 @@ build_images() {
         source "${cmd}"/build-info.sh
 
         docker_file=Dockerfile."${command_name}"
-        cp ./scripts/Dockerfile.template "${docker_file}"
+        include=scripts/Dockerfile.include
+        if [ -f "${cmd}"/Dockerfile.include ]; then
+            include="${cmd}"/Dockerfile.include
+        fi
+
+        cp scripts/Dockerfile.template "${docker_file}"
+        cat "${include}" >> "${docker_file}"
 
         sed -i "s|__OUTPUTBIN__|${command_name}|g" "${docker_file}"
         sed -i "s|__GOMAIN__|./cmd/${command_name}|g" "${docker_file}"

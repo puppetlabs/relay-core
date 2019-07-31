@@ -1,0 +1,15 @@
+FROM alpine:latest
+COPY --from=builder /go/src/github.com/puppetlabs/nebula-tasks/__OUTPUTBIN__ /usr/bin/__OUTPUTBIN__
+ARG KOPS_VERSION=1.11.1
+RUN apk update && apk --no-cache add \
+    git \
+    gcc \
+    bind-dev \
+    musl-dev \
+    curl \
+    jq \
+    ca-certificates && update-ca-certificates
+RUN curl -sLo /usr/local/bin/kops https://github.com/kubernetes/kops/releases/download/${KOPS_VERSION}/kops-linux-amd64 \
+    && chmod +x /usr/local/bin/kops \
+    && rm -f /var/cache/apk/*
+CMD ["__DOCKER_CMD__"]
