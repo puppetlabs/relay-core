@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/puppetlabs/nebula-tasks/pkg/storage/gcs"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
 	"github.com/puppetlabs/nebula-tasks/pkg/controllers/secretauth"
 	"github.com/puppetlabs/nebula-tasks/pkg/data/secrets/vault"
@@ -24,6 +25,7 @@ func main() {
 	vaultAddr := fs.String("vault-addr", "http://localhost:8200", "address to the vault server")
 	vaultToken := fs.String("vault-token", "", "token used to authenticate with the vault server")
 	vaultEngineMount := fs.String("vault-engine-mount", "nebula", "the engine mount to craft paths from")
+	gcsBucket := fs.String("gcs-bucket", "", "the GCS bucket to upload logs into")
 	metadataServiceImage := fs.String("metadata-service-image", "gcr.io/nebula-235818/nebula-metadata-api:latest", "the image and tag to use for the metadata service api")
 	metadataServiceImagePullSecret := fs.String("metadata-service-image-pull-secret", "", "the optionally namespaced name of the image pull secret to use for the metadata service")
 	metadataServiceVaultAddr := fs.String("metadata-service-vault-addr", "", "the address to use when authenticating the metadata service to Vault")
@@ -46,8 +48,14 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	blobStorage, err := gcs.New(gcs.Options {
+		BucketName: *gcsBucket,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	controller, err := secretauth.NewController(cfg, vc)
+	controller, err := secretauth.NewController(cfg, vc, blobStorage)
 	if err != nil {
 		log.Fatal(err)
 	}
