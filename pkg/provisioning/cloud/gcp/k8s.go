@@ -34,19 +34,6 @@ func (k *K8sClusterManager) Synchronize(ctx context.Context) (*models.K8sCluster
 		return nil, errors.NewK8sProvisionerStateStoreError().WithCause(err)
 	}
 
-	// stdout := os.Stdout
-	// stderr := os.Stderr
-
-	// gcmd := exec.CommandContext(ctx, "gcloud", "auth", "activate-service-account",
-	// 	"--key-file", k.support.CredentialsFile)
-
-	// gcmd.Stdout = stdout
-	// gcmd.Stderr = stderr
-
-	// if err := gcmd.Run(); err != nil {
-	// 	return nil, errors.NewK8sProvisionerAuthError().WithCause(err)
-	// }
-
 	exists, err := k.clusterExists(ctx, stateStoreURL)
 	if err != nil {
 		return nil, err
@@ -57,16 +44,20 @@ func (k *K8sClusterManager) Synchronize(ctx context.Context) (*models.K8sCluster
 			return nil, err
 		}
 	} else {
+		// TODO: we still need to serialize a kops resource file in order to update the cluster
 		// if err := k.update(ctx, stateStoreURL); err != nil {
 		// 	return nil, err
 		// }
+	}
+
+	if err := k.exportKubeconfig(ctx, stateStoreURL); err != nil {
+		return nil, err
 	}
 
 	if err := k.waitForClusterReady(ctx, stateStoreURL); err != nil {
 		return nil, err
 	}
 
-	// TODO: wait for cluster to come online
 	// TODO: cleanup temporary credentials
 
 	return &models.K8sClusterState{Status: models.ClusterStatusRunning}, nil
@@ -104,6 +95,29 @@ func (k *K8sClusterManager) clusterExists(ctx context.Context, stateStoreURL *ur
 	}
 
 	return true, nil
+}
+
+func (k K8sClusterManager) exportKubeconfig(ctx context.Context, stateStoreURL *url.URL) errors.Error {
+	kcmd := exec.CommandContext(
+		ctx,
+		"kops",
+		"--state", stateStoreURL.String(),
+		"export", "kubecfg",
+		k.spec.ClusterName,
+	)
+
+	kcmd.Env = append(os.Environ(),
+		"KOPS_FEATURE_FLAGS=AlphaAllowGCE",
+		fmt.Sprintf("GOOGLE_APPLICATION_CREDENTIALS=%s", k.support.CredentialsFile))
+
+	kcmd.Stdout = os.Stdout
+	kcmd.Stderr = os.Stderr
+
+	if err := kcmd.Run(); err != nil {
+		return errors.NewK8sProvisionerKopsExecError().WithCause(err)
+	}
+
+	return nil
 }
 
 func (k *K8sClusterManager) create(ctx context.Context, stateStoreURL *url.URL) errors.Error {
