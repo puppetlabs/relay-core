@@ -2,19 +2,21 @@ package gcs
 
 import (
 	"context"
+	"fmt"
+	"net/url"
 
-	"github.com/puppetlabs/nebula-tasks/pkg/storage"
+	"github.com/puppetlabs/horsehead/storage"
 	gcstorage "cloud.google.com/go/storage"
 	"google.golang.org/api/googleapi"
 )
 
-type Options struct {
-	BucketName string
-}
-
 type GCS struct {
 	client     *gcstorage.Client
 	bucketName string
+}
+
+func init() {
+	storage.RegisterFactory("gcs", New)
 }
 
 func translateError(err error) *storage.StorageError {
@@ -91,13 +93,17 @@ func (s *GCS) Delete(opts storage.DeleteOptions) *storage.StorageError {
 }
 
 
-func New(opts Options) (*GCS, error) {
+func New(u url.URL) (storage.BlobStorage, error) {
+	bucketNames := u.Query()["bucket"]
+	if 1 != len(bucketNames) {
+		return nil, fmt.Errorf("Invalid URL, must contain exactly one 'bucket=...' in the query string")
+	}
 	client, err := gcstorage.NewClient(context.Background())
 	if err != nil {
 		return nil, err
 	}
 	return &GCS {
 		client:     client,
-		bucketName: opts.BucketName,
+		bucketName: bucketNames[0],
 	}, nil
 }

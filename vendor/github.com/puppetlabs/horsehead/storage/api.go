@@ -1,5 +1,9 @@
 package storage
 
+// Look here for various implementations:
+// 	https://github.com/puppetlabs/nebula-libs/tree/master/storage"
+// 
+
 import (
 	"context"
 	"io"

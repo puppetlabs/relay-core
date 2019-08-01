@@ -3,8 +3,7 @@ module github.com/puppetlabs/nebula-tasks
 go 1.12
 
 require (
-	cloud.google.com/go v0.38.0
-	github.com/google/uuid v1.0.0
+	github.com/google/uuid v1.1.1
 	github.com/googleapis/gax-go v2.0.2+incompatible // indirect
 	github.com/hashicorp/vault/api v1.0.2
 	github.com/inconshreveable/log15 v0.0.0-20180818164646-67afb5ed74ec
@@ -13,13 +12,15 @@ require (
 	github.com/puppetlabs/errawr-gen v1.0.0
 	github.com/puppetlabs/errawr-go/v2 v2.1.0
 	github.com/puppetlabs/horsehead v1.4.0
-	github.com/stretchr/testify v1.3.0
+	github.com/puppetlabs/nebula-libs/storage/gcs v0.0.0-00010101000000-000000000000
 	github.com/tektoncd/pipeline v0.4.0
-	go.opencensus.io v0.22.0 // indirect
-	google.golang.org/api v0.7.0
 	k8s.io/api v0.0.0-20190515023547-db5a9d1c40eb
 	k8s.io/apimachinery v0.0.0-20190515023456-b74e4c97951f
 	k8s.io/client-go v0.0.0-20190515063710-7b18d6600f6b
 	k8s.io/code-generator v0.0.0-20190627204931-86aa6a6a5cf3
 	k8s.io/klog v0.3.1
 )
+
+replace github.com/puppetlabs/horsehead => /Users/bmaher/ws/src/horsehead
+
+replace github.com/puppetlabs/nebula-libs/storage/gcs => /Users/bmaher/ws/src/nebula-libs/storage/gcs
