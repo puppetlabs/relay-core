@@ -117,7 +117,7 @@ github.com/puppetlabs/errawr-go/v2/pkg/errawr
 github.com/puppetlabs/errawr-go/v2/pkg/impl
 github.com/puppetlabs/errawr-go/v2/pkg/golang
 github.com/puppetlabs/errawr-go/v2/pkg/encoding
-# github.com/puppetlabs/horsehead v1.4.0 => /Users/bmaher/ws/src/horsehead
+# github.com/puppetlabs/horsehead v1.7.0
 github.com/puppetlabs/horsehead/mainutil
 github.com/puppetlabs/horsehead/storage
 github.com/puppetlabs/horsehead/httputil/api

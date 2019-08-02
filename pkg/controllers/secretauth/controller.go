@@ -73,7 +73,7 @@ type Controller struct {
 	saworker           *worker
 	plrworker          *worker
 	vaultClient        *vault.VaultAuth
-	blobStorage        storage.BlobStorage
+	blobStore          storage.BlobStore
 
 	cfg *config.SecretAuthControllerConfig
 }
@@ -508,16 +508,13 @@ func (c *Controller) uploadLog(ctx context.Context, namespace string, podName st
 	}
 	defer rc.Close()
 
-	serr := c.blobStorage.Put(storage.PutOptions {
-		Context:     ctx,
-		Key:         key.String(),
+	err = c.blobStore.Put(ctx, key.String(), func(w io.Writer) error {
+		_, err := io.Copy(w, rc)
+		return err
+	}, storage.PutOptions {
 		ContentType: "application/octet-stream",
-		Sink:        func(w io.Writer) error {
-			_, err := io.Copy(w, rc)
-			return err
-		},
 	})
-	if serr != nil {
+	if err != nil {
 		return "", err
 	}
 	return key.String(), nil
@@ -553,7 +550,7 @@ func extractPodAndTaskNamesFromPipelineRun(plr *tekv1alpha1.PipelineRun) []podAn
 	return result
 }
 
-func NewController(cfg *config.SecretAuthControllerConfig, vaultClient *vault.VaultAuth, blobStorage storage.BlobStorage) (*Controller, error) {
+func NewController(cfg *config.SecretAuthControllerConfig, vaultClient *vault.VaultAuth, blobStore storage.BlobStore) (*Controller, error) {
 	// The following two statements are essentially equivalent to calling
 	// clientcmd.BuildConfigFromFlags(), but we need the Namespace() method from
 	// the clientcmd.ClientConfig, so we have to unwrap it.
@@ -600,7 +597,7 @@ func NewController(cfg *config.SecretAuthControllerConfig, vaultClient *vault.Va
 		plrInformer:        plrInformer,
 		plrInformerSynced:  plrInformer.Informer().HasSynced,
 		vaultClient:        vaultClient,
-		blobStorage:        blobStorage,
+		blobStore:          blobStore,
 		cfg:                cfg,
 	}
 

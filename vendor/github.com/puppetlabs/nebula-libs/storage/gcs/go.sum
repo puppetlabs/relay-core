@@ -12,6 +12,7 @@ github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDk
 github.com/dave/jennifer v0.0.0-20171004025221-97587ff16f68/go.mod h1:fIb+770HOpJ2fmN9EPPKOqm1vMGhB+TwXKMZhrIygKg=
 github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=
 github.com/getsentry/raven-go v0.2.0/go.mod h1:KungGk8q33+aIAZUIVWZDr2OfAEBsO49PX4NzFV5kcQ=
@@ -71,6 +72,8 @@ github.com/puppetlabs/errawr-gen v1.0.0/go.mod h1:n6CCVuGN+YndjZ3ZoF+YIpN6csDjqo
 github.com/puppetlabs/errawr-go/v2 v2.0.1/go.mod h1:QoiQaxibNaOzYFkZMBhFj35Qjw1vizUAi59por1l1Vc=
 github.com/puppetlabs/errawr-go/v2 v2.1.0/go.mod h1:TFKBrNpfPDG8ta8/NfaqpC+hMMsJqd9xKvBJDRgHFCQ=
 github.com/puppetlabs/horsehead v1.6.0 h1:IAeOkPVkC48QIlSJlwSRnnFOMY7v8Fu4PkqmyfCa21I=
+github.com/puppetlabs/horsehead v1.7.0 h1:v1iVLyOZ2YR8k4KyVEotbC2n5/6glpCNk6KK+g79cig=
+github.com/puppetlabs/horsehead v1.7.0/go.mod h1:KjnAIXT0c2HQpH+KifwrbQQ/trvWH7Tf0xKA6Nd+YDU=
 github.com/puppetlabs/insights-logging v0.0.0-20180912211921-3b7d3d14cd5b/go.mod h1:wPccOvbQAZAyYVoYD96psW8poDy42dBZVyZoq49fT/I=
 github.com/puppetlabs/nebula-libs v0.0.0-20190731232651-f0a143b26cd0 h1:PdRFbm7rRvd8smG55f73NX8YnA4v8GiSZ1Xf5l/P3Dg=
 github.com/reflect/raymond v0.0.0-20190227215356-5fa3955f4a50/go.mod h1:Bmc/S4QVVTw9ZH5y5JLDKbgeykqJLnSiUqtQ9SaHjmQ=

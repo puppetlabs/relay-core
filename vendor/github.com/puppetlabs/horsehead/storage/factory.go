@@ -9,12 +9,12 @@ import (
 
 var (
 	factoriesMu sync.RWMutex
-	factories   = make(map[string]BlobStorageFactory)
+	factories   = make(map[string]BlobStoreFactory)
 )
 
-type BlobStorageFactory func(url.URL) (BlobStorage, error)
+type BlobStoreFactory func(url.URL) (BlobStore, error)
 
-func NewBlobStorage(u url.URL) (BlobStorage, error) {
+func NewBlobStore(u url.URL) (BlobStore, error) {
 	scheme := strings.ToLower(u.Scheme)
 	factoriesMu.RLock()
 	factory, ok := factories[scheme]
@@ -25,7 +25,7 @@ func NewBlobStorage(u url.URL) (BlobStorage, error) {
 	return factory(u)
 }
 
-func RegisterFactory(scheme string, factory BlobStorageFactory) {
+func RegisterFactory(scheme string, factory BlobStoreFactory) {
 	scheme = strings.ToLower(scheme)
 	factoriesMu.Lock()
 	defer factoriesMu.Unlock()
@@ -39,12 +39,11 @@ func RegisterFactory(scheme string, factory BlobStorageFactory) {
 }
 
 func SupportedSchemes() []string {
-	factoriesMu.Lock()
-	defer factoriesMu.Unlock()
+	factoriesMu.RLock()
+	defer factoriesMu.RUnlock()
 	var list []string
 	for scheme := range factories {
 		list = append(list, scheme)
 	}
 	return list
 }
-

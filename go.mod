@@ -11,7 +11,7 @@ require (
 	github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a // indirect
 	github.com/puppetlabs/errawr-gen v1.0.0
 	github.com/puppetlabs/errawr-go/v2 v2.1.0
-	github.com/puppetlabs/horsehead v1.4.0
+	github.com/puppetlabs/horsehead v1.7.0
 	github.com/puppetlabs/nebula-libs/storage/gcs v0.0.0-00010101000000-000000000000
 	github.com/tektoncd/pipeline v0.4.0
 	k8s.io/api v0.0.0-20190515023547-db5a9d1c40eb
@@ -20,7 +20,5 @@ require (
 	k8s.io/code-generator v0.0.0-20190627204931-86aa6a6a5cf3
 	k8s.io/klog v0.3.1
 )
-
-replace github.com/puppetlabs/horsehead => /Users/bmaher/ws/src/horsehead
 
 replace github.com/puppetlabs/nebula-libs/storage/gcs => /Users/bmaher/ws/src/nebula-libs/storage/gcs

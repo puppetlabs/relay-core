@@ -54,12 +54,12 @@ func main() {
 	if err != nil {
 		log.Fatal("Error parsing the -storage-addr", err)
 	}
-	blobStorage, err := storage.NewBlobStorage(*storageUrl)
+	blobStore, err := storage.NewBlobStore(*storageUrl)
 	if err != nil {
 		log.Fatal("Error initializing the storage client from the -storage-addr", err)
 	}
 
-	controller, err := secretauth.NewController(cfg, vc, blobStorage)
+	controller, err := secretauth.NewController(cfg, vc, blobStore)
 	if err != nil {
 		log.Fatal(err)
 	}

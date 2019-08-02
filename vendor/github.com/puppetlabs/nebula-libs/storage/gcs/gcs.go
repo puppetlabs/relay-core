@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/puppetlabs/horsehead/storage"
 	gcstorage "cloud.google.com/go/storage"
+	"github.com/puppetlabs/horsehead/storage"
 	"google.golang.org/api/googleapi"
 )
 
@@ -19,91 +19,95 @@ func init() {
 	storage.RegisterFactory("gcs", New)
 }
 
-func translateError(err error) *storage.StorageError {
+// Translate a gcstorage error into a storage error.
+func translateError(err error, format string, a ...interface{}) error {
 	if nil == err {
 		return nil
 	}
+	msg := fmt.Sprintf(format, a...)
 	if context.Canceled == err || context.DeadlineExceeded == err {
-		return storage.NewStorageError(
+		return storage.Errorf(
+			err,
 			storage.TimeoutError,
-			err.Error(),
-			err)
+			"%s: %s", msg, err.Error())
 	}
 	if gcstorage.ErrObjectNotExist == err || gcstorage.ErrBucketNotExist == err {
-		return storage.NewStorageError(
+		return storage.Errorf(
+			err,
 			storage.NotFoundError,
-			err.Error(),
-			err)
+			"%s: %s", msg, err.Error())
 	}
 	if e, ok := err.(*googleapi.Error); ok {
 		switch e.Code {
 		case 404:
-			return storage.NewStorageError(
+			return storage.Errorf(
+				err,
 				storage.NotFoundError,
-				err.Error(),
-				err)
-		case 401:
-			return storage.NewStorageError(
+				"%s: %s", msg, err.Error())
+		case 401, 403:
+			return storage.Errorf(
+				err,
 				storage.AuthError,
-				err.Error(),
-				err)
-		case 403:
-			return storage.NewStorageError(
-				storage.AuthError,
-				err.Error(),
-				err)
+				"%s: %s", msg, err.Error())
 		}
 	}
-	return storage.NewStorageError(
+	return storage.Errorf(
+		err,
 		storage.UnknownError,
-		err.Error(),
-		err)
+		"%s: %s", msg, err.Error())
 }
 
-func (s *GCS) Put(opts storage.PutOptions) (err *storage.StorageError) {
-	w := s.client.Bucket(s.bucketName).Object(opts.Key).NewWriter(opts.Context)
+func (s *GCS) Put(ctx context.Context, key string, sink storage.Sink, opts storage.PutOptions) (err error) {
+	w := s.client.Bucket(s.bucketName).Object(key).NewWriter(ctx)
 	defer func() {
 		cerr := w.Close()
 		if nil != cerr && nil == err {
-			err = translateError(cerr)
+			err = translateError(cerr, "PUT gcs:///%s/%s", s.bucketName, key)
 		}
 	}()
 	w.ObjectAttrs.ContentType = opts.ContentType
-	err = translateError(opts.Sink(w))
+	err = translateError(sink(w), "PUT gcs:///%s/%s", s.bucketName, key)
 	return
 }
 
-func (s *GCS) Get(opts storage.GetOptions) (err *storage.StorageError) {
-	r, rerr := s.client.Bucket(s.bucketName).Object(opts.Key).NewReader(opts.Context)
+func (s *GCS) Get(ctx context.Context, key string, src storage.Source, opts storage.GetOptions) (err error) {
+	r, rerr := s.client.Bucket(s.bucketName).Object(key).NewReader(ctx)
 	if nil != rerr {
-		return translateError(rerr)
+		return translateError(rerr, "GET gcs:///%s/%s", s.bucketName, key)
 	}
 	defer func() {
 		rerr := r.Close()
 		if nil != rerr && nil == err {
-			err = translateError(rerr)
+			err = translateError(rerr, "GET gcs:///%s/%s", s.bucketName, key)
 		}
 	}()
-	err = translateError(opts.Src(r))
+	meta := &storage.Meta {
+		ContentType: r.ContentType(),
+	}
+	err = translateError(src(meta, r), "GET gcs:///%s/%s", s.bucketName, key)
 	return
 }
 
-func (s *GCS) Delete(opts storage.DeleteOptions) *storage.StorageError {
-	return translateError(s.client.Bucket(s.bucketName).Object(opts.Key).Delete(opts.Context))
+func (s *GCS) Delete(ctx context.Context, key string, opts storage.DeleteOptions) error {
+	return translateError(s.client.Bucket(s.bucketName).Object(key).Delete(ctx),
+		"DELETE gcs:///%s/%s", s.bucketName, key)
 }
 
-
-func New(u url.URL) (storage.BlobStorage, error) {
+func newGCS(u url.URL, client *gcstorage.Client) (storage.BlobStore, error) {
 	bucketNames := u.Query()["bucket"]
 	if 1 != len(bucketNames) {
 		return nil, fmt.Errorf("Invalid URL, must contain exactly one 'bucket=...' in the query string")
 	}
-	client, err := gcstorage.NewClient(context.Background())
-	if err != nil {
-		return nil, err
-	}
-	return &GCS {
+	return &GCS{
 		client:     client,
 		bucketName: bucketNames[0],
 	}, nil
+}
+
+func New(u url.URL) (storage.BlobStore, error) {
+	client, err := gcstorage.NewClient(context.Background())
+	if nil != err {
+		return nil, err
+	}
+	return newGCS(u, client)
 }

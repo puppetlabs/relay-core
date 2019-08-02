@@ -301,6 +301,8 @@ github.com/puppetlabs/horsehead v1.4.0 h1:lT9yuCgRf47rzwEK2qL1WJ05SwLzsoS4l/RzzC
 github.com/puppetlabs/horsehead v1.4.0 h1:lT9yuCgRf47rzwEK2qL1WJ05SwLzsoS4l/RzzCOVcL4=
 github.com/puppetlabs/horsehead v1.4.0/go.mod h1:KjnAIXT0c2HQpH+KifwrbQQ/trvWH7Tf0xKA6Nd+YDU=
 github.com/puppetlabs/horsehead v1.4.0/go.mod h1:KjnAIXT0c2HQpH+KifwrbQQ/trvWH7Tf0xKA6Nd+YDU=
+github.com/puppetlabs/horsehead v1.7.0 h1:v1iVLyOZ2YR8k4KyVEotbC2n5/6glpCNk6KK+g79cig=
+github.com/puppetlabs/horsehead v1.7.0/go.mod h1:KjnAIXT0c2HQpH+KifwrbQQ/trvWH7Tf0xKA6Nd+YDU=
 github.com/puppetlabs/insights-logging v0.0.0-20180912211921-3b7d3d14cd5b/go.mod h1:wPccOvbQAZAyYVoYD96psW8poDy42dBZVyZoq49fT/I=
 github.com/puppetlabs/insights-logging v0.0.0-20180912211921-3b7d3d14cd5b/go.mod h1:wPccOvbQAZAyYVoYD96psW8poDy42dBZVyZoq49fT/I=
 github.com/puppetlabs/insights-logging v0.0.0-20190227223739-6f93bc80ce16 h1:P8urXZsaWqUFXJZLla3rJzB2jKxHk4h9ppZrWDvtCqQ=
