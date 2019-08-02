@@ -309,6 +309,8 @@ github.com/puppetlabs/insights-logging v0.0.0-20190227223739-6f93bc80ce16 h1:P8u
 github.com/puppetlabs/insights-logging v0.0.0-20190227223739-6f93bc80ce16/go.mod h1:uBcikOWTZXgROxWSnV4jJvfJBYzcYve5QXgBEezd10A=
 github.com/puppetlabs/insights-stdlib v1.2.0 h1:NK880/hT2NW3W8ysaTrESxesV4ME+C1H94EksZdwiX0=
 github.com/puppetlabs/insights-stdlib v1.2.0/go.mod h1:+c8cwlNQUtq795phtKEQmz83KAPf6Cc+ZOruDhJsvFY=
+github.com/puppetlabs/nebula-libs/storage/gcs v1.0.0 h1:T7FTzhBalMZbI/cMySbS26tI2b01SVC+POe8S/rFI1A=
+github.com/puppetlabs/nebula-libs/storage/gcs v1.0.0/go.mod h1:xf2NcrGVnmRwti9ferjo5cguj7fURvfnXHVbDAalYCY=
 github.com/reflect/raymond v0.0.0-20190227215356-5fa3955f4a50 h1:tQC2Xbytchkj88dqeRQeuvfG4mDSKU/r5ovo+16XJ2I=
 github.com/reflect/raymond v0.0.0-20190227215356-5fa3955f4a50 h1:tQC2Xbytchkj88dqeRQeuvfG4mDSKU/r5ovo+16XJ2I=
 github.com/reflect/raymond v0.0.0-20190227215356-5fa3955f4a50/go.mod h1:Bmc/S4QVVTw9ZH5y5JLDKbgeykqJLnSiUqtQ9SaHjmQ=

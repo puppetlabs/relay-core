@@ -130,7 +130,7 @@ github.com/puppetlabs/horsehead/request
 github.com/puppetlabs/horsehead/netutil/errors
 github.com/puppetlabs/horsehead/lifecycle/errors
 github.com/puppetlabs/horsehead/logging/handler
-# github.com/puppetlabs/nebula-libs/storage/gcs v0.0.0-00010101000000-000000000000 => /Users/bmaher/ws/src/nebula-libs/storage/gcs
+# github.com/puppetlabs/nebula-libs/storage/gcs v1.0.0
 github.com/puppetlabs/nebula-libs/storage/gcs
 # github.com/reflect/raymond v0.0.0-20190227215356-5fa3955f4a50
 github.com/reflect/raymond
