@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"sync"
@@ -11,10 +12,10 @@ import (
 	utilapi "github.com/puppetlabs/horsehead/httputil/api"
 	"github.com/puppetlabs/nebula-tasks/pkg/data/secrets"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
-	"github.com/qri-io/jsonpointer"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/util/jsonpath"
 )
 
 type specsHandler struct {
@@ -118,20 +119,26 @@ func (h *specsHandler) expandEmbedType(ctx context.Context, spec interface{}, ge
 		}
 		outputPtrExpr := extractEmbedType(v, "Output")
 		if nil != outputPtrExpr {
-			ptr, err := jsonpointer.Parse(*outputPtrExpr)
+			jpath := jsonpath.New("expression")
+			err := jpath.Parse("{"+ *outputPtrExpr+"}")
 			if err != nil {
-				return err.Error()
+				return fmt.Sprintf("Invalid JSONPath(%s): %s", *outputPtrExpr, err.Error())
 			}
 			outputs, err := getOutputs()
 			if err != nil {
 				log.Printf("failed to get outputs: %v", err)
 				return ""
 			}
-			res, err := ptr.Eval(outputs)
+			val, err := jpath.FindResults(outputs)
 			if err != nil {
-				return err.Error()
+				return fmt.Sprintf("Evaluation of JSONPath(%s) failed: %s", *outputPtrExpr, err.Error())
 			}
-			return res
+			for _, v := range val {
+				for _, vv := range v {
+					return vv.Interface()
+				}
+			}
+			return nil
 		}
 		result := make(map[string]interface{})
 		for key, val := range v {

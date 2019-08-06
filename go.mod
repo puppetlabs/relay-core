@@ -10,7 +10,6 @@ require (
 	github.com/puppetlabs/errawr-gen v1.0.0
 	github.com/puppetlabs/errawr-go/v2 v2.1.0
 	github.com/puppetlabs/horsehead v1.4.0
-	github.com/qri-io/jsonpointer v0.1.0
 	github.com/tektoncd/pipeline v0.4.0
 	k8s.io/api v0.0.0-20190515023547-db5a9d1c40eb
 	k8s.io/apimachinery v0.0.0-20190515023456-b74e4c97951f
