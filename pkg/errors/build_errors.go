@@ -474,6 +474,57 @@ func NewServerConfigMapJSONError(name string, namespace string) Error {
 	return NewServerConfigMapJSONErrorBuilder(name, namespace).Build()
 }
 
+// ServerCreateConfigMapErrorCode is the code for an instance of "create_config_map_error".
+const ServerCreateConfigMapErrorCode = "nt_server_create_config_map_error"
+
+// IsServerCreateConfigMapError tests whether a given error is an instance of "create_config_map_error".
+func IsServerCreateConfigMapError(err errawr.Error) bool {
+	return err != nil && err.Is(ServerCreateConfigMapErrorCode)
+}
+
+// IsServerCreateConfigMapError tests whether a given error is an instance of "create_config_map_error".
+func (External) IsServerCreateConfigMapError(err errawr.Error) bool {
+	return IsServerCreateConfigMapError(err)
+}
+
+// ServerCreateConfigMapErrorBuilder is a builder for "create_config_map_error" errors.
+type ServerCreateConfigMapErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "create_config_map_error" from this builder.
+func (b *ServerCreateConfigMapErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "error when creating config map {{namespace}}/{{name}}",
+		Technical: "error when creating config map {{namespace}}/{{name}}",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "create_config_map_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     ServerSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "ConfigMap CREATE failed",
+		Version:          1,
+	}
+}
+
+// NewServerCreateConfigMapErrorBuilder creates a new error builder for the code "create_config_map_error".
+func NewServerCreateConfigMapErrorBuilder(name string, namespace string) *ServerCreateConfigMapErrorBuilder {
+	return &ServerCreateConfigMapErrorBuilder{arguments: impl.ErrorArguments{
+		"name":      impl.NewErrorArgument(name, "The name of the config map"),
+		"namespace": impl.NewErrorArgument(namespace, "The namespace of the config map"),
+	}}
+}
+
+// NewServerCreateConfigMapError creates a new error with the code "create_config_map_error".
+func NewServerCreateConfigMapError(name string, namespace string) Error {
+	return NewServerCreateConfigMapErrorBuilder(name, namespace).Build()
+}
+
 // ServerGetConfigMapErrorCode is the code for an instance of "get_config_map_error".
 const ServerGetConfigMapErrorCode = "nt_server_get_config_map_error"
 
@@ -573,6 +624,105 @@ func NewServerInClusterConfigError() Error {
 	return NewServerInClusterConfigErrorBuilder().Build()
 }
 
+// ServerInvalidJSONBodyErrorCode is the code for an instance of "invalid_json_body_error".
+const ServerInvalidJSONBodyErrorCode = "nt_server_invalid_json_body_error"
+
+// IsServerInvalidJSONBodyError tests whether a given error is an instance of "invalid_json_body_error".
+func IsServerInvalidJSONBodyError(err errawr.Error) bool {
+	return err != nil && err.Is(ServerInvalidJSONBodyErrorCode)
+}
+
+// IsServerInvalidJSONBodyError tests whether a given error is an instance of "invalid_json_body_error".
+func (External) IsServerInvalidJSONBodyError(err errawr.Error) bool {
+	return IsServerInvalidJSONBodyError(err)
+}
+
+// ServerInvalidJSONBodyErrorBuilder is a builder for "invalid_json_body_error" errors.
+type ServerInvalidJSONBodyErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "invalid_json_body_error" from this builder.
+func (b *ServerInvalidJSONBodyErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "error when parsing the request body",
+		Technical: "error when parsing the request body",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "invalid_json_body_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata: &impl.ErrorMetadata{HTTPErrorMetadata: &impl.HTTPErrorMetadata{
+			ErrorHeaders: impl.HTTPErrorMetadataHeaders{},
+			ErrorStatus:  400,
+		}},
+		ErrorSection:     ServerSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Error parsing the request body",
+		Version:          1,
+	}
+}
+
+// NewServerInvalidJSONBodyErrorBuilder creates a new error builder for the code "invalid_json_body_error".
+func NewServerInvalidJSONBodyErrorBuilder() *ServerInvalidJSONBodyErrorBuilder {
+	return &ServerInvalidJSONBodyErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewServerInvalidJSONBodyError creates a new error with the code "invalid_json_body_error".
+func NewServerInvalidJSONBodyError() Error {
+	return NewServerInvalidJSONBodyErrorBuilder().Build()
+}
+
+// ServerJSONMarshalErrorCode is the code for an instance of "json_marshal_error".
+const ServerJSONMarshalErrorCode = "nt_server_json_marshal_error"
+
+// IsServerJSONMarshalError tests whether a given error is an instance of "json_marshal_error".
+func IsServerJSONMarshalError(err errawr.Error) bool {
+	return err != nil && err.Is(ServerJSONMarshalErrorCode)
+}
+
+// IsServerJSONMarshalError tests whether a given error is an instance of "json_marshal_error".
+func (External) IsServerJSONMarshalError(err errawr.Error) bool {
+	return IsServerJSONMarshalError(err)
+}
+
+// ServerJSONMarshalErrorBuilder is a builder for "json_marshal_error" errors.
+type ServerJSONMarshalErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "json_marshal_error" from this builder.
+func (b *ServerJSONMarshalErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "Internal error during json marshal operation",
+		Technical: "Internal error during json marshal operation",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "json_marshal_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     ServerSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Failed to convert struct to json",
+		Version:          1,
+	}
+}
+
+// NewServerJSONMarshalErrorBuilder creates a new error builder for the code "json_marshal_error".
+func NewServerJSONMarshalErrorBuilder() *ServerJSONMarshalErrorBuilder {
+	return &ServerJSONMarshalErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewServerJSONMarshalError creates a new error with the code "json_marshal_error".
+func NewServerJSONMarshalError() Error {
+	return NewServerJSONMarshalErrorBuilder().Build()
+}
+
 // ServerNewK8sClientErrorCode is the code for an instance of "new_k8s_client_error".
 const ServerNewK8sClientErrorCode = "nt_server_new_k8s_client_error"
 
@@ -667,4 +817,55 @@ func NewServerRunErrorBuilder() *ServerRunErrorBuilder {
 // NewServerRunError creates a new error with the code "run_error".
 func NewServerRunError() Error {
 	return NewServerRunErrorBuilder().Build()
+}
+
+// ServerUpdateConfigMapErrorCode is the code for an instance of "update_config_map_error".
+const ServerUpdateConfigMapErrorCode = "nt_server_update_config_map_error"
+
+// IsServerUpdateConfigMapError tests whether a given error is an instance of "update_config_map_error".
+func IsServerUpdateConfigMapError(err errawr.Error) bool {
+	return err != nil && err.Is(ServerUpdateConfigMapErrorCode)
+}
+
+// IsServerUpdateConfigMapError tests whether a given error is an instance of "update_config_map_error".
+func (External) IsServerUpdateConfigMapError(err errawr.Error) bool {
+	return IsServerUpdateConfigMapError(err)
+}
+
+// ServerUpdateConfigMapErrorBuilder is a builder for "update_config_map_error" errors.
+type ServerUpdateConfigMapErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "update_config_map_error" from this builder.
+func (b *ServerUpdateConfigMapErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "error when updating config map {{namespace}}/{{name}}",
+		Technical: "error when updating config map {{namespace}}/{{name}}",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "update_config_map_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     ServerSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "ConfigMap UPDATE failed",
+		Version:          1,
+	}
+}
+
+// NewServerUpdateConfigMapErrorBuilder creates a new error builder for the code "update_config_map_error".
+func NewServerUpdateConfigMapErrorBuilder(name string, namespace string) *ServerUpdateConfigMapErrorBuilder {
+	return &ServerUpdateConfigMapErrorBuilder{arguments: impl.ErrorArguments{
+		"name":      impl.NewErrorArgument(name, "The name of the config map"),
+		"namespace": impl.NewErrorArgument(namespace, "The namespace of the config map"),
+	}}
+}
+
+// NewServerUpdateConfigMapError creates a new error with the code "update_config_map_error".
+func NewServerUpdateConfigMapError(name string, namespace string) Error {
+	return NewServerUpdateConfigMapErrorBuilder(name, namespace).Build()
 }
