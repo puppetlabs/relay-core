@@ -88,7 +88,7 @@ func (h *specsHandler) createGetOutputs(client *kubernetes.Clientset) LazyGetOut
 				kerr = json.Unmarshal([]byte(v), &decoded)
 				if nil != kerr {
 					log.Printf("failed to decode '%s' key of %s/outputs ConfigMap as json: %+v",
-						k, h.namespace, kerr)
+						k, h.namespace)
 					continue
 				}
 				outputs[k] = decoded
