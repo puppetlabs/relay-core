@@ -56,6 +56,22 @@ sections:
             description: The name of the config map
           namespace:
             description: The namespace of the config map
+      update_config_map_error:
+        title: ConfigMap UPDATE failed
+        description: error when updating config map {{namespace}}/{{name}}
+        arguments:
+          name:
+            description: The name of the config map
+          namespace:
+            description: The namespace of the config map
+      create_config_map_error:
+        title: ConfigMap CREATE failed
+        description: error when creating config map {{namespace}}/{{name}}
+        arguments:
+          name:
+            description: The name of the config map
+          namespace:
+            description: The namespace of the config map
       config_map_json_error:
         title: ConfigMap spec.json parse error
         description: error when parsing the "spec.json" field of the {{namespace}}/{{name}} config map data
@@ -64,3 +80,12 @@ sections:
             description: The name of the config map
           namespace:
             description: The namespace of the config map
+      invalid_json_body_error:
+        title: Error parsing the request body
+        description: error when parsing the request body
+        metadata:
+          http:
+            status: 400
+      json_marshal_error:
+        title: Failed to convert struct to json
+        description: Internal error during json marshal operation
