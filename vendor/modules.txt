@@ -120,6 +120,8 @@ github.com/puppetlabs/horsehead/request
 github.com/puppetlabs/horsehead/netutil/errors
 github.com/puppetlabs/horsehead/lifecycle/errors
 github.com/puppetlabs/horsehead/logging/handler
+# github.com/qri-io/jsonpointer v0.1.0
+github.com/qri-io/jsonpointer
 # github.com/reflect/raymond v0.0.0-20190227215356-5fa3955f4a50
 github.com/reflect/raymond
 github.com/reflect/raymond/ast
