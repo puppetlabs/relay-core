@@ -48,9 +48,9 @@ func main() {
 
 	vc, err := vault.NewVaultAuth(*vaultAddr, *vaultToken, *vaultEngineMount)
 	if err != nil {
-		log.Fatal("Error initializing the vault client from the -vault-addr -vault-token and -valut-engine-mount", err)
+		log.Fatal("Error initializing the vault client from the -vault-addr -vault-token and -vault-engine-mount", err)
 	}
-	storageUrl, err := url.ParseRequestURI(*storageAddr)
+	storageUrl, err := url.Parse(*storageAddr)
 	if err != nil {
 		log.Fatal("Error parsing the -storage-addr", err)
 	}

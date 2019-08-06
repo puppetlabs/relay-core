@@ -1,11 +1,11 @@
 package secretauth
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"time"
-	"context"
 
 	"github.com/google/uuid"
 	"github.com/puppetlabs/horsehead/storage"
@@ -44,7 +44,7 @@ const (
 	metadataImagePullSecretName = "metadata-api-docker-registry"
 
 	// PipelineRun annotation indicating the log upload location
-	logUploadAnnotationPrefix = "puppet.com/log-archive-"
+	logUploadAnnotationPrefix = "nebula.puppet.com/log-archive-"
 )
 
 type podAndTaskName struct {
@@ -440,7 +440,7 @@ func (c *Controller) processPipelineRunChange(ctx context.Context, key string) e
 
 func (c *Controller) uploadLogs(ctx context.Context, plr *tekv1alpha1.PipelineRun) error {
 	for _, pt := range extractPodAndTaskNamesFromPipelineRun(plr) {
-		if _, ok := plr.Annotations[logUploadAnnotationPrefix + pt.TaskName]; ok {
+		if _, ok := plr.Annotations[logUploadAnnotationPrefix+pt.TaskName]; ok {
 			continue
 		}
 		var containerName, logName string
@@ -462,12 +462,12 @@ func (c *Controller) uploadLogs(ctx context.Context, plr *tekv1alpha1.PipelineRu
 				err)
 			return err
 		}
-		for retry := uint(0);; retry++ {
-			plr.Annotations[logUploadAnnotationPrefix + pt.TaskName] = logName
-			plr, err = c.tekclient.TektonV1alpha1().PipelineRuns(plr.Namespace).Update(plr);
+		for retry := uint(0); ; retry++ {
+			plr.Annotations[logUploadAnnotationPrefix+pt.TaskName] = logName
+			plr, err = c.tekclient.TektonV1alpha1().PipelineRuns(plr.Namespace).Update(plr)
 			if nil == err {
 				break
-			} else if ! errors.IsConflict(err) {
+			} else if !errors.IsConflict(err) {
 				return err
 			}
 			if retry > 7 {
@@ -511,7 +511,7 @@ func (c *Controller) uploadLog(ctx context.Context, namespace string, podName st
 	err = c.blobStore.Put(ctx, key.String(), func(w io.Writer) error {
 		_, err := io.Copy(w, rc)
 		return err
-	}, storage.PutOptions {
+	}, storage.PutOptions{
 		ContentType: "application/octet-stream",
 	})
 	if err != nil {
@@ -542,7 +542,7 @@ func extractPodAndTaskNamesFromPipelineRun(plr *tekv1alpha1.PipelineRun) []podAn
 		if !init {
 			continue
 		}
-		result = append(result, podAndTaskName {
+		result = append(result, podAndTaskName{
 			PodName:  taskRun.Status.PodName,
 			TaskName: taskRun.PipelineTaskName,
 		})
