@@ -11,6 +11,86 @@ import (
 	"github.com/puppetlabs/horsehead/instrumentation/alerts/trackers"
 )
 
+type TrackingResponseWriter interface {
+	http.ResponseWriter
+
+	StatusCode() (int, bool)
+	Committed() bool
+}
+
+type responseWriter struct {
+	http.ResponseWriter
+
+	statusCode int
+}
+
+func (rw *responseWriter) Write(data []byte) (n int, err error) {
+	if rw.statusCode == 0 {
+		rw.WriteHeader(http.StatusOK)
+	}
+
+	return rw.ResponseWriter.Write(data)
+}
+
+func (rw *responseWriter) WriteHeader(statusCode int) {
+	if rw.statusCode == 0 {
+		rw.statusCode = statusCode
+	}
+
+	rw.ResponseWriter.WriteHeader(statusCode)
+}
+
+func (rw *responseWriter) StatusCode() (int, bool) {
+	return rw.statusCode, rw.statusCode != 0
+}
+
+func (rw *responseWriter) Committed() bool {
+	_, ok := rw.StatusCode()
+	return ok
+}
+
+type responseWriterHijacker struct {
+	TrackingResponseWriter
+	http.Hijacker
+}
+
+type responseWriterFlusher struct {
+	TrackingResponseWriter
+	http.Flusher
+}
+
+type responseWriterHijackerFlusher struct {
+	TrackingResponseWriter
+	http.Hijacker
+	http.Flusher
+}
+
+func NewTrackingResponseWriter(delegate http.ResponseWriter) TrackingResponseWriter {
+	tw := &responseWriter{ResponseWriter: delegate}
+
+	if hijacker, ok := delegate.(http.Hijacker); ok {
+		if flusher, ok := delegate.(http.Flusher); ok {
+			return &responseWriterHijackerFlusher{
+				TrackingResponseWriter: tw,
+				Hijacker:               hijacker,
+				Flusher:                flusher,
+			}
+		} else {
+			return &responseWriterHijacker{
+				TrackingResponseWriter: tw,
+				Hijacker:               hijacker,
+			}
+		}
+	} else if flusher, ok := delegate.(http.Flusher); ok {
+		return &responseWriterFlusher{
+			TrackingResponseWriter: tw,
+			Flusher:                flusher,
+		}
+	}
+
+	return tw
+}
+
 func WriteObjectWithStatus(ctx context.Context, w http.ResponseWriter, status int, object interface{}) {
 	b, err := json.Marshal(object)
 	if err != nil {

@@ -1,10 +1,14 @@
 package secretauth
 
 import (
+	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/puppetlabs/horsehead/storage"
 	tekv1alpha1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
 	tekclientset "github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
 	tekinformers "github.com/tektoncd/pipeline/pkg/client/informers/externalversions"
@@ -38,7 +42,16 @@ const (
 
 	// name for the image pull secret used by the metadata API, if needed
 	metadataImagePullSecretName = "metadata-api-docker-registry"
+
+	// PipelineRun annotation indicating the log upload location
+	logUploadAnnotationPrefix = "nebula.puppet.com/log-archive-"
+	MaxLogArchiveTries = 7
 )
+
+type podAndTaskName struct {
+	PodName  string
+	TaskName string
+}
 
 // Controller watches for nebulav1.SecretAuth resource changes.
 // If a SecretAuth resource is created, the controller will create a service acccount + rbac
@@ -61,6 +74,7 @@ type Controller struct {
 	saworker           *worker
 	plrworker          *worker
 	vaultClient        *vault.VaultAuth
+	blobStore          storage.BlobStore
 
 	cfg *config.SecretAuthControllerConfig
 }
@@ -96,7 +110,7 @@ func (c *Controller) Run(numWorkers int, stopCh chan struct{}) error {
 // processSingleItem is responsible for creating all the resouces required for
 // secret handling and authentication.
 // TODO break this logic out into smaller chunks... especially the calls to the vault api
-func (c *Controller) processSingleItem(key string) error {
+func (c *Controller) processSingleItem(ctx context.Context, key string) error {
 	klog.Infof("syncing SecretAuth %s", key)
 	defer klog.Infof("done syncing SecretAuth %s", key)
 
@@ -330,7 +344,7 @@ func (c *Controller) enqueuePipelineRunChange(old, obj interface{}) {
 	c.plrworker.add(key)
 }
 
-func (c *Controller) processPipelineRunChange(key string) error {
+func (c *Controller) processPipelineRunChange(ctx context.Context, key string) error {
 	klog.Infof("syncing PipelineRun change %s", key)
 	defer klog.Infof("done syncing PipelineRun change %s", key)
 
@@ -350,6 +364,12 @@ func (c *Controller) processPipelineRunChange(key string) error {
 	}
 
 	if plr.IsDone() {
+		// Upload the logs that are not defined on the PipelineRun record...
+		err = c.uploadLogs(ctx, plr)
+		if nil != err {
+			return err
+		}
+
 		sas, err := c.nebclient.NebulaV1().SecretAuths(namespace).List(metav1.ListOptions{})
 		if err != nil {
 			return err
@@ -419,7 +439,119 @@ func (c *Controller) processPipelineRunChange(key string) error {
 	return nil
 }
 
-func NewController(cfg *config.SecretAuthControllerConfig, vaultClient *vault.VaultAuth) (*Controller, error) {
+func (c *Controller) uploadLogs(ctx context.Context, plr *tekv1alpha1.PipelineRun) error {
+	for _, pt := range extractPodAndTaskNamesFromPipelineRun(plr) {
+		if _, ok := plr.Annotations[logUploadAnnotationPrefix+pt.TaskName]; ok {
+			continue
+		}
+		var containerName, logName string
+		var err error
+		for _, containerName = range []string{"step-" + pt.TaskName, "build-step-" + pt.TaskName} {
+			logName, err = c.uploadLog(ctx, plr.Namespace, pt.PodName, containerName)
+			if nil != err {
+				if errors.IsBadRequest(err) {
+					continue
+				}
+				break
+			}
+		}
+		if nil != err {
+			klog.Warningf("Failed to upload log for podName=%s taskName=%s containerName=%s %+v",
+				pt.PodName,
+				pt.TaskName,
+				containerName,
+				err)
+			return err
+		}
+		for retry := uint(0); ; retry++ {
+			plr.Annotations[logUploadAnnotationPrefix+pt.TaskName] = logName
+			plr, err = c.tekclient.TektonV1alpha1().PipelineRuns(plr.Namespace).Update(plr)
+			if nil == err {
+				break
+			} else if !errors.IsConflict(err) {
+				return err
+			}
+			if retry > MaxLogArchiveTries {
+				return err
+			}
+			klog.Warningf("Conflict during pipelineRun=%s/%s update",
+				plr.Namespace,
+				plr.Name)
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After((1 << retry) * 10 * time.Millisecond):
+			}
+			plr, err = c.tekclient.TektonV1alpha1().
+				PipelineRuns(plr.Namespace).
+				Get(plr.Name, metav1.GetOptions{})
+			if nil != err {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (c *Controller) uploadLog(ctx context.Context, namespace string, podName string, containerName string) (string, error) {
+
+	key, err := uuid.NewRandom()
+	if nil != err {
+		return "", err
+	}
+
+	opts := &corev1.PodLogOptions{
+		Container: containerName,
+	}
+	rc, err := c.kubeclient.CoreV1().Pods(namespace).GetLogs(podName, opts).Stream()
+	if err != nil {
+		return "", err
+	}
+	defer rc.Close()
+
+	err = c.blobStore.Put(ctx, key.String(), func(w io.Writer) error {
+		_, err := io.Copy(w, rc)
+		return err
+	}, storage.PutOptions{
+		ContentType: "application/octet-stream",
+	})
+	if err != nil {
+		return "", err
+	}
+	return key.String(), nil
+}
+
+func extractPodAndTaskNamesFromPipelineRun(plr *tekv1alpha1.PipelineRun) []podAndTaskName {
+	var result []podAndTaskName
+	for _, taskRun := range plr.Status.TaskRuns {
+		if nil == taskRun {
+			continue
+		}
+		if nil == taskRun.Status {
+			continue
+		}
+		// Ensure the pod got initialized:
+		init := false
+		for _, step := range taskRun.Status.Steps {
+			if step.Name != taskRun.PipelineTaskName {
+				continue
+			}
+			if nil != step.Terminated || nil != step.Running {
+				init = true
+			}
+		}
+		if !init {
+			continue
+		}
+		result = append(result, podAndTaskName{
+			PodName:  taskRun.Status.PodName,
+			TaskName: taskRun.PipelineTaskName,
+		})
+	}
+	return result
+}
+
+func NewController(cfg *config.SecretAuthControllerConfig, vaultClient *vault.VaultAuth, blobStore storage.BlobStore) (*Controller, error) {
 	// The following two statements are essentially equivalent to calling
 	// clientcmd.BuildConfigFromFlags(), but we need the Namespace() method from
 	// the clientcmd.ClientConfig, so we have to unwrap it.
@@ -466,6 +598,7 @@ func NewController(cfg *config.SecretAuthControllerConfig, vaultClient *vault.Va
 		plrInformer:        plrInformer,
 		plrInformerSynced:  plrInformer.Informer().HasSynced,
 		vaultClient:        vaultClient,
+		blobStore:          blobStore,
 		cfg:                cfg,
 	}
 
