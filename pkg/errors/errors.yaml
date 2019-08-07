@@ -71,8 +71,14 @@ sections:
       spec_decoder_error:
         title: Spec decoder error
         description: failed to decode the spec
-      storage_creation_failed:
-        title: Storage creation failed
+      io_error:
+        title: IO error
+        description: "{{msg}}"
+        arguments:
+          msg:
+            description: the message describing what failed
+      kops_state_store_create_failed:
+        title: Kops state store create failed
         description: failed to create the state storage bucket
       state_store_error:
         title: State store error
@@ -89,24 +95,45 @@ sections:
       cluster_manager_setup_error:
         title: Cluster manager setup error
         description: failed to setup the cluster manager
+      cluster_synchronization_error:
+        title: Cluster synchronization error
+        description: failed to sync the cluster
       unknown_provider:
         title: Unknown provider
         description: provider {{provider}} does not exist
         arguments:
           provider:
             description: the name of the provider
+      cluster_not_found:
+        title: Cluster not found
+        description: cluster {{cluster}} not found
+        arguments:
+          cluster:
+            description: the name of the cluster
       credentials_file_error:
         title: Credentials file error
         description: failed to write credentials file
+      platform_setup_error:
+        title: Platform setup error
+        description: failed to setup the {{platform}} platform
+        arguments:
+          platform:
+            description: the name of the platform
       auth_error:
         title: Auth error
         description: failed to authenticate
       kops_exec_error:
         title: Kops exec error
         description: failed to run kops
-      readiness_timeout_error:
+      kops_support_setup_error:
+        title: Kops support setup error
+        description: kops setup failed
+      timeout_error:
         title: Readiness timeout error
-        description: failed to wait for the cluster to be ready. timeout reached.
+        description: "{{msg}}"
+        arguments:
+          msg:
+            description: a description of the timeout cause
 
   task_util:
     title: Task util errors
