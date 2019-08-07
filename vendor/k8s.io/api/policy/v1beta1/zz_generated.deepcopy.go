@@ -191,7 +191,7 @@ func (in *PodDisruptionBudget) DeepCopyObject() runtime.Object {
 func (in *PodDisruptionBudgetList) DeepCopyInto(out *PodDisruptionBudgetList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	in.ListMeta.DeepCopyInto(&out.ListMeta)
+	out.ListMeta = in.ListMeta
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]PodDisruptionBudget, len(*in))
@@ -305,7 +305,7 @@ func (in *PodSecurityPolicy) DeepCopyObject() runtime.Object {
 func (in *PodSecurityPolicyList) DeepCopyInto(out *PodSecurityPolicyList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	in.ListMeta.DeepCopyInto(&out.ListMeta)
+	out.ListMeta = in.ListMeta
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]PodSecurityPolicy, len(*in))
