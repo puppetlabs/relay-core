@@ -18,7 +18,7 @@ type GCS struct {
 }
 
 func init() {
-	storage.RegisterFactory("gc", New)
+	storage.RegisterFactory("gs", New)
 }
 
 // Translate a gcstorage error into a storage error.
@@ -85,7 +85,7 @@ func (s *GCS) Get(ctx context.Context, key string, src storage.Source, opts stor
 			err = translateError(rerr, "GET gc://%s/%s", s.bucketName, key)
 		}
 	}()
-	meta := &storage.Meta {
+	meta := &storage.Meta{
 		ContentType: r.ContentType(),
 	}
 	err = translateError(src(meta, r), "GET gc://%s/%s", s.bucketName, key)
