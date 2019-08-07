@@ -13,8 +13,8 @@ type PostMessageRequest struct {
 	Username string
 }
 type PostMessageResponse struct {
-	Ok    bool   "json: ok"
-	Error string "json: error"
+	Ok    bool   `json:"ok"`
+	Error string `json:"error"`
 }
 
 func (c *Chat) PostMessage(req PostMessageRequest) (*PostMessageResponse, error) {
