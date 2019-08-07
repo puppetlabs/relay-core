@@ -1,6 +1,7 @@
 package secretauth
 
 import (
+	"context"
 	"time"
 
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -16,14 +17,14 @@ const defaultMaxRetries = 10
 type worker struct {
 	workqueue  workqueue.RateLimitingInterface
 	maxRetries int
-	handler    func(string) error
+	handler    func(context.Context, string) error
 }
 
 func (w *worker) add(key string) {
 	w.workqueue.Add(key)
 }
 
-func (w *worker) processNextWorkItem() bool {
+func (w *worker) processNextWorkItem(ctx context.Context) bool {
 	key, shutdown := w.workqueue.Get()
 
 	if shutdown {
@@ -32,7 +33,7 @@ func (w *worker) processNextWorkItem() bool {
 
 	defer w.workqueue.Done(key)
 
-	err := w.handler(key.(string))
+	err := w.handler(ctx, key.(string))
 	w.handleError(err, key)
 
 	return true
@@ -58,14 +59,31 @@ func (w *worker) handleError(err error, key interface{}) {
 	w.workqueue.Forget(key)
 }
 
-func (w *worker) work() {
-	for w.processNextWorkItem() {
+func (w *worker) work(ctx context.Context) {
+	for w.processNextWorkItem(ctx) {
+	}
+}
+
+func withContext(stopCh chan struct{}, fn func(context.Context)) func() {
+	return func() {
+		ctx := context.TODO()
+		ctx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		go func() {
+			select {
+			case <-ctx.Done():
+			case <-stopCh:
+				cancel()
+			}
+		}()
+		fn(ctx)
 	}
 }
 
 func (w *worker) run(threads int, stopCh chan struct{}) {
 	for i := 0; i < threads; i++ {
-		go wait.Until(w.work, time.Second, stopCh)
+		go wait.Until(
+			withContext(stopCh, w.work), time.Second, stopCh)
 	}
 }
 
@@ -73,7 +91,7 @@ func (w *worker) shutdown() {
 	w.workqueue.ShutDown()
 }
 
-func newWorker(resource string, handler func(string) error, maxRetries int) *worker {
+func newWorker(resource string, handler func(context.Context, string) error, maxRetries int) *worker {
 	mr := defaultMaxRetries
 	if maxRetries > 0 {
 		mr = maxRetries

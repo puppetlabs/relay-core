@@ -29,101 +29,29 @@ func (d durationMs) Milliseconds() float64 {
 	return float64(sec) + float64(nsec)/1e6
 }
 
-type TrackingResponseWriter interface {
-	http.ResponseWriter
-	StatusCode() int
-}
-
-type trackingResponseWriter struct {
-	http.ResponseWriter
-
-	statusCode int
-}
-
-func (trw *trackingResponseWriter) Write(data []byte) (n int, err error) {
-	if trw.statusCode == 0 {
-		trw.WriteHeader(http.StatusOK)
-	}
-
-	return trw.ResponseWriter.Write(data)
-}
-
-func (trw *trackingResponseWriter) WriteHeader(statusCode int) {
-	if trw.statusCode == 0 {
-		trw.statusCode = statusCode
-	}
-
-	trw.ResponseWriter.WriteHeader(statusCode)
-}
-
-func (trw *trackingResponseWriter) StatusCode() int {
-	return trw.statusCode
-}
-
-type responseWriterHijacker struct {
-	TrackingResponseWriter
-	http.Hijacker
-}
-
-type responseWriterFlusher struct {
-	TrackingResponseWriter
-	http.Flusher
-}
-
-type responseWriterHijackerFlusher struct {
-	TrackingResponseWriter
-	http.Hijacker
-	http.Flusher
-}
-
-func newTrackingResponseWriter(delegate http.ResponseWriter) TrackingResponseWriter {
-	tw := &trackingResponseWriter{ResponseWriter: delegate}
-
-	if hijacker, ok := delegate.(http.Hijacker); ok {
-		if flusher, ok := delegate.(http.Flusher); ok {
-			return &responseWriterHijackerFlusher{
-				TrackingResponseWriter: tw,
-				Hijacker:               hijacker,
-				Flusher:                flusher,
-			}
-		} else {
-			return &responseWriterHijacker{
-				TrackingResponseWriter: tw,
-				Hijacker:               hijacker,
-			}
-		}
-	} else if flusher, ok := delegate.(http.Flusher); ok {
-		return &responseWriterFlusher{
-			TrackingResponseWriter: tw,
-			Flusher:                flusher,
-		}
-	}
-
-	return tw
-}
-
 func LogMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		trw := newTrackingResponseWriter(w)
+		trw := NewTrackingResponseWriter(w)
 
 		start := time.Now()
 		next.ServeHTTP(trw, r)
 		duration := time.Now().Sub(start)
 
-		attrs := logging.Ctx{
-			"method":  r.Method,
-			"path":    r.RequestURI,
-			"status":  trw.StatusCode(),
-			"time_ms": durationMs(duration).Milliseconds(),
-		}
-
-		if trw.StatusCode() == 0 {
+		if code, ok := trw.StatusCode(); !ok {
 			// Probably hijacked, ignore.
-			return
-		} else if trw.StatusCode() >= 500 {
-			log(r.Context()).Warn("handled HTTP request with server error", attrs)
 		} else {
-			log(r.Context()).Debug("handled HTTP request", attrs)
+			attrs := logging.Ctx{
+				"method":  r.Method,
+				"path":    r.RequestURI,
+				"status":  code,
+				"time_ms": durationMs(duration).Milliseconds(),
+			}
+
+			if code >= 500 {
+				log(r.Context()).Warn("handled HTTP request with server error", attrs)
+			} else {
+				log(r.Context()).Debug("handled HTTP request", attrs)
+			}
 		}
 	})
 }
