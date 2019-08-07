@@ -51,10 +51,10 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	defer cancel()
 
-	state, err := manager.Synchronize(ctx)
+	cluster, err := manager.Synchronize(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	log.Println(state.Status)
+	log.Println(cluster)
 }
