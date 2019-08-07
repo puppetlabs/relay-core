@@ -13,9 +13,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/puppetlabs/nebula-tasks/hack/kops/pkg/apis/kops"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/provisioning/models"
-	"k8s.io/kops/pkg/apis/kops/v1alpha2"
 )
 
 const (
@@ -240,7 +240,7 @@ func (k *K8sClusterAdapter) getCluster(ctx context.Context) (*resources, errors.
 // I wish I had known this when I was initally evaluating it, but these things have slowly crept up
 // as I got deeper into the system. This method will do a dry-run of `kops create cluster` and output
 // the result as json. This json is then unmarshaled into our resources composit type. This will contain
-// v1alpha2.Cluster, v1alpha2.InstanceGroup for masters and v1alpha2.InstanceGroup for nodes that are
+// kops.Cluster, kops.InstanceGroup for masters and kops.InstanceGroup for nodes that are
 // pre-populated with defaults from create cluster command they use for their CLI. This allows us to swap
 // out the nebula-configurable values we care about and then run `kops replace --force` on the resource file
 // which will upsert the cluster. I initially started to pull in the kops code as a library, but that shit
@@ -351,9 +351,9 @@ type kind struct {
 
 // resources is a type that holds all 3 objects required for a cluster creation.
 type resources struct {
-	Cluster             *v1alpha2.Cluster
-	MasterInstanceGroup *v1alpha2.InstanceGroup
-	NodeInstanceGroup   *v1alpha2.InstanceGroup
+	Cluster             *kops.Cluster
+	MasterInstanceGroup *kops.InstanceGroup
+	NodeInstanceGroup   *kops.InstanceGroup
 }
 
 // UnmarshalJSON takes a list of mixed-type kubernetes objects, extracts the Kind
@@ -373,21 +373,21 @@ func (r *resources) UnmarshalJSON(b []byte) error {
 
 		switch k.Kind {
 		case "Cluster":
-			cluster := v1alpha2.Cluster{}
+			cluster := kops.Cluster{}
 			if err := json.Unmarshal(item, &cluster); err != nil {
 				return err
 			}
 
 			r.Cluster = &cluster
 		case "InstanceGroup":
-			ig := v1alpha2.InstanceGroup{}
+			ig := kops.InstanceGroup{}
 			if err := json.Unmarshal(item, &ig); err != nil {
 				return err
 			}
 
-			if ig.Spec.Role == v1alpha2.InstanceGroupRoleMaster {
+			if ig.Spec.Role == kops.InstanceGroupRoleMaster {
 				r.MasterInstanceGroup = &ig
-			} else if ig.Spec.Role == v1alpha2.InstanceGroupRoleNode {
+			} else if ig.Spec.Role == kops.InstanceGroupRoleNode {
 				r.NodeInstanceGroup = &ig
 			}
 		}
