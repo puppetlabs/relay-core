@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/puppetlabs/horsehead/storage"
 	tekv1alpha1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
 	tekclientset "github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
@@ -495,11 +494,7 @@ func (c *Controller) uploadLogs(ctx context.Context, plr *tekv1alpha1.PipelineRu
 }
 
 func (c *Controller) uploadLog(ctx context.Context, namespace string, podName string, containerName string) (string, error) {
-
-	key, err := uuid.NewRandom()
-	if nil != err {
-		return "", err
-	}
+	key := fmt.Sprintf("%s/%s/%s", namespace, podName, containerName)
 
 	opts := &corev1.PodLogOptions{
 		Container: containerName,
@@ -510,7 +505,7 @@ func (c *Controller) uploadLog(ctx context.Context, namespace string, podName st
 	}
 	defer rc.Close()
 
-	err = c.blobStore.Put(ctx, key.String(), func(w io.Writer) error {
+	err = c.blobStore.Put(ctx, key, func(w io.Writer) error {
 		_, err := io.Copy(w, rc)
 		return err
 	}, storage.PutOptions{
@@ -519,7 +514,7 @@ func (c *Controller) uploadLog(ctx context.Context, namespace string, podName st
 	if err != nil {
 		return "", err
 	}
-	return key.String(), nil
+	return key, nil
 }
 
 func extractPodAndTaskNamesFromPipelineRun(plr *tekv1alpha1.PipelineRun) []podAndTaskName {
