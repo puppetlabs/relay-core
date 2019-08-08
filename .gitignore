@@ -1,3 +1,4 @@
+/.deploy/
 
 cmd/nebula-slack-notification/main.linux-amd64
 nebula-metadata-api

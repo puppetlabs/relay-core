@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/puppetlabs/horsehead/storage"
 	tekv1alpha1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
 	tekclientset "github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
@@ -45,7 +44,7 @@ const (
 
 	// PipelineRun annotation indicating the log upload location
 	logUploadAnnotationPrefix = "nebula.puppet.com/log-archive-"
-	MaxLogArchiveTries = 7
+	MaxLogArchiveTries        = 7
 )
 
 type podAndTaskName struct {
@@ -441,7 +440,8 @@ func (c *Controller) processPipelineRunChange(ctx context.Context, key string) e
 
 func (c *Controller) uploadLogs(ctx context.Context, plr *tekv1alpha1.PipelineRun) error {
 	for _, pt := range extractPodAndTaskNamesFromPipelineRun(plr) {
-		if _, ok := plr.Annotations[logUploadAnnotationPrefix+pt.TaskName]; ok {
+		annotation := logUploadAnnotationPrefix + pt.TaskName
+		if _, ok := plr.Annotations[annotation]; ok {
 			continue
 		}
 		var containerName, logName string
@@ -464,7 +464,7 @@ func (c *Controller) uploadLogs(ctx context.Context, plr *tekv1alpha1.PipelineRu
 			return err
 		}
 		for retry := uint(0); ; retry++ {
-			plr.Annotations[logUploadAnnotationPrefix+pt.TaskName] = logName
+			metav1.SetMetaDataAnnotation(&plr.ObjectMeta, annotation, logName)
 			plr, err = c.tekclient.TektonV1alpha1().PipelineRuns(plr.Namespace).Update(plr)
 			if nil == err {
 				break
@@ -494,11 +494,7 @@ func (c *Controller) uploadLogs(ctx context.Context, plr *tekv1alpha1.PipelineRu
 }
 
 func (c *Controller) uploadLog(ctx context.Context, namespace string, podName string, containerName string) (string, error) {
-
-	key, err := uuid.NewRandom()
-	if nil != err {
-		return "", err
-	}
+	key := fmt.Sprintf("%s/%s/%s", namespace, podName, containerName)
 
 	opts := &corev1.PodLogOptions{
 		Container: containerName,
@@ -509,7 +505,7 @@ func (c *Controller) uploadLog(ctx context.Context, namespace string, podName st
 	}
 	defer rc.Close()
 
-	err = c.blobStore.Put(ctx, key.String(), func(w io.Writer) error {
+	err = c.blobStore.Put(ctx, key, func(w io.Writer) error {
 		_, err := io.Copy(w, rc)
 		return err
 	}, storage.PutOptions{
@@ -518,7 +514,7 @@ func (c *Controller) uploadLog(ctx context.Context, namespace string, podName st
 	if err != nil {
 		return "", err
 	}
-	return key.String(), nil
+	return key, nil
 }
 
 func extractPodAndTaskNamesFromPipelineRun(plr *tekv1alpha1.PipelineRun) []podAndTaskName {

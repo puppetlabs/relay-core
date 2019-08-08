@@ -18,8 +18,18 @@ if [[ "$TRAVIS_EVENT_TYPE" == "pull_request" ]]; then
         export NO_DOCKER_PUSH=yes
 fi
 
-if [[ "$TRAVIS_BRANCH" != "master" ]]; then
-        export NO_DOCKER_PUSH=yes
+declare -A NEBULA_WORKFLOWS
+
+[ -r "nebula-deploy.sh" ] && source "nebula-deploy.sh"
+
+NEBULA_WORKFLOWS[master]=nebula-system-deploy-prod-1
+NEBULA_WORKFLOWS[development]=nebula-system-deploy-stage-1
+
+NEBULA_WORKFLOW=${NEBULA_WORKFLOWS["$TRAVIS_BRANCH"]:-}
+if [ -z "${NEBULA_WORKFLOW}" ]; then
+    export NO_DOCKER_PUSH=yes
+else
+    export NEBULA_WORKFLOW
 fi
 
 if [ -n "${DIRTY}" ]; then

@@ -1,0 +1,20 @@
+#!/bin/bash
+set -euo pipefail
+
+if [ -z "${NEBULA_EMAIL:-}" ] || [ -z "${NEBULA_PASSWORD:-}" ] || [ -z "${GITHUB_TOKEN:-}" ] || [ -z "${NEBULA_WORKFLOW:-}" ] || [ -z "${VERSION:-}" ] || [ "${NO_DOCKER_PUSH:-}" == "yes" ]; then
+    echo "Branch ${TRAVIS_BRANCH} has no workflow configuration. Skipping deploy."
+    exit 0
+fi
+
+mkdir -p .deploy
+curl -LJ -o .deploy/nebula-cli \
+    -H 'Accept: application/octet-stream' \
+    "https://api.github.com/repos/puppetlabs/nebula-cli/releases/assets/$( curl -s "https://api.github.com/repos/puppetlabs/nebula-cli/releases/latest?access_token=${GITHUB_TOKEN}" | jq -r '.assets[] | select(.name | endswith("-linux-amd64")) | .id' )?access_token=${GITHUB_TOKEN}"
+chmod +x .deploy/nebula-cli
+
+mkdir -p ~/.config/nebula
+echo 'apiHostAddr: https://api.stage.nebula.puppet.net' >~/.config/nebula/config.yaml
+
+echo -n "${NEBULA_PASSWORD}" | .deploy/nebula-cli login -e "${NEBULA_EMAIL}" -p
+echo -n "${VERSION}" | .deploy/nebula-cli secret set -w "${NEBULA_WORKFLOW}" -k tasks.image.tag -v
+.deploy/nebula-cli workflow run -n "${NEBULA_WORKFLOW}"
