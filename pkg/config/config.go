@@ -22,3 +22,7 @@ type SecretAuthControllerConfig struct {
 	MetadataServiceImagePullSecret string
 	MetadataServiceVaultAddr       string
 }
+
+type K8sClusterProvisionerConfig struct {
+	WorkDir string
+}
