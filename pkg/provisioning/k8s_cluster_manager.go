@@ -2,6 +2,7 @@ package provisioning
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
@@ -17,23 +18,21 @@ type K8sClusterManager interface {
 	Synchronize(context.Context) (*models.K8sCluster, errors.Error)
 }
 
-func NewK8sClusterManagerFromSpec(spec *models.K8sProvisionerSpec) (K8sClusterManager, errors.Error) {
-	platform, ok := PlatformMapping[spec.Provider]
+func NewK8sClusterManagerFromSpec(spec *models.K8sProvisionerSpec, workdir string) (K8sClusterManager, errors.Error) {
+	platform, ok := PlatformMapping[strings.ToLower(spec.Provider)]
 	if !ok {
 		return nil, errors.NewK8sProvisionerUnknownProvider(spec.Provider)
 	}
 
-	adapter, err := PlatformAdapters[platform](spec)
-	if err != nil {
-		return nil, errors.NewK8sProvisionerPlatformSetupError(spec.Provider).WithCause(err)
-	}
+	adapter := PlatformAdapters[platform](spec, workdir)
 
-	return NewK8sClusterManager(spec, adapter), nil
+	return NewK8sClusterManager(spec, workdir, adapter), nil
 }
 
 // k8sClusterManager creates, updates or deletes clusters
 type k8sClusterManager struct {
 	spec    *models.K8sProvisionerSpec
+	workdir string
 	adapter K8sClusterAdapter
 }
 
@@ -89,9 +88,10 @@ loop:
 
 // NewK8sClusterManager returns a new k8sClusterManager instance. Takes a spec and a platform adapter
 // and synchronize makes relevant synchronization calls to the adapter.
-func NewK8sClusterManager(spec *models.K8sProvisionerSpec, adapter K8sClusterAdapter) *k8sClusterManager {
+func NewK8sClusterManager(spec *models.K8sProvisionerSpec, workdir string, adapter K8sClusterAdapter) *k8sClusterManager {
 	return &k8sClusterManager{
 		spec:    spec,
+		workdir: workdir,
 		adapter: adapter,
 	}
 }

@@ -18,3 +18,7 @@ type SecretAuthControllerConfig struct {
 	VaultToken           string
 	MetadataServiceImage string
 }
+
+type K8sClusterProvisionerConfig struct {
+	WorkDir string
+}

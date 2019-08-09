@@ -3,7 +3,6 @@ package support
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/url"
 	"path"
@@ -21,6 +20,7 @@ type KopsSupportConfig struct {
 	ProjectID                string
 	ServiceAccountFileBase64 string
 	StateStoreName           string
+	WorkDir                  string
 }
 
 // KopsSupport provides functionality that supports the running of kops commands.
@@ -40,7 +40,7 @@ func (ki *KopsSupport) setup(ctx context.Context) errors.Error {
 
 	ki.setupOnce.Do(func() {
 		log.Println("writing platform credentials to temporary location")
-		ki.credentialsFile, err = writeCredentialsFile(ki.cfg.ServiceAccountFileBase64)
+		ki.credentialsFile, err = ki.writeCredentialsFile(ki.cfg.ServiceAccountFileBase64)
 		if err != nil {
 			err = errors.NewK8sProvisionerKopsSupportSetupError().WithCause(err)
 
@@ -122,23 +122,18 @@ func (ki *KopsSupport) PlatformID() string {
 	return "gce"
 }
 
-func NewKopsSupport(cfg KopsSupportConfig) *KopsSupport {
-	return &KopsSupport{
-		cfg: cfg,
-	}
-}
-
-func writeCredentialsFile(serviceAccountContent string) (string, errors.Error) {
-	d, err := ioutil.TempDir("", "nebula-kops-support")
-	if err != nil {
-		return "", errors.NewK8sProvisionerCredentialsFileError().WithCause(err)
-	}
-
-	p := path.Join(d, "gcloud-service-account.json")
+func (ki *KopsSupport) writeCredentialsFile(serviceAccountContent string) (string, errors.Error) {
+	p := path.Join(ki.cfg.WorkDir, "gcloud-service-account.json")
 
 	if err := taskutil.WriteToFile(p, serviceAccountContent); err != nil {
 		return "", errors.NewK8sProvisionerCredentialsFileError().WithCause(err)
 	}
 
 	return p, nil
+}
+
+func NewKopsSupport(cfg KopsSupportConfig) *KopsSupport {
+	return &KopsSupport{
+		cfg: cfg,
+	}
 }

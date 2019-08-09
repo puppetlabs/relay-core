@@ -251,6 +251,8 @@ github.com/puppetlabs/errawr-go/v2 v2.1.0 h1:SMZe3K6fSWOpo8Ol1u1G3slNroihmuka5uu
 github.com/puppetlabs/errawr-go/v2 v2.1.0/go.mod h1:TFKBrNpfPDG8ta8/NfaqpC+hMMsJqd9xKvBJDRgHFCQ=
 github.com/puppetlabs/horsehead v1.4.0 h1:lT9yuCgRf47rzwEK2qL1WJ05SwLzsoS4l/RzzCOVcL4=
 github.com/puppetlabs/horsehead v1.4.0/go.mod h1:KjnAIXT0c2HQpH+KifwrbQQ/trvWH7Tf0xKA6Nd+YDU=
+github.com/puppetlabs/horsehead v1.8.0 h1:f0J9y4fOp2qJeD1DQqTNbVaqviCa/Mglh3M/aJg23CE=
+github.com/puppetlabs/horsehead v1.8.0/go.mod h1:goPK6VZQe6iSfMBc2OD2aF4HPwxseMNm1+W1bsp7r6k=
 github.com/puppetlabs/insights-logging v0.0.0-20180912211921-3b7d3d14cd5b/go.mod h1:wPccOvbQAZAyYVoYD96psW8poDy42dBZVyZoq49fT/I=
 github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a/go.mod h1:bCqnVzQkZxMG4s8nGwiZ5l3QUCyqpo9Y+/ZMZ9VjZe4=
 github.com/reflect/raymond v0.0.0-20190227215356-5fa3955f4a50 h1:tQC2Xbytchkj88dqeRQeuvfG4mDSKU/r5ovo+16XJ2I=

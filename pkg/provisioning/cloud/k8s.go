@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/url"
 	"os"
@@ -35,11 +34,11 @@ type KopsSupporter interface {
 type K8sClusterAdapter struct {
 	spec    *models.K8sProvisionerSpec
 	support KopsSupporter
-	tmpdir  string
+	workdir string
 }
 
 func (k *K8sClusterAdapter) writeResource(name string, obj interface{}) errors.Error {
-	f, err := os.Create(filepath.Join(k.tmpdir, name))
+	f, err := os.Create(filepath.Join(k.workdir, name))
 	if err != nil {
 		return errors.NewK8sProvisionerIoError("failed to create resource file").WithCause(err)
 	}
@@ -115,9 +114,9 @@ func (k *K8sClusterAdapter) ProvisionCluster(ctx context.Context) errors.Error {
 		args: []string{
 			"--state", stateStoreURL.String(),
 			"replace", "--force",
-			"-f", filepath.Join(k.tmpdir, "cluster.json"),
-			"-f", filepath.Join(k.tmpdir, "master-ig.json"),
-			"-f", filepath.Join(k.tmpdir, "node-ig.json"),
+			"-f", filepath.Join(k.workdir, "cluster.json"),
+			"-f", filepath.Join(k.workdir, "master-ig.json"),
+			"-f", filepath.Join(k.workdir, "node-ig.json"),
 		},
 		env:    vars,
 		stdout: os.Stdout,
@@ -206,6 +205,8 @@ func (k *K8sClusterAdapter) getCluster(ctx context.Context) (*resources, errors.
 		errbuf = &bytes.Buffer{}
 	)
 
+	emw := io.MultiWriter(os.Stderr, errbuf)
+
 	log.Println("looking for cluster and exporting kubeconfig")
 	kerr := kopsExec(ctx, command{
 		args: []string{
@@ -215,7 +216,7 @@ func (k *K8sClusterAdapter) getCluster(ctx context.Context) (*resources, errors.
 		},
 		env:    vars,
 		stdout: buf,
-		stderr: errbuf,
+		stderr: emw,
 	})
 
 	if kerr != nil {
@@ -329,19 +330,13 @@ func (k K8sClusterAdapter) validateCluster(ctx context.Context) (*validationResu
 	return &res, nil
 }
 
-// NewK8sClusterAdapter returns a new K8sClusterAdapter or an error. A temporary directory is created
-// to contain operational context.
-func NewK8sClusterAdapter(spec *models.K8sProvisionerSpec, ks KopsSupporter) (*K8sClusterAdapter, errors.Error) {
-	tmpdir, err := ioutil.TempDir("", "nebula-k8s-provisioner")
-	if err != nil {
-		return nil, errors.NewK8sProvisionerIoError("failed to create temp directory").WithCause(err)
-	}
-
+// NewK8sClusterAdapter returns a new K8sClusterAdapter.
+func NewK8sClusterAdapter(spec *models.K8sProvisionerSpec, ks KopsSupporter, workdir string) *K8sClusterAdapter {
 	return &K8sClusterAdapter{
 		spec:    spec,
 		support: ks,
-		tmpdir:  tmpdir,
-	}, nil
+		workdir: workdir,
+	}
 }
 
 // kind is used to extract only the object kind field from a json.RawMessage object.

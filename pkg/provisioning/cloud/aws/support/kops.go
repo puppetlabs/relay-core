@@ -23,6 +23,7 @@ type KopsSupportConfig struct {
 	StateStoreName  string
 	Region          string
 	SSHPublicKey    string
+	WorkDir         string
 }
 
 // KopsSupport provides functionality that supports the running of kops commands.
@@ -83,7 +84,7 @@ func (ki *KopsSupport) setup(ctx context.Context) errors.Error {
 		ki.stateStoreURL = &url.URL{Host: ki.cfg.StateStoreName, Scheme: "s3"}
 
 		log.Println("writing ssh public key")
-		p, err := writeSSHPublicKeyFile(ki.cfg.SSHPublicKey)
+		p, err := ki.writeSSHPublicKeyFile(ki.cfg.SSHPublicKey)
 		if err != nil {
 			err = errors.NewK8sProvisionerKopsSupportSetupError().WithCause(err)
 
@@ -141,23 +142,18 @@ func (ki *KopsSupport) PlatformID() string {
 	return "aws"
 }
 
-func NewKopsSupport(cfg KopsSupportConfig) *KopsSupport {
-	return &KopsSupport{
-		cfg: cfg,
-	}
-}
-
-func writeSSHPublicKeyFile(sshPublicKey string) (string, errors.Error) {
-	d, err := ioutil.TempDir("", "nebula-kops-support")
-	if err != nil {
-		return "", errors.NewK8sProvisionerCredentialsFileError().WithCause(err)
-	}
-
-	p := path.Join(d, "ssh.pub")
+func (ki *KopsSupport) writeSSHPublicKeyFile(sshPublicKey string) (string, errors.Error) {
+	p := path.Join(ki.cfg.WorkDir, "ssh.pub")
 
 	if err := ioutil.WriteFile(p, []byte(sshPublicKey), 0644); err != nil {
 		return "", errors.NewK8sProvisionerCredentialsFileError().WithCause(err)
 	}
 
 	return p, nil
+}
+
+func NewKopsSupport(cfg KopsSupportConfig) *KopsSupport {
+	return &KopsSupport{
+		cfg: cfg,
+	}
 }

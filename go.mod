@@ -20,7 +20,7 @@ require (
 	github.com/prometheus/client_golang v0.9.3-0.20190127221311-3c4408c8b829 // indirect
 	github.com/puppetlabs/errawr-gen v1.0.0
 	github.com/puppetlabs/errawr-go/v2 v2.1.0
-	github.com/puppetlabs/horsehead v1.4.0
+	github.com/puppetlabs/horsehead v1.8.0
 	github.com/stretchr/testify v1.3.0
 	github.com/tektoncd/pipeline v0.4.0
 	go.uber.org/atomic v1.4.0 // indirect

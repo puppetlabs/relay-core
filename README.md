@@ -26,6 +26,6 @@ Current supported configuration variables are listed below.
 ### Dockerfile.include
 
 The build system uses a multi-stage build approach and calls the build container `builder`.
-The base builder isn't not swappable at the moment. This would be a nice to have, but since
+The base builder is not swappable at the moment. This would be a nice to have, but since
 all of the sub-projects in this repo are written in Go, a standard Go base image is the only
 one needed. See the base Dockerfile.include for an example.
