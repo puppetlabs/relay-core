@@ -14,6 +14,10 @@ require (
 	github.com/hashicorp/vault/api v1.0.2
 	github.com/imdario/mergo v0.3.7 // indirect
 	github.com/json-iterator/go v1.1.7 // indirect
+	github.com/google/uuid v1.1.1
+	github.com/googleapis/gax-go v2.0.2+incompatible // indirect
+	github.com/hashicorp/vault/api v1.0.2
+	github.com/inconshreveable/log15 v0.0.0-20180818164646-67afb5ed74ec
 	github.com/knative/pkg v0.0.0-20190624141606-d82505e6c5b4 // indirect
 	github.com/markbates/inflect v1.0.4 // indirect
 	github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a // indirect
@@ -22,6 +26,7 @@ require (
 	github.com/puppetlabs/errawr-go/v2 v2.1.0
 	github.com/puppetlabs/horsehead v1.8.0
 	github.com/stretchr/testify v1.3.0
+	github.com/puppetlabs/nebula-libs/storage/gcs v1.0.1
 	github.com/tektoncd/pipeline v0.4.0
 	go.uber.org/atomic v1.4.0 // indirect
 	go.uber.org/multierr v1.1.0 // indirect

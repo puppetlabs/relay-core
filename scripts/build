@@ -3,33 +3,47 @@
 set -euo pipefail
 
 build_images() {
-    for cmd in ./cmd/*; do
-        local command_name="$(basename "${cmd}")"
+    local cmd="${1}"
 
-        source "${cmd}"/build-info.sh
+    if [ ! -n "${cmd}" ]; then
+        for cmd in ./cmd/*; do
+            build_image "${cmd}"
+        done
+    else
+        # if we passed in a name to build, prepend the ./cmd path to it
+        build_image "./cmd/${cmd}"
+    fi
+}
 
-        docker_file=Dockerfile."${command_name}"
-        include=scripts/Dockerfile.include
-        if [ -f "${cmd}"/Dockerfile.include ]; then
-            include="${cmd}"/Dockerfile.include
-        fi
+build_image() {
+    local cmd="${1}"
+    local command_name="$(basename "${cmd}")"
 
-        cp scripts/Dockerfile.template "${docker_file}"
-        cat "${include}" >> "${docker_file}"
+    printf "building ${command_name}\n"
 
-        sed -i "s|__OUTPUTBIN__|${command_name}|g" "${docker_file}"
-        sed -i "s|__GOMAIN__|./cmd/${command_name}|g" "${docker_file}"
-        sed -i "s|__DOCKER_CMD__|${DOCKER_CMD}|g" "${docker_file}"
+    source "${cmd}"/build-info.sh
 
-        docker build -f "${docker_file}" -t "${DOCKER_REPO}:${VERSION}" .
+    docker_file=Dockerfile."${command_name}"
+    include=scripts/Dockerfile.include
+    if [ -f "${cmd}"/Dockerfile.include ]; then
+        include="${cmd}"/Dockerfile.include
+    fi
 
-        rm "${docker_file}"
+    cp scripts/Dockerfile.template "${docker_file}"
+    cat "${include}" >> "${docker_file}"
 
-        echo "${DOCKER_REPO}:${VERSION}" >> "${RELEASE_MANIFEST}"
-    done
+    sed -i "s|__OUTPUTBIN__|${command_name}|g" "${docker_file}"
+    sed -i "s|__GOMAIN__|./cmd/${command_name}|g" "${docker_file}"
+    sed -i "s|__DOCKER_CMD__|${DOCKER_CMD}|g" "${docker_file}"
+
+    docker build -f "${docker_file}" -t "${DOCKER_REPO}:${VERSION}" .
+
+    rm "${docker_file}"
+
+    echo "${DOCKER_REPO}:${VERSION}" >> "${RELEASE_MANIFEST}"
 }
 
 # this ensures that we are in the correct directory context
 cd "$(dirname "$0")"/..
 
-build_images
+build_images "$*"

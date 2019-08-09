@@ -1,2 +1,5 @@
 ./nebula-metadata-api
 ./nebula-secret-auth-controller
+./nebula-k8s-provisioner
+/.deploy/
+./cmd/nebula-slack-notification/main.linux-amd64

@@ -1,10 +1,13 @@
 package secretauth
 
 import (
+	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
+	"github.com/puppetlabs/horsehead/storage"
 	tekv1alpha1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
 	tekclientset "github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
 	tekinformers "github.com/tektoncd/pipeline/pkg/client/informers/externalversions"
@@ -21,6 +24,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog"
 
 	nebulav1 "github.com/puppetlabs/nebula-tasks/pkg/apis/nebula.puppet.com/v1"
@@ -34,7 +38,19 @@ import (
 const (
 	// default name for the workflow metadata api pod and service
 	metadataServiceName = "metadata-api"
+
+	// name for the image pull secret used by the metadata API, if needed
+	metadataImagePullSecretName = "metadata-api-docker-registry"
+
+	// PipelineRun annotation indicating the log upload location
+	logUploadAnnotationPrefix = "nebula.puppet.com/log-archive-"
+	MaxLogArchiveTries        = 7
 )
+
+type podAndTaskName struct {
+	PodName  string
+	TaskName string
+}
 
 // Controller watches for nebulav1.SecretAuth resource changes.
 // If a SecretAuth resource is created, the controller will create a service acccount + rbac
@@ -44,6 +60,7 @@ const (
 // ask kubernetes for the service account token, that it will use to proxy secrets
 // between the task pods and the vault server.
 type Controller struct {
+	kubeclientconfig   clientcmd.ClientConfig
 	kubeclient         kubernetes.Interface
 	nebclient          clientset.Interface
 	tekclient          tekclientset.Interface
@@ -56,6 +73,7 @@ type Controller struct {
 	saworker           *worker
 	plrworker          *worker
 	vaultClient        *vault.VaultAuth
+	blobStore          storage.BlobStore
 
 	cfg *config.SecretAuthControllerConfig
 }
@@ -91,7 +109,7 @@ func (c *Controller) Run(numWorkers int, stopCh chan struct{}) error {
 // processSingleItem is responsible for creating all the resouces required for
 // secret handling and authentication.
 // TODO break this logic out into smaller chunks... especially the calls to the vault api
-func (c *Controller) processSingleItem(key string) error {
+func (c *Controller) processSingleItem(ctx context.Context, key string) error {
 	klog.Infof("syncing SecretAuth %s", key)
 	defer klog.Infof("done syncing SecretAuth %s", key)
 
@@ -116,6 +134,7 @@ func (c *Controller) processSingleItem(key string) error {
 	}
 
 	var (
+		ips       *corev1.Secret
 		saccount  *corev1.ServiceAccount
 		role      *rbacv1.Role
 		binding   *rbacv1.RoleBinding
@@ -124,7 +143,15 @@ func (c *Controller) processSingleItem(key string) error {
 		configMap *corev1.ConfigMap
 	)
 
-	saccount, err = createServiceAccount(c.kubeclient, sa)
+	if c.cfg.MetadataServiceImagePullSecret != "" {
+		klog.Info("copying secret for metadata service image")
+		ips, err = copyImagePullSecret(c.kubeclientconfig, c.kubeclient, sa, c.cfg.MetadataServiceImagePullSecret)
+		if err != nil {
+			return err
+		}
+	}
+
+	saccount, err = createServiceAccount(c.kubeclient, sa, ips)
 	if err != nil {
 		return err
 	}
@@ -145,12 +172,20 @@ func (c *Controller) processSingleItem(key string) error {
 		return err
 	}
 
+	// It is possible that the metadata service and this controller talk to
+	// different Vault endpoints: each might be talking to a Vault agent (for
+	// caching or additional security) instead of directly to the Vault server.
+	podVaultAddr := c.cfg.MetadataServiceVaultAddr
+	if podVaultAddr == "" {
+		podVaultAddr = c.vaultClient.Address()
+	}
+
 	pod, err = createMetadataAPIPod(
 		c.kubeclient,
 		c.cfg.MetadataServiceImage,
 		saccount,
 		sa,
-		c.vaultClient.Address(),
+		podVaultAddr,
 		c.vaultClient.EngineMount(),
 	)
 	if err != nil {
@@ -197,6 +232,10 @@ func (c *Controller) processSingleItem(key string) error {
 	saCopy.Status.RoleBinding = binding.GetName()
 	saCopy.Status.VaultPolicy = namespace
 	saCopy.Status.VaultAuthRole = namespace
+
+	if ips != nil {
+		saCopy.Status.MetadataServiceImagePullSecret = ips.GetName()
+	}
 
 	klog.Info("updating secretauth resource status for ", sa.Spec.WorkflowID)
 	saCopy, err = c.nebclient.NebulaV1().SecretAuths(namespace).Update(saCopy)
@@ -304,7 +343,7 @@ func (c *Controller) enqueuePipelineRunChange(old, obj interface{}) {
 	c.plrworker.add(key)
 }
 
-func (c *Controller) processPipelineRunChange(key string) error {
+func (c *Controller) processPipelineRunChange(ctx context.Context, key string) error {
 	klog.Infof("syncing PipelineRun change %s", key)
 	defer klog.Infof("done syncing PipelineRun change %s", key)
 
@@ -324,6 +363,12 @@ func (c *Controller) processPipelineRunChange(key string) error {
 	}
 
 	if plr.IsDone() {
+		// Upload the logs that are not defined on the PipelineRun record...
+		err = c.uploadLogs(ctx, plr)
+		if nil != err {
+			return err
+		}
+
 		sas, err := c.nebclient.NebulaV1().SecretAuths(namespace).List(metav1.ListOptions{})
 		if err != nil {
 			return err
@@ -357,6 +402,13 @@ func (c *Controller) processPipelineRunChange(key string) error {
 				return err
 			}
 
+			if sa.Status.MetadataServiceImagePullSecret != "" {
+				err = core.Secrets(namespace).Delete(sa.Status.MetadataServiceImagePullSecret, opts)
+				if err != nil {
+					return err
+				}
+			}
+
 			err = rbac.RoleBindings(namespace).Delete(sa.Status.RoleBinding, opts)
 			if err != nil {
 				return err
@@ -386,23 +438,140 @@ func (c *Controller) processPipelineRunChange(key string) error {
 	return nil
 }
 
-func NewController(cfg *config.SecretAuthControllerConfig, vaultClient *vault.VaultAuth) (*Controller, error) {
-	kcfg, err := clientcmd.BuildConfigFromFlags(cfg.KubeMasterURL, cfg.Kubeconfig)
+func (c *Controller) uploadLogs(ctx context.Context, plr *tekv1alpha1.PipelineRun) error {
+	for _, pt := range extractPodAndTaskNamesFromPipelineRun(plr) {
+		annotation := logUploadAnnotationPrefix + pt.TaskName
+		if _, ok := plr.Annotations[annotation]; ok {
+			continue
+		}
+		var containerName, logName string
+		var err error
+		for _, containerName = range []string{"step-" + pt.TaskName, "build-step-" + pt.TaskName} {
+			logName, err = c.uploadLog(ctx, plr.Namespace, pt.PodName, containerName)
+			if nil != err {
+				if errors.IsBadRequest(err) {
+					continue
+				}
+				break
+			}
+		}
+		if nil != err {
+			klog.Warningf("Failed to upload log for podName=%s taskName=%s containerName=%s %+v",
+				pt.PodName,
+				pt.TaskName,
+				containerName,
+				err)
+			return err
+		}
+		for retry := uint(0); ; retry++ {
+			metav1.SetMetaDataAnnotation(&plr.ObjectMeta, annotation, logName)
+			plr, err = c.tekclient.TektonV1alpha1().PipelineRuns(plr.Namespace).Update(plr)
+			if nil == err {
+				break
+			} else if !errors.IsConflict(err) {
+				return err
+			}
+			if retry > MaxLogArchiveTries {
+				return err
+			}
+			klog.Warningf("Conflict during pipelineRun=%s/%s update",
+				plr.Namespace,
+				plr.Name)
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After((1 << retry) * 10 * time.Millisecond):
+			}
+			plr, err = c.tekclient.TektonV1alpha1().
+				PipelineRuns(plr.Namespace).
+				Get(plr.Name, metav1.GetOptions{})
+			if nil != err {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (c *Controller) uploadLog(ctx context.Context, namespace string, podName string, containerName string) (string, error) {
+	key := fmt.Sprintf("%s/%s/%s", namespace, podName, containerName)
+
+	opts := &corev1.PodLogOptions{
+		Container: containerName,
+	}
+	rc, err := c.kubeclient.CoreV1().Pods(namespace).GetLogs(podName, opts).Stream()
+	if err != nil {
+		return "", err
+	}
+	defer rc.Close()
+
+	err = c.blobStore.Put(ctx, key, func(w io.Writer) error {
+		_, err := io.Copy(w, rc)
+		return err
+	}, storage.PutOptions{
+		ContentType: "application/octet-stream",
+	})
+	if err != nil {
+		return "", err
+	}
+	return key, nil
+}
+
+func extractPodAndTaskNamesFromPipelineRun(plr *tekv1alpha1.PipelineRun) []podAndTaskName {
+	var result []podAndTaskName
+	for _, taskRun := range plr.Status.TaskRuns {
+		if nil == taskRun {
+			continue
+		}
+		if nil == taskRun.Status {
+			continue
+		}
+		// Ensure the pod got initialized:
+		init := false
+		for _, step := range taskRun.Status.Steps {
+			if step.Name != taskRun.PipelineTaskName {
+				continue
+			}
+			if nil != step.Terminated || nil != step.Running {
+				init = true
+			}
+		}
+		if !init {
+			continue
+		}
+		result = append(result, podAndTaskName{
+			PodName:  taskRun.Status.PodName,
+			TaskName: taskRun.PipelineTaskName,
+		})
+	}
+	return result
+}
+
+func NewController(cfg *config.SecretAuthControllerConfig, vaultClient *vault.VaultAuth, blobStore storage.BlobStore) (*Controller, error) {
+	// The following two statements are essentially equivalent to calling
+	// clientcmd.BuildConfigFromFlags(), but we need the Namespace() method from
+	// the clientcmd.ClientConfig, so we have to unwrap it.
+	kcfg := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		&clientcmd.ClientConfigLoadingRules{ExplicitPath: cfg.Kubeconfig},
+		&clientcmd.ConfigOverrides{ClusterInfo: clientcmdapi.Cluster{Server: cfg.KubeMasterURL}},
+	)
+
+	kcc, err := kcfg.ClientConfig()
 	if err != nil {
 		return nil, err
 	}
 
-	kc, err := kubernetes.NewForConfig(kcfg)
+	kc, err := kubernetes.NewForConfig(kcc)
 	if err != nil {
 		return nil, err
 	}
 
-	nebclient, err := clientset.NewForConfig(kcfg)
+	nebclient, err := clientset.NewForConfig(kcc)
 	if err != nil {
 		return nil, err
 	}
 
-	tekclient, err := tekclientset.NewForConfig(kcfg)
+	tekclient, err := tekclientset.NewForConfig(kcc)
 	if err != nil {
 		return nil, err
 	}
@@ -414,6 +583,7 @@ func NewController(cfg *config.SecretAuthControllerConfig, vaultClient *vault.Va
 	plrInformer := tekInformerFactory.Tekton().V1alpha1().PipelineRuns()
 
 	c := &Controller{
+		kubeclientconfig:   kcfg,
 		kubeclient:         kc,
 		nebclient:          nebclient,
 		tekclient:          tekclient,
@@ -424,6 +594,7 @@ func NewController(cfg *config.SecretAuthControllerConfig, vaultClient *vault.Va
 		plrInformer:        plrInformer,
 		plrInformerSynced:  plrInformer.Informer().HasSynced,
 		vaultClient:        vaultClient,
+		blobStore:          blobStore,
 		cfg:                cfg,
 	}
 
@@ -441,7 +612,47 @@ func NewController(cfg *config.SecretAuthControllerConfig, vaultClient *vault.Va
 	return c, nil
 }
 
-func createServiceAccount(kc kubernetes.Interface, sa *nebulav1.SecretAuth) (*corev1.ServiceAccount, error) {
+func copyImagePullSecret(kcfg clientcmd.ClientConfig, kc kubernetes.Interface, sa *nebulav1.SecretAuth, imagePullSecretKey string) (*corev1.Secret, error) {
+	namespace, name, err := cache.SplitMetaNamespaceKey(imagePullSecretKey)
+	if err != nil {
+		return nil, err
+	} else if namespace == "" {
+		namespace, _, _ = kcfg.Namespace()
+	}
+
+	ref, err := kc.CoreV1().Secrets(namespace).Get(name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	if ref.Type != corev1.SecretType("kubernetes.io/dockerconfigjson") {
+		klog.Warningf("image pull secret is not of type kubernetes.io/dockerconfigjson")
+	}
+
+	secret := &corev1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Secret",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      metadataImagePullSecretName,
+			Namespace: sa.GetNamespace(),
+		},
+		Type: ref.Type,
+		Data: ref.Data,
+	}
+
+	secret, err = kc.CoreV1().Secrets(sa.GetNamespace()).Create(secret)
+	if errors.IsAlreadyExists(err) {
+		secret, err = kc.CoreV1().Secrets(sa.GetNamespace()).Get(secret.GetName(), metav1.GetOptions{})
+	} else if err != nil {
+		return nil, err
+	}
+
+	return secret, nil
+}
+
+func createServiceAccount(kc kubernetes.Interface, sa *nebulav1.SecretAuth, imagePullSecret *corev1.Secret) (*corev1.ServiceAccount, error) {
 	saccount := &corev1.ServiceAccount{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
@@ -452,6 +663,12 @@ func createServiceAccount(kc kubernetes.Interface, sa *nebulav1.SecretAuth) (*co
 			Namespace: sa.GetNamespace(),
 			Labels:    getLabels(sa, nil),
 		},
+	}
+
+	if imagePullSecret != nil {
+		saccount.ImagePullSecrets = []corev1.LocalObjectReference{
+			{Name: imagePullSecret.GetName()},
+		}
 	}
 
 	klog.Infof("creating service account %s", sa.Spec.WorkflowID)
