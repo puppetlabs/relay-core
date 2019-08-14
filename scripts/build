@@ -19,6 +19,9 @@ build_image() {
     local cmd="${1}"
     local command_name="$(basename "${cmd}")"
 
+    OUTPUT_BIN=${OUTPUT_BIN:-command_name}
+    GO_MAIN=${GO_MAIN:-command_name}
+
     printf "building ${command_name}\n"
 
     source "${cmd}"/build-info.sh
@@ -32,8 +35,8 @@ build_image() {
     cp scripts/Dockerfile.template "${docker_file}"
     cat "${include}" >> "${docker_file}"
 
-    sed -i "s|__OUTPUTBIN__|${command_name}|g" "${docker_file}"
-    sed -i "s|__GOMAIN__|./cmd/${command_name}|g" "${docker_file}"
+    sed -i "s|__OUTPUTBIN__|${OUTPUT_BIN}|g" "${docker_file}"
+    sed -i "s|__GOMAIN__|./cmd/${GO_MAIN}|g" "${docker_file}"
     sed -i "s|__DOCKER_CMD__|${DOCKER_CMD}|g" "${docker_file}"
 
     docker build -f "${docker_file}" -t "${DOCKER_REPO}:${VERSION}" .
