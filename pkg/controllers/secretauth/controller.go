@@ -444,21 +444,12 @@ func (c *Controller) uploadLogs(ctx context.Context, plr *tekv1alpha1.PipelineRu
 		if _, ok := plr.Annotations[annotation]; ok {
 			continue
 		}
-		var containerName, logName string
-		var err error
-		for _, containerName = range []string{"step-" + pt.TaskName, "build-step-" + pt.TaskName} {
-			logName, err = c.uploadLog(ctx, plr.Namespace, pt.PodName, containerName)
-			if nil != err {
-				if errors.IsBadRequest(err) {
-					continue
-				}
-				break
-			}
-		}
+		containerName := "step-" + pt.TaskName
+		logName, err := c.uploadLog(ctx, plr.Namespace, pt.PodName, containerName)
 		if nil != err {
-			klog.Warningf("Failed to upload log for podName=%s taskName=%s containerName=%s %+v",
+			klog.Warningf("Failed to upload log for pod=%s/%s container=%s %+v",
+				plr.Namespace,
 				pt.PodName,
-				pt.TaskName,
 				containerName,
 				err)
 			return err
