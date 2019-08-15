@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"log"
 	"os"
 
@@ -14,13 +13,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	buf := new(bytes.Buffer)
-	command.SetOut(buf)
+	command.SetOut(os.Stdout)
+	command.SetErr(os.Stderr)
 
 	if err := command.Execute(); err != nil {
 		log.Fatal(err)
 	}
 
-	os.Stdout.Write(buf.Bytes())
 	os.Exit(0)
 }
