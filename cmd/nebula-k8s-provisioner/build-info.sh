@@ -1,4 +1,4 @@
 #!/bin/bash
 
 DOCKER_CMD="nebula-k8s-provisioner"
-DOCKER_REPO="gcr.io/nebula-tasks/${DOCKER_CMD}"
+DOCKER_REPO="projectnebula/k8s-provisioner"
