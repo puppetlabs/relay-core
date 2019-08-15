@@ -19,7 +19,7 @@ jobs:
       bash; fi
     - source "$HOME"/google-cloud-sdk/path.bash.inc
     - openssl aes-256-cbc -K $encrypted_35392154f715_key -iv $encrypted_35392154f715_iv
-      -in nebula-gcloud-service-account.json.enc -out scripts/nebula-gcloud-service-account.json
+      -in scripts/nebula-gcloud-service-account.json.enc -out scripts/nebula-gcloud-service-account.json
       -d
     - gcloud auth activate-service-account --key-file scripts/nebula-gcloud-service-account.json
     - gcloud --quiet auth configure-docker
