@@ -1,13 +1,14 @@
 package main
 
 import (
-	"fmt"
-	"github.com/puppetlabs/nebula-tasks/pkg/notify/slack"
-	"os"
-	"net/http"
-	"io/ioutil"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+
+	"github.com/puppetlabs/nebula-tasks/pkg/notify/slack"
 )
 
 type Spec struct {
@@ -31,7 +32,7 @@ func getSpec() (*Spec, error) {
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("GET %s: %v", specUrl, err))
 	}
-	if resp.StatusCode / 100 != 2 {
+	if resp.StatusCode/100 != 2 {
 		return nil, errors.New(fmt.Sprintf("GET %s -> %d: %v", specUrl, resp.StatusCode, err))
 	}
 	var spec Spec
