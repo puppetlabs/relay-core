@@ -23,6 +23,7 @@ require (
 	github.com/puppetlabs/errawr-go/v2 v2.1.0
 	github.com/puppetlabs/horsehead v1.8.0
 	github.com/puppetlabs/nebula-libs/storage/gcs v1.0.1
+	github.com/spf13/cobra v0.0.5
 	github.com/stretchr/testify v1.3.0
 	github.com/tektoncd/pipeline v0.4.0
 	go.uber.org/atomic v1.4.0 // indirect

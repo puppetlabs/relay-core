@@ -117,6 +117,8 @@ github.com/hashicorp/vault/sdk/helper/strutil
 github.com/imdario/mergo
 # github.com/inconshreveable/log15 v0.0.0-20180818164646-67afb5ed74ec
 github.com/inconshreveable/log15
+# github.com/inconshreveable/mousetrap v1.0.0
+github.com/inconshreveable/mousetrap
 # github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af
 github.com/jmespath/go-jmespath
 # github.com/json-iterator/go v1.1.7
@@ -132,7 +134,7 @@ github.com/mattbaird/jsonpatch
 github.com/mattn/go-colorable
 # github.com/mattn/go-isatty v0.0.8
 github.com/mattn/go-isatty
-# github.com/mitchellh/go-homedir v1.0.0
+# github.com/mitchellh/go-homedir v1.1.0
 github.com/mitchellh/go-homedir
 # github.com/mitchellh/mapstructure v1.1.2
 github.com/mitchellh/mapstructure
@@ -189,6 +191,8 @@ github.com/serenize/snaker
 github.com/shurcooL/httpfs/vfsutil
 # github.com/shurcooL/vfsgen v0.0.0-20181202132449-6a9ea43bcacd
 github.com/shurcooL/vfsgen
+# github.com/spf13/cobra v0.0.5
+github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.3
 github.com/spf13/pflag
 # github.com/stretchr/testify v1.3.0

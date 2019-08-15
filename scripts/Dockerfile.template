@@ -4,3 +4,4 @@ ENV CGO_ENABLED 0
 WORKDIR /go/src/github.com/puppetlabs/nebula-tasks
 COPY . .
 RUN go build -a -installsuffix cgo -mod vendor -o __OUTPUTBIN__ __GOMAIN__
+RUN go build -a -installsuffix cgo -mod vendor -o ni ./include/ni
