@@ -12,12 +12,13 @@ require (
 	github.com/google/go-containerregistry v0.0.0-20190729175742-ef12d49c8daf // indirect
 	github.com/googleapis/gnostic v0.2.0 // indirect
 	github.com/hashicorp/vault/api v1.0.2
-	github.com/imdario/mergo v0.3.7 // indirect
+	github.com/imdario/mergo v0.3.7
 	github.com/inconshreveable/log15 v0.0.0-20180818164646-67afb5ed74ec
 	github.com/json-iterator/go v1.1.7 // indirect
 	github.com/knative/pkg v0.0.0-20190624141606-d82505e6c5b4 // indirect
 	github.com/markbates/inflect v1.0.4 // indirect
 	github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a // indirect
+	github.com/mitchellh/go-homedir v1.1.0
 	github.com/prometheus/client_golang v0.9.3-0.20190127221311-3c4408c8b829 // indirect
 	github.com/puppetlabs/errawr-gen v1.0.0
 	github.com/puppetlabs/errawr-go/v2 v2.1.0
@@ -35,6 +36,7 @@ require (
 	google.golang.org/api v0.7.0
 	google.golang.org/grpc v1.22.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
+	gopkg.in/yaml.v2 v2.2.2
 	k8s.io/api v0.0.0-20190515023547-db5a9d1c40eb
 	k8s.io/apimachinery v0.0.0-20190515023456-b74e4c97951f
 	k8s.io/client-go v0.0.0-20190515063710-7b18d6600f6b
