@@ -7,7 +7,13 @@ WORKSPACE_FILE=workspace.${WORKSPACE}.tfvars.json
 CREDENTIALS=$(ni get -p {.credentials})
 if [ -n "${CREDENTIALS}" ]; then
     ni credentials config
-    export GOOGLE_APPLICATION_CREDENTIALS=/workspace/credentials.json
+
+    PROVIDER=$(ni get -p {.provider})
+    if [ "${PROVIDER}" == "aws" ]; then
+        export AWS_SHARED_CREDENTIALS_FILE=/workspace/credentials.json
+    else
+        export GOOGLE_APPLICATION_CREDENTIALS=/workspace/credentials.json
+    fi
 fi
 
 GIT=$(ni get -p {.git})

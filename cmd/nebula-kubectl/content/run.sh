@@ -8,7 +8,7 @@ ni cluster config
 
 COMMAND=$(ni get -p {.command})
 FILE=
-if [ "$COMMAND" == "apply" ]; then
+if [ "${COMMAND}" == "apply" ]; then
     ARGS="-f"
     FILE=$(ni get -p {.file})
 else
