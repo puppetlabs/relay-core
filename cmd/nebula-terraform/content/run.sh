@@ -10,7 +10,7 @@ if [ -n "${CREDENTIALS}" ]; then
 
     PROVIDER=$(ni get -p {.provider})
     if [ "${PROVIDER}" == "aws" ]; then
-        export AWS_SHARED_CREDENTIALS_FILE=/workspace/credentials.json
+        export AWS_SHARED_CREDENTIALS_FILE=/workspace/credentials
     else
         export GOOGLE_APPLICATION_CREDENTIALS=/workspace/credentials.json
     fi
