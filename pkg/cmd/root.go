@@ -12,5 +12,11 @@ func NewRootCommand() (*cobra.Command, error) {
 		SilenceErrors: true,
 	}
 
+	c.AddCommand(NewClusterCommand())
+	c.AddCommand(NewCredentialsCommand())
+	c.AddCommand(NewFileCommand())
+	c.AddCommand(NewGetCommand())
+	c.AddCommand(NewGitCommand())
+
 	return c, nil
 }
