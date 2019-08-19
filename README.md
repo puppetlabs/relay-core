@@ -38,10 +38,10 @@ A task that will send a message to a slack channel.
 
 | Parameter | Description | Default | Required |
 |-----------|-------------|---------|----------|
-| `apiToken` | The slack legacy API token to use | None | True |
+| `apitoken` | The slack legacy API token to use | None | True |
 | `channel` | The channel to send the message to | None | True |
 | `message` | The message to send | None | True |
-| `username` | The username to use in slack | None | True |
+| `username` | The username to use in slack | `Nebula` | False |
 
 ### projectnebula/k8s-provisioner
 
