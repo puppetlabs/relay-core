@@ -1,0 +1,10 @@
+FROM vault:latest
+
+COPY --from=builder /go/src/github.com/puppetlabs/nebula-tasks/__OUTPUTBIN__ /usr/bin/__OUTPUTBIN__
+COPY --from=builder /go/src/github.com/puppetlabs/nebula-tasks/ni /usr/bin/ni
+RUN apk update && apk --no-cache add git gcc bind-dev musl-dev ca-certificates curl jq openssh openssl && update-ca-certificates
+
+COPY ./cmd/nebula-vault/content /nebula
+
+WORKDIR /nebula
+ENTRYPOINT ["/nebula/run.sh"]
