@@ -9,7 +9,7 @@ import (
 	"github.com/puppetlabs/horsehead/mainutil"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
 	"github.com/puppetlabs/nebula-tasks/pkg/data/secrets/vault"
-	"github.com/puppetlabs/nebula-tasks/pkg/server"
+	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server"
 )
 
 // defaultServiceAccountTokenPath is the default path to use for reading the service account
