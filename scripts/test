@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 go_test() {
     go test -race -mod=vendor ./...

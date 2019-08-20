@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 if [ -z "${NEBULA_EMAIL:-}" ] || [ -z "${NEBULA_PASSWORD:-}" ] || [ -z "${GITHUB_TOKEN:-}" ] || [ -z "${NEBULA_WORKFLOW:-}" ] || [ -z "${VERSION:-}" ] || [ "${NO_DOCKER_PUSH:-}" == "yes" ]; then
