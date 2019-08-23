@@ -9,8 +9,8 @@ import (
 
 	"github.com/puppetlabs/horsehead/netutil"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
-	"github.com/puppetlabs/nebula-tasks/pkg/data/secrets"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
+	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/op"
 )
 
 // Server listens on a host and port and contains sub routers to route
@@ -68,10 +68,6 @@ func (s *Server) Run(ctx context.Context) error {
 
 	defer srv.Shutdown(ctx)
 
-	if err := s.secretsHandler.sec.Login(ctx); err != nil {
-		return err
-	}
-
 	if err := srv.Serve(ln); err != nil {
 		return errors.NewServerRunError().WithCause(err)
 	}
@@ -81,13 +77,13 @@ func (s *Server) Run(ctx context.Context) error {
 
 // New returns a new Server that routes requests to sub-routers. It is also responsible
 // for binding to a listener and is the first point of entry for http requests.
-func New(cfg *config.MetadataServerConfig, sec secrets.Store) *Server {
+func New(cfg *config.MetadataServerConfig, managers op.Managers) *Server {
 	return &Server{
 		bindAddr:       cfg.BindAddr,
-		secretsHandler: &secretsHandler{sec: sec},
+		secretsHandler: &secretsHandler{managers: managers},
 		specsHandler: &specsHandler{
-			secretStore: sec,
-			namespace:   cfg.Namespace,
+			managers:  managers,
+			namespace: cfg.Namespace,
 		},
 		healthCheckHandler: &healthCheckHandler{},
 	}

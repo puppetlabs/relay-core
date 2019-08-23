@@ -13,7 +13,7 @@ import (
 	_ "github.com/puppetlabs/nebula-libs/storage/gcs"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
 	"github.com/puppetlabs/nebula-tasks/pkg/controllers/secretauth"
-	"github.com/puppetlabs/nebula-tasks/pkg/data/secrets/vault"
+	"github.com/puppetlabs/nebula-tasks/pkg/secrets/vault"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
 )

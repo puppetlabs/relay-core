@@ -29,10 +29,10 @@ import (
 
 	nebulav1 "github.com/puppetlabs/nebula-tasks/pkg/apis/nebula.puppet.com/v1"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
-	"github.com/puppetlabs/nebula-tasks/pkg/data/secrets/vault"
 	clientset "github.com/puppetlabs/nebula-tasks/pkg/generated/clientset/versioned"
 	informers "github.com/puppetlabs/nebula-tasks/pkg/generated/informers/externalversions"
 	sainformers "github.com/puppetlabs/nebula-tasks/pkg/generated/informers/externalversions/nebula.puppet.com/v1"
+	"github.com/puppetlabs/nebula-tasks/pkg/secrets/vault"
 )
 
 const (

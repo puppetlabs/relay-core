@@ -3,12 +3,11 @@ package main
 import (
 	"context"
 	"flag"
-	"log"
 	"os"
 
 	"github.com/puppetlabs/horsehead/mainutil"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
-	"github.com/puppetlabs/nebula-tasks/pkg/data/secrets/vault"
+	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/op"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server"
 )
 
@@ -30,23 +29,19 @@ func main() {
 	flag.Parse()
 
 	cfg := config.MetadataServerConfig{
-		BindAddr:  *bindAddr,
-		Namespace: *namespace,
-	}
-
-	vc, err := vault.NewVaultWithKubernetesAuth(&vault.Config{
-		Addr:                       *vaultAddr,
+		BindAddr:                   *bindAddr,
+		VaultAddr:                  *vaultAddr,
+		VaultRole:                  *vaultRole,
+		VaultEngineMount:           *vaultEngineMount,
+		VaultToken:                 *vaultToken,
 		K8sServiceAccountTokenPath: *serviceAccountTokenPath,
-		Token:                      *vaultToken,
-		Role:                       *vaultRole,
-		Bucket:                     *workflowID,
-		EngineMount:                *vaultEngineMount,
-	})
-	if err != nil {
-		log.Fatal(err)
+		WorkflowID:                 *workflowID,
+		Namespace:                  *namespace,
 	}
 
-	srv := server.New(&cfg, vc)
+	managers := op.NewManagers(&cfg)
+
+	srv := server.New(&cfg, managers)
 
 	os.Exit(mainutil.TrapAndWait(context.Background(), srv.Run))
 }

@@ -8,8 +8,8 @@ import (
 	"path"
 
 	vaultapi "github.com/hashicorp/vault/api"
-	"github.com/puppetlabs/nebula-tasks/pkg/data/secrets"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
+	"github.com/puppetlabs/nebula-tasks/pkg/secrets"
 )
 
 type Vault struct {

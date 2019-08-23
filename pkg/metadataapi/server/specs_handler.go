@@ -7,23 +7,25 @@ import (
 	"net/http"
 
 	utilapi "github.com/puppetlabs/horsehead/httputil/api"
-	"github.com/puppetlabs/nebula-tasks/pkg/data/secrets"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
+	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/op"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
 
 type specsHandler struct {
-	secretStore secrets.Store
-	namespace   string
+	managers  op.Managers
+	namespace string
 }
 
 func (h *specsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
 	config, err := rest.InClusterConfig()
 	if nil != err {
 		utilapi.WriteError(
-			r.Context(),
+			ctx,
 			w,
 			errors.NewServerInClusterConfigError().WithCause(err))
 		return
@@ -31,7 +33,7 @@ func (h *specsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	client, err := kubernetes.NewForConfig(config)
 	if nil != err {
 		utilapi.WriteError(
-			r.Context(),
+			ctx,
 			w,
 			errors.NewServerNewK8sClientError().WithCause(err))
 		return
@@ -48,7 +50,7 @@ func (h *specsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	configMap, err := client.CoreV1().ConfigMaps(h.namespace).Get(key, metav1.GetOptions{})
 	if nil != err {
 		utilapi.WriteError(
-			r.Context(),
+			ctx,
 			w,
 			errors.NewServerGetConfigMapError(key, h.namespace).WithCause(err))
 		return
@@ -56,27 +58,41 @@ func (h *specsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var spec interface{}
 	if err := json.Unmarshal([]byte(configMap.Data["spec.json"]), &spec); nil != err {
 		utilapi.WriteError(
-			r.Context(),
+			ctx,
 			w,
 			errors.NewServerConfigMapJSONError(key, h.namespace).WithCause(err))
 		return
 	}
-	spec = h.expandSecrets(r.Context(), spec)
-	utilapi.WriteObjectOK(r.Context(), w, spec)
+
+	sm, merr := h.managers.SecretsManager()
+	if merr != nil {
+		utilapi.WriteError(ctx, w, merr)
+
+		return
+	}
+
+	if err := sm.Login(ctx); err != nil {
+		utilapi.WriteError(ctx, w, err)
+
+		return
+	}
+
+	spec = h.expandSecrets(ctx, sm, spec)
+	utilapi.WriteObjectOK(ctx, w, spec)
 }
 
-func (h *specsHandler) expandSecrets(ctx context.Context, spec interface{}) interface{} {
+func (h *specsHandler) expandSecrets(ctx context.Context, sm op.SecretsManager, spec interface{}) interface{} {
 	switch v := spec.(type) {
 	case []interface{}:
 		result := make([]interface{}, len(v))
 		for index, elm := range v {
-			result[index] = h.expandSecrets(ctx, elm)
+			result[index] = h.expandSecrets(ctx, sm, elm)
 		}
 		return result
 	case map[string]interface{}:
 		secretName := extractSecretName(v)
 		if nil != secretName {
-			sec, err := h.secretStore.Get(ctx, *secretName)
+			sec, err := sm.Get(ctx, *secretName)
 			if err != nil || nil == sec {
 				log.Printf("failed to get secret=%s: %v", *secretName, err)
 				return ""
@@ -85,7 +101,7 @@ func (h *specsHandler) expandSecrets(ctx context.Context, spec interface{}) inte
 		}
 		result := make(map[string]interface{})
 		for key, val := range v {
-			result[key] = h.expandSecrets(ctx, val)
+			result[key] = h.expandSecrets(ctx, sm, val)
 		}
 		return result
 	default:
