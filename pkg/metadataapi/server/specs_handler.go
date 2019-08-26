@@ -15,7 +15,7 @@ import (
 )
 
 type specsHandler struct {
-	managers  op.Managers
+	managers  op.ManagerFactory
 	namespace string
 }
 

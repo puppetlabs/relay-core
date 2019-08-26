@@ -35,23 +35,16 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	head, r.URL.Path = shiftPath(r.URL.Path)
 
-	if head == "secrets" {
+	switch head {
+	case "secrets":
 		s.secretsHandler.ServeHTTP(w, r)
-
-		return
-	}
-	if head == "specs" {
+	case "specs":
 		s.specsHandler.ServeHTTP(w, r)
-
-		return
-	}
-	if head == "healthz" {
+	case "healthz":
 		s.healthCheckHandler.ServeHTTP(w, r)
-
-		return
+	default:
+		http.NotFound(w, r)
 	}
-
-	http.NotFound(w, r)
 }
 
 // Run created a new network listener and handles shutdowns when the context closes.
@@ -77,7 +70,7 @@ func (s *Server) Run(ctx context.Context) error {
 
 // New returns a new Server that routes requests to sub-routers. It is also responsible
 // for binding to a listener and is the first point of entry for http requests.
-func New(cfg *config.MetadataServerConfig, managers op.Managers) *Server {
+func New(cfg *config.MetadataServerConfig, managers op.ManagerFactory) *Server {
 	return &Server{
 		bindAddr:       cfg.BindAddr,
 		secretsHandler: &secretsHandler{managers: managers},

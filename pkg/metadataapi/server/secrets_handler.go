@@ -8,7 +8,7 @@ import (
 )
 
 type secretsHandler struct {
-	managers op.Managers
+	managers op.ManagerFactory
 }
 
 func (h *secretsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {

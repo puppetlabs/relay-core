@@ -39,7 +39,7 @@ func main() {
 		Namespace:                  *namespace,
 	}
 
-	managers := op.NewManagers(&cfg)
+	managers := op.NewDefaultManagerFactory(&cfg)
 
 	srv := server.New(&cfg, managers)
 

@@ -9,11 +9,16 @@ import (
 	"github.com/puppetlabs/nebula-tasks/pkg/secrets/vault"
 )
 
+// SecretsManager is responsible for accessing the backend where secrets are stored
+// and retrieving values for a given key.
 type SecretsManager interface {
 	Login(ctx context.Context) errors.Error
 	Get(ctx context.Context, key string) (*secrets.Secret, errors.Error)
 }
 
+// NewSecretsManager creates and returns a SecretsManager.
+// Currently this returns the Vault implementation, but can be used to create
+// alternative engines derived from options in cfg.
 func NewSecretsManager(cfg *config.MetadataServerConfig) (SecretsManager, errors.Error) {
 	sec, err := vault.NewVaultWithKubernetesAuth(&vault.Config{
 		Addr:                       cfg.VaultAddr,
