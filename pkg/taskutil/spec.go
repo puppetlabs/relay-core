@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -60,6 +61,23 @@ func NewRemoteSpecLoader(u *url.URL, client *http.Client) RemoteSpecLoader {
 	}
 }
 
+type LocalSpecLoader struct {
+	path string
+}
+
+func (l LocalSpecLoader) LoadSpec() (io.Reader, errors.Error) {
+	b, err := ioutil.ReadFile(l.path)
+	if err != nil {
+		return nil, errors.NewTaskUtilSpecLoaderError("could not read file").WithCause(err)
+	}
+
+	return bytes.NewBuffer(b), nil
+}
+
+func NewLocalSpecLoader(path string) LocalSpecLoader {
+	return LocalSpecLoader{path: path}
+}
+
 type SpecDecoder interface {
 	DecodeSpec(io.Reader, interface{}) errors.Error
 }
@@ -94,7 +112,20 @@ func PopulateSpecFromDefaultPlan(v interface{}, opts DefaultPlanOptions) errors.
 		return errors.NewTaskUtilDefaultSpecPlanFailed("parsing SPEC_URL failed").WithCause(err)
 	}
 
-	loader := NewRemoteSpecLoader(u, opts.Client)
+	var loader SpecLoader
+
+	switch u.Scheme {
+	case "file":
+		if u.Host != "" {
+			return errors.NewTaskUtilDefaultSpecPlanFailed("unable to read from remote host in file URL")
+		}
+
+		loader = NewLocalSpecLoader(u.Path)
+	case "http", "https":
+		loader = NewRemoteSpecLoader(u, opts.Client)
+	default:
+		return errors.NewTaskUtilDefaultSpecPlanFailed(fmt.Sprintf("unknown scheme %s in spec URL", u.Scheme))
+	}
 	decoder := DefaultJSONSpecDecoder{}
 
 	r, err := loader.LoadSpec()
