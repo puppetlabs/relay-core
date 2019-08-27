@@ -174,6 +174,20 @@ A task that runs commands against vault instances.
 | `args` | A list of arguments for the command. | None | True |
 | `git` | A map of git configuration. See [git specification](#common-spec-git) | None | False |
 
+### projectnebula/msteams-notification
+
+A task that sends a markdown-formatted message to Microsoft Teams via an
+[Actionable Message](https://docs.microsoft.com/en-us/outlook/actionable-messages/)
+Incoming Webhook Connector.
+
+To use this task step, you must first [set up an incoming webhook](https://docs.microsoft.com/en-us/microsoftteams/platform/concepts/connectors/connectors-using#setting-up-a-custom-incoming-webhook)
+for your team. The incoming webhook URL may be passed to the task.
+
+| Parameter    | Description                     | Default | Required |
+|--------------|---------------------------------|---------|----------|
+| `message`    | The markdown message to send.   | None    | True     |
+| `webhookURL` | The Teams Incoming Webhook URL. | None    | True     |
+
 ### Common spec: `git`
 
 A common specification for cloning a git repository.
