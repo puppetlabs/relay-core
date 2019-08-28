@@ -17,6 +17,7 @@ const defaultServiceAccountTokenPath = "/var/run/secrets/kubernetes.io/serviceac
 
 func main() {
 	bindAddr := flag.String("bind-addr", "localhost:7000", "host and port to bind the server to")
+	debug := flag.Bool("debug", false, "enable debug output")
 	vaultAddr := flag.String("vault-addr", "http://localhost:8200", "address to the vault server")
 	vaultToken := flag.String("vault-token", "", "Specify in place of -vault-role and -service-account-token-path for using a basic vault token auth")
 	vaultRole := flag.String("vault-role", "", "the role to use when logging into the vault server")
@@ -37,6 +38,7 @@ func main() {
 		K8sServiceAccountTokenPath: *serviceAccountTokenPath,
 		WorkflowID:                 *workflowID,
 		Namespace:                  *namespace,
+		Logger:                     NewLogger(LoggerOptions{Debug: *debug}),
 	}
 
 	managers := op.NewDefaultManagerFactory(&cfg)

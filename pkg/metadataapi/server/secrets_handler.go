@@ -4,11 +4,13 @@ import (
 	"net/http"
 
 	utilapi "github.com/puppetlabs/horsehead/httputil/api"
+	"github.com/puppetlabs/horsehead/logging"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/op"
 )
 
 type secretsHandler struct {
 	managers op.ManagerFactory
+	logger   logging.Logger
 }
 
 func (h *secretsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -35,6 +37,8 @@ func (h *secretsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		return
 	}
+
+	h.logger.Info("handling secret request", "key", key)
 
 	sec, err := sm.Get(ctx, key)
 	if err != nil {

@@ -1,5 +1,7 @@
 package config
 
+import "github.com/puppetlabs/horsehead/logging"
+
 // MetadataServerConfig is the configuration object used to configure
 // the metadata http server.
 type MetadataServerConfig struct {
@@ -28,6 +30,8 @@ type MetadataServerConfig struct {
 	// tooling and then allow the flag to override if we want to run workflows in a
 	// separate namespace to keep the metadata-api alive longer for performance reasons.
 	Namespace string
+	// Logger is the logger to use in all components that take this configuration.
+	Logger logging.Logger
 }
 
 // SecretAuthControllerConfig is the configuration object used to

@@ -7,6 +7,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/puppetlabs/horsehead/logging"
 	"github.com/puppetlabs/horsehead/netutil"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
@@ -18,6 +19,7 @@ import (
 type Server struct {
 	// bindAddr is the address and port to listen on
 	bindAddr string
+	logger   logging.Logger
 
 	// secretsHander handles requests to secrets on the /secrets/* path
 	secretsHandler *secretsHandler
@@ -76,6 +78,7 @@ func New(cfg *config.MetadataServerConfig, managers op.ManagerFactory) *Server {
 		secretsHandler: &secretsHandler{managers: managers},
 		specsHandler: &specsHandler{
 			managers:  managers,
+			logger:    cfg.Logger,
 			namespace: cfg.Namespace,
 		},
 		healthCheckHandler: &healthCheckHandler{},

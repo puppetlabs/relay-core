@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	utilapi "github.com/puppetlabs/horsehead/httputil/api"
+	"github.com/puppetlabs/horsehead/logging"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/op"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,6 +17,7 @@ import (
 
 type specsHandler struct {
 	managers  op.ManagerFactory
+	logger    logging.Logger
 	namespace string
 }
 
