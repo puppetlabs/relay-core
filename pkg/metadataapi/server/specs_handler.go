@@ -26,20 +26,20 @@ func (h *specsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	config, err := rest.InClusterConfig()
 	if nil != err {
-		utilapi.WriteError(
-			ctx,
-			w,
+		utilapi.WriteError(ctx, w,
 			errors.NewServerInClusterConfigError().WithCause(err))
+
 		return
 	}
+
 	client, err := kubernetes.NewForConfig(config)
 	if nil != err {
-		utilapi.WriteError(
-			ctx,
-			w,
+		utilapi.WriteError(ctx, w,
 			errors.NewServerNewK8sClientError().WithCause(err))
+
 		return
 	}
+
 	var key string
 
 	key, r.URL.Path = shiftPath(r.URL.Path)
@@ -49,35 +49,25 @@ func (h *specsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.logger.Info("handling spec request", "key", key)
+
 	configMap, err := client.CoreV1().ConfigMaps(h.namespace).Get(key, metav1.GetOptions{})
 	if nil != err {
-		utilapi.WriteError(
-			ctx,
-			w,
+		utilapi.WriteError(ctx, w,
 			errors.NewServerGetConfigMapError(key, h.namespace).WithCause(err))
+
 		return
 	}
+
 	var spec interface{}
 	if err := json.Unmarshal([]byte(configMap.Data["spec.json"]), &spec); nil != err {
-		utilapi.WriteError(
-			ctx,
-			w,
+		utilapi.WriteError(ctx, w,
 			errors.NewServerConfigMapJSONError(key, h.namespace).WithCause(err))
-		return
-	}
-
-	sm, merr := h.managers.SecretsManager()
-	if merr != nil {
-		utilapi.WriteError(ctx, w, merr)
 
 		return
 	}
 
-	if err := sm.Login(ctx); err != nil {
-		utilapi.WriteError(ctx, w, err)
-
-		return
-	}
+	sm := h.managers.SecretsManager()
 
 	spec = h.expandSecrets(ctx, sm, spec)
 	utilapi.WriteObjectOK(ctx, w, spec)
@@ -87,9 +77,11 @@ func (h *specsHandler) expandSecrets(ctx context.Context, sm op.SecretsManager, 
 	switch v := spec.(type) {
 	case []interface{}:
 		result := make([]interface{}, len(v))
+
 		for index, elm := range v {
 			result[index] = h.expandSecrets(ctx, sm, elm)
 		}
+
 		return result
 	case map[string]interface{}:
 		secretName := extractSecretName(v)
@@ -99,12 +91,16 @@ func (h *specsHandler) expandSecrets(ctx context.Context, sm op.SecretsManager, 
 				log.Printf("failed to get secret=%s: %v", *secretName, err)
 				return ""
 			}
+
 			return sec.Value
 		}
+
 		result := make(map[string]interface{})
+
 		for key, val := range v {
 			result[key] = h.expandSecrets(ctx, sm, val)
 		}
+
 		return result
 	default:
 		return v
@@ -116,12 +112,15 @@ func extractSecretName(obj map[string]interface{}) *string {
 	if len(obj) != 2 {
 		return nil
 	}
+
 	if ty, ok := obj["$type"].(string); !ok || "Secret" != ty {
 		return nil
 	}
+
 	name, ok := obj["name"].(string)
 	if !ok || "" == name {
 		return nil
 	}
+
 	return &name
 }

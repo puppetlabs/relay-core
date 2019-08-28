@@ -19,11 +19,9 @@ require (
 	github.com/markbates/inflect v1.0.4 // indirect
 	github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a // indirect
 	github.com/mitchellh/go-homedir v1.1.0
-	github.com/prometheus/client_golang v0.9.3-0.20190127221311-3c4408c8b829 // indirect
 	github.com/puppetlabs/errawr-gen v1.0.0
 	github.com/puppetlabs/errawr-go/v2 v2.1.0
 	github.com/puppetlabs/horsehead v1.11.0
-	github.com/puppetlabs/insights-logging v0.0.0-20190227223739-6f93bc80ce16
 	github.com/puppetlabs/nebula-libs/storage/gcs v1.0.1
 	github.com/spf13/cobra v0.0.5
 	github.com/stretchr/testify v1.3.0

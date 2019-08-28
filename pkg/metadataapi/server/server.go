@@ -74,8 +74,12 @@ func (s *Server) Run(ctx context.Context) error {
 // for binding to a listener and is the first point of entry for http requests.
 func New(cfg *config.MetadataServerConfig, managers op.ManagerFactory) *Server {
 	return &Server{
-		bindAddr:       cfg.BindAddr,
-		secretsHandler: &secretsHandler{managers: managers},
+		bindAddr: cfg.BindAddr,
+		logger:   cfg.Logger,
+		secretsHandler: &secretsHandler{
+			managers: managers,
+			logger:   cfg.Logger,
+		},
 		specsHandler: &specsHandler{
 			managers:  managers,
 			logger:    cfg.Logger,

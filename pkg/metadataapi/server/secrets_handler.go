@@ -16,18 +16,7 @@ type secretsHandler struct {
 func (h *secretsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	sm, err := h.managers.SecretsManager()
-	if err != nil {
-		utilapi.WriteError(ctx, w, err)
-
-		return
-	}
-
-	if err := sm.Login(ctx); err != nil {
-		utilapi.WriteError(ctx, w, err)
-
-		return
-	}
+	sm := h.managers.SecretsManager()
 
 	var key string
 

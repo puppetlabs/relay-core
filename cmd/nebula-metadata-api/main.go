@@ -40,10 +40,14 @@ func main() {
 		Namespace:                  *namespace,
 		Logger:                     NewLogger(LoggerOptions{Debug: *debug}),
 	}
+	ctx := context.Background()
 
-	managers := op.NewDefaultManagerFactory(&cfg)
+	managers, err := op.NewDefaultManagerFactory(ctx, &cfg)
+	if err != nil {
+		mainutil.ExitWithCLIError(os.Stderr, 1, err)
+	}
 
 	srv := server.New(&cfg, managers)
 
-	os.Exit(mainutil.TrapAndWait(context.Background(), srv.Run))
+	os.Exit(mainutil.TrapAndWait(ctx, srv.Run))
 }

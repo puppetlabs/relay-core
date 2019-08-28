@@ -1,6 +1,8 @@
 package op
 
 import (
+	"context"
+
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 )
@@ -8,20 +10,30 @@ import (
 // ManagerFactory provides data access managers for various external services
 // where data resides.
 type ManagerFactory interface {
-	SecretsManager() (SecretsManager, errors.Error)
+	SecretsManager() SecretsManager
 }
 
 // DefaultManagerFactory is the default ManagerFactory implementation. It is very opinionated
 // within the context of nebula and the workflow system.
 type DefaultManagerFactory struct {
 	cfg *config.MetadataServerConfig
+	sm  SecretsManager
 }
 
-func (m DefaultManagerFactory) SecretsManager() (SecretsManager, errors.Error) {
-	return NewSecretsManager(m.cfg)
+// SecretsManager creates and returns a new SecretsManager implementation.
+func (m DefaultManagerFactory) SecretsManager() SecretsManager {
+	return m.sm
 }
 
-// NewManagers creates and returns a new DefaultManagerFactory
-func NewDefaultManagerFactory(cfg *config.MetadataServerConfig) DefaultManagerFactory {
-	return DefaultManagerFactory{cfg: cfg}
+// NewDefaultManagerFactory creates and returns a new DefaultManagerFactory
+func NewDefaultManagerFactory(ctx context.Context, cfg *config.MetadataServerConfig) (*DefaultManagerFactory, errors.Error) {
+	sm, err := NewSecretsManager(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return &DefaultManagerFactory{
+		cfg: cfg,
+		sm:  sm,
+	}, nil
 }

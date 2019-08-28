@@ -6,75 +6,52 @@ import (
 	"context"
 	"io/ioutil"
 	"path"
+	"time"
 
 	vaultapi "github.com/hashicorp/vault/api"
+	"github.com/puppetlabs/horsehead/logging"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/secrets"
 )
 
 type Vault struct {
 	cfg     *Config
-	api     *vaultapi.Client
 	session *vaultLoggedInClient
 }
 
-func (v *Vault) Login(ctx context.Context) errors.Error {
-	var token string
-
-	if v.cfg.K8sServiceAccountTokenPath != "" {
-		b, err := ioutil.ReadFile(v.cfg.K8sServiceAccountTokenPath)
-		if err != nil {
-			return errors.NewSecretsK8sServiceAccountTokenReadError().WithCause(err)
-		}
-
-		jwt := string(b)
-
-		data := make(map[string]interface{})
-		data["jwt"] = jwt
-		data["role"] = v.cfg.Role
-		secret, err := v.api.Logical().Write("auth/kubernetes/login", data)
-		if err != nil {
-			return errors.NewSecretsVaultLoginError().WithCause(err)
-		}
-
-		token = secret.Auth.ClientToken
-	} else {
-		token = v.cfg.Token
-	}
-
-	vc := &vaultLoggedInClient{
-		client:      v.api,
-		bucket:      v.cfg.Bucket,
-		engineMount: v.cfg.EngineMount,
-		token:       token,
-	}
-
-	v.session = vc
-
-	return nil
-}
-
 func (v *Vault) Get(ctx context.Context, key string) (*secrets.Secret, errors.Error) {
+	if v.session == nil {
+		session, err := newVaultLoggedInClient(ctx, v.cfg)
+		if err != nil {
+			return nil, err
+		}
+
+		v.session = session
+	}
+
 	return v.session.get(ctx, key)
 }
 
-func NewVaultWithKubernetesAuth(cfg *Config) (*Vault, errors.Error) {
-	vc, err := vaultapi.NewClient(&vaultapi.Config{Address: cfg.Addr})
+func NewVaultWithKubernetesAuth(ctx context.Context, cfg *Config) (*Vault, errors.Error) {
+	session, err := newVaultLoggedInClient(ctx, cfg)
 	if err != nil {
-		return nil, errors.NewSecretsVaultSetupError().WithCause(err)
+		return nil, err
 	}
 
 	return &Vault{
-		cfg: cfg,
-		api: vc,
+		cfg:     cfg,
+		session: session,
 	}, nil
 }
 
 type vaultLoggedInClient struct {
-	client      *vaultapi.Client
-	bucket      string
-	token       string
-	engineMount string
+	client *vaultapi.Client
+	cfg    *Config
+	logger logging.Logger
+	// renewFunc takes a vault client and attempts to renew the auth token lease.
+	// If the lease cannot be renewed, or an error occurres, then it will not restart
+	// the renewFunc goroutine and then next attempt to use the token will fail.
+	renewFunc func(context.Context, *vaultLoggedInClient)
 }
 
 // read is just a shortcut to the Vault client's Read method
@@ -84,11 +61,12 @@ func (v *vaultLoggedInClient) read(path string) (*vaultapi.Secret, error) {
 
 // mountPath returns a vault-api style path to the secret
 func (v *vaultLoggedInClient) mountPath(key string) string {
-	return path.Join(v.engineMount, "data", "workflows", v.bucket, key)
+	return path.Join(v.cfg.EngineMount, "data", "workflows", v.cfg.Bucket, key)
 }
 
 // extractValue fetches the secret value from the secretRef key (standard location for nebula
-// secret values under a path when using vault)
+// secret values under a path when using vault). Secret values must always be strings. Any special
+// type handling should be processed at a higher level when decoding the string.
 func (v *vaultLoggedInClient) extractValue(sec *vaultapi.Secret) (string, errors.Error) {
 	vaultData, _ := sec.Data["data"].(map[string]interface{})
 
@@ -97,11 +75,6 @@ func (v *vaultLoggedInClient) extractValue(sec *vaultapi.Secret) (string, errors
 		return "", errors.NewSecretsMissingSecretRef().Bug()
 	}
 
-	// TODO: for now we only support string values for secrets.
-	// A couple reasons for this: supporting other types is very hard
-	// and it's unclear how we should design for that right now, and
-	// if we intend on utilizing environment variables we will want strings
-	// because... bash.
 	ret, ok := val.(string)
 	if !ok {
 		return "", errors.NewSecretsMalformedValue()
@@ -110,11 +83,74 @@ func (v *vaultLoggedInClient) extractValue(sec *vaultapi.Secret) (string, errors
 	return ret, nil
 }
 
+func (v *vaultLoggedInClient) login(ctx context.Context) errors.Error {
+	var token string
+
+	if v.cfg.Token != "" {
+		token = v.cfg.Token
+	} else if v.cfg.K8sServiceAccountTokenPath != "" {
+		b, err := ioutil.ReadFile(v.cfg.K8sServiceAccountTokenPath)
+		if err != nil {
+			return errors.NewSecretsK8sServiceAccountTokenReadError().WithCause(err)
+		}
+
+		jwt := string(b)
+
+		data := map[string]interface{}{
+			"jwt":  jwt,
+			"role": v.cfg.Role,
+		}
+
+		secret, err := v.client.Logical().Write("auth/kubernetes/login", data)
+		if err != nil {
+			return errors.NewSecretsVaultLoginError().WithCause(err)
+		}
+
+		token = secret.Auth.ClientToken
+	} else {
+		return errors.NewSecretsVaultAuthenticationNotConfiguredError()
+	}
+
+	v.client.SetToken(token)
+
+	tok, err := v.client.Auth().Token().LookupSelf()
+	if err != nil {
+		return errors.NewSecretsVaultTokenLookupError().WithCause(err)
+	}
+
+	// if our token is a root token, then it's "infinitely" usable, so we just skip the
+	// renewal logic.
+	if tok.Data["display_name"] != nil {
+		name, ok := tok.Data["display_name"].(string)
+		if ok && name == "root" {
+			return nil
+		}
+	}
+
+	renewable, err := tok.TokenIsRenewable()
+	if err != nil {
+		return errors.NewSecretsVaultTokenLookupError().WithCause(err)
+	}
+
+	if !renewable {
+		return nil
+	}
+
+	ttl, err := tok.TokenTTL()
+	if err != nil {
+		return errors.NewSecretsVaultTokenLookupError().WithCause(err)
+	}
+
+	v.renewFunc = newDelayedTokenRenewFunc(ttl - 1)
+
+	go v.renewFunc(ctx, v)
+
+	return nil
+}
+
 // Get retrieves key from Vault using the session scoped workflow parameters and the
 // temporary token.
 func (v *vaultLoggedInClient) get(ctx context.Context, key string) (*secrets.Secret, errors.Error) {
-	v.client.SetToken(v.token)
-
 	sec, err := v.read(v.mountPath(key))
 	if err != nil {
 		return nil, errors.NewSecretsGetError(key).WithCause(err).Bug()
@@ -133,4 +169,42 @@ func (v *vaultLoggedInClient) get(ctx context.Context, key string) (*secrets.Sec
 		Key:   key,
 		Value: val,
 	}, nil
+}
+
+func newVaultLoggedInClient(ctx context.Context, cfg *Config) (*vaultLoggedInClient, errors.Error) {
+	c, err := vaultapi.NewClient(&vaultapi.Config{Address: cfg.Addr})
+	if err != nil {
+		return nil, errors.NewSecretsVaultSetupError().WithCause(err)
+	}
+
+	vlc := &vaultLoggedInClient{
+		client: c,
+		cfg:    cfg,
+		logger: cfg.Logger.At("vault"),
+	}
+
+	if err := vlc.login(ctx); err != nil {
+		return nil, err
+	}
+
+	return vlc, nil
+}
+
+func newDelayedTokenRenewFunc(delay time.Duration) func(context.Context, *vaultLoggedInClient) {
+	return func(ctx context.Context, v *vaultLoggedInClient) {
+		select {
+		case <-time.After(delay):
+			_, err := v.client.Auth().Token().RenewSelf(0)
+			if err != nil {
+				v.logger.Info("could not renew the vault token", "error", err)
+
+				return
+			}
+
+			v.logger.Info("vault token renewed successfully")
+
+			go v.renewFunc(ctx, v)
+		case <-ctx.Done():
+		}
+	}
 }
