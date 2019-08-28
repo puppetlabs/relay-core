@@ -188,6 +188,21 @@ for your team. The incoming webhook URL may be passed to the task.
 | `message`    | The markdown message to send.   | None    | True     |
 | `webhookURL` | The Teams Incoming Webhook URL. | None    | True     |
 
+### projectnebula/jenkins-build
+
+A task that runs a parameterized build on a Jenkins instance. It waits for the build to complete, and succeeds or fails based on whether the build succeeds. It does not wait for downstream projects.
+
+| Parameter | Description | Default | Required |
+|-----------|-------------|---------|----------|
+| `masterURL` | The fully-qualified HTTP URL to the Jenkins master instance. | None | True |
+| `credentials.method` | The method to use to authenticate to Jenkins. Currently the only valid value is `http`. | None | True |
+| `credentials.user` | The Jenkins username to use for authentication. | None | True |
+| `credentials.token` | For `http` authentication, the API token to use for authentication. | None | True |
+| `job` | The complete ID of the job or project to build. | None | True |
+| `parameters` | A mapping of parameters for building the job. | None | False |
+| `queueOptions.timeoutSeconds` | The amount of time to wait for the build to start. | 3600 | False |
+| `queueOptions.cancelOnTimeout` | Whether the build should be canceled if a timeout occurs. | `false` | False |
+
 ### Common spec: `git`
 
 A common specification for cloning a git repository.
