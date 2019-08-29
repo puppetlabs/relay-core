@@ -10,6 +10,7 @@ CURL="${CURL:-curl}"
 JQ="${JQ:-jq}"
 NI="${NI:-ni}"
 RM_F="${RM_F:-rm -f}"
+SED="${SED:-sed}"
 SLEEP="${SLEEP:-sleep}"
 XMLSTARLET="${XMLSTARLET:-xmlstarlet}"
 
@@ -166,7 +167,7 @@ declare -A SEEN
 to_xpath_string() {
   # XPath remarkably doesn't support escaping characters, so we have to use the
   # concat() function to do it for us.
-  sed -e $'s/"/", \'"\', "/g' -e 's/^/concat("/' -e 's/$/", "")/'
+  $SED -e $'s/"/", \'"\', "/g' -e 's/^/concat("/' -e 's/$/", "")/'
 }
 
 wait_for_build() {
@@ -180,7 +181,7 @@ wait_for_build() {
 
   # This isn't the same as the job name passed in, because we might be waiting
   # on downstreams-of-downstreams...
-  local JOB_URL="$( sed -e 's#\(.*/job/[^/]*\)/.*#\1#' <<<"${BUILD_URL}" )"
+  local JOB_URL="$( $SED -e 's#\(.*/job/[^/]*\)/.*#\1#' <<<"${BUILD_URL}" )"
   local JOB_DATA=$( do_api GET "${JOB_URL}/api/json" '' -L ) || {
     err 'unable to find job for build'
   }
@@ -258,6 +259,29 @@ wait_for_build() {
   fi
 }
 
+try_cancel_queued() {
+  if [[ "${QUEUE_OPT_CANCEL_ON_TIMEOUT}" != "true" ]]; then
+    return
+  fi
+
+  for WAIT in "${WAITS[@]}"; do
+    IFS=':' read -r TYPE URL <<<"${WAIT}"
+    [[ "${TYPE}" == "queue" ]] || continue
+
+    local QUEUE_DATA="$( do_api GET "${URL%%/}/api/json" '' -L )" || continue
+
+    local QUEUE_ID="$( $JQ -r '.id // empty' <<<"${QUEUE_DATA}" )"
+    [ -n "${QUEUE_ID}" ] || continue
+    [ -z "$( $JQ -r '.executable.url // empty' <<<"${QUEUE_DATA}" )" ] || continue
+
+    do_api_master POST "/queue/cancelItem?id=${QUEUE_ID}" '' -o /dev/null && {
+      log "timed out: canceled build in queue at item ${QUEUE_ID}"
+    } || {
+      log "timed out: attempted to cancel build in queue at item ${QUEUE_ID}, but failed"
+    }
+  done
+}
+
 wait_for_queue() {
   local QUEUE_URL="$1"
 
@@ -289,14 +313,7 @@ wait_for_queue() {
 
     QUEUE_WAITED=$(( $QUEUE_WAITED + $API_WAITED + $QUEUE_WAIT_INTERVAL ))
     if [[ $QUEUE_WAITED -gt "${QUEUE_OPT_TIMEOUT_SECS}" ]]; then
-      if [[ "${QUEUE_OPT_CANCEL_ON_TIMEOUT}" == "true" ]]; then
-        do_api_master POST "/queue/cancelItem?id=${QUEUE_ID}" '' -o /dev/null && {
-          log 'timed out: canceled build in queue'
-        } || {
-          log 'timed out: attempted to cancel build in queue, but failed'
-        }
-      fi
-
+      try_cancel_queued
       err 'timed out waiting for build to start'
     fi
 
@@ -307,7 +324,7 @@ wait_for_queue() {
 }
 
 while [[ "${#WAITS[@]}" -gt 0 ]]; do
-  IFS=":" read -r TYPE URL <<<"${WAITS[0]}"
+  IFS=':' read -r TYPE URL <<<"${WAITS[0]}"
 
   case "${TYPE}" in
   build)
