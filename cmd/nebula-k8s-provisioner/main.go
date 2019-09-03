@@ -15,33 +15,17 @@ import (
 
 func main() {
 	specURL := flag.String("spec-url", os.Getenv(taskutil.SpecURLEnvName), "url to fetch the spec from")
-	specFile := flag.String("spec-file", "", "filepath to json formatted spec. overrides -spec-url.")
 	workDir := flag.String("work-dir", "", "a working directory to store temporary and generated files")
 
 	flag.Parse()
 
 	log.Println("provisioning k8s cluster")
 
+	planOpts := taskutil.DefaultPlanOptions{SpecURL: *specURL}
+
 	var spec models.K8sProvisionerSpec
-
-	if *specFile == "" {
-		planOpts := taskutil.DefaultPlanOptions{SpecURL: *specURL}
-
-		if err := taskutil.PopulateSpecFromDefaultPlan(&spec, planOpts); err != nil {
-			log.Fatal(err)
-		}
-	} else {
-		f, err := os.Open(*specFile)
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer f.Close()
-
-		decoder := taskutil.DefaultJSONSpecDecoder{}
-
-		if err := decoder.DecodeSpec(f, &spec); err != nil {
-			log.Fatal(err)
-		}
+	if err := taskutil.PopulateSpecFromDefaultPlan(&spec, planOpts); err != nil {
+		log.Fatal(err)
 	}
 
 	var wd *workdir.WorkDir

@@ -204,6 +204,26 @@ A task that runs a parameterized build on a Jenkins instance.
 | `queueOptions.timeoutSeconds` | The amount of time to wait for a build to start. | 3600 | False |
 | `queueOptions.cancelOnTimeout` | Whether the Jenkins build should be canceled if a timeout occurs. | `false` | False |
 
+### projectnebula/email-sender-smtp
+
+Sends an email using SMTP.
+
+| Parameter | Description | Default | Required |
+|-----------|-------------|---------|----------|
+| `server.host` | The hostname of the SMTP server to connect to. | None | True |
+| `server.port` | The server's SMTP or SMTPS port. | 25 | False |
+| `server.username` | The username to use when authenticating to the server. A username and password are required as this task does not support connecting to open relays. | None | True |
+| `server.password` | The password to use when authenticating to the server. | None | True |
+| `server.tls` | Whether to use TLS to connect to the server. If `false`, this task uses the `STARTTLS` extension instead. This task does not support unencrypted connections. | `true` if `server.port` is 465, `false` otherwise | False |
+| `from` | The `From` header address to use, in an RFC 5322-compatible format, such as `user@example.com` or `John Doe <user@example.com>`. | None | True |
+| `to[]` | A list of email addresses to send the email to, represented as a YAML sequence (array). | None | True |
+| `cc[]` | A list of email addresses to carbon copy, represented as a YAML sequence. | None | False |
+| `bcc[]` | A list of email addresses to blind carbon copy, represented as a YAML sequence. | None | False |
+| `subject` | The subject line for the email. | None | False |
+| `body.text` | The plain-text representation of the email body. At least one of `body.text` or `body.html` should be specified. | None | False |
+| `body.html` | The HTML representation of the email body. At least one of `body.text` or `body.html` should be specified. | None | False |
+| `timeoutSeconds` | The amount of time to wait for a connection to the email server to be established. | None (default TCP timeout) | False |
+
 ### projectnebula/cloudformation-deployer
 
 A task that deploys (creates or updates) a CloudFormation stack using a provided template.
