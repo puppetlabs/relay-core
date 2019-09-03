@@ -14,6 +14,7 @@ type GitDetails struct {
 	SSHKey     string `json:"ssh_key"`
 	KnownHosts string `json:"known_hosts"`
 }
+
 type ClusterSpec struct {
 	Cluster *ClusterDetails `json:"cluster"`
 }
@@ -26,4 +27,14 @@ type ClusterDetails struct {
 	Insecure bool   `json:"insecure"`
 	Username string `json:"username"`
 	Password string `json:"password"`
+}
+
+type AWSSpec struct {
+	AWS *AWSDetails `json:"aws"`
+}
+
+type AWSDetails struct {
+	AccessKeyID     string `json:"accessKeyID"`
+	SecretAccessKey string `json:"secretAccessKey"`
+	Region          string `json:"region"`
 }

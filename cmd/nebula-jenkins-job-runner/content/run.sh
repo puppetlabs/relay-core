@@ -18,7 +18,7 @@ XMLSTARLET="${XMLSTARLET:-xmlstarlet}"
 # Variables
 #
 
-WORKDIR="${WORKDIR:-/nebula}"
+WORKDIR="${WORKDIR:-/workspace}"
 
 #
 #

@@ -36,6 +36,7 @@ require (
 	google.golang.org/api v0.7.0
 	google.golang.org/grpc v1.22.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
+	gopkg.in/ini.v1 v1.46.0
 	gopkg.in/yaml.v2 v2.2.2
 	k8s.io/api v0.0.0-20190515023547-db5a9d1c40eb
 	k8s.io/apimachinery v0.0.0-20190515023456-b74e4c97951f
