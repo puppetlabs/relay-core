@@ -204,6 +204,31 @@ A task that runs a parameterized build on a Jenkins instance.
 | `queueOptions.timeoutSeconds` | The amount of time to wait for a build to start. | 3600 | False |
 | `queueOptions.cancelOnTimeout` | Whether the Jenkins build should be canceled if a timeout occurs. | `false` | False |
 
+### projectnebula/cloudformation-deployer
+
+A task that deploys (creates or updates) a CloudFormation stack using a provided template.
+
+| Parameter | Description | Default | Required |
+|-----------|-------------|---------|----------|
+| `aws` | A mapping of AWS account configuration. See [AWS specification](#common-spec-aws). | None | True |
+| `stackName` | The name of the stack to create or update. | None | True |
+| `template` | The body of the CloudFormation template as a string in YAML or JSON. One of `template` or `templateFile` must be specified. | None | If `templateFile` is not present |
+| `templateFile` | The relative path, within the Git repository given in the `git` parameters, to the template file to deploy. One of `template` or `templateFile` must be specified. | None | If `template` is not present |
+| `git` | A mapping of Git configuration. See [Git specification](#common-spec-git). | None | If `templateFile` is present |
+| `parameters` | A key-value mapping of parameters to pass to the template. | None | False |
+| `capabilities` | A list of capabilities to use for the deployment, such as `CAPABILITY_NAMED_IAM`. | None | False |
+| `tags` | A key-value mapping of tags to add to the deployment. | None | False |
+
+### Common spec: `aws`
+
+A common specification for accessing an AWS account.
+
+| Parameter | Description | Default | Required |
+|-----------|-------------|---------|----------|
+| `aws.accessKeyID` | An access key ID for the AWS account. | None | True |
+| `aws.secretAccessKey` | The secret access key corresponding to the access key ID. | None | True |
+| `aws.region` | The AWS region to use (for example, `us-west-2`). | None | True |
+
 ### Common spec: `git`
 
 A common specification for cloning a git repository.

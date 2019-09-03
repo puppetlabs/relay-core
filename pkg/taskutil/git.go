@@ -2,6 +2,7 @@ package taskutil
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"os/exec"
 	"strings"
@@ -15,7 +16,7 @@ func run(cmd string, args ...string) error {
 	c.Stderr = &output
 	c.Stdout = &output
 	if err := c.Run(); err != nil {
-		return err
+		return fmt.Errorf("git: %+v: %s", err, output.String())
 	}
 	return nil
 }
