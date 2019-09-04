@@ -192,17 +192,30 @@ for your team. The incoming webhook URL may be passed to the task.
 
 A task that runs a parameterized build on a Jenkins instance.
 
-| Parameter | Description | Default | Required |
-|-----------|-------------|---------|----------|
-| `masterURL` | The fully-qualified HTTP URL to the Jenkins master instance. | None | True |
-| `credentials.method` | The method to use to authenticate to Jenkins. Currently the only valid value is `http`. | None | True |
-| `credentials.user` | The Jenkins username to use for authentication. | None | True |
-| `credentials.token` | For `http` authentication, the API token to use for authentication. | None | True |
-| `job` | The complete ID of the job or project to build. | None | True |
-| `parameters` | A mapping of parameters for building the job. | None | False |
-| `queueOptions.waitFor` | The level of completion to wait for after enqueuing this Jenkins build. If set to `none`, this task completes successfully as soon as the corresponding build is enqueued. If set to `build`, this task completes when the Jenkins build completes, succeeding only if the build succeeds. If set to `downstreams`, this task completes when all downstream project builds of the Jenkins build complete. If any downstream build fails, this task also fails. | `build` | False |
-| `queueOptions.timeoutSeconds` | The amount of time to wait for a build to start. | 3600 | False |
-| `queueOptions.cancelOnTimeout` | Whether the Jenkins build should be canceled if a timeout occurs. | `false` | False |
+| Parameter                      | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Default | Required |
+|--------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------|----------|
+| `masterURL`                    | The fully-qualified HTTP URL to the Jenkins master instance.                                                                                                                                                                                                                                                                                                                                                                                                   | None    | True     |
+| `credentials.method`           | The method to use to authenticate to Jenkins. Currently the only valid value is `http`.                                                                                                                                                                                                                                                                                                                                                                        | None    | True     |
+| `credentials.user`             | The Jenkins username to use for authentication.                                                                                                                                                                                                                                                                                                                                                                                                                | None    | True     |
+| `credentials.token`            | For `http` authentication, the API token to use for authentication.                                                                                                                                                                                                                                                                                                                                                                                            | None    | True     |
+| `job`                          | The complete ID of the job or project to build.                                                                                                                                                                                                                                                                                                                                                                                                                | None    | True     |
+| `parameters`                   | A mapping of parameters for building the job.                                                                                                                                                                                                                                                                                                                                                                                                                  | None    | False    |
+| `queueOptions.waitFor`         | The level of completion to wait for after enqueuing this Jenkins build. If set to `none`, this task completes successfully as soon as the corresponding build is enqueued. If set to `build`, this task completes when the Jenkins build completes, succeeding only if the build succeeds. If set to `downstreams`, this task completes when all downstream project builds of the Jenkins build complete. If any downstream build fails, this task also fails. | `build` | False    |
+| `queueOptions.timeoutSeconds`  | The amount of time to wait for a build to start.                                                                                                                                                                                                                                                                                                                                                                                                               | 3600    | False    |
+| `queueOptions.cancelOnTimeout` | Whether the Jenkins build should be canceled if a timeout occurs.                                                                                                                                                                                                                                                                                                                                                                                              | `false` | False    |
+
+### projectnebula/jira-resolve
+
+A task that can update the state of a Jira ticket.
+
+| Parameter            | Description          | Default              | Required |
+|----------------------|----------------------|----------------------|----------|
+| `username`           | Jira username        | None                 | True     |
+| `password`           | Jira password        | None                 | True     |
+| `url`                | Jira server URL      | None                 | True     |
+| `issue`              | Issue ID             | None                 | True     |
+| `resolution.status`  | Desired issue status | `Closed`             | False    |
+| `resolution.comment` | Issue update comment | `Resolved by Nebula` | False    |
 
 ### projectnebula/email-sender-smtp
 
