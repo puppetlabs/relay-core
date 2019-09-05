@@ -25,6 +25,7 @@ func main() {
 		defaultServiceAccountTokenPath, "the path to k8s pod service account token")
 	workflowID := flag.String("workflow-id", "", "the id of the workflow these secrets are scoped to")
 	vaultEngineMount := flag.String("vault-engine-mount", "nebula", "the engine mount to use when crafting secret paths")
+	outputsBackend := flag.String("outputs-backend", "configmap", "the storage backend to use for task outputs")
 	namespace := flag.String("namespace", "", "the kubernetes namespace that contains the workflow")
 
 	flag.Parse()
@@ -38,6 +39,7 @@ func main() {
 		K8sServiceAccountTokenPath: *serviceAccountTokenPath,
 		WorkflowID:                 *workflowID,
 		Namespace:                  *namespace,
+		OutputsBackend:             *outputsBackend,
 		Logger:                     NewLogger(LoggerOptions{Debug: *debug}),
 	}
 	ctx := context.Background()

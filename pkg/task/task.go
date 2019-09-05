@@ -16,3 +16,8 @@ type TaskInterface struct {
 func NewTaskInterface(opts taskutil.DefaultPlanOptions) *TaskInterface {
 	return &TaskInterface{opts}
 }
+
+type Metadata struct {
+	ID   string
+	Name string
+}

@@ -1,6 +1,9 @@
 package config
 
-import "github.com/puppetlabs/horsehead/logging"
+import (
+	"github.com/puppetlabs/horsehead/logging"
+	"k8s.io/client-go/kubernetes"
+)
 
 // MetadataServerConfig is the configuration object used to configure
 // the metadata http server.
@@ -24,6 +27,11 @@ type MetadataServerConfig struct {
 	// K8sServiceAccountTokenPath is the path to the Service Account token. This
 	// defaults to the standard kubernetes location that is set when a pod is run.
 	K8sServiceAccountTokenPath string
+	// OutputsBackend is the storage backend to use for storing task outputs.
+	KubeconfigPath string
+	K8sMasterURL   string
+	Kubeclient     kubernetes.Interface
+	OutputsBackend string
 	// Namespace is the namespace to run the metadata-api as.
 	//
 	// TODO we might be able to derive a default value from this by using the client-go

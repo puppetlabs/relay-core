@@ -51,6 +51,66 @@ sections:
       vault_authentication_not_configured_error:
         title: Vault authentication not configured error
         description: no vault token or service account path specified
+
+  outputs:
+    title: Outputs errors
+    errors:
+      task_not_found:
+        title: Task not found
+        description: task {{task}} was not found
+        arguments:
+          task:
+            description: the task name that was not found
+      key_not_found:
+        title: Key not found
+        description: key {{key}} was not found
+        arguments:
+          key:
+            description: the key name that was not found
+      key_empty_error:
+        title: Key empty error
+        description: the output key was empty
+      manager_setup_error:
+        title: Manager setup error
+        description: there was an error setting up the outputs manager
+      backend_does_not_exist:
+        title: Backend does not exist
+        description: the backend {{backend}} does not exist
+        arguments:
+          backend:
+            description: the name of the backend
+      value_decoding_error:
+        title: Value decoding error
+        description: decoding the secret value failed
+      value_encoding_error:
+        title: Value encoding error
+        description: encoding the secret value failed
+      value_read_error:
+        title: Value read error
+        description: there was an error reading the value from the buffer
+      get_error:
+        title: Get error
+        description: there was an error getting the output
+      put_error:
+        title: Put error
+        description: there was an error storing the output
+
+  kubernetes:
+    title: Kubernetes errors
+    errors:
+      manager_setup_error:
+        title: Manager setup error
+        description: there was an error setting up the kubernetes manager
+      pod_not_found:
+        title: Pod not found
+        description: the pod was not found using the IP {{ ip }}
+        arguments:
+          ip:
+            description: the ip address used to lookup the pod
+      pod_lookup_error:
+        title: Pod lookup error
+        description: there was an error looking up the pod
+
   server:
     title: Sever errors
     errors:

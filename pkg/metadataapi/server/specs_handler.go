@@ -10,19 +10,22 @@ import (
 	"github.com/puppetlabs/horsehead/logging"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/op"
+	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
 
 type specsHandler struct {
-	managers  op.ManagerFactory
 	logger    logging.Logger
 	namespace string
 }
 
 func (h *specsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+
+	managers := middleware.Managers(r)
+	sm := managers.SecretsManager()
 
 	config, err := rest.InClusterConfig()
 	if nil != err {
@@ -66,8 +69,6 @@ func (h *specsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		return
 	}
-
-	sm := h.managers.SecretsManager()
 
 	spec = h.expandSecrets(ctx, sm, spec)
 	utilapi.WriteObjectOK(ctx, w, spec)
