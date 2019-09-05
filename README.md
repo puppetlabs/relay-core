@@ -250,6 +250,8 @@ A task that deploys (creates or updates) a CloudFormation stack using a provided
 | `templateFile` | The relative path, within the Git repository given in the `git` parameters, to the template file to deploy. One of `template` or `templateFile` must be specified. | None | If `template` is not present |
 | `git` | A mapping of Git configuration. See [Git specification](#common-spec-git). | None | If `templateFile` is present |
 | `parameters` | A key-value mapping of parameters to pass to the template. | None | False |
+| `s3.bucket` | An S3 bucket to upload the template to. Required for templates larger than 51,200 bytes. | None | For large templates |
+| `s3.prefix` | A folder name to prefix the artifacts' file names with when it uploads them to the S3 bucket. | None | False |
 | `capabilities` | A list of capabilities to use for the deployment, such as `CAPABILITY_NAMED_IAM`. | None | False |
 | `tags` | A key-value mapping of tags to add to the deployment. | None | False |
 
