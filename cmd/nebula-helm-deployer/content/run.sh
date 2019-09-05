@@ -27,9 +27,15 @@ else
     CHART_PATH=${CHART}
 fi
 
+RECREATE_PODS_OPTIONS=
+RECREATE_PODS=$(ni get -p {.recreatePods})
+if [ "${RECREATE_PODS}" = "true" ]; then
+    RECREATE_PODS_OPTIONS="--recreate-pods"
+fi
+
 ni file -p values -f values-overrides.yaml -o yaml
 
 helm upgrade ${CHART_NAME} ${CHART_PATH} ${TLS_OPTIONS} \
-    --install --recreate-pods \
+    --install ${RECREATE_PODS_OPTIONS} \
     --namespace ${NS} --kubeconfig ${KUBECONFIG} \
     -f values-overrides.yaml
