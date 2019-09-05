@@ -83,6 +83,7 @@ A task that deploys a Helm chart to a Kubernetes cluster.
 | `values`           | A map of values to use for the Helm deployment call                                                                               | None    | True     |
 | `chart`            | The repo/chart to use. If the `git` map is set, then the chart is referenced from that repository instead of a remote chart repo. | None    | True     |
 | `namespace`        | The Kubernetes namespace to deploy the chart into.                                                                                | None    | True     |
+| `recreatePods`     | If `true`, all pods managed by this chart will be destroyed and recreated after the deployment completes.                         | `false` | False    |
 | `git`              | A map of git configuration. See [git specification](#common-spec-git)                                                             | None    | False    |
 | `cluster`          | A map of `kubectl` configuration and credentials. See [cluster specification](#common-spec-cluster)                               | None    | True     |
 
