@@ -280,6 +280,51 @@ content) to an S3 bucket.
 | `expires` | The time at which the uploaded object is no longer cacheable, in ISO 8601 format. | None | False |
 | `metadata` | A YAML mapping of arbitrary key-value data to store with the uploaded objects. | None | False |
 
+### projectnebula/lambda-function-creator
+
+A task that creates or updates an AWS Lambda function with provided configuration and code.
+
+| Parameter | Description | Default | Required |
+|-----------|-------------|---------|----------|
+| `aws` | A mapping of AWS account configuration. See [AWS specification](#common-spec-aws). | None | True |
+| `functionName` | The name of the Lambda function. | None | True |
+| `sourcePath` | The relative path, within the Git repository given in the `git` parameters, to a directory or ZIP file to use as the deployment package for this function. | None | If neither `source` nor `sourceS3` are present |
+| `git` | A mapping of Git configuration. See [Git specification](#common-spec-git). | None | If `sourcePath` is present |
+| `source.content` | The inline content of a script to use as the deployment package for this function. | None | If neither `sourcePath` nor `sourceS3` are present |
+| `source.name` | The file name of the inline source script, which should be appropriately referenced in `handler`. | None | If neither `sourcePath` nor `sourceS3` are present |
+| `sourceS3.bucket` | The name of the S3 bucket to load the deployment package from. | None | If neither `sourcePath` nor `source` are present |
+| `sourceS3.key` | Within the bucket given, the key referencing a ZIP file containing the deployment package. | None | If neither `sourcePath` nor `source` are present |
+| `sourceS3.objectVersion` | If using object versioning in the given S3 bucket, the specific version to use for the deployment package. | None | False |
+| `executionRoleARN` | The AWS ARN to an IAM role to use when executing the Lambda function. The role must support assumption by the `lambda.amazonaws.com` service. If not specified, this task will attempt to create a role. | None | False |
+| `executionRole.name` | The name of the execution role to create if an existing role is not given. | The value of the `functionName` parameter | False |
+| `executionRole.policy` | An optional [IAM policy](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_controlling.html) in JSON format to use if a role is being created by this task. It will be given the name `LambdaExecutionPolicy`. | None | False |
+| `runtime` | The Lambda runtime environment to use. | None | True |
+| `handler` | The identifier of the code entry point for this Lambda function. | None | True |
+| `description` | A free-form description of the function. | None | False |
+| `timeoutSeconds` | The maximum execution time for the function. See the [Lambda documentation](https://docs.aws.amazon.com/lambda/latest/dg/resource-model.html) for the current largest possible value. | 3 | False |
+| `memorySizeMB` | The maximum amount of memory this Lambda function is allowed to use, with CPU resources allocated proportionately. Must be a multiple of 64. See the [Lambda documentation](https://docs.aws.amazon.com/lambda/latest/dg/resource-model.html) for the current largest possible value. | 128 | False |
+| `vpc.subnetIDs[]` | A YAML sequence (array) of private subnet IDs to attach to when executing this function. | None | False |
+| `vpc.securityGroupIDs[]` | The security groups to attach that correspond to the given subnets. | None | False |
+| `deadLetterQueue.targetARN` | An AWS ARN referencing an SQS queue to receive failed asynchronous invocations. | None | False |
+| `env` | A YAML key-value mapping of environment variables to use when the function runs. | None | False |
+| `trace` | If `true`, enable sampling to AWS X-Ray. | `false` | False |
+| `tags` | A YAML key-value mapping of tags to add to the function. | None | False |
+| `layerARNs[]` | A YAML sequence of AWS ARNs referencing [Lambda layers](https://docs.aws.amazon.com/lambda/latest/dg/configuration-layers.html) to include when the function runs. | None | False |
+
+#### Caveats
+
+This task will manage a single function, updating it as needed to ensure the
+function stays synchronized with the given parameters. However, changing the
+name of the function or the execution role will not remove any existing
+resources. We recommend using CloudFormation if you expect to encounter this
+limitation.
+
+If this function is managing an execution role, it automatically provisions it
+with the managed policies `AWSLambdaBasicExecutionRole`,
+`AWSLambdaVPCAccessExecutionRole`, and `AWSXrayWriteOnlyAccess`. If you want to
+attach other managed policies, create an execution role first and provide it to
+the `executionRoleARN` parameter.
+
 ### Common spec: `aws`
 
 A common specification for accessing an AWS account.
