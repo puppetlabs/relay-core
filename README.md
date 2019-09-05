@@ -252,6 +252,31 @@ A task that deploys (creates or updates) a CloudFormation stack using a provided
 | `capabilities` | A list of capabilities to use for the deployment, such as `CAPABILITY_NAMED_IAM`. | None | False |
 | `tags` | A key-value mapping of tags to add to the deployment. | None | False |
 
+### projectnebula/s3-uploader
+
+A task that uploads the requested content (a single file, a directory, or inline
+content) to an S3 bucket.
+
+| Parameter | Description | Default | Required |
+|-----------|-------------|---------|----------|
+| `aws` | A mapping of AWS account configuration. See [AWS specification](#common-spec-aws). | None | True |
+| `bucket` | The name of the S3 bucket to upload to. | None | True |
+| `key` | The key to upload to. | None | If `sourceContent` is present |
+| `sourcePath` | The relative path, within the Git repository given in the `git` parameters, to upload. One of `sourcePath` or `sourceContent` must be specified. | None | If `sourceContent` is not present |
+| `sourceContent` | The data to upload as a string. | None | If `sourcePath` is not present |
+| `filters[]` | A YAML sequence (array) of path filters, applied in order. | None | False |
+| `filters[].type` | The type of the filter, one of `include` or `exclude`. | None | True |
+| `filters[].pattern` | The pattern for the filter. See the [S3 CLI documentation](https://docs.aws.amazon.com/cli/latest/reference/s3/index.html#use-of-exclude-and-include-filters) for details on the syntax. | None | True |
+| `acl` | The canned ACL to use for the uploaded objects. | None | False |
+| `storageClass` | The storage class to use for the uploaded objects. | None | False |
+| `contentType` | The media type of the uploaded object. Automatically detected when using `sourcePath` if possible. | Automatically detected, falling back to `binary/octet-stream` | False |
+| `cacheControl` | The value of the HTTP `Cache-Control` header to associate with the uploaded objects. | None | False |
+| `contentDisposition` | The value of the HTTP `Content-Disposition` header to associate with the uploaded objects. | None | False |
+| `contentEncoding` | The value of the HTTP `Content-Encoding` header to associate with the uploaded objects. | None | False |
+| `contentLanguage` | The value of the HTTP `Content-Language` header to associate with the uploaded objects. | None | False |
+| `expires` | The time at which the uploaded object is no longer cacheable, in ISO 8601 format. | None | False |
+| `metadata` | A YAML mapping of arbitrary key-value data to store with the uploaded objects. | None | False |
+
 ### Common spec: `aws`
 
 A common specification for accessing an AWS account.

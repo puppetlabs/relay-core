@@ -58,18 +58,18 @@ fi
 declare -a DEPLOY_ARGS
 
 S3_BUCKET="$( $NI get -p '{ .s3.bucket }' )"
-[ -n "${S3_BUCKET}" ] && DEPLOY_ARGS+=( --s3-bucket "${S3_BUCKET}" )
+[ -n "${S3_BUCKET}" ] && DEPLOY_ARGS+=( "--s3-bucket=${S3_BUCKET}" )
 
 S3_PREFIX="$( $NI get -p '{ .s3.prefix }' )"
-[ -n "${S3_PREFIX}" ] && DEPLOY_ARGS+=( --s3-prefix "${S3_PREFIX}" )
+[ -n "${S3_PREFIX}" ] && DEPLOY_ARGS+=( "--s3-prefix=${S3_PREFIX}" )
 
-PARAMETERS=( $( $NI get | $JQ -r 'try .parameters | to_entries[] | "\( .key )=\( .value )"' ) )
+declare -a PARAMETERS="( $( $NI get | $JQ -r 'try .parameters | to_entries[] | "\( .key )=\( .value )" | @sh' ) )"
 [[ ${#PARAMETERS[@]} -gt 0 ]] && DEPLOY_ARGS+=( --parameter-overrides "${PARAMETERS[@]}" )
 
-CAPABILITIES=( $( $NI get | $JQ -r 'try .capabilities[]' ) )
+declare -a CAPABILITIES="( $( $NI get | $JQ -r 'try .capabilities[] | @sh' ) )"
 [[ ${#CAPABILITIES[@]} -gt 0 ]] && DEPLOY_ARGS+=( --capabilities "${CAPABILITIES[@]}" )
 
-TAGS=( $( $NI get | $JQ -r 'try .tags | to_entries[] | "\( .key )=\( .value )"' ) )
+declare -a TAGS="( $( $NI get | $JQ -r 'try .tags | to_entries[] | "\( .key )=\( .value )" | @sh' ) )"
 [[ ${#TAGS[@]} -gt 0 ]] && DEPLOY_ARGS+=( --tags "${TAGS[@]}" )
 
 $AWS cloudformation deploy \
