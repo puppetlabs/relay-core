@@ -24,14 +24,37 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 )
 
-func mockTaskPod(name string, labels map[string]string, ip string) *corev1.Pod {
-	return &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   name,
-			Labels: labels,
+type mockTaskConfig struct {
+	Name      string
+	Namespace string
+	Labels    map[string]string
+	PodIP     string
+	SpecData  map[string]interface{}
+}
+
+func mockTask(t *testing.T, cfg mockTaskConfig) []runtime.Object {
+	specData, err := json.Marshal(cfg.SpecData)
+	require.NoError(t, err)
+
+	return []runtime.Object{
+		&corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      cfg.Name,
+				Namespace: cfg.Namespace,
+				Labels:    cfg.Labels,
+			},
+			Status: corev1.PodStatus{
+				PodIP: cfg.PodIP,
+			},
 		},
-		Status: corev1.PodStatus{
-			PodIP: ip,
+		&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      cfg.Name,
+				Namespace: cfg.Namespace,
+			},
+			Data: map[string]string{
+				"spec.json": string(specData),
+			},
 		},
 	}
 }
@@ -147,11 +170,14 @@ func TestServerSecretsHandler(t *testing.T) {
 
 func TestServerOutputsHandler(t *testing.T) {
 	managers := newMockManagerFactory(t, mockManagerFactoryConfig{
-		k8sResources: []runtime.Object{
-			mockTaskPod("test-task", map[string]string{
+		k8sResources: mockTask(t, mockTaskConfig{
+			Name:      "test-task",
+			Namespace: "test-task",
+			Labels: map[string]string{
 				"task-name": "test-task",
-			}, "10.3.3.3"),
-		},
+			},
+			PodIP: "10.3.3.3",
+		}),
 	})
 
 	withTestAPIServer(managers, func(ts *httptest.Server) {
@@ -180,5 +206,78 @@ func TestServerOutputsHandler(t *testing.T) {
 		require.Equal(t, "foo", out.Key)
 		require.Equal(t, "bar", out.Value)
 		require.Equal(t, "test-task", out.TaskName)
+	})
+}
+
+func TestServerSpecsHandler(t *testing.T) {
+	const (
+		namespace    = "workflow-run-ns"
+		currentTask  = "current-task"
+		previousTask = "previous-task"
+	)
+
+	resources := []runtime.Object{}
+
+	resources = append(resources, mockTask(t, mockTaskConfig{
+		Name:      previousTask,
+		Namespace: namespace,
+		Labels: map[string]string{
+			"task-name": previousTask,
+		},
+		PodIP: "10.3.3.3",
+	})...)
+
+	resources = append(resources, mockTask(t, mockTaskConfig{
+		Name:      currentTask,
+		Namespace: namespace,
+		Labels: map[string]string{
+			"task-name": currentTask,
+		},
+		PodIP: "10.3.3.4",
+		SpecData: map[string]interface{}{
+			"super-secret": map[string]string{"$type": "Secret", "name": "test-secret-key"},
+			"super-output": map[string]string{"$type": "Output", "name": "test-output-key", "taskName": previousTask},
+			"super-normal": "test-normal-value",
+		},
+	})...)
+
+	managers := newMockManagerFactory(t, mockManagerFactoryConfig{
+		taskName: currentTask,
+		secretData: map[string]string{
+			"test-secret-key": "test-secret-value",
+		},
+		namespace:    namespace,
+		k8sResources: resources,
+	})
+
+	withTestAPIServer(managers, func(ts *httptest.Server) {
+		client := ts.Client()
+
+		req, err := http.NewRequest(http.MethodPut, ts.URL+"/outputs/test-output-key", strings.NewReader("test-output-value"))
+		require.NoError(t, err)
+
+		req.Header.Set("X-Forwarded-For", "10.3.3.3")
+
+		resp, err := client.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusCreated, resp.StatusCode)
+
+		defer resp.Body.Close()
+
+		resp, err = client.Get(ts.URL + "/specs/" + currentTask)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+
+		defer resp.Body.Close()
+
+		// the test spec, after interpolation from the api, should be a more flat map[string]string,
+		// so we will try to unmarshal the response into something like that to see if
+		// that's what we got.
+		spec := make(map[string]string)
+
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(&spec))
+		require.Equal(t, "test-secret-value", spec["super-secret"])
+		require.Equal(t, "test-output-value", spec["super-output"])
+		require.Equal(t, "test-normal-value", spec["super-normal"])
 	})
 }

@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"net/http"
 
 	utilapi "github.com/puppetlabs/horsehead/httputil/api"
@@ -11,10 +10,16 @@ import (
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/op"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"
+	"github.com/puppetlabs/nebula-tasks/pkg/task"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 )
+
+type fetcherFunc func(context.Context, op.ManagerFactory, map[string]interface{}) (string, errors.Error)
+
+var valueFetchers = map[task.SpecValueType]fetcherFunc{
+	task.SpecValueSecret: fetchSecret,
+	task.SpecValueOutput: fetchOutput,
+}
 
 type specsHandler struct {
 	logger    logging.Logger
@@ -25,23 +30,8 @@ func (h *specsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	managers := middleware.Managers(r)
-	sm := managers.SecretsManager()
 
-	config, err := rest.InClusterConfig()
-	if nil != err {
-		utilapi.WriteError(ctx, w,
-			errors.NewServerInClusterConfigError().WithCause(err))
-
-		return
-	}
-
-	client, err := kubernetes.NewForConfig(config)
-	if nil != err {
-		utilapi.WriteError(ctx, w,
-			errors.NewServerNewK8sClientError().WithCause(err))
-
-		return
-	}
+	client := managers.KubernetesManager().Client()
 
 	var key string
 
@@ -70,43 +60,83 @@ func (h *specsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	spec = h.expandSecrets(ctx, sm, spec)
+	spec = h.expandValues(ctx, managers, spec)
 	utilapi.WriteObjectOK(ctx, w, spec)
 }
 
-func (h *specsHandler) expandSecrets(ctx context.Context, sm op.SecretsManager, spec interface{}) interface{} {
+func (h *specsHandler) expandValues(ctx context.Context, managers op.ManagerFactory, spec interface{}) interface{} {
 	switch v := spec.(type) {
 	case []interface{}:
 		result := make([]interface{}, len(v))
 
 		for index, elm := range v {
-			result[index] = h.expandSecrets(ctx, sm, elm)
+			result[index] = h.expandValues(ctx, managers, elm)
 		}
 
 		return result
 	case map[string]interface{}:
-		secretName := extractSecretName(v)
-		if nil != secretName {
-			sec, err := sm.Get(ctx, *secretName)
-			if err != nil || nil == sec {
-				log.Printf("failed to get secret=%s: %v", *secretName, err)
-				return ""
+		typ, ok := v["$type"].(string)
+		if !ok {
+			result := make(map[string]interface{})
+
+			for key, val := range v {
+				result[key] = h.expandValues(ctx, managers, val)
 			}
 
-			return sec.Value
+			return result
 		}
 
-		result := make(map[string]interface{})
+		valueType, ok := task.SpecValueMapping[typ]
+		if !ok {
+			h.logger.Warn("no such value type", "valueType", valueType)
 
-		for key, val := range v {
-			result[key] = h.expandSecrets(ctx, sm, val)
+			return ""
+		}
+
+		result, err := valueFetchers[valueType](ctx, managers, v)
+		if err != nil {
+			h.logger.Warn("failed to get value", "error", err, "spec", v)
+
+			return ""
 		}
 
 		return result
 	default:
 		return v
 	}
+}
 
+func fetchSecret(ctx context.Context, managers op.ManagerFactory, obj map[string]interface{}) (string, errors.Error) {
+	name, ok := obj["name"].(string)
+	if !ok {
+		return "", errors.NewServerSecretFetcherNameValidationError()
+	}
+
+	secret, err := managers.SecretsManager().Get(ctx, name)
+	if err != nil {
+		return "", errors.NewServerSecretFetcherGetError().WithCause(err)
+	}
+
+	return secret.Value, nil
+}
+
+func fetchOutput(ctx context.Context, managers op.ManagerFactory, obj map[string]interface{}) (string, errors.Error) {
+	name, ok := obj["name"].(string)
+	if !ok {
+		return "", errors.NewServerOutputFetcherNameValidationError()
+	}
+
+	taskName, ok := obj["taskName"].(string)
+	if !ok {
+		return "", errors.NewServerOutputFetcherTaskNameValidationError()
+	}
+
+	output, err := managers.OutputsManager().Get(ctx, taskName, name)
+	if err != nil {
+		return "", errors.NewServerOutputFetcherGetError().WithCause(err)
+	}
+
+	return output.Value, nil
 }
 
 func extractSecretName(obj map[string]interface{}) *string {
