@@ -141,7 +141,12 @@ func (v *vaultLoggedInClient) login(ctx context.Context) errors.Error {
 		return errors.NewSecretsVaultTokenLookupError().WithCause(err)
 	}
 
-	v.renewFunc = newDelayedTokenRenewFunc(ttl - 1)
+	if ttl < time.Second*30 {
+		v.logger.Warn("short vault token TTLs can lead to a renewal race condition where the token won't get renewed in time.", "ttl", ttl)
+		v.logger.Warn("consider using a token with a lease greater than 1m")
+	}
+
+	v.renewFunc = newDelayedTokenRenewFunc(ttl)
 
 	go v.renewFunc(ctx, v)
 
@@ -190,7 +195,9 @@ func newVaultLoggedInClient(ctx context.Context, cfg *Config) (*vaultLoggedInCli
 	return vlc, nil
 }
 
-func newDelayedTokenRenewFunc(delay time.Duration) func(context.Context, *vaultLoggedInClient) {
+func newDelayedTokenRenewFunc(ttl time.Duration) func(context.Context, *vaultLoggedInClient) {
+	delay := time.Duration(float64(ttl.Nanoseconds()) * 2 / 3)
+
 	return func(ctx context.Context, v *vaultLoggedInClient) {
 		select {
 		case <-time.After(delay):
