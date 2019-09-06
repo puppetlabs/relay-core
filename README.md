@@ -74,18 +74,19 @@ TODO:
 
 A task that deploys a Helm chart to a Kubernetes cluster.
 
-| Parameter          | Description                                                                                                                       | Default | Required |
-|--------------------|-----------------------------------------------------------------------------------------------------------------------------------|---------|----------|
-| `credentials`      | A map of cert credentials to use for accessing the tiller controller in the cluster                                               | None    | True     |
-| `credentials.ca`   | The Tiller CA file contents                                                                                                       | None    | True     |
-| `credentials.key`  | The Tiller key file contents                                                                                                      | None    | True     |
-| `credentials.cert` | The Tiller cert file contents                                                                                                     | None    | True     |
-| `values`           | A map of values to use for the Helm deployment call                                                                               | None    | True     |
-| `chart`            | The repo/chart to use. If the `git` map is set, then the chart is referenced from that repository instead of a remote chart repo. | None    | True     |
-| `namespace`        | The Kubernetes namespace to deploy the chart into.                                                                                | None    | True     |
-| `recreatePods`     | If `true`, all pods managed by this chart will be destroyed and recreated after the deployment completes.                         | `false` | False    |
-| `git`              | A map of git configuration. See [git specification](#common-spec-git)                                                             | None    | False    |
-| `cluster`          | A map of `kubectl` configuration and credentials. See [cluster specification](#common-spec-cluster)                               | None    | True     |
+| Parameter                | Description                                                                                                                       | Default | Required |
+|--------------------------|-----------------------------------------------------------------------------------------------------------------------------------|---------|----------|
+| `credentials`            | A map of cert credentials to use for accessing the tiller controller in the cluster                                               | None    | False    |
+| `credentials."ca.pem"`   | The Tiller CA file contents                                                                                                       | None    | False    |
+| `credentials."key.pem"`  | The Tiller key file contents                                                                                                      | None    | False    |
+| `credentials."cert.pem"` | The Tiller cert file contents                                                                                                     | None    | False    |
+| `name`                   | The name of the deployment.                                                                                                       | None    | True     |
+| `values`                 | A map of values to use for the Helm deployment call                                                                               | None    | False    |
+| `chart`                  | The repo/chart to use. If the `git` map is set, then the chart is referenced from that repository instead of a remote chart repo. | None    | True     |
+| `namespace`              | The Kubernetes namespace to deploy the chart into.                                                                                | None    | True     |
+| `recreatePods`           | If `true`, all pods managed by this chart will be destroyed and recreated after the deployment completes.                         | `false` | False    |
+| `git`                    | A map of git configuration. See [git specification](#common-spec-git)                                                             | None    | False    |
+| `cluster`                | A map of `kubectl` configuration and credentials. See [cluster specification](#common-spec-cluster)                               | None    | True     |
 
 TODO:
 - [ ] Make `credentials` optional by running Tiller temporarily inside of the task container. This allows us to run clusters without the need

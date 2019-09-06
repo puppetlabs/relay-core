@@ -15,16 +15,13 @@ if [ -n "${CREDENTIALS}" ]; then
     TLS_OPTIONS="--tls --tls-verify"
 fi
 
-CHART=$(ni get -p {.chart})
+CHART_NAME=$(ni get -p {.name})
+CHART_PATH=$(ni get -p {.chart})
 
 GIT=$(ni get -p {.git})
 if [ -n "${GIT}" ]; then
     ni git clone
-    CHART_NAME=$(ni get -p {.git.name})
-    CHART_PATH=/workspace/${NAME}/${CHART}
-else
-    CHART_NAME=$(ni get -p {.name})
-    CHART_PATH=${CHART}
+    CHART_PATH=/workspace/$(ni get -p {.git.name})/${CHART_PATH}
 fi
 
 RECREATE_PODS_OPTIONS=
