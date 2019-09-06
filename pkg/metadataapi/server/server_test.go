@@ -93,7 +93,7 @@ func (m mockManagerFactory) KubernetesManager() op.KubernetesManager {
 }
 
 func newMockManagerFactory(t *testing.T, cfg mockManagerFactoryConfig) mockManagerFactory {
-	km := op.NewDefaultKubernetesManager(fake.NewSimpleClientset(cfg.k8sResources...))
+	km := op.NewDefaultKubernetesManager(cfg.namespace, fake.NewSimpleClientset(cfg.k8sResources...))
 	om := configmap.New(km.Client(), cfg.namespace)
 
 	return mockManagerFactory{
@@ -108,7 +108,7 @@ func newMockManagerFactory(t *testing.T, cfg mockManagerFactoryConfig) mockManag
 func withTestAPIServer(managers op.ManagerFactory, fn func(*httptest.Server)) {
 	srv := New(&config.MetadataServerConfig{
 		Logger:    logging.Builder().At("server-test").Build(),
-		Namespace: "test",
+		Namespace: managers.KubernetesManager().Namespace(),
 	}, managers)
 
 	ts := httptest.NewServer(srv)

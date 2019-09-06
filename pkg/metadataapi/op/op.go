@@ -53,7 +53,7 @@ func NewDefaultManagerFactory(ctx context.Context, cfg *config.MetadataServerCon
 
 	cfg.Kubeclient = kc
 
-	km := NewDefaultKubernetesManager(kc)
+	km := NewDefaultKubernetesManager(cfg.Namespace, kc)
 
 	secretsBackend := SecretsBackendMapping["vault"]
 	sm, err := SecretsBackendAdapters[secretsBackend](ctx, cfg)

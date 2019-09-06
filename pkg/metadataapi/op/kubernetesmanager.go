@@ -10,19 +10,30 @@ import (
 
 type KubernetesManager interface {
 	Client() kubernetes.Interface
+	Namespace() string
 }
 
 type DefaultKubernetesManager struct {
 	kubeclient kubernetes.Interface
+	namespace  string
 }
 
 func (km DefaultKubernetesManager) Client() kubernetes.Interface {
 	return km.kubeclient
 }
 
-func NewDefaultKubernetesManager(kubeclient kubernetes.Interface) *DefaultKubernetesManager {
+func (km DefaultKubernetesManager) Namespace() string {
+	if km.namespace == "" {
+		return "default"
+	}
+
+	return km.namespace
+}
+
+func NewDefaultKubernetesManager(namespace string, kubeclient kubernetes.Interface) *DefaultKubernetesManager {
 	return &DefaultKubernetesManager{
 		kubeclient: kubeclient,
+		namespace:  namespace,
 	}
 }
 
