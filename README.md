@@ -326,6 +326,21 @@ with the managed policies `AWSLambdaBasicExecutionRole`,
 attach other managed policies, create an execution role first and provide it to
 the `executionRoleARN` parameter.
 
+### projectnebula/azureresourcemanager-deployer
+
+A task that deploys (creates or updates) an Azure Resource Manager deployment using a provided template.
+
+| Parameter        | Description                                                                                                 | Default | Required                          |
+|------------------|-------------------------------------------------------------------------------------------------------------|---------|-----------------------------------|
+| `azure`          | A mapping of Azure account configuration. See [Azure specification](#common-spec-azure).                    | None    | True                              |
+| `deploymentName` | The name of the deployment to create or update.                                                             | None    | True                              |
+| `resourceGroup`  | A resource group name to deploy to, if any. Will perform a resource-group deployment.                       | None    | If `location` is not present      |
+| `location`       | A location to deploy to, if any. Will perform a subscription deployment.                                    | None    | If `resourceGroup` is not present |
+| `template`       | The body of the ARM template as a string in JSON.                                                           | None    | If `templateFile` is not present  |
+| `templateFile`   | The relative path, within the Git repository given in the `git` parameters, to the template file to deploy. | None    | If `template` is not present      |
+| `git`            | A mapping of Git configuration. See [Git specification](#common-spec-git).                                  | None    | If `templateFile` is present      |
+| `parameters`     | A key-value mapping of parameters to pass to the template.                                                  | None    | False                             |
+
 ### Common spec: `aws`
 
 A common specification for accessing an AWS account.
@@ -335,6 +350,17 @@ A common specification for accessing an AWS account.
 | `aws.accessKeyID` | An access key ID for the AWS account. | None | True |
 | `aws.secretAccessKey` | The secret access key corresponding to the access key ID. | None | True |
 | `aws.region` | The AWS region to use (for example, `us-west-2`). | None | True |
+
+### Common spec: `azure`
+
+A common specification for accessing an Azure account using an Azure Service Principle account.
+
+| Parameter        | Description                                                | Default | Required                           |
+|------------------|------------------------------------------------------------|---------|------------------------------------|
+| `azure.tenantID` | The tenant ID for the Service Principal.                   | None    | True                               |
+| `azure.username` | The URI name of the Service Principal.                     | None    | True                               |
+| `azure.password` | The Service Principal password, if any.                    | None    | If `azure.cert` is not present     |
+| `azure.cert`     | The Azure Service Principal PEM certificate block, if any. | None    | if `azure.password` is not present |
 
 ### Common spec: `git`
 
