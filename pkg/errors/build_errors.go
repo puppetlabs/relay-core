@@ -2274,6 +2274,150 @@ func NewServerNewK8sClientError() Error {
 	return NewServerNewK8sClientErrorBuilder().Build()
 }
 
+// ServerOutputFetcherGetErrorCode is the code for an instance of "output_fetcher_get_error".
+const ServerOutputFetcherGetErrorCode = "nt_server_output_fetcher_get_error"
+
+// IsServerOutputFetcherGetError tests whether a given error is an instance of "output_fetcher_get_error".
+func IsServerOutputFetcherGetError(err errawr.Error) bool {
+	return err != nil && err.Is(ServerOutputFetcherGetErrorCode)
+}
+
+// IsServerOutputFetcherGetError tests whether a given error is an instance of "output_fetcher_get_error".
+func (External) IsServerOutputFetcherGetError(err errawr.Error) bool {
+	return IsServerOutputFetcherGetError(err)
+}
+
+// ServerOutputFetcherGetErrorBuilder is a builder for "output_fetcher_get_error" errors.
+type ServerOutputFetcherGetErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "output_fetcher_get_error" from this builder.
+func (b *ServerOutputFetcherGetErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "there was an error fetch the output value",
+		Technical: "there was an error fetch the output value",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "output_fetcher_get_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     ServerSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Output fetcher get error",
+		Version:          1,
+	}
+}
+
+// NewServerOutputFetcherGetErrorBuilder creates a new error builder for the code "output_fetcher_get_error".
+func NewServerOutputFetcherGetErrorBuilder() *ServerOutputFetcherGetErrorBuilder {
+	return &ServerOutputFetcherGetErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewServerOutputFetcherGetError creates a new error with the code "output_fetcher_get_error".
+func NewServerOutputFetcherGetError() Error {
+	return NewServerOutputFetcherGetErrorBuilder().Build()
+}
+
+// ServerOutputFetcherNameValidationErrorCode is the code for an instance of "output_fetcher_name_validation_error".
+const ServerOutputFetcherNameValidationErrorCode = "nt_server_output_fetcher_name_validation_error"
+
+// IsServerOutputFetcherNameValidationError tests whether a given error is an instance of "output_fetcher_name_validation_error".
+func IsServerOutputFetcherNameValidationError(err errawr.Error) bool {
+	return err != nil && err.Is(ServerOutputFetcherNameValidationErrorCode)
+}
+
+// IsServerOutputFetcherNameValidationError tests whether a given error is an instance of "output_fetcher_name_validation_error".
+func (External) IsServerOutputFetcherNameValidationError(err errawr.Error) bool {
+	return IsServerOutputFetcherNameValidationError(err)
+}
+
+// ServerOutputFetcherNameValidationErrorBuilder is a builder for "output_fetcher_name_validation_error" errors.
+type ServerOutputFetcherNameValidationErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "output_fetcher_name_validation_error" from this builder.
+func (b *ServerOutputFetcherNameValidationErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "name was missing or invalid",
+		Technical: "name was missing or invalid",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "output_fetcher_name_validation_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     ServerSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Output fetcher name validation error",
+		Version:          1,
+	}
+}
+
+// NewServerOutputFetcherNameValidationErrorBuilder creates a new error builder for the code "output_fetcher_name_validation_error".
+func NewServerOutputFetcherNameValidationErrorBuilder() *ServerOutputFetcherNameValidationErrorBuilder {
+	return &ServerOutputFetcherNameValidationErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewServerOutputFetcherNameValidationError creates a new error with the code "output_fetcher_name_validation_error".
+func NewServerOutputFetcherNameValidationError() Error {
+	return NewServerOutputFetcherNameValidationErrorBuilder().Build()
+}
+
+// ServerOutputFetcherTaskNameValidationErrorCode is the code for an instance of "output_fetcher_task_name_validation_error".
+const ServerOutputFetcherTaskNameValidationErrorCode = "nt_server_output_fetcher_task_name_validation_error"
+
+// IsServerOutputFetcherTaskNameValidationError tests whether a given error is an instance of "output_fetcher_task_name_validation_error".
+func IsServerOutputFetcherTaskNameValidationError(err errawr.Error) bool {
+	return err != nil && err.Is(ServerOutputFetcherTaskNameValidationErrorCode)
+}
+
+// IsServerOutputFetcherTaskNameValidationError tests whether a given error is an instance of "output_fetcher_task_name_validation_error".
+func (External) IsServerOutputFetcherTaskNameValidationError(err errawr.Error) bool {
+	return IsServerOutputFetcherTaskNameValidationError(err)
+}
+
+// ServerOutputFetcherTaskNameValidationErrorBuilder is a builder for "output_fetcher_task_name_validation_error" errors.
+type ServerOutputFetcherTaskNameValidationErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "output_fetcher_task_name_validation_error" from this builder.
+func (b *ServerOutputFetcherTaskNameValidationErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "taskName was missing or invalid",
+		Technical: "taskName was missing or invalid",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "output_fetcher_task_name_validation_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     ServerSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Output fetcher task name validation error",
+		Version:          1,
+	}
+}
+
+// NewServerOutputFetcherTaskNameValidationErrorBuilder creates a new error builder for the code "output_fetcher_task_name_validation_error".
+func NewServerOutputFetcherTaskNameValidationErrorBuilder() *ServerOutputFetcherTaskNameValidationErrorBuilder {
+	return &ServerOutputFetcherTaskNameValidationErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewServerOutputFetcherTaskNameValidationError creates a new error with the code "output_fetcher_task_name_validation_error".
+func NewServerOutputFetcherTaskNameValidationError() Error {
+	return NewServerOutputFetcherTaskNameValidationErrorBuilder().Build()
+}
+
 // ServerRunErrorCode is the code for an instance of "run_error".
 const ServerRunErrorCode = "nt_server_run_error"
 
@@ -2320,6 +2464,102 @@ func NewServerRunErrorBuilder() *ServerRunErrorBuilder {
 // NewServerRunError creates a new error with the code "run_error".
 func NewServerRunError() Error {
 	return NewServerRunErrorBuilder().Build()
+}
+
+// ServerSecretFetcherGetErrorCode is the code for an instance of "secret_fetcher_get_error".
+const ServerSecretFetcherGetErrorCode = "nt_server_secret_fetcher_get_error"
+
+// IsServerSecretFetcherGetError tests whether a given error is an instance of "secret_fetcher_get_error".
+func IsServerSecretFetcherGetError(err errawr.Error) bool {
+	return err != nil && err.Is(ServerSecretFetcherGetErrorCode)
+}
+
+// IsServerSecretFetcherGetError tests whether a given error is an instance of "secret_fetcher_get_error".
+func (External) IsServerSecretFetcherGetError(err errawr.Error) bool {
+	return IsServerSecretFetcherGetError(err)
+}
+
+// ServerSecretFetcherGetErrorBuilder is a builder for "secret_fetcher_get_error" errors.
+type ServerSecretFetcherGetErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "secret_fetcher_get_error" from this builder.
+func (b *ServerSecretFetcherGetErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "there was an error fetch the secret value",
+		Technical: "there was an error fetch the secret value",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "secret_fetcher_get_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     ServerSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Secret fetcher get error",
+		Version:          1,
+	}
+}
+
+// NewServerSecretFetcherGetErrorBuilder creates a new error builder for the code "secret_fetcher_get_error".
+func NewServerSecretFetcherGetErrorBuilder() *ServerSecretFetcherGetErrorBuilder {
+	return &ServerSecretFetcherGetErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewServerSecretFetcherGetError creates a new error with the code "secret_fetcher_get_error".
+func NewServerSecretFetcherGetError() Error {
+	return NewServerSecretFetcherGetErrorBuilder().Build()
+}
+
+// ServerSecretFetcherNameValidationErrorCode is the code for an instance of "secret_fetcher_name_validation_error".
+const ServerSecretFetcherNameValidationErrorCode = "nt_server_secret_fetcher_name_validation_error"
+
+// IsServerSecretFetcherNameValidationError tests whether a given error is an instance of "secret_fetcher_name_validation_error".
+func IsServerSecretFetcherNameValidationError(err errawr.Error) bool {
+	return err != nil && err.Is(ServerSecretFetcherNameValidationErrorCode)
+}
+
+// IsServerSecretFetcherNameValidationError tests whether a given error is an instance of "secret_fetcher_name_validation_error".
+func (External) IsServerSecretFetcherNameValidationError(err errawr.Error) bool {
+	return IsServerSecretFetcherNameValidationError(err)
+}
+
+// ServerSecretFetcherNameValidationErrorBuilder is a builder for "secret_fetcher_name_validation_error" errors.
+type ServerSecretFetcherNameValidationErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "secret_fetcher_name_validation_error" from this builder.
+func (b *ServerSecretFetcherNameValidationErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "name was missing or invalid",
+		Technical: "name was missing or invalid",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "secret_fetcher_name_validation_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     ServerSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Secret fetcher name validation error",
+		Version:          1,
+	}
+}
+
+// NewServerSecretFetcherNameValidationErrorBuilder creates a new error builder for the code "secret_fetcher_name_validation_error".
+func NewServerSecretFetcherNameValidationErrorBuilder() *ServerSecretFetcherNameValidationErrorBuilder {
+	return &ServerSecretFetcherNameValidationErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewServerSecretFetcherNameValidationError creates a new error with the code "secret_fetcher_name_validation_error".
+func NewServerSecretFetcherNameValidationError() Error {
+	return NewServerSecretFetcherNameValidationErrorBuilder().Build()
 }
 
 // TaskUtilSection defines a section of errors with the following scope:

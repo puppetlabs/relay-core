@@ -139,6 +139,21 @@ sections:
             description: The name of the config map
           namespace:
             description: The namespace of the config map
+      secret_fetcher_name_validation_error:
+        title: Secret fetcher name validation error
+        description: name was missing or invalid
+      secret_fetcher_get_error:
+        title: Secret fetcher get error
+        description: there was an error fetch the secret value
+      output_fetcher_name_validation_error:
+        title: Output fetcher name validation error
+        description: name was missing or invalid
+      output_fetcher_task_name_validation_error:
+        title: Output fetcher task name validation error
+        description: taskName was missing or invalid
+      output_fetcher_get_error:
+        title: Output fetcher get error
+        description: there was an error fetch the output value
 
   k8s_provisioner:
     title: K8s provisioner errors
