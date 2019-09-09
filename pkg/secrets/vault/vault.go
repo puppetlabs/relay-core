@@ -20,15 +20,6 @@ type Vault struct {
 }
 
 func (v *Vault) Get(ctx context.Context, key string) (*secrets.Secret, errors.Error) {
-	if v.session == nil {
-		session, err := newVaultLoggedInClient(ctx, v.cfg)
-		if err != nil {
-			return nil, err
-		}
-
-		v.session = session
-	}
-
 	return v.session.get(ctx, key)
 }
 
@@ -146,9 +137,7 @@ func (v *vaultLoggedInClient) login(ctx context.Context) errors.Error {
 		v.logger.Warn("consider using a token with a lease greater than 1m")
 	}
 
-	v.renewFunc = newDelayedTokenRenewFunc(ttl)
-
-	go v.renewFunc(ctx, v)
+	go delayedTokenRenewal(ctx, v, ttl)
 
 	return nil
 }
@@ -195,12 +184,13 @@ func newVaultLoggedInClient(ctx context.Context, cfg *Config) (*vaultLoggedInCli
 	return vlc, nil
 }
 
-func newDelayedTokenRenewFunc(ttl time.Duration) func(context.Context, *vaultLoggedInClient) {
+func delayedTokenRenewal(ctx context.Context, v *vaultLoggedInClient, ttl time.Duration) {
 	delay := time.Duration(float64(ttl.Nanoseconds()) * 2 / 3)
+	timer := time.NewTimer(delay)
 
-	return func(ctx context.Context, v *vaultLoggedInClient) {
+	for {
 		select {
-		case <-time.After(delay):
+		case <-timer.C:
 			_, err := v.client.Auth().Token().RenewSelf(0)
 			if err != nil {
 				v.logger.Info("could not renew the vault token", "error", err)
@@ -210,8 +200,13 @@ func newDelayedTokenRenewFunc(ttl time.Duration) func(context.Context, *vaultLog
 
 			v.logger.Info("vault token renewed successfully")
 
-			go v.renewFunc(ctx, v)
+			timer.Reset(delay)
 		case <-ctx.Done():
+			if !timer.Stop() {
+				<-timer.C
+			}
+
+			return
 		}
 	}
 }
