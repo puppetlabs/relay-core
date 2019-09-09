@@ -2665,6 +2665,198 @@ func NewTaskUtilDefaultSpecPlanFailed(reason string) Error {
 	return NewTaskUtilDefaultSpecPlanFailedBuilder(reason).Build()
 }
 
+// TaskUtilSetOutputErrorCode is the code for an instance of "set_output_error".
+const TaskUtilSetOutputErrorCode = "nt_task_util_set_output_error"
+
+// IsTaskUtilSetOutputError tests whether a given error is an instance of "set_output_error".
+func IsTaskUtilSetOutputError(err errawr.Error) bool {
+	return err != nil && err.Is(TaskUtilSetOutputErrorCode)
+}
+
+// IsTaskUtilSetOutputError tests whether a given error is an instance of "set_output_error".
+func (External) IsTaskUtilSetOutputError(err errawr.Error) bool {
+	return IsTaskUtilSetOutputError(err)
+}
+
+// TaskUtilSetOutputErrorBuilder is a builder for "set_output_error" errors.
+type TaskUtilSetOutputErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "set_output_error" from this builder.
+func (b *TaskUtilSetOutputErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "an error occurred while trying to set the task output",
+		Technical: "an error occurred while trying to set the task output",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "set_output_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     TaskUtilSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Set output error",
+		Version:          1,
+	}
+}
+
+// NewTaskUtilSetOutputErrorBuilder creates a new error builder for the code "set_output_error".
+func NewTaskUtilSetOutputErrorBuilder() *TaskUtilSetOutputErrorBuilder {
+	return &TaskUtilSetOutputErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewTaskUtilSetOutputError creates a new error with the code "set_output_error".
+func NewTaskUtilSetOutputError() Error {
+	return NewTaskUtilSetOutputErrorBuilder().Build()
+}
+
+// TaskUtilSetOutputMetadataAPIURLErrorCode is the code for an instance of "set_output_metadata_api_url_error".
+const TaskUtilSetOutputMetadataAPIURLErrorCode = "nt_task_util_set_output_metadata_api_url_error"
+
+// IsTaskUtilSetOutputMetadataAPIURLError tests whether a given error is an instance of "set_output_metadata_api_url_error".
+func IsTaskUtilSetOutputMetadataAPIURLError(err errawr.Error) bool {
+	return err != nil && err.Is(TaskUtilSetOutputMetadataAPIURLErrorCode)
+}
+
+// IsTaskUtilSetOutputMetadataAPIURLError tests whether a given error is an instance of "set_output_metadata_api_url_error".
+func (External) IsTaskUtilSetOutputMetadataAPIURLError(err errawr.Error) bool {
+	return IsTaskUtilSetOutputMetadataAPIURLError(err)
+}
+
+// TaskUtilSetOutputMetadataAPIURLErrorBuilder is a builder for "set_output_metadata_api_url_error" errors.
+type TaskUtilSetOutputMetadataAPIURLErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "set_output_metadata_api_url_error" from this builder.
+func (b *TaskUtilSetOutputMetadataAPIURLErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "there was an error parsing the metadata url",
+		Technical: "there was an error parsing the metadata url",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "set_output_metadata_api_url_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     TaskUtilSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Set output metadata api url error",
+		Version:          1,
+	}
+}
+
+// NewTaskUtilSetOutputMetadataAPIURLErrorBuilder creates a new error builder for the code "set_output_metadata_api_url_error".
+func NewTaskUtilSetOutputMetadataAPIURLErrorBuilder() *TaskUtilSetOutputMetadataAPIURLErrorBuilder {
+	return &TaskUtilSetOutputMetadataAPIURLErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewTaskUtilSetOutputMetadataAPIURLError creates a new error with the code "set_output_metadata_api_url_error".
+func NewTaskUtilSetOutputMetadataAPIURLError() Error {
+	return NewTaskUtilSetOutputMetadataAPIURLErrorBuilder().Build()
+}
+
+// TaskUtilSetOutputRequiredValueEmptyCode is the code for an instance of "set_output_required_value_empty".
+const TaskUtilSetOutputRequiredValueEmptyCode = "nt_task_util_set_output_required_value_empty"
+
+// IsTaskUtilSetOutputRequiredValueEmpty tests whether a given error is an instance of "set_output_required_value_empty".
+func IsTaskUtilSetOutputRequiredValueEmpty(err errawr.Error) bool {
+	return err != nil && err.Is(TaskUtilSetOutputRequiredValueEmptyCode)
+}
+
+// IsTaskUtilSetOutputRequiredValueEmpty tests whether a given error is an instance of "set_output_required_value_empty".
+func (External) IsTaskUtilSetOutputRequiredValueEmpty(err errawr.Error) bool {
+	return IsTaskUtilSetOutputRequiredValueEmpty(err)
+}
+
+// TaskUtilSetOutputRequiredValueEmptyBuilder is a builder for "set_output_required_value_empty" errors.
+type TaskUtilSetOutputRequiredValueEmptyBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "set_output_required_value_empty" from this builder.
+func (b *TaskUtilSetOutputRequiredValueEmptyBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "the value for {{param}} must not be empty",
+		Technical: "the value for {{param}} must not be empty",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "set_output_required_value_empty",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     TaskUtilSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Set output required value empty",
+		Version:          1,
+	}
+}
+
+// NewTaskUtilSetOutputRequiredValueEmptyBuilder creates a new error builder for the code "set_output_required_value_empty".
+func NewTaskUtilSetOutputRequiredValueEmptyBuilder(param string) *TaskUtilSetOutputRequiredValueEmptyBuilder {
+	return &TaskUtilSetOutputRequiredValueEmptyBuilder{arguments: impl.ErrorArguments{"param": impl.NewErrorArgument(param, "the parameter that was empty")}}
+}
+
+// NewTaskUtilSetOutputRequiredValueEmpty creates a new error with the code "set_output_required_value_empty".
+func NewTaskUtilSetOutputRequiredValueEmpty(param string) Error {
+	return NewTaskUtilSetOutputRequiredValueEmptyBuilder(param).Build()
+}
+
+// TaskUtilSetOutputUnexpectedStatusCodeCode is the code for an instance of "set_output_unexpected_status_code".
+const TaskUtilSetOutputUnexpectedStatusCodeCode = "nt_task_util_set_output_unexpected_status_code"
+
+// IsTaskUtilSetOutputUnexpectedStatusCode tests whether a given error is an instance of "set_output_unexpected_status_code".
+func IsTaskUtilSetOutputUnexpectedStatusCode(err errawr.Error) bool {
+	return err != nil && err.Is(TaskUtilSetOutputUnexpectedStatusCodeCode)
+}
+
+// IsTaskUtilSetOutputUnexpectedStatusCode tests whether a given error is an instance of "set_output_unexpected_status_code".
+func (External) IsTaskUtilSetOutputUnexpectedStatusCode(err errawr.Error) bool {
+	return IsTaskUtilSetOutputUnexpectedStatusCode(err)
+}
+
+// TaskUtilSetOutputUnexpectedStatusCodeBuilder is a builder for "set_output_unexpected_status_code" errors.
+type TaskUtilSetOutputUnexpectedStatusCodeBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "set_output_unexpected_status_code" from this builder.
+func (b *TaskUtilSetOutputUnexpectedStatusCodeBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "got an unexpected status code {{status_code}} when trying to set the output",
+		Technical: "got an unexpected status code {{status_code}} when trying to set the output",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "set_output_unexpected_status_code",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     TaskUtilSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Set output unexpected status code",
+		Version:          1,
+	}
+}
+
+// NewTaskUtilSetOutputUnexpectedStatusCodeBuilder creates a new error builder for the code "set_output_unexpected_status_code".
+func NewTaskUtilSetOutputUnexpectedStatusCodeBuilder(statusCode int64) *TaskUtilSetOutputUnexpectedStatusCodeBuilder {
+	return &TaskUtilSetOutputUnexpectedStatusCodeBuilder{arguments: impl.ErrorArguments{"status_code": impl.NewErrorArgument(statusCode, "the status code recieved from the api")}}
+}
+
+// NewTaskUtilSetOutputUnexpectedStatusCode creates a new error with the code "set_output_unexpected_status_code".
+func NewTaskUtilSetOutputUnexpectedStatusCode(statusCode int64) Error {
+	return NewTaskUtilSetOutputUnexpectedStatusCodeBuilder(statusCode).Build()
+}
+
 // TaskUtilSpecLoaderErrorCode is the code for an instance of "spec_loader_error".
 const TaskUtilSpecLoaderErrorCode = "nt_task_util_spec_loader_error"
 

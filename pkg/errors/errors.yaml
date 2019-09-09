@@ -243,3 +243,22 @@ sections:
         arguments:
           reason:
             description: the reason the plan failed to execute
+      set_output_error:
+        title: Set output error
+        description: an error occurred while trying to set the task output
+      set_output_required_value_empty:
+        title: Set output required value empty
+        description: the value for {{param}} must not be empty
+        arguments:
+          param:
+            description: the parameter that was empty
+      set_output_metadata_api_url_error:
+        title: Set output metadata api url error
+        description: there was an error parsing the metadata url
+      set_output_unexpected_status_code:
+        title: Set output unexpected status code
+        description: got an unexpected status code {{status_code}} when trying to set the output
+        arguments:
+          status_code:
+            type: integer
+            description: the status code recieved from the api
