@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/op"
+	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"
 	"github.com/puppetlabs/nebula-tasks/pkg/outputs"
 	"github.com/puppetlabs/nebula-tasks/pkg/outputs/configmap"
 	"github.com/puppetlabs/nebula-tasks/pkg/secrets"
@@ -128,13 +130,32 @@ func newMockManagerFactory(t *testing.T, cfg mockManagerFactoryConfig) mockManag
 	}
 }
 
-func withTestAPIServer(managers op.ManagerFactory, fn func(*httptest.Server)) {
+func withRemoteAddress(ip string) middleware.MiddlewareFunc {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			host, port, _ := net.SplitHostPort(r.RemoteAddr)
+
+			r.RemoteAddr = strings.Join([]string{host, port}, ":")
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+func withTestAPIServer(managers op.ManagerFactory, mw []middleware.MiddlewareFunc, fn func(*httptest.Server)) {
 	srv := New(&config.MetadataServerConfig{
 		Logger:    logging.Builder().At("server-test").Build(),
 		Namespace: managers.KubernetesManager().Namespace(),
 	}, managers)
 
-	ts := httptest.NewServer(srv)
+	var handler http.Handler
+
+	handler = srv
+	for _, m := range mw {
+		handler = m(handler)
+	}
+
+	ts := httptest.NewServer(handler)
 
 	defer ts.Close()
 
@@ -151,7 +172,7 @@ func TestServerSecretsHandler(t *testing.T) {
 		},
 	})
 
-	withTestAPIServer(managers, func(ts *httptest.Server) {
+	withTestAPIServer(managers, []middleware.MiddlewareFunc{}, func(ts *httptest.Server) {
 		client := ts.Client()
 
 		resp, err := client.Get(ts.URL + "/secrets/foo")
@@ -169,6 +190,8 @@ func TestServerSecretsHandler(t *testing.T) {
 }
 
 func TestServerOutputsHandler(t *testing.T) {
+	podIP := "10.3.3.3"
+
 	managers := newMockManagerFactory(t, mockManagerFactoryConfig{
 		k8sResources: mockTask(t, mockTaskConfig{
 			Name:      "test-task",
@@ -176,11 +199,13 @@ func TestServerOutputsHandler(t *testing.T) {
 			Labels: map[string]string{
 				"task-name": "test-task",
 			},
-			PodIP: "10.3.3.3",
+			PodIP: podIP,
 		}),
 	})
 
-	withTestAPIServer(managers, func(ts *httptest.Server) {
+	mw := []middleware.MiddlewareFunc{withRemoteAddress(podIP)}
+
+	withTestAPIServer(managers, mw, func(ts *httptest.Server) {
 		client := ts.Client()
 
 		req, err := http.NewRequest(http.MethodPut, ts.URL+"/outputs/foo", strings.NewReader("bar"))
@@ -214,6 +239,7 @@ func TestServerSpecsHandler(t *testing.T) {
 		namespace    = "workflow-run-ns"
 		currentTask  = "current-task"
 		previousTask = "previous-task"
+		podIP        = "10.3.3.3"
 	)
 
 	resources := []runtime.Object{}
@@ -224,7 +250,7 @@ func TestServerSpecsHandler(t *testing.T) {
 		Labels: map[string]string{
 			"task-name": previousTask,
 		},
-		PodIP: "10.3.3.3",
+		PodIP: podIP,
 	})...)
 
 	resources = append(resources, mockTask(t, mockTaskConfig{
@@ -250,13 +276,13 @@ func TestServerSpecsHandler(t *testing.T) {
 		k8sResources: resources,
 	})
 
-	withTestAPIServer(managers, func(ts *httptest.Server) {
+	mw := []middleware.MiddlewareFunc{withRemoteAddress(podIP)}
+
+	withTestAPIServer(managers, mw, func(ts *httptest.Server) {
 		client := ts.Client()
 
 		req, err := http.NewRequest(http.MethodPut, ts.URL+"/outputs/test-output-key", strings.NewReader("test-output-value"))
 		require.NoError(t, err)
-
-		req.Header.Set("X-Forwarded-For", "10.3.3.3")
 
 		resp, err := client.Do(req)
 		require.NoError(t, err)
