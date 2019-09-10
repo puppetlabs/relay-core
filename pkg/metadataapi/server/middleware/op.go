@@ -2,10 +2,11 @@ package middleware
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"net/http"
 
+	utilapi "github.com/puppetlabs/horsehead/httputil/api"
+	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/op"
 	"github.com/puppetlabs/nebula-tasks/pkg/task"
 )
@@ -14,6 +15,7 @@ type ctxKey int
 
 const (
 	opsKey ctxKey = iota
+	taskMetadataKey
 )
 
 type MiddlewareFunc func(http.Handler) http.Handler
@@ -24,12 +26,16 @@ func Managers(r *http.Request) op.ManagerFactory {
 		panic("no managers in request")
 	}
 
-	newOps, err := newRequestScopedManagerFactory(r, ops)
-	if err != nil {
-		panic(fmt.Sprintf("malformed or missing remote address: %v", err))
+	return ops
+}
+
+func TaskMetadata(r *http.Request) *task.Metadata {
+	md, ok := r.Context().Value(taskMetadataKey).(*task.Metadata)
+	if !ok {
+		panic("no task metadata in request")
 	}
 
-	return newOps
+	return md
 }
 
 func ManagerFactoryMiddleware(ops op.ManagerFactory) MiddlewareFunc {
@@ -40,46 +46,30 @@ func ManagerFactoryMiddleware(ops op.ManagerFactory) MiddlewareFunc {
 	}
 }
 
-type requestScopedManagerFactory struct {
-	delegate op.ManagerFactory
-	mm       op.MetadataManager
-}
+func TaskMetadataMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ops := Managers(r)
 
-func (m requestScopedManagerFactory) SecretsManager() op.SecretsManager {
-	return m.delegate.SecretsManager()
-}
+		ctx := r.Context()
 
-func (m requestScopedManagerFactory) OutputsManager() op.OutputsManager {
-	return m.delegate.OutputsManager()
-}
+		// as long as we are using the standard lib http server, it will fill in the RemoteAddr field as
+		// host:port and we will be able to pull the clientIP out. If we end up using a 3rd party package
+		// as the http server (rare), then the handler will raise an error if it uses a differently formatted
+		// RemoteAddr.
+		clientIP, _, goerr := net.SplitHostPort(r.RemoteAddr)
+		if goerr != nil {
+			utilapi.WriteError(ctx, w, errors.NewServerClientIPError().WithCause(goerr))
 
-func (m requestScopedManagerFactory) MetadataManager() op.MetadataManager {
-	return m.mm
-}
+			return
+		}
 
-func (m requestScopedManagerFactory) KubernetesManager() op.KubernetesManager {
-	return m.delegate.KubernetesManager()
-}
+		md, err := ops.MetadataManager().GetByIP(ctx, clientIP)
+		if err != nil {
+			utilapi.WriteError(ctx, w, err)
 
-func newRequestScopedManagerFactory(r *http.Request, ops op.ManagerFactory) (*requestScopedManagerFactory, error) {
-	// as long as we are using the standard lib http server, it will fill in the RemoteAddr field as
-	// host:port and we will be able to pull the clientIP out. If we end up using a 3rd party package
-	// as the http server (rare), then the caller above will panic if it uses a differently formatted
-	// RemoteAddr.
-	clientIP, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return nil, err
-	}
+			return
+		}
 
-	mm := ops.MetadataManager()
-	if mm == nil {
-		mm = task.NewPodMetadataManager(ops.KubernetesManager().Client(), task.PodMetadataManagerOptions{
-			PodIP: clientIP,
-		})
-	}
-
-	return &requestScopedManagerFactory{
-		delegate: ops,
-		mm:       mm,
-	}, nil
+		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), taskMetadataKey, md)))
+	})
 }

@@ -1,23 +1,24 @@
 package server
 
 import (
-	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/puppetlabs/horsehead/encoding/transfer"
 	"github.com/puppetlabs/horsehead/logging"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
-	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/op"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"
 	"github.com/puppetlabs/nebula-tasks/pkg/outputs"
 	"github.com/puppetlabs/nebula-tasks/pkg/outputs/configmap"
 	"github.com/puppetlabs/nebula-tasks/pkg/secrets"
+	smemory "github.com/puppetlabs/nebula-tasks/pkg/secrets/memory"
 	"github.com/puppetlabs/nebula-tasks/pkg/task"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -27,9 +28,9 @@ import (
 )
 
 type mockTaskConfig struct {
+	ID        string
 	Name      string
 	Namespace string
-	Labels    map[string]string
 	PodIP     string
 	SpecData  map[string]interface{}
 }
@@ -38,12 +39,17 @@ func mockTask(t *testing.T, cfg mockTaskConfig) []runtime.Object {
 	specData, err := json.Marshal(cfg.SpecData)
 	require.NoError(t, err)
 
+	labels := map[string]string{
+		"task-id":   cfg.ID,
+		"task-name": cfg.Name,
+	}
+
 	return []runtime.Object{
 		&corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      cfg.Name,
 				Namespace: cfg.Namespace,
-				Labels:    cfg.Labels,
+				Labels:    labels,
 			},
 			Status: corev1.PodStatus{
 				PodIP: cfg.PodIP,
@@ -51,8 +57,9 @@ func mockTask(t *testing.T, cfg mockTaskConfig) []runtime.Object {
 		},
 		&corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      cfg.Name,
+				Name:      cfg.ID,
 				Namespace: cfg.Namespace,
+				Labels:    labels,
 			},
 			Data: map[string]string{
 				"spec.json": string(specData),
@@ -61,44 +68,17 @@ func mockTask(t *testing.T, cfg mockTaskConfig) []runtime.Object {
 	}
 }
 
-type mockSecretsManager struct {
-	data map[string]string
-}
-
-func (sm mockSecretsManager) Get(ctx context.Context, key string) (*secrets.Secret, errors.Error) {
-	val, ok := sm.data[key]
-	if !ok {
-		return nil, errors.NewSecretsKeyNotFound(key)
-	}
-
-	sec := &secrets.Secret{
-		Key:   key,
-		Value: val,
-	}
-
-	return sec, nil
-}
-
-type mockMetadataManager struct {
-	taskName string
-}
-
-func (mm mockMetadataManager) Get(context.Context) (*task.Metadata, errors.Error) {
-	return &task.Metadata{Name: mm.taskName}, nil
-}
-
 type mockManagerFactoryConfig struct {
-	taskName     string
 	secretData   map[string]string
 	namespace    string
 	k8sResources []runtime.Object
 }
 
 type mockManagerFactory struct {
-	sm op.SecretsManager
-	om op.OutputsManager
-	mm op.MetadataManager
-	km op.KubernetesManager
+	sm  op.SecretsManager
+	om  op.OutputsManager
+	mm  op.MetadataManager
+	spm op.SpecsManager
 }
 
 func (m mockManagerFactory) SecretsManager() op.SecretsManager {
@@ -110,23 +90,25 @@ func (m mockManagerFactory) OutputsManager() op.OutputsManager {
 }
 
 func (m mockManagerFactory) MetadataManager() op.MetadataManager {
-	return nil
+	return m.mm
 }
 
-func (m mockManagerFactory) KubernetesManager() op.KubernetesManager {
-	return m.km
+func (m mockManagerFactory) SpecsManager() op.SpecsManager {
+	return m.spm
 }
 
 func newMockManagerFactory(t *testing.T, cfg mockManagerFactoryConfig) mockManagerFactory {
-	km := op.NewDefaultKubernetesManager(cfg.namespace, fake.NewSimpleClientset(cfg.k8sResources...))
-	om := configmap.New(km.Client(), cfg.namespace)
+	kc := fake.NewSimpleClientset(cfg.k8sResources...)
+	om := configmap.New(kc, cfg.namespace)
+	mm := task.NewKubernetesMetadataManager(kc, cfg.namespace)
+	sm := smemory.New(cfg.secretData)
+	spm := task.NewKubernetesSpecManager(kc, cfg.namespace)
 
 	return mockManagerFactory{
-		sm: op.NewEncodingSecretManager(mockSecretsManager{
-			data: cfg.secretData,
-		}),
-		om: om,
-		km: km,
+		sm:  op.NewEncodingSecretManager(sm),
+		om:  op.NewEncodeDecodingOutputsManager(om),
+		mm:  mm,
+		spm: spm,
 	}
 }
 
@@ -134,7 +116,6 @@ func withRemoteAddress(ip string) middleware.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			host, port, _ := net.SplitHostPort(r.RemoteAddr)
-
 			r.RemoteAddr = strings.Join([]string{host, port}, ":")
 
 			next.ServeHTTP(w, r)
@@ -143,10 +124,9 @@ func withRemoteAddress(ip string) middleware.MiddlewareFunc {
 }
 
 func withTestAPIServer(managers op.ManagerFactory, mw []middleware.MiddlewareFunc, fn func(*httptest.Server)) {
-	srv := New(&config.MetadataServerConfig{
-		Logger:    logging.Builder().At("server-test").Build(),
-		Namespace: managers.KubernetesManager().Namespace(),
-	}, managers)
+	logger := logging.Builder().At("server-test").Build()
+
+	srv := New(&config.MetadataServerConfig{Logger: logger}, managers)
 
 	var handler http.Handler
 
@@ -190,20 +170,18 @@ func TestServerSecretsHandler(t *testing.T) {
 }
 
 func TestServerOutputsHandler(t *testing.T) {
-	podIP := "10.3.3.3"
+	taskConfig := mockTaskConfig{
+		ID:        uuid.New().String(),
+		Name:      "test-task",
+		Namespace: "test-task",
+		PodIP:     "10.3.3.3",
+	}
 
 	managers := newMockManagerFactory(t, mockManagerFactoryConfig{
-		k8sResources: mockTask(t, mockTaskConfig{
-			Name:      "test-task",
-			Namespace: "test-task",
-			Labels: map[string]string{
-				"task-name": "test-task",
-			},
-			PodIP: podIP,
-		}),
+		k8sResources: mockTask(t, taskConfig),
 	})
 
-	mw := []middleware.MiddlewareFunc{withRemoteAddress(podIP)}
+	mw := []middleware.MiddlewareFunc{withRemoteAddress(taskConfig.PodIP)}
 
 	withTestAPIServer(managers, mw, func(ts *httptest.Server) {
 		client := ts.Client()
@@ -211,15 +189,13 @@ func TestServerOutputsHandler(t *testing.T) {
 		req, err := http.NewRequest(http.MethodPut, ts.URL+"/outputs/foo", strings.NewReader("bar"))
 		require.NoError(t, err)
 
-		req.Header.Set("X-Forwarded-For", "10.3.3.3")
-
 		resp, err := client.Do(req)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 
 		defer resp.Body.Close()
 
-		resp, err = client.Get(ts.URL + "/outputs/test-task/foo")
+		resp, err = client.Get(ts.URL + fmt.Sprintf("/outputs/%s/foo", taskConfig.Name))
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -235,40 +211,33 @@ func TestServerOutputsHandler(t *testing.T) {
 }
 
 func TestServerSpecsHandler(t *testing.T) {
-	const (
-		namespace    = "workflow-run-ns"
-		currentTask  = "current-task"
-		previousTask = "previous-task"
-		podIP        = "10.3.3.3"
+	const namespace = "workflow-run-ns"
+
+	var (
+		previousTask = mockTaskConfig{
+			ID:        uuid.New().String(),
+			Name:      "previous-task",
+			Namespace: namespace,
+			PodIP:     "10.3.3.4",
+		}
+		currentTask = mockTaskConfig{
+			ID:        uuid.New().String(),
+			Name:      "current-task",
+			Namespace: namespace,
+			PodIP:     "10.3.3.3",
+			SpecData: map[string]interface{}{
+				"super-secret": map[string]string{"$type": "Secret", "name": "test-secret-key"},
+				"super-output": map[string]string{"$type": "Output", "name": "test-output-key", "taskName": previousTask.Name},
+				"super-normal": "test-normal-value",
+			},
+		}
 	)
 
 	resources := []runtime.Object{}
-
-	resources = append(resources, mockTask(t, mockTaskConfig{
-		Name:      previousTask,
-		Namespace: namespace,
-		Labels: map[string]string{
-			"task-name": previousTask,
-		},
-		PodIP: podIP,
-	})...)
-
-	resources = append(resources, mockTask(t, mockTaskConfig{
-		Name:      currentTask,
-		Namespace: namespace,
-		Labels: map[string]string{
-			"task-name": currentTask,
-		},
-		PodIP: "10.3.3.4",
-		SpecData: map[string]interface{}{
-			"super-secret": map[string]string{"$type": "Secret", "name": "test-secret-key"},
-			"super-output": map[string]string{"$type": "Output", "name": "test-output-key", "taskName": previousTask},
-			"super-normal": "test-normal-value",
-		},
-	})...)
+	resources = append(resources, mockTask(t, previousTask)...)
+	resources = append(resources, mockTask(t, currentTask)...)
 
 	managers := newMockManagerFactory(t, mockManagerFactoryConfig{
-		taskName: currentTask,
 		secretData: map[string]string{
 			"test-secret-key": "test-secret-value",
 		},
@@ -276,7 +245,7 @@ func TestServerSpecsHandler(t *testing.T) {
 		k8sResources: resources,
 	})
 
-	mw := []middleware.MiddlewareFunc{withRemoteAddress(podIP)}
+	mw := []middleware.MiddlewareFunc{withRemoteAddress(previousTask.PodIP)}
 
 	withTestAPIServer(managers, mw, func(ts *httptest.Server) {
 		client := ts.Client()
@@ -290,7 +259,7 @@ func TestServerSpecsHandler(t *testing.T) {
 
 		defer resp.Body.Close()
 
-		resp, err = client.Get(ts.URL + "/specs/" + currentTask)
+		resp, err = client.Get(ts.URL + "/specs/" + currentTask.ID)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 

@@ -95,6 +95,40 @@ sections:
         title: Put error
         description: there was an error storing the output
 
+  task:
+    title: Task errors
+    errors:
+      not_found_for_ip:
+        title: Not found for IP
+        description: no task was found for IP address {{ip}}
+        arguments:
+          ip:
+            description: the ip address used in the request
+        metadata:
+          http:
+            status: 404
+      spec_not_found_for_id:
+        title: Spec not found for ID
+        description: no task spec was found for ID {{id}}
+        arguments:
+          id:
+            description: the id of the task
+        metadata:
+          http:
+            status: 404
+      spec_lookup_error:
+        title: Spec lookup error
+        description: failed to lookup task spec
+        metadata:
+          http:
+            status: 500
+      spec_decoding_error:
+        title: Spec decoding error
+        description: failed to decode spec data
+        metadata:
+          http:
+            status: 500
+
   kubernetes:
     title: Kubernetes errors
     errors:
@@ -154,6 +188,15 @@ sections:
       output_fetcher_get_error:
         title: Output fetcher get error
         description: there was an error fetch the output value
+      pre_config_decoding_error:
+        title: PreConfig decoding error
+        description: there was an error decoding the development preconfiguration file
+      client_ip_error:
+        title: Client IP error
+        description: malformed client IP
+        metadata:
+          http:
+            status: 500
 
   k8s_provisioner:
     title: K8s provisioner errors

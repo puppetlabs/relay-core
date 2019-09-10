@@ -11,7 +11,6 @@ import (
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/op"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"
 	"github.com/puppetlabs/nebula-tasks/pkg/task"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type fetcherFunc func(context.Context, op.ManagerFactory, map[string]interface{}) (string, errors.Error)
@@ -22,16 +21,13 @@ var valueFetchers = map[task.SpecValueType]fetcherFunc{
 }
 
 type specsHandler struct {
-	logger    logging.Logger
-	namespace string
+	logger logging.Logger
 }
 
 func (h *specsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	managers := middleware.Managers(r)
-
-	client := managers.KubernetesManager().Client()
 
 	var key string
 
@@ -44,18 +40,16 @@ func (h *specsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	h.logger.Info("handling spec request", "key", key)
 
-	configMap, err := client.CoreV1().ConfigMaps(h.namespace).Get(key, metav1.GetOptions{})
-	if nil != err {
-		utilapi.WriteError(ctx, w,
-			errors.NewServerGetConfigMapError(key, h.namespace).WithCause(err))
+	specData, err := managers.SpecsManager().GetByTaskID(ctx, key)
+	if err != nil {
+		utilapi.WriteError(ctx, w, err)
 
 		return
 	}
 
 	var spec interface{}
-	if err := json.Unmarshal([]byte(configMap.Data["spec.json"]), &spec); nil != err {
-		utilapi.WriteError(ctx, w,
-			errors.NewServerConfigMapJSONError(key, h.namespace).WithCause(err))
+	if err := json.Unmarshal([]byte(specData), &spec); nil != err {
+		utilapi.WriteError(ctx, w, errors.NewTaskSpecDecodingError().WithCause(err))
 
 		return
 	}

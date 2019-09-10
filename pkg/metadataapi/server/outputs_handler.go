@@ -26,18 +26,11 @@ func (o outputsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (o outputsHandler) put(w http.ResponseWriter, r *http.Request) {
 	managers := middleware.Managers(r)
+	md := middleware.TaskMetadata(r)
 
-	mm := managers.MetadataManager()
 	om := managers.OutputsManager()
 
 	ctx := r.Context()
-
-	md, err := mm.Get(ctx)
-	if err != nil {
-		utilapi.WriteError(ctx, w, err)
-
-		return
-	}
 
 	taskName := md.Name
 	key, _ := shiftPath(r.URL.Path)

@@ -10,6 +10,7 @@ require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
 	github.com/evanphx/json-patch v4.5.0+incompatible // indirect
 	github.com/google/go-containerregistry v0.0.0-20190729175742-ef12d49c8daf // indirect
+	github.com/google/uuid v1.1.1
 	github.com/googleapis/gnostic v0.2.0 // indirect
 	github.com/hashicorp/vault/api v1.0.2
 	github.com/imdario/mergo v0.3.7
@@ -24,6 +25,7 @@ require (
 	github.com/puppetlabs/errawr-go/v2 v2.1.0
 	github.com/puppetlabs/horsehead v1.11.0
 	github.com/puppetlabs/nebula-libs/storage/gcs v1.0.1
+	github.com/smartystreets/goconvey v0.0.0-20190731233626-505e41936337 // indirect
 	github.com/spf13/cobra v0.0.5
 	github.com/stretchr/testify v1.3.0
 	github.com/tektoncd/pipeline v0.4.0

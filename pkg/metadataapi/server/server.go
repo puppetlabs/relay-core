@@ -21,19 +21,21 @@ type Server struct {
 	// bindAddr is the address and port to listen on
 	bindAddr string
 	logger   logging.Logger
+	managers op.ManagerFactory
 
 	// secretsHander handles requests to secrets on the /secrets/* path
 	secretsHandler http.Handler
 
 	// specsHandler handles requests to specs on the /specs/* path
-	specsHandler   http.Handler
+	specsHandler http.Handler
+
+	// outputsHandler handles requests for setting and getting task outputs
+	// on the /outputs/* path
 	outputsHandler http.Handler
 
 	// healthCheckHandler handles requests to check the readiness and health of
 	// the metadata server
 	healthCheckHandler http.Handler
-
-	managers op.ManagerFactory
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -84,22 +86,22 @@ func New(cfg *config.MetadataServerConfig, managers op.ManagerFactory) *Server {
 	})
 
 	specs := middleware.ManagerFactoryMiddleware(managers)(&specsHandler{
-		logger:    cfg.Logger,
-		namespace: cfg.Namespace,
-	})
-
-	outputs := middleware.ManagerFactoryMiddleware(managers)(&outputsHandler{
 		logger: cfg.Logger,
 	})
+
+	outputs := middleware.ManagerFactoryMiddleware(managers)(
+		middleware.TaskMetadataMiddleware(&outputsHandler{
+			logger: cfg.Logger,
+		}))
 
 	return &Server{
 		bindAddr:           cfg.BindAddr,
 		logger:             cfg.Logger,
+		managers:           managers,
 		secretsHandler:     secrets,
 		specsHandler:       specs,
 		outputsHandler:     outputs,
 		healthCheckHandler: &healthCheckHandler{},
-		managers:           managers,
 	}
 }
 

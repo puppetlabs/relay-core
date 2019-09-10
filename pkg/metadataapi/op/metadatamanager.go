@@ -8,5 +8,5 @@ import (
 )
 
 type MetadataManager interface {
-	Get(context.Context) (*task.Metadata, errors.Error)
+	GetByIP(ctx context.Context, ip string) (*task.Metadata, errors.Error)
 }

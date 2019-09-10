@@ -7,6 +7,7 @@ import (
 
 	"github.com/puppetlabs/horsehead/mainutil"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
+	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/op"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server"
 )
@@ -16,17 +17,17 @@ import (
 const defaultServiceAccountTokenPath = "/var/run/secrets/kubernetes.io/serviceaccount/token"
 
 func main() {
-	bindAddr := flag.String("bind-addr", "localhost:7000", "host and port to bind the server to")
-	debug := flag.Bool("debug", false, "enable debug output")
-	vaultAddr := flag.String("vault-addr", "http://localhost:8200", "address to the vault server")
+	bindAddr := flag.String("bind-addr", "localhost:7000", "Host and port to bind the server to")
+	debug := flag.Bool("debug", false, "Enable debug output")
+	vaultAddr := flag.String("vault-addr", "http://localhost:8200", "Address to the vault server")
 	vaultToken := flag.String("vault-token", "", "Specify in place of -vault-role and -service-account-token-path for using a basic vault token auth")
-	vaultRole := flag.String("vault-role", "", "the role to use when logging into the vault server")
+	vaultRole := flag.String("vault-role", "", "The role to use when logging into the vault server")
 	serviceAccountTokenPath := flag.String("service-account-token-path",
-		defaultServiceAccountTokenPath, "the path to k8s pod service account token")
-	workflowID := flag.String("workflow-id", "", "the id of the workflow these secrets are scoped to")
-	vaultEngineMount := flag.String("vault-engine-mount", "nebula", "the engine mount to use when crafting secret paths")
-	outputsBackend := flag.String("outputs-backend", "configmap", "the storage backend to use for task outputs")
-	namespace := flag.String("namespace", "", "the kubernetes namespace that contains the workflow")
+		defaultServiceAccountTokenPath, "The path to k8s pod service account token")
+	workflowID := flag.String("workflow-id", "", "The id of the workflow these secrets are scoped to")
+	vaultEngineMount := flag.String("vault-engine-mount", "nebula", "The engine mount to use when crafting secret paths")
+	namespace := flag.String("namespace", "", "The kubernetes namespace that contains the workflow")
+	devPreConfigPath := flag.String("development-preconfiguration-path", "", "The path to a development preconfiguration file. This option will put the server in development mode and all managers will operate in in-memory mode.")
 
 	flag.Parse()
 
@@ -39,12 +40,20 @@ func main() {
 		K8sServiceAccountTokenPath: *serviceAccountTokenPath,
 		WorkflowID:                 *workflowID,
 		Namespace:                  *namespace,
-		OutputsBackend:             *outputsBackend,
+		DevelopmentPreConfigPath:   *devPreConfigPath,
 		Logger:                     NewLogger(LoggerOptions{Debug: *debug}),
 	}
 	ctx := context.Background()
 
-	managers, err := op.NewDefaultManagerFactory(ctx, &cfg)
+	var managers op.ManagerFactory
+	var err errors.Error
+
+	if cfg.DevelopmentPreConfigPath == "" {
+		managers, err = op.NewForKubernetes(ctx, &cfg)
+	} else {
+		managers, err = op.NewForDev(ctx, &cfg)
+	}
+
 	if err != nil {
 		mainutil.ExitWithCLIError(os.Stderr, 1, err)
 	}

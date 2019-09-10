@@ -2076,6 +2076,57 @@ var ServerSection = &impl.ErrorSection{
 	Title: "Sever errors",
 }
 
+// ServerClientIPErrorCode is the code for an instance of "client_ip_error".
+const ServerClientIPErrorCode = "nt_server_client_ip_error"
+
+// IsServerClientIPError tests whether a given error is an instance of "client_ip_error".
+func IsServerClientIPError(err errawr.Error) bool {
+	return err != nil && err.Is(ServerClientIPErrorCode)
+}
+
+// IsServerClientIPError tests whether a given error is an instance of "client_ip_error".
+func (External) IsServerClientIPError(err errawr.Error) bool {
+	return IsServerClientIPError(err)
+}
+
+// ServerClientIPErrorBuilder is a builder for "client_ip_error" errors.
+type ServerClientIPErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "client_ip_error" from this builder.
+func (b *ServerClientIPErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "malformed client IP",
+		Technical: "malformed client IP",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "client_ip_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata: &impl.ErrorMetadata{HTTPErrorMetadata: &impl.HTTPErrorMetadata{
+			ErrorHeaders: impl.HTTPErrorMetadataHeaders{},
+			ErrorStatus:  500,
+		}},
+		ErrorSection:     ServerSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Client IP error",
+		Version:          1,
+	}
+}
+
+// NewServerClientIPErrorBuilder creates a new error builder for the code "client_ip_error".
+func NewServerClientIPErrorBuilder() *ServerClientIPErrorBuilder {
+	return &ServerClientIPErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewServerClientIPError creates a new error with the code "client_ip_error".
+func NewServerClientIPError() Error {
+	return NewServerClientIPErrorBuilder().Build()
+}
+
 // ServerConfigMapJSONErrorCode is the code for an instance of "config_map_json_error".
 const ServerConfigMapJSONErrorCode = "nt_server_config_map_json_error"
 
@@ -2418,6 +2469,54 @@ func NewServerOutputFetcherTaskNameValidationError() Error {
 	return NewServerOutputFetcherTaskNameValidationErrorBuilder().Build()
 }
 
+// ServerPreConfigDecodingErrorCode is the code for an instance of "pre_config_decoding_error".
+const ServerPreConfigDecodingErrorCode = "nt_server_pre_config_decoding_error"
+
+// IsServerPreConfigDecodingError tests whether a given error is an instance of "pre_config_decoding_error".
+func IsServerPreConfigDecodingError(err errawr.Error) bool {
+	return err != nil && err.Is(ServerPreConfigDecodingErrorCode)
+}
+
+// IsServerPreConfigDecodingError tests whether a given error is an instance of "pre_config_decoding_error".
+func (External) IsServerPreConfigDecodingError(err errawr.Error) bool {
+	return IsServerPreConfigDecodingError(err)
+}
+
+// ServerPreConfigDecodingErrorBuilder is a builder for "pre_config_decoding_error" errors.
+type ServerPreConfigDecodingErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "pre_config_decoding_error" from this builder.
+func (b *ServerPreConfigDecodingErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "there was an error decoding the development preconfiguration file",
+		Technical: "there was an error decoding the development preconfiguration file",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "pre_config_decoding_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     ServerSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "PreConfig decoding error",
+		Version:          1,
+	}
+}
+
+// NewServerPreConfigDecodingErrorBuilder creates a new error builder for the code "pre_config_decoding_error".
+func NewServerPreConfigDecodingErrorBuilder() *ServerPreConfigDecodingErrorBuilder {
+	return &ServerPreConfigDecodingErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewServerPreConfigDecodingError creates a new error with the code "pre_config_decoding_error".
+func NewServerPreConfigDecodingError() Error {
+	return NewServerPreConfigDecodingErrorBuilder().Build()
+}
+
 // ServerRunErrorCode is the code for an instance of "run_error".
 const ServerRunErrorCode = "nt_server_run_error"
 
@@ -2560,6 +2659,217 @@ func NewServerSecretFetcherNameValidationErrorBuilder() *ServerSecretFetcherName
 // NewServerSecretFetcherNameValidationError creates a new error with the code "secret_fetcher_name_validation_error".
 func NewServerSecretFetcherNameValidationError() Error {
 	return NewServerSecretFetcherNameValidationErrorBuilder().Build()
+}
+
+// TaskSection defines a section of errors with the following scope:
+// Task errors
+var TaskSection = &impl.ErrorSection{
+	Key:   "task",
+	Title: "Task errors",
+}
+
+// TaskNotFoundForIPCode is the code for an instance of "not_found_for_ip".
+const TaskNotFoundForIPCode = "nt_task_not_found_for_ip"
+
+// IsTaskNotFoundForIP tests whether a given error is an instance of "not_found_for_ip".
+func IsTaskNotFoundForIP(err errawr.Error) bool {
+	return err != nil && err.Is(TaskNotFoundForIPCode)
+}
+
+// IsTaskNotFoundForIP tests whether a given error is an instance of "not_found_for_ip".
+func (External) IsTaskNotFoundForIP(err errawr.Error) bool {
+	return IsTaskNotFoundForIP(err)
+}
+
+// TaskNotFoundForIPBuilder is a builder for "not_found_for_ip" errors.
+type TaskNotFoundForIPBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "not_found_for_ip" from this builder.
+func (b *TaskNotFoundForIPBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "no task was found for IP address {{ip}}",
+		Technical: "no task was found for IP address {{ip}}",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "not_found_for_ip",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata: &impl.ErrorMetadata{HTTPErrorMetadata: &impl.HTTPErrorMetadata{
+			ErrorHeaders: impl.HTTPErrorMetadataHeaders{},
+			ErrorStatus:  404,
+		}},
+		ErrorSection:     TaskSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Not found for IP",
+		Version:          1,
+	}
+}
+
+// NewTaskNotFoundForIPBuilder creates a new error builder for the code "not_found_for_ip".
+func NewTaskNotFoundForIPBuilder(ip string) *TaskNotFoundForIPBuilder {
+	return &TaskNotFoundForIPBuilder{arguments: impl.ErrorArguments{"ip": impl.NewErrorArgument(ip, "the ip address used in the request")}}
+}
+
+// NewTaskNotFoundForIP creates a new error with the code "not_found_for_ip".
+func NewTaskNotFoundForIP(ip string) Error {
+	return NewTaskNotFoundForIPBuilder(ip).Build()
+}
+
+// TaskSpecDecodingErrorCode is the code for an instance of "spec_decoding_error".
+const TaskSpecDecodingErrorCode = "nt_task_spec_decoding_error"
+
+// IsTaskSpecDecodingError tests whether a given error is an instance of "spec_decoding_error".
+func IsTaskSpecDecodingError(err errawr.Error) bool {
+	return err != nil && err.Is(TaskSpecDecodingErrorCode)
+}
+
+// IsTaskSpecDecodingError tests whether a given error is an instance of "spec_decoding_error".
+func (External) IsTaskSpecDecodingError(err errawr.Error) bool {
+	return IsTaskSpecDecodingError(err)
+}
+
+// TaskSpecDecodingErrorBuilder is a builder for "spec_decoding_error" errors.
+type TaskSpecDecodingErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "spec_decoding_error" from this builder.
+func (b *TaskSpecDecodingErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "failed to decode spec data",
+		Technical: "failed to decode spec data",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "spec_decoding_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata: &impl.ErrorMetadata{HTTPErrorMetadata: &impl.HTTPErrorMetadata{
+			ErrorHeaders: impl.HTTPErrorMetadataHeaders{},
+			ErrorStatus:  500,
+		}},
+		ErrorSection:     TaskSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Spec decoding error",
+		Version:          1,
+	}
+}
+
+// NewTaskSpecDecodingErrorBuilder creates a new error builder for the code "spec_decoding_error".
+func NewTaskSpecDecodingErrorBuilder() *TaskSpecDecodingErrorBuilder {
+	return &TaskSpecDecodingErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewTaskSpecDecodingError creates a new error with the code "spec_decoding_error".
+func NewTaskSpecDecodingError() Error {
+	return NewTaskSpecDecodingErrorBuilder().Build()
+}
+
+// TaskSpecLookupErrorCode is the code for an instance of "spec_lookup_error".
+const TaskSpecLookupErrorCode = "nt_task_spec_lookup_error"
+
+// IsTaskSpecLookupError tests whether a given error is an instance of "spec_lookup_error".
+func IsTaskSpecLookupError(err errawr.Error) bool {
+	return err != nil && err.Is(TaskSpecLookupErrorCode)
+}
+
+// IsTaskSpecLookupError tests whether a given error is an instance of "spec_lookup_error".
+func (External) IsTaskSpecLookupError(err errawr.Error) bool {
+	return IsTaskSpecLookupError(err)
+}
+
+// TaskSpecLookupErrorBuilder is a builder for "spec_lookup_error" errors.
+type TaskSpecLookupErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "spec_lookup_error" from this builder.
+func (b *TaskSpecLookupErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "failed to lookup task spec",
+		Technical: "failed to lookup task spec",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "spec_lookup_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata: &impl.ErrorMetadata{HTTPErrorMetadata: &impl.HTTPErrorMetadata{
+			ErrorHeaders: impl.HTTPErrorMetadataHeaders{},
+			ErrorStatus:  500,
+		}},
+		ErrorSection:     TaskSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Spec lookup error",
+		Version:          1,
+	}
+}
+
+// NewTaskSpecLookupErrorBuilder creates a new error builder for the code "spec_lookup_error".
+func NewTaskSpecLookupErrorBuilder() *TaskSpecLookupErrorBuilder {
+	return &TaskSpecLookupErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewTaskSpecLookupError creates a new error with the code "spec_lookup_error".
+func NewTaskSpecLookupError() Error {
+	return NewTaskSpecLookupErrorBuilder().Build()
+}
+
+// TaskSpecNotFoundForIDCode is the code for an instance of "spec_not_found_for_id".
+const TaskSpecNotFoundForIDCode = "nt_task_spec_not_found_for_id"
+
+// IsTaskSpecNotFoundForID tests whether a given error is an instance of "spec_not_found_for_id".
+func IsTaskSpecNotFoundForID(err errawr.Error) bool {
+	return err != nil && err.Is(TaskSpecNotFoundForIDCode)
+}
+
+// IsTaskSpecNotFoundForID tests whether a given error is an instance of "spec_not_found_for_id".
+func (External) IsTaskSpecNotFoundForID(err errawr.Error) bool {
+	return IsTaskSpecNotFoundForID(err)
+}
+
+// TaskSpecNotFoundForIDBuilder is a builder for "spec_not_found_for_id" errors.
+type TaskSpecNotFoundForIDBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "spec_not_found_for_id" from this builder.
+func (b *TaskSpecNotFoundForIDBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "no task spec was found for ID {{id}}",
+		Technical: "no task spec was found for ID {{id}}",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "spec_not_found_for_id",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata: &impl.ErrorMetadata{HTTPErrorMetadata: &impl.HTTPErrorMetadata{
+			ErrorHeaders: impl.HTTPErrorMetadataHeaders{},
+			ErrorStatus:  404,
+		}},
+		ErrorSection:     TaskSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Spec not found for ID",
+		Version:          1,
+	}
+}
+
+// NewTaskSpecNotFoundForIDBuilder creates a new error builder for the code "spec_not_found_for_id".
+func NewTaskSpecNotFoundForIDBuilder(id string) *TaskSpecNotFoundForIDBuilder {
+	return &TaskSpecNotFoundForIDBuilder{arguments: impl.ErrorArguments{"id": impl.NewErrorArgument(id, "the id of the task")}}
+}
+
+// NewTaskSpecNotFoundForID creates a new error with the code "spec_not_found_for_id".
+func NewTaskSpecNotFoundForID(id string) Error {
+	return NewTaskSpecNotFoundForIDBuilder(id).Build()
 }
 
 // TaskUtilSection defines a section of errors with the following scope:
