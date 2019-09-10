@@ -4,14 +4,20 @@ import (
 	"net/http"
 
 	utilapi "github.com/puppetlabs/horsehead/httputil/api"
-	"github.com/puppetlabs/nebula-tasks/pkg/data/secrets"
+	"github.com/puppetlabs/horsehead/logging"
+	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/op"
 )
 
 type secretsHandler struct {
-	sec secrets.Store
+	managers op.ManagerFactory
+	logger   logging.Logger
 }
 
 func (h *secretsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	sm := h.managers.SecretsManager()
+
 	var key string
 
 	key, r.URL.Path = shiftPath(r.URL.Path)
@@ -21,12 +27,14 @@ func (h *secretsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sec, err := h.sec.Get(r.Context(), key)
+	h.logger.Info("handling secret request", "key", key)
+
+	sec, err := sm.Get(ctx, key)
 	if err != nil {
-		utilapi.WriteError(r.Context(), w, err)
+		utilapi.WriteError(ctx, w, err)
 
 		return
 	}
 
-	utilapi.WriteObjectOK(r.Context(), w, sec)
+	utilapi.WriteObjectOK(ctx, w, sec)
 }

@@ -162,20 +162,21 @@ github.com/puppetlabs/errawr-go/v2/pkg/errawr
 github.com/puppetlabs/errawr-go/v2/pkg/impl
 github.com/puppetlabs/errawr-go/v2/pkg/golang
 github.com/puppetlabs/errawr-go/v2/pkg/encoding
-# github.com/puppetlabs/horsehead v1.8.0
+# github.com/puppetlabs/horsehead v1.11.0
 github.com/puppetlabs/horsehead/workdir
+github.com/puppetlabs/horsehead/logging
 github.com/puppetlabs/horsehead/mainutil
 github.com/puppetlabs/horsehead/storage
+github.com/puppetlabs/horsehead/encoding/transfer
 github.com/puppetlabs/horsehead/httputil/api
 github.com/puppetlabs/horsehead/netutil
+github.com/puppetlabs/horsehead/logging/handler
 github.com/puppetlabs/horsehead/lifecycle
-github.com/puppetlabs/horsehead/logging
 github.com/puppetlabs/horsehead/httputil/errors
 github.com/puppetlabs/horsehead/instrumentation/alerts/trackers
 github.com/puppetlabs/horsehead/request
 github.com/puppetlabs/horsehead/netutil/errors
 github.com/puppetlabs/horsehead/lifecycle/errors
-github.com/puppetlabs/horsehead/logging/handler
 # github.com/puppetlabs/nebula-libs/storage/gcs v1.0.1
 github.com/puppetlabs/nebula-libs/storage/gcs
 # github.com/reflect/raymond v0.0.0-20190227215356-5fa3955f4a50

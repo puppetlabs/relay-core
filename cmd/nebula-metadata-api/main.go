@@ -3,13 +3,12 @@ package main
 import (
 	"context"
 	"flag"
-	"log"
 	"os"
 
 	"github.com/puppetlabs/horsehead/mainutil"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
-	"github.com/puppetlabs/nebula-tasks/pkg/data/secrets/vault"
-	"github.com/puppetlabs/nebula-tasks/pkg/server"
+	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/op"
+	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server"
 )
 
 // defaultServiceAccountTokenPath is the default path to use for reading the service account
@@ -18,6 +17,7 @@ const defaultServiceAccountTokenPath = "/var/run/secrets/kubernetes.io/serviceac
 
 func main() {
 	bindAddr := flag.String("bind-addr", "localhost:7000", "host and port to bind the server to")
+	debug := flag.Bool("debug", false, "enable debug output")
 	vaultAddr := flag.String("vault-addr", "http://localhost:8200", "address to the vault server")
 	vaultToken := flag.String("vault-token", "", "Specify in place of -vault-role and -service-account-token-path for using a basic vault token auth")
 	vaultRole := flag.String("vault-role", "", "the role to use when logging into the vault server")
@@ -30,23 +30,24 @@ func main() {
 	flag.Parse()
 
 	cfg := config.MetadataServerConfig{
-		BindAddr:  *bindAddr,
-		Namespace: *namespace,
-	}
-
-	vc, err := vault.NewVaultWithKubernetesAuth(&vault.Config{
-		Addr:                       *vaultAddr,
+		BindAddr:                   *bindAddr,
+		VaultAddr:                  *vaultAddr,
+		VaultRole:                  *vaultRole,
+		VaultEngineMount:           *vaultEngineMount,
+		VaultToken:                 *vaultToken,
 		K8sServiceAccountTokenPath: *serviceAccountTokenPath,
-		Token:                      *vaultToken,
-		Role:                       *vaultRole,
-		Bucket:                     *workflowID,
-		EngineMount:                *vaultEngineMount,
-	})
+		WorkflowID:                 *workflowID,
+		Namespace:                  *namespace,
+		Logger:                     NewLogger(LoggerOptions{Debug: *debug}),
+	}
+	ctx := context.Background()
+
+	managers, err := op.NewDefaultManagerFactory(ctx, &cfg)
 	if err != nil {
-		log.Fatal(err)
+		mainutil.ExitWithCLIError(os.Stderr, 1, err)
 	}
 
-	srv := server.New(&cfg, vc)
+	srv := server.New(&cfg, managers)
 
-	os.Exit(mainutil.TrapAndWait(context.Background(), srv.Run))
+	os.Exit(mainutil.TrapAndWait(ctx, srv.Run))
 }

@@ -1095,6 +1095,102 @@ func NewSecretsSessionSetupError() Error {
 	return NewSecretsSessionSetupErrorBuilder().Build()
 }
 
+// SecretsValueDecodingErrorCode is the code for an instance of "value_decoding_error".
+const SecretsValueDecodingErrorCode = "nt_secrets_value_decoding_error"
+
+// IsSecretsValueDecodingError tests whether a given error is an instance of "value_decoding_error".
+func IsSecretsValueDecodingError(err errawr.Error) bool {
+	return err != nil && err.Is(SecretsValueDecodingErrorCode)
+}
+
+// IsSecretsValueDecodingError tests whether a given error is an instance of "value_decoding_error".
+func (External) IsSecretsValueDecodingError(err errawr.Error) bool {
+	return IsSecretsValueDecodingError(err)
+}
+
+// SecretsValueDecodingErrorBuilder is a builder for "value_decoding_error" errors.
+type SecretsValueDecodingErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "value_decoding_error" from this builder.
+func (b *SecretsValueDecodingErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "decoding the secret value failed",
+		Technical: "decoding the secret value failed",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "value_decoding_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     SecretsSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Value decoding error",
+		Version:          1,
+	}
+}
+
+// NewSecretsValueDecodingErrorBuilder creates a new error builder for the code "value_decoding_error".
+func NewSecretsValueDecodingErrorBuilder() *SecretsValueDecodingErrorBuilder {
+	return &SecretsValueDecodingErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewSecretsValueDecodingError creates a new error with the code "value_decoding_error".
+func NewSecretsValueDecodingError() Error {
+	return NewSecretsValueDecodingErrorBuilder().Build()
+}
+
+// SecretsVaultAuthenticationNotConfiguredErrorCode is the code for an instance of "vault_authentication_not_configured_error".
+const SecretsVaultAuthenticationNotConfiguredErrorCode = "nt_secrets_vault_authentication_not_configured_error"
+
+// IsSecretsVaultAuthenticationNotConfiguredError tests whether a given error is an instance of "vault_authentication_not_configured_error".
+func IsSecretsVaultAuthenticationNotConfiguredError(err errawr.Error) bool {
+	return err != nil && err.Is(SecretsVaultAuthenticationNotConfiguredErrorCode)
+}
+
+// IsSecretsVaultAuthenticationNotConfiguredError tests whether a given error is an instance of "vault_authentication_not_configured_error".
+func (External) IsSecretsVaultAuthenticationNotConfiguredError(err errawr.Error) bool {
+	return IsSecretsVaultAuthenticationNotConfiguredError(err)
+}
+
+// SecretsVaultAuthenticationNotConfiguredErrorBuilder is a builder for "vault_authentication_not_configured_error" errors.
+type SecretsVaultAuthenticationNotConfiguredErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "vault_authentication_not_configured_error" from this builder.
+func (b *SecretsVaultAuthenticationNotConfiguredErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "no vault token or service account path specified",
+		Technical: "no vault token or service account path specified",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "vault_authentication_not_configured_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     SecretsSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Vault authentication not configured error",
+		Version:          1,
+	}
+}
+
+// NewSecretsVaultAuthenticationNotConfiguredErrorBuilder creates a new error builder for the code "vault_authentication_not_configured_error".
+func NewSecretsVaultAuthenticationNotConfiguredErrorBuilder() *SecretsVaultAuthenticationNotConfiguredErrorBuilder {
+	return &SecretsVaultAuthenticationNotConfiguredErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewSecretsVaultAuthenticationNotConfiguredError creates a new error with the code "vault_authentication_not_configured_error".
+func NewSecretsVaultAuthenticationNotConfiguredError() Error {
+	return NewSecretsVaultAuthenticationNotConfiguredErrorBuilder().Build()
+}
+
 // SecretsVaultLoginErrorCode is the code for an instance of "vault_login_error".
 const SecretsVaultLoginErrorCode = "nt_secrets_vault_login_error"
 
@@ -1189,6 +1285,150 @@ func NewSecretsVaultSetupErrorBuilder() *SecretsVaultSetupErrorBuilder {
 // NewSecretsVaultSetupError creates a new error with the code "vault_setup_error".
 func NewSecretsVaultSetupError() Error {
 	return NewSecretsVaultSetupErrorBuilder().Build()
+}
+
+// SecretsVaultTokenLookupErrorCode is the code for an instance of "vault_token_lookup_error".
+const SecretsVaultTokenLookupErrorCode = "nt_secrets_vault_token_lookup_error"
+
+// IsSecretsVaultTokenLookupError tests whether a given error is an instance of "vault_token_lookup_error".
+func IsSecretsVaultTokenLookupError(err errawr.Error) bool {
+	return err != nil && err.Is(SecretsVaultTokenLookupErrorCode)
+}
+
+// IsSecretsVaultTokenLookupError tests whether a given error is an instance of "vault_token_lookup_error".
+func (External) IsSecretsVaultTokenLookupError(err errawr.Error) bool {
+	return IsSecretsVaultTokenLookupError(err)
+}
+
+// SecretsVaultTokenLookupErrorBuilder is a builder for "vault_token_lookup_error" errors.
+type SecretsVaultTokenLookupErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "vault_token_lookup_error" from this builder.
+func (b *SecretsVaultTokenLookupErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "there was an error looking up the current vault token",
+		Technical: "there was an error looking up the current vault token",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "vault_token_lookup_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     SecretsSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Vault token lookup error",
+		Version:          1,
+	}
+}
+
+// NewSecretsVaultTokenLookupErrorBuilder creates a new error builder for the code "vault_token_lookup_error".
+func NewSecretsVaultTokenLookupErrorBuilder() *SecretsVaultTokenLookupErrorBuilder {
+	return &SecretsVaultTokenLookupErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewSecretsVaultTokenLookupError creates a new error with the code "vault_token_lookup_error".
+func NewSecretsVaultTokenLookupError() Error {
+	return NewSecretsVaultTokenLookupErrorBuilder().Build()
+}
+
+// SecretsVaultTokenNotRenewableErrorCode is the code for an instance of "vault_token_not_renewable_error".
+const SecretsVaultTokenNotRenewableErrorCode = "nt_secrets_vault_token_not_renewable_error"
+
+// IsSecretsVaultTokenNotRenewableError tests whether a given error is an instance of "vault_token_not_renewable_error".
+func IsSecretsVaultTokenNotRenewableError(err errawr.Error) bool {
+	return err != nil && err.Is(SecretsVaultTokenNotRenewableErrorCode)
+}
+
+// IsSecretsVaultTokenNotRenewableError tests whether a given error is an instance of "vault_token_not_renewable_error".
+func (External) IsSecretsVaultTokenNotRenewableError(err errawr.Error) bool {
+	return IsSecretsVaultTokenNotRenewableError(err)
+}
+
+// SecretsVaultTokenNotRenewableErrorBuilder is a builder for "vault_token_not_renewable_error" errors.
+type SecretsVaultTokenNotRenewableErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "vault_token_not_renewable_error" from this builder.
+func (b *SecretsVaultTokenNotRenewableErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "the vault token currently used for auth is not renewable",
+		Technical: "the vault token currently used for auth is not renewable",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "vault_token_not_renewable_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     SecretsSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Vault token not renewable",
+		Version:          1,
+	}
+}
+
+// NewSecretsVaultTokenNotRenewableErrorBuilder creates a new error builder for the code "vault_token_not_renewable_error".
+func NewSecretsVaultTokenNotRenewableErrorBuilder() *SecretsVaultTokenNotRenewableErrorBuilder {
+	return &SecretsVaultTokenNotRenewableErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewSecretsVaultTokenNotRenewableError creates a new error with the code "vault_token_not_renewable_error".
+func NewSecretsVaultTokenNotRenewableError() Error {
+	return NewSecretsVaultTokenNotRenewableErrorBuilder().Build()
+}
+
+// SecretsVaultTokenRenewErrorCode is the code for an instance of "vault_token_renew_error".
+const SecretsVaultTokenRenewErrorCode = "nt_secrets_vault_token_renew_error"
+
+// IsSecretsVaultTokenRenewError tests whether a given error is an instance of "vault_token_renew_error".
+func IsSecretsVaultTokenRenewError(err errawr.Error) bool {
+	return err != nil && err.Is(SecretsVaultTokenRenewErrorCode)
+}
+
+// IsSecretsVaultTokenRenewError tests whether a given error is an instance of "vault_token_renew_error".
+func (External) IsSecretsVaultTokenRenewError(err errawr.Error) bool {
+	return IsSecretsVaultTokenRenewError(err)
+}
+
+// SecretsVaultTokenRenewErrorBuilder is a builder for "vault_token_renew_error" errors.
+type SecretsVaultTokenRenewErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "vault_token_renew_error" from this builder.
+func (b *SecretsVaultTokenRenewErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "failed to renew the vault token",
+		Technical: "failed to renew the vault token",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "vault_token_renew_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     SecretsSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Vault token renew error",
+		Version:          1,
+	}
+}
+
+// NewSecretsVaultTokenRenewErrorBuilder creates a new error builder for the code "vault_token_renew_error".
+func NewSecretsVaultTokenRenewErrorBuilder() *SecretsVaultTokenRenewErrorBuilder {
+	return &SecretsVaultTokenRenewErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewSecretsVaultTokenRenewError creates a new error with the code "vault_token_renew_error".
+func NewSecretsVaultTokenRenewError() Error {
+	return NewSecretsVaultTokenRenewErrorBuilder().Build()
 }
 
 // ServerSection defines a section of errors with the following scope:

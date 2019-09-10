@@ -1,5 +1,7 @@
 package vault
 
+import "github.com/puppetlabs/horsehead/logging"
+
 // Config is used to configure vault clients with authentication,
 // policies and paths for fetching secrets.
 type Config struct {
@@ -14,4 +16,5 @@ type Config struct {
 	Bucket string
 	// The engine to use to form paths from
 	EngineMount string
+	Logger      logging.Logger
 }

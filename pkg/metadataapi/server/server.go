@@ -7,10 +7,11 @@ import (
 	"path"
 	"strings"
 
+	"github.com/puppetlabs/horsehead/logging"
 	"github.com/puppetlabs/horsehead/netutil"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
-	"github.com/puppetlabs/nebula-tasks/pkg/data/secrets"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
+	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/op"
 )
 
 // Server listens on a host and port and contains sub routers to route
@@ -18,6 +19,7 @@ import (
 type Server struct {
 	// bindAddr is the address and port to listen on
 	bindAddr string
+	logger   logging.Logger
 
 	// secretsHander handles requests to secrets on the /secrets/* path
 	secretsHandler *secretsHandler
@@ -35,23 +37,16 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	head, r.URL.Path = shiftPath(r.URL.Path)
 
-	if head == "secrets" {
+	switch head {
+	case "secrets":
 		s.secretsHandler.ServeHTTP(w, r)
-
-		return
-	}
-	if head == "specs" {
+	case "specs":
 		s.specsHandler.ServeHTTP(w, r)
-
-		return
-	}
-	if head == "healthz" {
+	case "healthz":
 		s.healthCheckHandler.ServeHTTP(w, r)
-
-		return
+	default:
+		http.NotFound(w, r)
 	}
-
-	http.NotFound(w, r)
 }
 
 // Run created a new network listener and handles shutdowns when the context closes.
@@ -68,10 +63,6 @@ func (s *Server) Run(ctx context.Context) error {
 
 	defer srv.Shutdown(ctx)
 
-	if err := s.secretsHandler.sec.Login(ctx); err != nil {
-		return err
-	}
-
 	if err := srv.Serve(ln); err != nil {
 		return errors.NewServerRunError().WithCause(err)
 	}
@@ -81,13 +72,18 @@ func (s *Server) Run(ctx context.Context) error {
 
 // New returns a new Server that routes requests to sub-routers. It is also responsible
 // for binding to a listener and is the first point of entry for http requests.
-func New(cfg *config.MetadataServerConfig, sec secrets.Store) *Server {
+func New(cfg *config.MetadataServerConfig, managers op.ManagerFactory) *Server {
 	return &Server{
-		bindAddr:       cfg.BindAddr,
-		secretsHandler: &secretsHandler{sec: sec},
+		bindAddr: cfg.BindAddr,
+		logger:   cfg.Logger,
+		secretsHandler: &secretsHandler{
+			managers: managers,
+			logger:   cfg.Logger,
+		},
 		specsHandler: &specsHandler{
-			secretStore: sec,
-			namespace:   cfg.Namespace,
+			managers:  managers,
+			logger:    cfg.Logger,
+			namespace: cfg.Namespace,
 		},
 		healthCheckHandler: &healthCheckHandler{},
 	}

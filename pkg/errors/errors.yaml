@@ -24,6 +24,9 @@ sections:
         arguments:
           key:
             description: the key that is missing
+      value_decoding_error:
+        title: Value decoding error
+        description: decoding the secret value failed
       missing_secret_ref:
         title: Missing secretRef
         description: secretRef is missing
@@ -36,6 +39,18 @@ sections:
       vault_login_error:
         title: Vault login error
         description: there was an error logging into the vault server
+      vault_token_lookup_error:
+        title: Vault token lookup error
+        description: there was an error looking up the current vault token
+      vault_token_not_renewable_error:
+        title: Vault token not renewable
+        description: the vault token currently used for auth is not renewable
+      vault_token_renew_error:
+        title: Vault token renew error
+        description: failed to renew the vault token
+      vault_authentication_not_configured_error:
+        title: Vault authentication not configured error
+        description: no vault token or service account path specified
   server:
     title: Sever errors
     errors:

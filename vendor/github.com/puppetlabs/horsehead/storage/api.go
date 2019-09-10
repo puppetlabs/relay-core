@@ -6,8 +6,8 @@ package storage
 
 import (
 	"context"
-	"io"
 	"fmt"
+	"io"
 )
 
 type ErrorCode string
@@ -35,9 +35,9 @@ func (e *errorImpl) Unwrap() error {
 
 func Errorf(cause error, code ErrorCode, format string, a ...interface{}) error {
 	return &errorImpl{
-		code:     code,
-		message:  fmt.Sprintf(format, a...),
-		cause:    cause,
+		code:    code,
+		message: fmt.Sprintf(format, a...),
+		cause:   cause,
 	}
 }
 
@@ -60,13 +60,27 @@ type Sink func(io.Writer) error
 type Source func(*Meta, io.Reader) error
 
 type Meta struct {
+	// ContentType of the blob
 	ContentType string
+	// Offset within the blob that the read begins
+	Offset int64
+	// Size is the total size of the blob
+	Size int64
 }
 type PutOptions struct {
+	// ContentType of the blob
 	ContentType string
 }
 type GetOptions struct {
-	// TODO: Support range requests?
+	// Offset is the byte offset to begin at, it may be negative
+	// to specify an offset from the end of the blob.
+	Offset int64
+
+	// Length is the maximum number of bytes to return, if <= 0
+	// then all bytes after Offset are returned. The Length must
+	// be <= 0 if Offset is negative due to the limitations of
+	// HTTP range requests.
+	Length int64
 }
 type DeleteOptions struct {
 	// TODO: Support conditional deletes?
