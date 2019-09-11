@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 
 release_docker_images() {
-    if [ -n "${RELEASE_MANIFEST}" ] && [ "${NO_DOCKER_PUSH}" != "yes" ]; then
+    if [ -n "${NEBULA_TASKS_RELEASE_MANIFEST}" ] && [ "${NO_DOCKER_PUSH}" != "yes" ]; then
         gcloud auth configure-docker || fail "gcloud authentication was not configured correctly"
 
-        for repo in $(cat "${RELEASE_MANIFEST}"); do
+        for repo in $(cat "${NEBULA_TASKS_RELEASE_MANIFEST}"); do
             docker push "${repo}" || fail "failed to push to the docker repository"
         done
     else

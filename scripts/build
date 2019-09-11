@@ -2,6 +2,18 @@
 
 set -euo pipefail
 
+new_build_context() {
+    [[ -z "${NEBULA_TASKS_BUILD_DIR}" ]] && fail "NEBULA_TASKS_BUILD_DIR is empty"
+    [[ -z "${NEBULA_TASKS_RELEASE_MANIFEST}" ]] && fail "NEBULA_TASKS_RELEASE_MANIFEST is empty"
+
+    printf "creating new build context ${NEBULA_TASKS_BUILD_DIR}\n"
+
+    rm -rf "${NEBULA_TASKS_BUILD_DIR}"
+    mkdir -p "${NEBULA_TASKS_BUILD_DIR}"
+
+    docker build -f scripts/Dockerfile.builder -t nebula-task-builder .
+}
+
 build_images() {
     local cmd="${1}"
 
@@ -23,7 +35,7 @@ build_image() {
 
     source "${cmd}"/build-info.sh
 
-    docker_file=Dockerfile."${command_name}"
+    docker_file="${NEBULA_TASKS_BUILD_DIR}"/Dockerfile."${command_name}"
     include=scripts/Dockerfile.include
     if [ -f "${cmd}"/Dockerfile.include ]; then
         include="${cmd}"/Dockerfile.include
@@ -40,10 +52,11 @@ build_image() {
 
     rm "${docker_file}"
 
-    echo "${DOCKER_REPO}:${VERSION}" >> "${RELEASE_MANIFEST}"
+    echo "${DOCKER_REPO}:${VERSION}" >> "${NEBULA_TASKS_RELEASE_MANIFEST}"
 }
 
 # this ensures that we are in the correct directory context
 cd "$(dirname "$0")"/..
 
+new_build_context
 build_images "$*"

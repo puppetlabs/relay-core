@@ -3,3 +3,5 @@
 ./nebula-k8s-provisioner
 /.deploy/
 ./cmd/nebula-slack-notification/main.linux-amd64
+
+/.build/
