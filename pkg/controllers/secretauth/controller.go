@@ -691,6 +691,11 @@ func createRBAC(kc kubernetes.Interface, sa *nebulav1.SecretAuth) (*rbacv1.Role,
 			{
 				APIGroups: []string{""},
 				Resources: []string{"configmaps"},
+				Verbs:     []string{"create", "update", "list", "watch", "get"},
+			},
+			{
+				APIGroups: []string{""},
+				Resources: []string{"pods"},
 				Verbs:     []string{"list", "watch", "get"},
 			},
 		},
