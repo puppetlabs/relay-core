@@ -7,16 +7,12 @@ build_images() {
 
     if [ ! -n "${cmd}" ]; then
         for cmd in ./cmd/*; do
-            # build_image "${cmd}"
-            ./scripts/build-image "${cmd}" &
+            build_image "${cmd}"
         done
     else
         # if we passed in a name to build, prepend the ./cmd path to it
-        # build_image "./cmd/${cmd}"
-        ./scripts/build-image "./cmd/${cmd}" &
+        build_image "./cmd/${cmd}"
     fi
-
-    wait < <(jobs -p)
 }
 
 build_image() {
