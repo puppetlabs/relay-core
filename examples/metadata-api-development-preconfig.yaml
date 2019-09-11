@@ -1,0 +1,15 @@
+secrets:
+  super-secret-key: foobar
+
+taskMetadata:
+  10.0.1.1:
+    id: "super-task-id"
+    name: "super-task-name"
+
+taskSpecs:
+  super-task-id: |
+    {
+      "foo": "bar",
+      "super-secret": {"$type": "Secret", "name": "super-secret-key"},
+      "super-output": {"$type": "Output", "name": "super-output-key"}
+    }

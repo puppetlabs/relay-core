@@ -5,18 +5,18 @@ import (
 
 	utilapi "github.com/puppetlabs/horsehead/httputil/api"
 	"github.com/puppetlabs/horsehead/logging"
-	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/op"
+	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"
 )
 
 type secretsHandler struct {
-	managers op.ManagerFactory
-	logger   logging.Logger
+	logger logging.Logger
 }
 
 func (h *secretsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	sm := h.managers.SecretsManager()
+	managers := middleware.Managers(r)
+	sm := managers.SecretsManager()
 
 	var key string
 

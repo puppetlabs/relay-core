@@ -51,6 +51,100 @@ sections:
       vault_authentication_not_configured_error:
         title: Vault authentication not configured error
         description: no vault token or service account path specified
+
+  outputs:
+    title: Outputs errors
+    errors:
+      task_not_found:
+        title: Task not found
+        description: task {{task}} was not found
+        arguments:
+          task:
+            description: the task name that was not found
+      key_not_found:
+        title: Key not found
+        description: key {{key}} was not found
+        arguments:
+          key:
+            description: the key name that was not found
+      key_empty_error:
+        title: Key empty error
+        description: the output key was empty
+      manager_setup_error:
+        title: Manager setup error
+        description: there was an error setting up the outputs manager
+      backend_does_not_exist:
+        title: Backend does not exist
+        description: the backend {{backend}} does not exist
+        arguments:
+          backend:
+            description: the name of the backend
+      value_decoding_error:
+        title: Value decoding error
+        description: decoding the secret value failed
+      value_encoding_error:
+        title: Value encoding error
+        description: encoding the secret value failed
+      value_read_error:
+        title: Value read error
+        description: there was an error reading the value from the buffer
+      get_error:
+        title: Get error
+        description: there was an error getting the output
+      put_error:
+        title: Put error
+        description: there was an error storing the output
+
+  task:
+    title: Task errors
+    errors:
+      not_found_for_ip:
+        title: Not found for IP
+        description: no task was found for IP address {{ip}}
+        arguments:
+          ip:
+            description: the ip address used in the request
+        metadata:
+          http:
+            status: 404
+      spec_not_found_for_id:
+        title: Spec not found for ID
+        description: no task spec was found for ID {{id}}
+        arguments:
+          id:
+            description: the id of the task
+        metadata:
+          http:
+            status: 404
+      spec_lookup_error:
+        title: Spec lookup error
+        description: failed to lookup task spec
+        metadata:
+          http:
+            status: 500
+      spec_decoding_error:
+        title: Spec decoding error
+        description: failed to decode spec data
+        metadata:
+          http:
+            status: 500
+
+  kubernetes:
+    title: Kubernetes errors
+    errors:
+      manager_setup_error:
+        title: Manager setup error
+        description: there was an error setting up the kubernetes manager
+      pod_not_found:
+        title: Pod not found
+        description: the pod was not found using the IP {{ ip }}
+        arguments:
+          ip:
+            description: the ip address used to lookup the pod
+      pod_lookup_error:
+        title: Pod lookup error
+        description: there was an error looking up the pod
+
   server:
     title: Sever errors
     errors:
@@ -79,6 +173,30 @@ sections:
             description: The name of the config map
           namespace:
             description: The namespace of the config map
+      secret_fetcher_name_validation_error:
+        title: Secret fetcher name validation error
+        description: name was missing or invalid
+      secret_fetcher_get_error:
+        title: Secret fetcher get error
+        description: there was an error fetch the secret value
+      output_fetcher_name_validation_error:
+        title: Output fetcher name validation error
+        description: name was missing or invalid
+      output_fetcher_task_name_validation_error:
+        title: Output fetcher task name validation error
+        description: taskName was missing or invalid
+      output_fetcher_get_error:
+        title: Output fetcher get error
+        description: there was an error fetch the output value
+      pre_config_decoding_error:
+        title: PreConfig decoding error
+        description: there was an error decoding the development preconfiguration file
+      client_ip_error:
+        title: Client IP error
+        description: malformed client IP
+        metadata:
+          http:
+            status: 500
 
   k8s_provisioner:
     title: K8s provisioner errors
@@ -168,3 +286,22 @@ sections:
         arguments:
           reason:
             description: the reason the plan failed to execute
+      set_output_error:
+        title: Set output error
+        description: an error occurred while trying to set the task output
+      set_output_required_value_empty:
+        title: Set output required value empty
+        description: the value for {{param}} must not be empty
+        arguments:
+          param:
+            description: the parameter that was empty
+      set_output_metadata_api_url_error:
+        title: Set output metadata api url error
+        description: there was an error parsing the metadata url
+      set_output_unexpected_status_code:
+        title: Set output unexpected status code
+        description: got an unexpected status code {{status_code}} when trying to set the output
+        arguments:
+          status_code:
+            type: integer
+            description: the status code recieved from the api
