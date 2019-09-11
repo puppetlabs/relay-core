@@ -2,23 +2,6 @@
 
 set -euo pipefail
 
-build_images() {
-    local cmd="${1}"
-
-    if [ ! -n "${cmd}" ]; then
-        for cmd in ./cmd/*; do
-            # build_image "${cmd}"
-            ./scripts/build-image "${cmd}" &
-        done
-    else
-        # if we passed in a name to build, prepend the ./cmd path to it
-        # build_image "./cmd/${cmd}"
-        ./scripts/build-image "./cmd/${cmd}" &
-    fi
-
-    wait < <(jobs -p)
-}
-
 build_image() {
     local cmd="${1}"
     local command_name="$(basename "${cmd}")"
@@ -50,4 +33,4 @@ build_image() {
 # this ensures that we are in the correct directory context
 cd "$(dirname "$0")"/..
 
-build_images "$*"
+build_image "$*"
