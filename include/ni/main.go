@@ -17,7 +17,9 @@ func main() {
 	command.SetErr(os.Stderr)
 
 	if err := command.Execute(); err != nil {
-		log.Fatal(err)
+		command.ErrOrStderr().Write([]byte(err.Error()))
+
+		os.Exit(1)
 	}
 
 	os.Exit(0)

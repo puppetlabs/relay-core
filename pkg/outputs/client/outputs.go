@@ -20,6 +20,7 @@ var (
 	ErrOutputsClientValueEmpty    = errors.New("value is required but was empty")
 	ErrOutputsClientTaskNameEmpty = errors.New("taskName is required but was empty")
 	ErrOutputsClientEnvVarMissing = errors.New(taskutil.MetadataAPIURLEnvName + " was expected but was empty")
+	ErrOutputsClientNotFound      = errors.New("output was not found")
 )
 
 // OutputsClient is a client for storing task outputs in
@@ -92,6 +93,14 @@ func (c DefaultOutputsClient) GetOutput(ctx context.Context, taskName, key strin
 
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusNotFound {
+			return "", ErrOutputsClientNotFound
+		}
+
+		return "", fmt.Errorf("unexpected status code %d", resp.StatusCode)
+	}
+
 	var output outputs.Output
 
 	if err := json.NewDecoder(resp.Body).Decode(&output); err != nil {
@@ -116,6 +125,8 @@ func NewDefaultOutputsClientFromNebulaEnv() (OutputsClient, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	loc.Path = "/outputs"
 
 	return NewDefaultOutputsClient(loc), nil
 }

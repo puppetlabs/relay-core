@@ -61,12 +61,18 @@ sections:
         arguments:
           task:
             description: the task name that was not found
+        metadata:
+          http:
+            status: 404
       key_not_found:
         title: Key not found
         description: key {{key}} was not found
         arguments:
           key:
             description: the key name that was not found
+        metadata:
+          http:
+            status: 404
       key_empty_error:
         title: Key empty error
         description: the output key was empty
