@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -euo pipefail
 
@@ -32,9 +32,9 @@ build_image() {
     cp scripts/Dockerfile.template "${docker_file}"
     cat "${include}" >> "${docker_file}"
 
-    sed -i "s|__OUTPUTBIN__|${command_name}|g" "${docker_file}"
-    sed -i "s|__GOMAIN__|./cmd/${command_name}|g" "${docker_file}"
-    sed -i "s|__DOCKER_CMD__|${DOCKER_CMD}|g" "${docker_file}"
+    sed -i.bak -e "s|__OUTPUTBIN__|${command_name}|g" "${docker_file}"
+    sed -i.bak -e "s|__GOMAIN__|./cmd/${command_name}|g" "${docker_file}"
+    sed -i.bak -e "s|__DOCKER_CMD__|${DOCKER_CMD}|g" "${docker_file}"
 
     docker build -f "${docker_file}" -t "${DOCKER_REPO}:${VERSION}" .
 

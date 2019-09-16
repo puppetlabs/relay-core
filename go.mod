@@ -10,19 +10,22 @@ require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
 	github.com/evanphx/json-patch v4.5.0+incompatible // indirect
 	github.com/google/go-containerregistry v0.0.0-20190729175742-ef12d49c8daf // indirect
+	github.com/google/uuid v1.1.1
 	github.com/googleapis/gnostic v0.2.0 // indirect
 	github.com/hashicorp/vault/api v1.0.2
-	github.com/imdario/mergo v0.3.7 // indirect
+	github.com/imdario/mergo v0.3.7
 	github.com/inconshreveable/log15 v0.0.0-20180818164646-67afb5ed74ec
 	github.com/json-iterator/go v1.1.7 // indirect
 	github.com/knative/pkg v0.0.0-20190624141606-d82505e6c5b4 // indirect
 	github.com/markbates/inflect v1.0.4 // indirect
 	github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a // indirect
+	github.com/mitchellh/go-homedir v1.1.0
 	github.com/prometheus/client_golang v0.9.3-0.20190127221311-3c4408c8b829 // indirect
 	github.com/puppetlabs/errawr-gen v1.0.0
 	github.com/puppetlabs/errawr-go/v2 v2.1.0
-	github.com/puppetlabs/horsehead v1.8.0
+	github.com/puppetlabs/horsehead v1.11.0
 	github.com/puppetlabs/nebula-libs/storage/gcs v1.0.1
+	github.com/smartystreets/goconvey v0.0.0-20190731233626-505e41936337 // indirect
 	github.com/spf13/cobra v0.0.5
 	github.com/stretchr/testify v1.3.0
 	github.com/tektoncd/pipeline v0.4.0
@@ -34,7 +37,11 @@ require (
 	golang.org/x/sys v0.0.0-20190626221950-04f50cda93cb // indirect
 	google.golang.org/api v0.7.0
 	google.golang.org/grpc v1.22.1 // indirect
+	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
+	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df
 	gopkg.in/inf.v0 v0.9.1 // indirect
+	gopkg.in/ini.v1 v1.46.0
+	gopkg.in/yaml.v2 v2.2.2
 	k8s.io/api v0.0.0-20190515023547-db5a9d1c40eb
 	k8s.io/apimachinery v0.0.0-20190515023456-b74e4c97951f
 	k8s.io/client-go v0.0.0-20190515063710-7b18d6600f6b

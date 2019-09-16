@@ -1,0 +1,21 @@
+FROM gcr.io/kaniko-project/executor:latest as base
+
+FROM alpine:latest
+
+COPY --from=builder /go/src/github.com/puppetlabs/nebula-tasks/__OUTPUTBIN__ /usr/bin/__OUTPUTBIN__
+COPY --from=builder /go/src/github.com/puppetlabs/nebula-tasks/ni /usr/bin/ni
+RUN apk update && apk --no-cache add git gcc bind-dev musl-dev ca-certificates curl jq openssh openssl && update-ca-certificates
+
+COPY --from=base /kaniko /kaniko
+
+ENV PATH "$PATH:/kaniko"
+ENV SSL_CERT_DIR=/kaniko/ssl/certs
+ENV DOCKER_CONFIG /kaniko/.docker/
+ENV DOCKER_CREDENTIAL_GCR_CONFIG /kaniko/.config/gcloud/docker_credential_gcr_config.json
+
+COPY ./cmd/nebula-kaniko/content /nebula
+
+RUN ["docker-credential-gcr", "config", "--token-source=env"]
+
+WORKDIR /nebula
+ENTRYPOINT ["/nebula/run.sh"]

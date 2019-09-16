@@ -800,6 +800,644 @@ func NewK8sProvisionerUnknownProvider(provider string) Error {
 	return NewK8sProvisionerUnknownProviderBuilder(provider).Build()
 }
 
+// KubernetesSection defines a section of errors with the following scope:
+// Kubernetes errors
+var KubernetesSection = &impl.ErrorSection{
+	Key:   "kubernetes",
+	Title: "Kubernetes errors",
+}
+
+// KubernetesManagerSetupErrorCode is the code for an instance of "manager_setup_error".
+const KubernetesManagerSetupErrorCode = "nt_kubernetes_manager_setup_error"
+
+// IsKubernetesManagerSetupError tests whether a given error is an instance of "manager_setup_error".
+func IsKubernetesManagerSetupError(err errawr.Error) bool {
+	return err != nil && err.Is(KubernetesManagerSetupErrorCode)
+}
+
+// IsKubernetesManagerSetupError tests whether a given error is an instance of "manager_setup_error".
+func (External) IsKubernetesManagerSetupError(err errawr.Error) bool {
+	return IsKubernetesManagerSetupError(err)
+}
+
+// KubernetesManagerSetupErrorBuilder is a builder for "manager_setup_error" errors.
+type KubernetesManagerSetupErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "manager_setup_error" from this builder.
+func (b *KubernetesManagerSetupErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "there was an error setting up the kubernetes manager",
+		Technical: "there was an error setting up the kubernetes manager",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "manager_setup_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     KubernetesSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Manager setup error",
+		Version:          1,
+	}
+}
+
+// NewKubernetesManagerSetupErrorBuilder creates a new error builder for the code "manager_setup_error".
+func NewKubernetesManagerSetupErrorBuilder() *KubernetesManagerSetupErrorBuilder {
+	return &KubernetesManagerSetupErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewKubernetesManagerSetupError creates a new error with the code "manager_setup_error".
+func NewKubernetesManagerSetupError() Error {
+	return NewKubernetesManagerSetupErrorBuilder().Build()
+}
+
+// KubernetesPodLookupErrorCode is the code for an instance of "pod_lookup_error".
+const KubernetesPodLookupErrorCode = "nt_kubernetes_pod_lookup_error"
+
+// IsKubernetesPodLookupError tests whether a given error is an instance of "pod_lookup_error".
+func IsKubernetesPodLookupError(err errawr.Error) bool {
+	return err != nil && err.Is(KubernetesPodLookupErrorCode)
+}
+
+// IsKubernetesPodLookupError tests whether a given error is an instance of "pod_lookup_error".
+func (External) IsKubernetesPodLookupError(err errawr.Error) bool {
+	return IsKubernetesPodLookupError(err)
+}
+
+// KubernetesPodLookupErrorBuilder is a builder for "pod_lookup_error" errors.
+type KubernetesPodLookupErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "pod_lookup_error" from this builder.
+func (b *KubernetesPodLookupErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "there was an error looking up the pod",
+		Technical: "there was an error looking up the pod",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "pod_lookup_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     KubernetesSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Pod lookup error",
+		Version:          1,
+	}
+}
+
+// NewKubernetesPodLookupErrorBuilder creates a new error builder for the code "pod_lookup_error".
+func NewKubernetesPodLookupErrorBuilder() *KubernetesPodLookupErrorBuilder {
+	return &KubernetesPodLookupErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewKubernetesPodLookupError creates a new error with the code "pod_lookup_error".
+func NewKubernetesPodLookupError() Error {
+	return NewKubernetesPodLookupErrorBuilder().Build()
+}
+
+// KubernetesPodNotFoundCode is the code for an instance of "pod_not_found".
+const KubernetesPodNotFoundCode = "nt_kubernetes_pod_not_found"
+
+// IsKubernetesPodNotFound tests whether a given error is an instance of "pod_not_found".
+func IsKubernetesPodNotFound(err errawr.Error) bool {
+	return err != nil && err.Is(KubernetesPodNotFoundCode)
+}
+
+// IsKubernetesPodNotFound tests whether a given error is an instance of "pod_not_found".
+func (External) IsKubernetesPodNotFound(err errawr.Error) bool {
+	return IsKubernetesPodNotFound(err)
+}
+
+// KubernetesPodNotFoundBuilder is a builder for "pod_not_found" errors.
+type KubernetesPodNotFoundBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "pod_not_found" from this builder.
+func (b *KubernetesPodNotFoundBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "the pod was not found using the IP {{ ip }}",
+		Technical: "the pod was not found using the IP {{ ip }}",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "pod_not_found",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     KubernetesSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Pod not found",
+		Version:          1,
+	}
+}
+
+// NewKubernetesPodNotFoundBuilder creates a new error builder for the code "pod_not_found".
+func NewKubernetesPodNotFoundBuilder(ip string) *KubernetesPodNotFoundBuilder {
+	return &KubernetesPodNotFoundBuilder{arguments: impl.ErrorArguments{"ip": impl.NewErrorArgument(ip, "the ip address used to lookup the pod")}}
+}
+
+// NewKubernetesPodNotFound creates a new error with the code "pod_not_found".
+func NewKubernetesPodNotFound(ip string) Error {
+	return NewKubernetesPodNotFoundBuilder(ip).Build()
+}
+
+// OutputsSection defines a section of errors with the following scope:
+// Outputs errors
+var OutputsSection = &impl.ErrorSection{
+	Key:   "outputs",
+	Title: "Outputs errors",
+}
+
+// OutputsBackendDoesNotExistCode is the code for an instance of "backend_does_not_exist".
+const OutputsBackendDoesNotExistCode = "nt_outputs_backend_does_not_exist"
+
+// IsOutputsBackendDoesNotExist tests whether a given error is an instance of "backend_does_not_exist".
+func IsOutputsBackendDoesNotExist(err errawr.Error) bool {
+	return err != nil && err.Is(OutputsBackendDoesNotExistCode)
+}
+
+// IsOutputsBackendDoesNotExist tests whether a given error is an instance of "backend_does_not_exist".
+func (External) IsOutputsBackendDoesNotExist(err errawr.Error) bool {
+	return IsOutputsBackendDoesNotExist(err)
+}
+
+// OutputsBackendDoesNotExistBuilder is a builder for "backend_does_not_exist" errors.
+type OutputsBackendDoesNotExistBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "backend_does_not_exist" from this builder.
+func (b *OutputsBackendDoesNotExistBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "the backend {{backend}} does not exist",
+		Technical: "the backend {{backend}} does not exist",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "backend_does_not_exist",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     OutputsSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Backend does not exist",
+		Version:          1,
+	}
+}
+
+// NewOutputsBackendDoesNotExistBuilder creates a new error builder for the code "backend_does_not_exist".
+func NewOutputsBackendDoesNotExistBuilder(backend string) *OutputsBackendDoesNotExistBuilder {
+	return &OutputsBackendDoesNotExistBuilder{arguments: impl.ErrorArguments{"backend": impl.NewErrorArgument(backend, "the name of the backend")}}
+}
+
+// NewOutputsBackendDoesNotExist creates a new error with the code "backend_does_not_exist".
+func NewOutputsBackendDoesNotExist(backend string) Error {
+	return NewOutputsBackendDoesNotExistBuilder(backend).Build()
+}
+
+// OutputsGetErrorCode is the code for an instance of "get_error".
+const OutputsGetErrorCode = "nt_outputs_get_error"
+
+// IsOutputsGetError tests whether a given error is an instance of "get_error".
+func IsOutputsGetError(err errawr.Error) bool {
+	return err != nil && err.Is(OutputsGetErrorCode)
+}
+
+// IsOutputsGetError tests whether a given error is an instance of "get_error".
+func (External) IsOutputsGetError(err errawr.Error) bool {
+	return IsOutputsGetError(err)
+}
+
+// OutputsGetErrorBuilder is a builder for "get_error" errors.
+type OutputsGetErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "get_error" from this builder.
+func (b *OutputsGetErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "there was an error getting the output",
+		Technical: "there was an error getting the output",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "get_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     OutputsSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Get error",
+		Version:          1,
+	}
+}
+
+// NewOutputsGetErrorBuilder creates a new error builder for the code "get_error".
+func NewOutputsGetErrorBuilder() *OutputsGetErrorBuilder {
+	return &OutputsGetErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewOutputsGetError creates a new error with the code "get_error".
+func NewOutputsGetError() Error {
+	return NewOutputsGetErrorBuilder().Build()
+}
+
+// OutputsKeyEmptyErrorCode is the code for an instance of "key_empty_error".
+const OutputsKeyEmptyErrorCode = "nt_outputs_key_empty_error"
+
+// IsOutputsKeyEmptyError tests whether a given error is an instance of "key_empty_error".
+func IsOutputsKeyEmptyError(err errawr.Error) bool {
+	return err != nil && err.Is(OutputsKeyEmptyErrorCode)
+}
+
+// IsOutputsKeyEmptyError tests whether a given error is an instance of "key_empty_error".
+func (External) IsOutputsKeyEmptyError(err errawr.Error) bool {
+	return IsOutputsKeyEmptyError(err)
+}
+
+// OutputsKeyEmptyErrorBuilder is a builder for "key_empty_error" errors.
+type OutputsKeyEmptyErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "key_empty_error" from this builder.
+func (b *OutputsKeyEmptyErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "the output key was empty",
+		Technical: "the output key was empty",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "key_empty_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     OutputsSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Key empty error",
+		Version:          1,
+	}
+}
+
+// NewOutputsKeyEmptyErrorBuilder creates a new error builder for the code "key_empty_error".
+func NewOutputsKeyEmptyErrorBuilder() *OutputsKeyEmptyErrorBuilder {
+	return &OutputsKeyEmptyErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewOutputsKeyEmptyError creates a new error with the code "key_empty_error".
+func NewOutputsKeyEmptyError() Error {
+	return NewOutputsKeyEmptyErrorBuilder().Build()
+}
+
+// OutputsKeyNotFoundCode is the code for an instance of "key_not_found".
+const OutputsKeyNotFoundCode = "nt_outputs_key_not_found"
+
+// IsOutputsKeyNotFound tests whether a given error is an instance of "key_not_found".
+func IsOutputsKeyNotFound(err errawr.Error) bool {
+	return err != nil && err.Is(OutputsKeyNotFoundCode)
+}
+
+// IsOutputsKeyNotFound tests whether a given error is an instance of "key_not_found".
+func (External) IsOutputsKeyNotFound(err errawr.Error) bool {
+	return IsOutputsKeyNotFound(err)
+}
+
+// OutputsKeyNotFoundBuilder is a builder for "key_not_found" errors.
+type OutputsKeyNotFoundBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "key_not_found" from this builder.
+func (b *OutputsKeyNotFoundBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "key {{key}} was not found",
+		Technical: "key {{key}} was not found",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "key_not_found",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     OutputsSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Key not found",
+		Version:          1,
+	}
+}
+
+// NewOutputsKeyNotFoundBuilder creates a new error builder for the code "key_not_found".
+func NewOutputsKeyNotFoundBuilder(key string) *OutputsKeyNotFoundBuilder {
+	return &OutputsKeyNotFoundBuilder{arguments: impl.ErrorArguments{"key": impl.NewErrorArgument(key, "the key name that was not found")}}
+}
+
+// NewOutputsKeyNotFound creates a new error with the code "key_not_found".
+func NewOutputsKeyNotFound(key string) Error {
+	return NewOutputsKeyNotFoundBuilder(key).Build()
+}
+
+// OutputsManagerSetupErrorCode is the code for an instance of "manager_setup_error".
+const OutputsManagerSetupErrorCode = "nt_outputs_manager_setup_error"
+
+// IsOutputsManagerSetupError tests whether a given error is an instance of "manager_setup_error".
+func IsOutputsManagerSetupError(err errawr.Error) bool {
+	return err != nil && err.Is(OutputsManagerSetupErrorCode)
+}
+
+// IsOutputsManagerSetupError tests whether a given error is an instance of "manager_setup_error".
+func (External) IsOutputsManagerSetupError(err errawr.Error) bool {
+	return IsOutputsManagerSetupError(err)
+}
+
+// OutputsManagerSetupErrorBuilder is a builder for "manager_setup_error" errors.
+type OutputsManagerSetupErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "manager_setup_error" from this builder.
+func (b *OutputsManagerSetupErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "there was an error setting up the outputs manager",
+		Technical: "there was an error setting up the outputs manager",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "manager_setup_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     OutputsSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Manager setup error",
+		Version:          1,
+	}
+}
+
+// NewOutputsManagerSetupErrorBuilder creates a new error builder for the code "manager_setup_error".
+func NewOutputsManagerSetupErrorBuilder() *OutputsManagerSetupErrorBuilder {
+	return &OutputsManagerSetupErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewOutputsManagerSetupError creates a new error with the code "manager_setup_error".
+func NewOutputsManagerSetupError() Error {
+	return NewOutputsManagerSetupErrorBuilder().Build()
+}
+
+// OutputsPutErrorCode is the code for an instance of "put_error".
+const OutputsPutErrorCode = "nt_outputs_put_error"
+
+// IsOutputsPutError tests whether a given error is an instance of "put_error".
+func IsOutputsPutError(err errawr.Error) bool {
+	return err != nil && err.Is(OutputsPutErrorCode)
+}
+
+// IsOutputsPutError tests whether a given error is an instance of "put_error".
+func (External) IsOutputsPutError(err errawr.Error) bool {
+	return IsOutputsPutError(err)
+}
+
+// OutputsPutErrorBuilder is a builder for "put_error" errors.
+type OutputsPutErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "put_error" from this builder.
+func (b *OutputsPutErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "there was an error storing the output",
+		Technical: "there was an error storing the output",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "put_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     OutputsSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Put error",
+		Version:          1,
+	}
+}
+
+// NewOutputsPutErrorBuilder creates a new error builder for the code "put_error".
+func NewOutputsPutErrorBuilder() *OutputsPutErrorBuilder {
+	return &OutputsPutErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewOutputsPutError creates a new error with the code "put_error".
+func NewOutputsPutError() Error {
+	return NewOutputsPutErrorBuilder().Build()
+}
+
+// OutputsTaskNotFoundCode is the code for an instance of "task_not_found".
+const OutputsTaskNotFoundCode = "nt_outputs_task_not_found"
+
+// IsOutputsTaskNotFound tests whether a given error is an instance of "task_not_found".
+func IsOutputsTaskNotFound(err errawr.Error) bool {
+	return err != nil && err.Is(OutputsTaskNotFoundCode)
+}
+
+// IsOutputsTaskNotFound tests whether a given error is an instance of "task_not_found".
+func (External) IsOutputsTaskNotFound(err errawr.Error) bool {
+	return IsOutputsTaskNotFound(err)
+}
+
+// OutputsTaskNotFoundBuilder is a builder for "task_not_found" errors.
+type OutputsTaskNotFoundBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "task_not_found" from this builder.
+func (b *OutputsTaskNotFoundBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "task {{task}} was not found",
+		Technical: "task {{task}} was not found",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "task_not_found",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     OutputsSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Task not found",
+		Version:          1,
+	}
+}
+
+// NewOutputsTaskNotFoundBuilder creates a new error builder for the code "task_not_found".
+func NewOutputsTaskNotFoundBuilder(task string) *OutputsTaskNotFoundBuilder {
+	return &OutputsTaskNotFoundBuilder{arguments: impl.ErrorArguments{"task": impl.NewErrorArgument(task, "the task name that was not found")}}
+}
+
+// NewOutputsTaskNotFound creates a new error with the code "task_not_found".
+func NewOutputsTaskNotFound(task string) Error {
+	return NewOutputsTaskNotFoundBuilder(task).Build()
+}
+
+// OutputsValueDecodingErrorCode is the code for an instance of "value_decoding_error".
+const OutputsValueDecodingErrorCode = "nt_outputs_value_decoding_error"
+
+// IsOutputsValueDecodingError tests whether a given error is an instance of "value_decoding_error".
+func IsOutputsValueDecodingError(err errawr.Error) bool {
+	return err != nil && err.Is(OutputsValueDecodingErrorCode)
+}
+
+// IsOutputsValueDecodingError tests whether a given error is an instance of "value_decoding_error".
+func (External) IsOutputsValueDecodingError(err errawr.Error) bool {
+	return IsOutputsValueDecodingError(err)
+}
+
+// OutputsValueDecodingErrorBuilder is a builder for "value_decoding_error" errors.
+type OutputsValueDecodingErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "value_decoding_error" from this builder.
+func (b *OutputsValueDecodingErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "decoding the secret value failed",
+		Technical: "decoding the secret value failed",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "value_decoding_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     OutputsSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Value decoding error",
+		Version:          1,
+	}
+}
+
+// NewOutputsValueDecodingErrorBuilder creates a new error builder for the code "value_decoding_error".
+func NewOutputsValueDecodingErrorBuilder() *OutputsValueDecodingErrorBuilder {
+	return &OutputsValueDecodingErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewOutputsValueDecodingError creates a new error with the code "value_decoding_error".
+func NewOutputsValueDecodingError() Error {
+	return NewOutputsValueDecodingErrorBuilder().Build()
+}
+
+// OutputsValueEncodingErrorCode is the code for an instance of "value_encoding_error".
+const OutputsValueEncodingErrorCode = "nt_outputs_value_encoding_error"
+
+// IsOutputsValueEncodingError tests whether a given error is an instance of "value_encoding_error".
+func IsOutputsValueEncodingError(err errawr.Error) bool {
+	return err != nil && err.Is(OutputsValueEncodingErrorCode)
+}
+
+// IsOutputsValueEncodingError tests whether a given error is an instance of "value_encoding_error".
+func (External) IsOutputsValueEncodingError(err errawr.Error) bool {
+	return IsOutputsValueEncodingError(err)
+}
+
+// OutputsValueEncodingErrorBuilder is a builder for "value_encoding_error" errors.
+type OutputsValueEncodingErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "value_encoding_error" from this builder.
+func (b *OutputsValueEncodingErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "encoding the secret value failed",
+		Technical: "encoding the secret value failed",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "value_encoding_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     OutputsSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Value encoding error",
+		Version:          1,
+	}
+}
+
+// NewOutputsValueEncodingErrorBuilder creates a new error builder for the code "value_encoding_error".
+func NewOutputsValueEncodingErrorBuilder() *OutputsValueEncodingErrorBuilder {
+	return &OutputsValueEncodingErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewOutputsValueEncodingError creates a new error with the code "value_encoding_error".
+func NewOutputsValueEncodingError() Error {
+	return NewOutputsValueEncodingErrorBuilder().Build()
+}
+
+// OutputsValueReadErrorCode is the code for an instance of "value_read_error".
+const OutputsValueReadErrorCode = "nt_outputs_value_read_error"
+
+// IsOutputsValueReadError tests whether a given error is an instance of "value_read_error".
+func IsOutputsValueReadError(err errawr.Error) bool {
+	return err != nil && err.Is(OutputsValueReadErrorCode)
+}
+
+// IsOutputsValueReadError tests whether a given error is an instance of "value_read_error".
+func (External) IsOutputsValueReadError(err errawr.Error) bool {
+	return IsOutputsValueReadError(err)
+}
+
+// OutputsValueReadErrorBuilder is a builder for "value_read_error" errors.
+type OutputsValueReadErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "value_read_error" from this builder.
+func (b *OutputsValueReadErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "there was an error reading the value from the buffer",
+		Technical: "there was an error reading the value from the buffer",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "value_read_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     OutputsSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Value read error",
+		Version:          1,
+	}
+}
+
+// NewOutputsValueReadErrorBuilder creates a new error builder for the code "value_read_error".
+func NewOutputsValueReadErrorBuilder() *OutputsValueReadErrorBuilder {
+	return &OutputsValueReadErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewOutputsValueReadError creates a new error with the code "value_read_error".
+func NewOutputsValueReadError() Error {
+	return NewOutputsValueReadErrorBuilder().Build()
+}
+
 // SecretsSection defines a section of errors with the following scope:
 // Secrets errors
 var SecretsSection = &impl.ErrorSection{
@@ -1095,6 +1733,102 @@ func NewSecretsSessionSetupError() Error {
 	return NewSecretsSessionSetupErrorBuilder().Build()
 }
 
+// SecretsValueDecodingErrorCode is the code for an instance of "value_decoding_error".
+const SecretsValueDecodingErrorCode = "nt_secrets_value_decoding_error"
+
+// IsSecretsValueDecodingError tests whether a given error is an instance of "value_decoding_error".
+func IsSecretsValueDecodingError(err errawr.Error) bool {
+	return err != nil && err.Is(SecretsValueDecodingErrorCode)
+}
+
+// IsSecretsValueDecodingError tests whether a given error is an instance of "value_decoding_error".
+func (External) IsSecretsValueDecodingError(err errawr.Error) bool {
+	return IsSecretsValueDecodingError(err)
+}
+
+// SecretsValueDecodingErrorBuilder is a builder for "value_decoding_error" errors.
+type SecretsValueDecodingErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "value_decoding_error" from this builder.
+func (b *SecretsValueDecodingErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "decoding the secret value failed",
+		Technical: "decoding the secret value failed",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "value_decoding_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     SecretsSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Value decoding error",
+		Version:          1,
+	}
+}
+
+// NewSecretsValueDecodingErrorBuilder creates a new error builder for the code "value_decoding_error".
+func NewSecretsValueDecodingErrorBuilder() *SecretsValueDecodingErrorBuilder {
+	return &SecretsValueDecodingErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewSecretsValueDecodingError creates a new error with the code "value_decoding_error".
+func NewSecretsValueDecodingError() Error {
+	return NewSecretsValueDecodingErrorBuilder().Build()
+}
+
+// SecretsVaultAuthenticationNotConfiguredErrorCode is the code for an instance of "vault_authentication_not_configured_error".
+const SecretsVaultAuthenticationNotConfiguredErrorCode = "nt_secrets_vault_authentication_not_configured_error"
+
+// IsSecretsVaultAuthenticationNotConfiguredError tests whether a given error is an instance of "vault_authentication_not_configured_error".
+func IsSecretsVaultAuthenticationNotConfiguredError(err errawr.Error) bool {
+	return err != nil && err.Is(SecretsVaultAuthenticationNotConfiguredErrorCode)
+}
+
+// IsSecretsVaultAuthenticationNotConfiguredError tests whether a given error is an instance of "vault_authentication_not_configured_error".
+func (External) IsSecretsVaultAuthenticationNotConfiguredError(err errawr.Error) bool {
+	return IsSecretsVaultAuthenticationNotConfiguredError(err)
+}
+
+// SecretsVaultAuthenticationNotConfiguredErrorBuilder is a builder for "vault_authentication_not_configured_error" errors.
+type SecretsVaultAuthenticationNotConfiguredErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "vault_authentication_not_configured_error" from this builder.
+func (b *SecretsVaultAuthenticationNotConfiguredErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "no vault token or service account path specified",
+		Technical: "no vault token or service account path specified",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "vault_authentication_not_configured_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     SecretsSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Vault authentication not configured error",
+		Version:          1,
+	}
+}
+
+// NewSecretsVaultAuthenticationNotConfiguredErrorBuilder creates a new error builder for the code "vault_authentication_not_configured_error".
+func NewSecretsVaultAuthenticationNotConfiguredErrorBuilder() *SecretsVaultAuthenticationNotConfiguredErrorBuilder {
+	return &SecretsVaultAuthenticationNotConfiguredErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewSecretsVaultAuthenticationNotConfiguredError creates a new error with the code "vault_authentication_not_configured_error".
+func NewSecretsVaultAuthenticationNotConfiguredError() Error {
+	return NewSecretsVaultAuthenticationNotConfiguredErrorBuilder().Build()
+}
+
 // SecretsVaultLoginErrorCode is the code for an instance of "vault_login_error".
 const SecretsVaultLoginErrorCode = "nt_secrets_vault_login_error"
 
@@ -1191,11 +1925,206 @@ func NewSecretsVaultSetupError() Error {
 	return NewSecretsVaultSetupErrorBuilder().Build()
 }
 
+// SecretsVaultTokenLookupErrorCode is the code for an instance of "vault_token_lookup_error".
+const SecretsVaultTokenLookupErrorCode = "nt_secrets_vault_token_lookup_error"
+
+// IsSecretsVaultTokenLookupError tests whether a given error is an instance of "vault_token_lookup_error".
+func IsSecretsVaultTokenLookupError(err errawr.Error) bool {
+	return err != nil && err.Is(SecretsVaultTokenLookupErrorCode)
+}
+
+// IsSecretsVaultTokenLookupError tests whether a given error is an instance of "vault_token_lookup_error".
+func (External) IsSecretsVaultTokenLookupError(err errawr.Error) bool {
+	return IsSecretsVaultTokenLookupError(err)
+}
+
+// SecretsVaultTokenLookupErrorBuilder is a builder for "vault_token_lookup_error" errors.
+type SecretsVaultTokenLookupErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "vault_token_lookup_error" from this builder.
+func (b *SecretsVaultTokenLookupErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "there was an error looking up the current vault token",
+		Technical: "there was an error looking up the current vault token",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "vault_token_lookup_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     SecretsSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Vault token lookup error",
+		Version:          1,
+	}
+}
+
+// NewSecretsVaultTokenLookupErrorBuilder creates a new error builder for the code "vault_token_lookup_error".
+func NewSecretsVaultTokenLookupErrorBuilder() *SecretsVaultTokenLookupErrorBuilder {
+	return &SecretsVaultTokenLookupErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewSecretsVaultTokenLookupError creates a new error with the code "vault_token_lookup_error".
+func NewSecretsVaultTokenLookupError() Error {
+	return NewSecretsVaultTokenLookupErrorBuilder().Build()
+}
+
+// SecretsVaultTokenNotRenewableErrorCode is the code for an instance of "vault_token_not_renewable_error".
+const SecretsVaultTokenNotRenewableErrorCode = "nt_secrets_vault_token_not_renewable_error"
+
+// IsSecretsVaultTokenNotRenewableError tests whether a given error is an instance of "vault_token_not_renewable_error".
+func IsSecretsVaultTokenNotRenewableError(err errawr.Error) bool {
+	return err != nil && err.Is(SecretsVaultTokenNotRenewableErrorCode)
+}
+
+// IsSecretsVaultTokenNotRenewableError tests whether a given error is an instance of "vault_token_not_renewable_error".
+func (External) IsSecretsVaultTokenNotRenewableError(err errawr.Error) bool {
+	return IsSecretsVaultTokenNotRenewableError(err)
+}
+
+// SecretsVaultTokenNotRenewableErrorBuilder is a builder for "vault_token_not_renewable_error" errors.
+type SecretsVaultTokenNotRenewableErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "vault_token_not_renewable_error" from this builder.
+func (b *SecretsVaultTokenNotRenewableErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "the vault token currently used for auth is not renewable",
+		Technical: "the vault token currently used for auth is not renewable",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "vault_token_not_renewable_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     SecretsSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Vault token not renewable",
+		Version:          1,
+	}
+}
+
+// NewSecretsVaultTokenNotRenewableErrorBuilder creates a new error builder for the code "vault_token_not_renewable_error".
+func NewSecretsVaultTokenNotRenewableErrorBuilder() *SecretsVaultTokenNotRenewableErrorBuilder {
+	return &SecretsVaultTokenNotRenewableErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewSecretsVaultTokenNotRenewableError creates a new error with the code "vault_token_not_renewable_error".
+func NewSecretsVaultTokenNotRenewableError() Error {
+	return NewSecretsVaultTokenNotRenewableErrorBuilder().Build()
+}
+
+// SecretsVaultTokenRenewErrorCode is the code for an instance of "vault_token_renew_error".
+const SecretsVaultTokenRenewErrorCode = "nt_secrets_vault_token_renew_error"
+
+// IsSecretsVaultTokenRenewError tests whether a given error is an instance of "vault_token_renew_error".
+func IsSecretsVaultTokenRenewError(err errawr.Error) bool {
+	return err != nil && err.Is(SecretsVaultTokenRenewErrorCode)
+}
+
+// IsSecretsVaultTokenRenewError tests whether a given error is an instance of "vault_token_renew_error".
+func (External) IsSecretsVaultTokenRenewError(err errawr.Error) bool {
+	return IsSecretsVaultTokenRenewError(err)
+}
+
+// SecretsVaultTokenRenewErrorBuilder is a builder for "vault_token_renew_error" errors.
+type SecretsVaultTokenRenewErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "vault_token_renew_error" from this builder.
+func (b *SecretsVaultTokenRenewErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "failed to renew the vault token",
+		Technical: "failed to renew the vault token",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "vault_token_renew_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     SecretsSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Vault token renew error",
+		Version:          1,
+	}
+}
+
+// NewSecretsVaultTokenRenewErrorBuilder creates a new error builder for the code "vault_token_renew_error".
+func NewSecretsVaultTokenRenewErrorBuilder() *SecretsVaultTokenRenewErrorBuilder {
+	return &SecretsVaultTokenRenewErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewSecretsVaultTokenRenewError creates a new error with the code "vault_token_renew_error".
+func NewSecretsVaultTokenRenewError() Error {
+	return NewSecretsVaultTokenRenewErrorBuilder().Build()
+}
+
 // ServerSection defines a section of errors with the following scope:
 // Sever errors
 var ServerSection = &impl.ErrorSection{
 	Key:   "server",
 	Title: "Sever errors",
+}
+
+// ServerClientIPErrorCode is the code for an instance of "client_ip_error".
+const ServerClientIPErrorCode = "nt_server_client_ip_error"
+
+// IsServerClientIPError tests whether a given error is an instance of "client_ip_error".
+func IsServerClientIPError(err errawr.Error) bool {
+	return err != nil && err.Is(ServerClientIPErrorCode)
+}
+
+// IsServerClientIPError tests whether a given error is an instance of "client_ip_error".
+func (External) IsServerClientIPError(err errawr.Error) bool {
+	return IsServerClientIPError(err)
+}
+
+// ServerClientIPErrorBuilder is a builder for "client_ip_error" errors.
+type ServerClientIPErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "client_ip_error" from this builder.
+func (b *ServerClientIPErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "malformed client IP",
+		Technical: "malformed client IP",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "client_ip_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata: &impl.ErrorMetadata{HTTPErrorMetadata: &impl.HTTPErrorMetadata{
+			ErrorHeaders: impl.HTTPErrorMetadataHeaders{},
+			ErrorStatus:  500,
+		}},
+		ErrorSection:     ServerSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Client IP error",
+		Version:          1,
+	}
+}
+
+// NewServerClientIPErrorBuilder creates a new error builder for the code "client_ip_error".
+func NewServerClientIPErrorBuilder() *ServerClientIPErrorBuilder {
+	return &ServerClientIPErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewServerClientIPError creates a new error with the code "client_ip_error".
+func NewServerClientIPError() Error {
+	return NewServerClientIPErrorBuilder().Build()
 }
 
 // ServerConfigMapJSONErrorCode is the code for an instance of "config_map_json_error".
@@ -1396,6 +2325,198 @@ func NewServerNewK8sClientError() Error {
 	return NewServerNewK8sClientErrorBuilder().Build()
 }
 
+// ServerOutputFetcherGetErrorCode is the code for an instance of "output_fetcher_get_error".
+const ServerOutputFetcherGetErrorCode = "nt_server_output_fetcher_get_error"
+
+// IsServerOutputFetcherGetError tests whether a given error is an instance of "output_fetcher_get_error".
+func IsServerOutputFetcherGetError(err errawr.Error) bool {
+	return err != nil && err.Is(ServerOutputFetcherGetErrorCode)
+}
+
+// IsServerOutputFetcherGetError tests whether a given error is an instance of "output_fetcher_get_error".
+func (External) IsServerOutputFetcherGetError(err errawr.Error) bool {
+	return IsServerOutputFetcherGetError(err)
+}
+
+// ServerOutputFetcherGetErrorBuilder is a builder for "output_fetcher_get_error" errors.
+type ServerOutputFetcherGetErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "output_fetcher_get_error" from this builder.
+func (b *ServerOutputFetcherGetErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "there was an error fetch the output value",
+		Technical: "there was an error fetch the output value",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "output_fetcher_get_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     ServerSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Output fetcher get error",
+		Version:          1,
+	}
+}
+
+// NewServerOutputFetcherGetErrorBuilder creates a new error builder for the code "output_fetcher_get_error".
+func NewServerOutputFetcherGetErrorBuilder() *ServerOutputFetcherGetErrorBuilder {
+	return &ServerOutputFetcherGetErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewServerOutputFetcherGetError creates a new error with the code "output_fetcher_get_error".
+func NewServerOutputFetcherGetError() Error {
+	return NewServerOutputFetcherGetErrorBuilder().Build()
+}
+
+// ServerOutputFetcherNameValidationErrorCode is the code for an instance of "output_fetcher_name_validation_error".
+const ServerOutputFetcherNameValidationErrorCode = "nt_server_output_fetcher_name_validation_error"
+
+// IsServerOutputFetcherNameValidationError tests whether a given error is an instance of "output_fetcher_name_validation_error".
+func IsServerOutputFetcherNameValidationError(err errawr.Error) bool {
+	return err != nil && err.Is(ServerOutputFetcherNameValidationErrorCode)
+}
+
+// IsServerOutputFetcherNameValidationError tests whether a given error is an instance of "output_fetcher_name_validation_error".
+func (External) IsServerOutputFetcherNameValidationError(err errawr.Error) bool {
+	return IsServerOutputFetcherNameValidationError(err)
+}
+
+// ServerOutputFetcherNameValidationErrorBuilder is a builder for "output_fetcher_name_validation_error" errors.
+type ServerOutputFetcherNameValidationErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "output_fetcher_name_validation_error" from this builder.
+func (b *ServerOutputFetcherNameValidationErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "name was missing or invalid",
+		Technical: "name was missing or invalid",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "output_fetcher_name_validation_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     ServerSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Output fetcher name validation error",
+		Version:          1,
+	}
+}
+
+// NewServerOutputFetcherNameValidationErrorBuilder creates a new error builder for the code "output_fetcher_name_validation_error".
+func NewServerOutputFetcherNameValidationErrorBuilder() *ServerOutputFetcherNameValidationErrorBuilder {
+	return &ServerOutputFetcherNameValidationErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewServerOutputFetcherNameValidationError creates a new error with the code "output_fetcher_name_validation_error".
+func NewServerOutputFetcherNameValidationError() Error {
+	return NewServerOutputFetcherNameValidationErrorBuilder().Build()
+}
+
+// ServerOutputFetcherTaskNameValidationErrorCode is the code for an instance of "output_fetcher_task_name_validation_error".
+const ServerOutputFetcherTaskNameValidationErrorCode = "nt_server_output_fetcher_task_name_validation_error"
+
+// IsServerOutputFetcherTaskNameValidationError tests whether a given error is an instance of "output_fetcher_task_name_validation_error".
+func IsServerOutputFetcherTaskNameValidationError(err errawr.Error) bool {
+	return err != nil && err.Is(ServerOutputFetcherTaskNameValidationErrorCode)
+}
+
+// IsServerOutputFetcherTaskNameValidationError tests whether a given error is an instance of "output_fetcher_task_name_validation_error".
+func (External) IsServerOutputFetcherTaskNameValidationError(err errawr.Error) bool {
+	return IsServerOutputFetcherTaskNameValidationError(err)
+}
+
+// ServerOutputFetcherTaskNameValidationErrorBuilder is a builder for "output_fetcher_task_name_validation_error" errors.
+type ServerOutputFetcherTaskNameValidationErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "output_fetcher_task_name_validation_error" from this builder.
+func (b *ServerOutputFetcherTaskNameValidationErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "taskName was missing or invalid",
+		Technical: "taskName was missing or invalid",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "output_fetcher_task_name_validation_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     ServerSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Output fetcher task name validation error",
+		Version:          1,
+	}
+}
+
+// NewServerOutputFetcherTaskNameValidationErrorBuilder creates a new error builder for the code "output_fetcher_task_name_validation_error".
+func NewServerOutputFetcherTaskNameValidationErrorBuilder() *ServerOutputFetcherTaskNameValidationErrorBuilder {
+	return &ServerOutputFetcherTaskNameValidationErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewServerOutputFetcherTaskNameValidationError creates a new error with the code "output_fetcher_task_name_validation_error".
+func NewServerOutputFetcherTaskNameValidationError() Error {
+	return NewServerOutputFetcherTaskNameValidationErrorBuilder().Build()
+}
+
+// ServerPreConfigDecodingErrorCode is the code for an instance of "pre_config_decoding_error".
+const ServerPreConfigDecodingErrorCode = "nt_server_pre_config_decoding_error"
+
+// IsServerPreConfigDecodingError tests whether a given error is an instance of "pre_config_decoding_error".
+func IsServerPreConfigDecodingError(err errawr.Error) bool {
+	return err != nil && err.Is(ServerPreConfigDecodingErrorCode)
+}
+
+// IsServerPreConfigDecodingError tests whether a given error is an instance of "pre_config_decoding_error".
+func (External) IsServerPreConfigDecodingError(err errawr.Error) bool {
+	return IsServerPreConfigDecodingError(err)
+}
+
+// ServerPreConfigDecodingErrorBuilder is a builder for "pre_config_decoding_error" errors.
+type ServerPreConfigDecodingErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "pre_config_decoding_error" from this builder.
+func (b *ServerPreConfigDecodingErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "there was an error decoding the development preconfiguration file",
+		Technical: "there was an error decoding the development preconfiguration file",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "pre_config_decoding_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     ServerSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "PreConfig decoding error",
+		Version:          1,
+	}
+}
+
+// NewServerPreConfigDecodingErrorBuilder creates a new error builder for the code "pre_config_decoding_error".
+func NewServerPreConfigDecodingErrorBuilder() *ServerPreConfigDecodingErrorBuilder {
+	return &ServerPreConfigDecodingErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewServerPreConfigDecodingError creates a new error with the code "pre_config_decoding_error".
+func NewServerPreConfigDecodingError() Error {
+	return NewServerPreConfigDecodingErrorBuilder().Build()
+}
+
 // ServerRunErrorCode is the code for an instance of "run_error".
 const ServerRunErrorCode = "nt_server_run_error"
 
@@ -1442,6 +2563,313 @@ func NewServerRunErrorBuilder() *ServerRunErrorBuilder {
 // NewServerRunError creates a new error with the code "run_error".
 func NewServerRunError() Error {
 	return NewServerRunErrorBuilder().Build()
+}
+
+// ServerSecretFetcherGetErrorCode is the code for an instance of "secret_fetcher_get_error".
+const ServerSecretFetcherGetErrorCode = "nt_server_secret_fetcher_get_error"
+
+// IsServerSecretFetcherGetError tests whether a given error is an instance of "secret_fetcher_get_error".
+func IsServerSecretFetcherGetError(err errawr.Error) bool {
+	return err != nil && err.Is(ServerSecretFetcherGetErrorCode)
+}
+
+// IsServerSecretFetcherGetError tests whether a given error is an instance of "secret_fetcher_get_error".
+func (External) IsServerSecretFetcherGetError(err errawr.Error) bool {
+	return IsServerSecretFetcherGetError(err)
+}
+
+// ServerSecretFetcherGetErrorBuilder is a builder for "secret_fetcher_get_error" errors.
+type ServerSecretFetcherGetErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "secret_fetcher_get_error" from this builder.
+func (b *ServerSecretFetcherGetErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "there was an error fetch the secret value",
+		Technical: "there was an error fetch the secret value",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "secret_fetcher_get_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     ServerSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Secret fetcher get error",
+		Version:          1,
+	}
+}
+
+// NewServerSecretFetcherGetErrorBuilder creates a new error builder for the code "secret_fetcher_get_error".
+func NewServerSecretFetcherGetErrorBuilder() *ServerSecretFetcherGetErrorBuilder {
+	return &ServerSecretFetcherGetErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewServerSecretFetcherGetError creates a new error with the code "secret_fetcher_get_error".
+func NewServerSecretFetcherGetError() Error {
+	return NewServerSecretFetcherGetErrorBuilder().Build()
+}
+
+// ServerSecretFetcherNameValidationErrorCode is the code for an instance of "secret_fetcher_name_validation_error".
+const ServerSecretFetcherNameValidationErrorCode = "nt_server_secret_fetcher_name_validation_error"
+
+// IsServerSecretFetcherNameValidationError tests whether a given error is an instance of "secret_fetcher_name_validation_error".
+func IsServerSecretFetcherNameValidationError(err errawr.Error) bool {
+	return err != nil && err.Is(ServerSecretFetcherNameValidationErrorCode)
+}
+
+// IsServerSecretFetcherNameValidationError tests whether a given error is an instance of "secret_fetcher_name_validation_error".
+func (External) IsServerSecretFetcherNameValidationError(err errawr.Error) bool {
+	return IsServerSecretFetcherNameValidationError(err)
+}
+
+// ServerSecretFetcherNameValidationErrorBuilder is a builder for "secret_fetcher_name_validation_error" errors.
+type ServerSecretFetcherNameValidationErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "secret_fetcher_name_validation_error" from this builder.
+func (b *ServerSecretFetcherNameValidationErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "name was missing or invalid",
+		Technical: "name was missing or invalid",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "secret_fetcher_name_validation_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     ServerSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Secret fetcher name validation error",
+		Version:          1,
+	}
+}
+
+// NewServerSecretFetcherNameValidationErrorBuilder creates a new error builder for the code "secret_fetcher_name_validation_error".
+func NewServerSecretFetcherNameValidationErrorBuilder() *ServerSecretFetcherNameValidationErrorBuilder {
+	return &ServerSecretFetcherNameValidationErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewServerSecretFetcherNameValidationError creates a new error with the code "secret_fetcher_name_validation_error".
+func NewServerSecretFetcherNameValidationError() Error {
+	return NewServerSecretFetcherNameValidationErrorBuilder().Build()
+}
+
+// TaskSection defines a section of errors with the following scope:
+// Task errors
+var TaskSection = &impl.ErrorSection{
+	Key:   "task",
+	Title: "Task errors",
+}
+
+// TaskNotFoundForIPCode is the code for an instance of "not_found_for_ip".
+const TaskNotFoundForIPCode = "nt_task_not_found_for_ip"
+
+// IsTaskNotFoundForIP tests whether a given error is an instance of "not_found_for_ip".
+func IsTaskNotFoundForIP(err errawr.Error) bool {
+	return err != nil && err.Is(TaskNotFoundForIPCode)
+}
+
+// IsTaskNotFoundForIP tests whether a given error is an instance of "not_found_for_ip".
+func (External) IsTaskNotFoundForIP(err errawr.Error) bool {
+	return IsTaskNotFoundForIP(err)
+}
+
+// TaskNotFoundForIPBuilder is a builder for "not_found_for_ip" errors.
+type TaskNotFoundForIPBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "not_found_for_ip" from this builder.
+func (b *TaskNotFoundForIPBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "no task was found for IP address {{ip}}",
+		Technical: "no task was found for IP address {{ip}}",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "not_found_for_ip",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata: &impl.ErrorMetadata{HTTPErrorMetadata: &impl.HTTPErrorMetadata{
+			ErrorHeaders: impl.HTTPErrorMetadataHeaders{},
+			ErrorStatus:  404,
+		}},
+		ErrorSection:     TaskSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Not found for IP",
+		Version:          1,
+	}
+}
+
+// NewTaskNotFoundForIPBuilder creates a new error builder for the code "not_found_for_ip".
+func NewTaskNotFoundForIPBuilder(ip string) *TaskNotFoundForIPBuilder {
+	return &TaskNotFoundForIPBuilder{arguments: impl.ErrorArguments{"ip": impl.NewErrorArgument(ip, "the ip address used in the request")}}
+}
+
+// NewTaskNotFoundForIP creates a new error with the code "not_found_for_ip".
+func NewTaskNotFoundForIP(ip string) Error {
+	return NewTaskNotFoundForIPBuilder(ip).Build()
+}
+
+// TaskSpecDecodingErrorCode is the code for an instance of "spec_decoding_error".
+const TaskSpecDecodingErrorCode = "nt_task_spec_decoding_error"
+
+// IsTaskSpecDecodingError tests whether a given error is an instance of "spec_decoding_error".
+func IsTaskSpecDecodingError(err errawr.Error) bool {
+	return err != nil && err.Is(TaskSpecDecodingErrorCode)
+}
+
+// IsTaskSpecDecodingError tests whether a given error is an instance of "spec_decoding_error".
+func (External) IsTaskSpecDecodingError(err errawr.Error) bool {
+	return IsTaskSpecDecodingError(err)
+}
+
+// TaskSpecDecodingErrorBuilder is a builder for "spec_decoding_error" errors.
+type TaskSpecDecodingErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "spec_decoding_error" from this builder.
+func (b *TaskSpecDecodingErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "failed to decode spec data",
+		Technical: "failed to decode spec data",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "spec_decoding_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata: &impl.ErrorMetadata{HTTPErrorMetadata: &impl.HTTPErrorMetadata{
+			ErrorHeaders: impl.HTTPErrorMetadataHeaders{},
+			ErrorStatus:  500,
+		}},
+		ErrorSection:     TaskSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Spec decoding error",
+		Version:          1,
+	}
+}
+
+// NewTaskSpecDecodingErrorBuilder creates a new error builder for the code "spec_decoding_error".
+func NewTaskSpecDecodingErrorBuilder() *TaskSpecDecodingErrorBuilder {
+	return &TaskSpecDecodingErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewTaskSpecDecodingError creates a new error with the code "spec_decoding_error".
+func NewTaskSpecDecodingError() Error {
+	return NewTaskSpecDecodingErrorBuilder().Build()
+}
+
+// TaskSpecLookupErrorCode is the code for an instance of "spec_lookup_error".
+const TaskSpecLookupErrorCode = "nt_task_spec_lookup_error"
+
+// IsTaskSpecLookupError tests whether a given error is an instance of "spec_lookup_error".
+func IsTaskSpecLookupError(err errawr.Error) bool {
+	return err != nil && err.Is(TaskSpecLookupErrorCode)
+}
+
+// IsTaskSpecLookupError tests whether a given error is an instance of "spec_lookup_error".
+func (External) IsTaskSpecLookupError(err errawr.Error) bool {
+	return IsTaskSpecLookupError(err)
+}
+
+// TaskSpecLookupErrorBuilder is a builder for "spec_lookup_error" errors.
+type TaskSpecLookupErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "spec_lookup_error" from this builder.
+func (b *TaskSpecLookupErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "failed to lookup task spec",
+		Technical: "failed to lookup task spec",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "spec_lookup_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata: &impl.ErrorMetadata{HTTPErrorMetadata: &impl.HTTPErrorMetadata{
+			ErrorHeaders: impl.HTTPErrorMetadataHeaders{},
+			ErrorStatus:  500,
+		}},
+		ErrorSection:     TaskSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Spec lookup error",
+		Version:          1,
+	}
+}
+
+// NewTaskSpecLookupErrorBuilder creates a new error builder for the code "spec_lookup_error".
+func NewTaskSpecLookupErrorBuilder() *TaskSpecLookupErrorBuilder {
+	return &TaskSpecLookupErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewTaskSpecLookupError creates a new error with the code "spec_lookup_error".
+func NewTaskSpecLookupError() Error {
+	return NewTaskSpecLookupErrorBuilder().Build()
+}
+
+// TaskSpecNotFoundForIDCode is the code for an instance of "spec_not_found_for_id".
+const TaskSpecNotFoundForIDCode = "nt_task_spec_not_found_for_id"
+
+// IsTaskSpecNotFoundForID tests whether a given error is an instance of "spec_not_found_for_id".
+func IsTaskSpecNotFoundForID(err errawr.Error) bool {
+	return err != nil && err.Is(TaskSpecNotFoundForIDCode)
+}
+
+// IsTaskSpecNotFoundForID tests whether a given error is an instance of "spec_not_found_for_id".
+func (External) IsTaskSpecNotFoundForID(err errawr.Error) bool {
+	return IsTaskSpecNotFoundForID(err)
+}
+
+// TaskSpecNotFoundForIDBuilder is a builder for "spec_not_found_for_id" errors.
+type TaskSpecNotFoundForIDBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "spec_not_found_for_id" from this builder.
+func (b *TaskSpecNotFoundForIDBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "no task spec was found for ID {{id}}",
+		Technical: "no task spec was found for ID {{id}}",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "spec_not_found_for_id",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata: &impl.ErrorMetadata{HTTPErrorMetadata: &impl.HTTPErrorMetadata{
+			ErrorHeaders: impl.HTTPErrorMetadataHeaders{},
+			ErrorStatus:  404,
+		}},
+		ErrorSection:     TaskSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Spec not found for ID",
+		Version:          1,
+	}
+}
+
+// NewTaskSpecNotFoundForIDBuilder creates a new error builder for the code "spec_not_found_for_id".
+func NewTaskSpecNotFoundForIDBuilder(id string) *TaskSpecNotFoundForIDBuilder {
+	return &TaskSpecNotFoundForIDBuilder{arguments: impl.ErrorArguments{"id": impl.NewErrorArgument(id, "the id of the task")}}
+}
+
+// NewTaskSpecNotFoundForID creates a new error with the code "spec_not_found_for_id".
+func NewTaskSpecNotFoundForID(id string) Error {
+	return NewTaskSpecNotFoundForIDBuilder(id).Build()
 }
 
 // TaskUtilSection defines a section of errors with the following scope:
@@ -1545,6 +2973,198 @@ func NewTaskUtilDefaultSpecPlanFailedBuilder(reason string) *TaskUtilDefaultSpec
 // NewTaskUtilDefaultSpecPlanFailed creates a new error with the code "default_spec_plan_failed".
 func NewTaskUtilDefaultSpecPlanFailed(reason string) Error {
 	return NewTaskUtilDefaultSpecPlanFailedBuilder(reason).Build()
+}
+
+// TaskUtilSetOutputErrorCode is the code for an instance of "set_output_error".
+const TaskUtilSetOutputErrorCode = "nt_task_util_set_output_error"
+
+// IsTaskUtilSetOutputError tests whether a given error is an instance of "set_output_error".
+func IsTaskUtilSetOutputError(err errawr.Error) bool {
+	return err != nil && err.Is(TaskUtilSetOutputErrorCode)
+}
+
+// IsTaskUtilSetOutputError tests whether a given error is an instance of "set_output_error".
+func (External) IsTaskUtilSetOutputError(err errawr.Error) bool {
+	return IsTaskUtilSetOutputError(err)
+}
+
+// TaskUtilSetOutputErrorBuilder is a builder for "set_output_error" errors.
+type TaskUtilSetOutputErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "set_output_error" from this builder.
+func (b *TaskUtilSetOutputErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "an error occurred while trying to set the task output",
+		Technical: "an error occurred while trying to set the task output",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "set_output_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     TaskUtilSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Set output error",
+		Version:          1,
+	}
+}
+
+// NewTaskUtilSetOutputErrorBuilder creates a new error builder for the code "set_output_error".
+func NewTaskUtilSetOutputErrorBuilder() *TaskUtilSetOutputErrorBuilder {
+	return &TaskUtilSetOutputErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewTaskUtilSetOutputError creates a new error with the code "set_output_error".
+func NewTaskUtilSetOutputError() Error {
+	return NewTaskUtilSetOutputErrorBuilder().Build()
+}
+
+// TaskUtilSetOutputMetadataAPIURLErrorCode is the code for an instance of "set_output_metadata_api_url_error".
+const TaskUtilSetOutputMetadataAPIURLErrorCode = "nt_task_util_set_output_metadata_api_url_error"
+
+// IsTaskUtilSetOutputMetadataAPIURLError tests whether a given error is an instance of "set_output_metadata_api_url_error".
+func IsTaskUtilSetOutputMetadataAPIURLError(err errawr.Error) bool {
+	return err != nil && err.Is(TaskUtilSetOutputMetadataAPIURLErrorCode)
+}
+
+// IsTaskUtilSetOutputMetadataAPIURLError tests whether a given error is an instance of "set_output_metadata_api_url_error".
+func (External) IsTaskUtilSetOutputMetadataAPIURLError(err errawr.Error) bool {
+	return IsTaskUtilSetOutputMetadataAPIURLError(err)
+}
+
+// TaskUtilSetOutputMetadataAPIURLErrorBuilder is a builder for "set_output_metadata_api_url_error" errors.
+type TaskUtilSetOutputMetadataAPIURLErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "set_output_metadata_api_url_error" from this builder.
+func (b *TaskUtilSetOutputMetadataAPIURLErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "there was an error parsing the metadata url",
+		Technical: "there was an error parsing the metadata url",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "set_output_metadata_api_url_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     TaskUtilSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Set output metadata api url error",
+		Version:          1,
+	}
+}
+
+// NewTaskUtilSetOutputMetadataAPIURLErrorBuilder creates a new error builder for the code "set_output_metadata_api_url_error".
+func NewTaskUtilSetOutputMetadataAPIURLErrorBuilder() *TaskUtilSetOutputMetadataAPIURLErrorBuilder {
+	return &TaskUtilSetOutputMetadataAPIURLErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewTaskUtilSetOutputMetadataAPIURLError creates a new error with the code "set_output_metadata_api_url_error".
+func NewTaskUtilSetOutputMetadataAPIURLError() Error {
+	return NewTaskUtilSetOutputMetadataAPIURLErrorBuilder().Build()
+}
+
+// TaskUtilSetOutputRequiredValueEmptyCode is the code for an instance of "set_output_required_value_empty".
+const TaskUtilSetOutputRequiredValueEmptyCode = "nt_task_util_set_output_required_value_empty"
+
+// IsTaskUtilSetOutputRequiredValueEmpty tests whether a given error is an instance of "set_output_required_value_empty".
+func IsTaskUtilSetOutputRequiredValueEmpty(err errawr.Error) bool {
+	return err != nil && err.Is(TaskUtilSetOutputRequiredValueEmptyCode)
+}
+
+// IsTaskUtilSetOutputRequiredValueEmpty tests whether a given error is an instance of "set_output_required_value_empty".
+func (External) IsTaskUtilSetOutputRequiredValueEmpty(err errawr.Error) bool {
+	return IsTaskUtilSetOutputRequiredValueEmpty(err)
+}
+
+// TaskUtilSetOutputRequiredValueEmptyBuilder is a builder for "set_output_required_value_empty" errors.
+type TaskUtilSetOutputRequiredValueEmptyBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "set_output_required_value_empty" from this builder.
+func (b *TaskUtilSetOutputRequiredValueEmptyBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "the value for {{param}} must not be empty",
+		Technical: "the value for {{param}} must not be empty",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "set_output_required_value_empty",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     TaskUtilSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Set output required value empty",
+		Version:          1,
+	}
+}
+
+// NewTaskUtilSetOutputRequiredValueEmptyBuilder creates a new error builder for the code "set_output_required_value_empty".
+func NewTaskUtilSetOutputRequiredValueEmptyBuilder(param string) *TaskUtilSetOutputRequiredValueEmptyBuilder {
+	return &TaskUtilSetOutputRequiredValueEmptyBuilder{arguments: impl.ErrorArguments{"param": impl.NewErrorArgument(param, "the parameter that was empty")}}
+}
+
+// NewTaskUtilSetOutputRequiredValueEmpty creates a new error with the code "set_output_required_value_empty".
+func NewTaskUtilSetOutputRequiredValueEmpty(param string) Error {
+	return NewTaskUtilSetOutputRequiredValueEmptyBuilder(param).Build()
+}
+
+// TaskUtilSetOutputUnexpectedStatusCodeCode is the code for an instance of "set_output_unexpected_status_code".
+const TaskUtilSetOutputUnexpectedStatusCodeCode = "nt_task_util_set_output_unexpected_status_code"
+
+// IsTaskUtilSetOutputUnexpectedStatusCode tests whether a given error is an instance of "set_output_unexpected_status_code".
+func IsTaskUtilSetOutputUnexpectedStatusCode(err errawr.Error) bool {
+	return err != nil && err.Is(TaskUtilSetOutputUnexpectedStatusCodeCode)
+}
+
+// IsTaskUtilSetOutputUnexpectedStatusCode tests whether a given error is an instance of "set_output_unexpected_status_code".
+func (External) IsTaskUtilSetOutputUnexpectedStatusCode(err errawr.Error) bool {
+	return IsTaskUtilSetOutputUnexpectedStatusCode(err)
+}
+
+// TaskUtilSetOutputUnexpectedStatusCodeBuilder is a builder for "set_output_unexpected_status_code" errors.
+type TaskUtilSetOutputUnexpectedStatusCodeBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "set_output_unexpected_status_code" from this builder.
+func (b *TaskUtilSetOutputUnexpectedStatusCodeBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "got an unexpected status code {{status_code}} when trying to set the output",
+		Technical: "got an unexpected status code {{status_code}} when trying to set the output",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "set_output_unexpected_status_code",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     TaskUtilSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Set output unexpected status code",
+		Version:          1,
+	}
+}
+
+// NewTaskUtilSetOutputUnexpectedStatusCodeBuilder creates a new error builder for the code "set_output_unexpected_status_code".
+func NewTaskUtilSetOutputUnexpectedStatusCodeBuilder(statusCode int64) *TaskUtilSetOutputUnexpectedStatusCodeBuilder {
+	return &TaskUtilSetOutputUnexpectedStatusCodeBuilder{arguments: impl.ErrorArguments{"status_code": impl.NewErrorArgument(statusCode, "the status code recieved from the api")}}
+}
+
+// NewTaskUtilSetOutputUnexpectedStatusCode creates a new error with the code "set_output_unexpected_status_code".
+func NewTaskUtilSetOutputUnexpectedStatusCode(statusCode int64) Error {
+	return NewTaskUtilSetOutputUnexpectedStatusCodeBuilder(statusCode).Build()
 }
 
 // TaskUtilSpecLoaderErrorCode is the code for an instance of "spec_loader_error".
