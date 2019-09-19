@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"os"
 
 	"github.com/puppetlabs/horsehead/mainutil"
@@ -55,7 +56,8 @@ func main() {
 	}
 
 	if err != nil {
-		mainutil.ExitWithCLIError(os.Stderr, 1, err)
+		fmt.Fprintln(os.Stderr, err.Error())
+		os.Exit(1)
 	}
 
 	srv := server.New(&cfg, managers)
