@@ -1,39 +1,53 @@
 package provisioning
 
 import (
+	"bytes"
 	"context"
+	"io"
 	"strings"
 	"time"
 
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
+	"github.com/puppetlabs/nebula-tasks/pkg/outputs/client"
 	"github.com/puppetlabs/nebula-tasks/pkg/provisioning/models"
 )
+
+const KubeconfigOutputKey = "kubeconfig-file"
 
 type K8sClusterAdapter interface {
 	ProvisionCluster(ctx context.Context) errors.Error
 	GetCluster(ctx context.Context) (*models.K8sCluster, errors.Error)
+	GetKubeconfig(ctx context.Context) (io.Reader, errors.Error)
 }
 
 type K8sClusterManager interface {
 	Synchronize(context.Context) (*models.K8sCluster, errors.Error)
+	SaveKubeconfig(context.Context) errors.Error
 }
 
-func NewK8sClusterManagerFromSpec(spec *models.K8sProvisionerSpec, workdir string) (K8sClusterManager, errors.Error) {
-	platform, ok := PlatformMapping[strings.ToLower(spec.Provider)]
+type K8sClusterManagerConfig struct {
+	Spec          *models.K8sProvisionerSpec
+	Workdir       string
+	OutputsClient client.OutputsClient
+}
+
+func NewK8sClusterManagerFromSpec(cfg K8sClusterManagerConfig) (K8sClusterManager, errors.Error) {
+	platform, ok := PlatformMapping[strings.ToLower(cfg.Spec.Provider)]
 	if !ok {
-		return nil, errors.NewK8sProvisionerUnknownProvider(spec.Provider)
+		return nil, errors.NewK8sProvisionerUnknownProvider(cfg.Spec.Provider)
 	}
 
-	adapter := PlatformAdapters[platform](spec, workdir)
+	adapter := PlatformAdapters[platform](cfg.Spec, cfg.Workdir)
 
-	return NewK8sClusterManager(spec, workdir, adapter), nil
+	return NewK8sClusterManager(cfg, adapter), nil
 }
 
 // k8sClusterManager creates, updates or deletes clusters
 type k8sClusterManager struct {
-	spec    *models.K8sProvisionerSpec
-	workdir string
-	adapter K8sClusterAdapter
+	spec          *models.K8sProvisionerSpec
+	workdir       string
+	adapter       K8sClusterAdapter
+	outputsClient client.OutputsClient
 }
 
 // Synchronize ensures a state bucket exists, then translates the spec into a kops configuration
@@ -53,7 +67,26 @@ func (k *k8sClusterManager) Synchronize(ctx context.Context) (*models.K8sCluster
 
 		return cluster, nil
 	})
+}
 
+// SaveKubeconfig will save the kubeconfig file for kubectl into the Nebula outputs storage
+// for subsequent tasks to use.
+func (k *k8sClusterManager) SaveKubeconfig(ctx context.Context) errors.Error {
+	r, err := k.adapter.GetKubeconfig(ctx)
+	if err != nil {
+		return err
+	}
+
+	buf := &bytes.Buffer{}
+	if _, err := buf.ReadFrom(r); err != nil {
+		return errors.NewK8sProvisionerKubeconfigReadError().WithCause(err)
+	}
+
+	if err := k.outputsClient.SetOutput(ctx, KubeconfigOutputKey, buf.String()); err != nil {
+		return errors.NewOutputsClientSetFailed().WithCause(err)
+	}
+
+	return nil
 }
 
 type untilCallbackFunc func() (*models.K8sCluster, errors.Error)
@@ -88,10 +121,11 @@ loop:
 
 // NewK8sClusterManager returns a new k8sClusterManager instance. Takes a spec and a platform adapter
 // and synchronize makes relevant synchronization calls to the adapter.
-func NewK8sClusterManager(spec *models.K8sProvisionerSpec, workdir string, adapter K8sClusterAdapter) *k8sClusterManager {
+func NewK8sClusterManager(cfg K8sClusterManagerConfig, adapter K8sClusterAdapter) *k8sClusterManager {
 	return &k8sClusterManager{
-		spec:    spec,
-		workdir: workdir,
-		adapter: adapter,
+		spec:          cfg.Spec,
+		workdir:       cfg.Workdir,
+		adapter:       adapter,
+		outputsClient: cfg.OutputsClient,
 	}
 }

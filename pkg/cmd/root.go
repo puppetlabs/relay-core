@@ -18,6 +18,7 @@ func NewRootCommand() (*cobra.Command, error) {
 	c.AddCommand(NewGetCommand())
 	c.AddCommand(NewGitCommand())
 	c.AddCommand(NewAWSCommand())
+	c.AddCommand(NewOutputCommand())
 
 	return c, nil
 }

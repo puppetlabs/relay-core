@@ -9,10 +9,10 @@ steps:
     credentials:
       gcpCredentials:
         $type: Secret
-        name: cluster/service-account-credentials
+        name: cluster-service-account-credentials
     project:
       $type: Secret
-      name: cluster/project
+      name: cluster-project
     clusterName: demo-gcp-cluster
     stateStoreName: demo-gcp-cluster-state
     nodeCount: 3

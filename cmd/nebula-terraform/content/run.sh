@@ -35,3 +35,11 @@ terraform init
 terraform workspace new ${WORKSPACE}
 terraform workspace select ${WORKSPACE}
 terraform apply -auto-approve
+
+outputs="$(terraform output -json | jq -c '. | to_entries[] | {"key": .key, "value": .value.value}')"
+
+for row in ${outputs}; do
+    output_key="$(echo ${row} | jq -r '.key')"
+    output_value="$(echo ${row} | jq -r '.value')"
+    ni output set --key "${output_key}" --value "${output_value}"
+done
