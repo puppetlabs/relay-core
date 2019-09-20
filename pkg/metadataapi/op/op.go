@@ -79,8 +79,8 @@ func NewForKubernetes(ctx context.Context, cfg *config.MetadataServerConfig) (*D
 	spm := task.NewKubernetesSpecManager(kc, cfg.Namespace)
 
 	return &DefaultManagerFactory{
-		sm:  sm,
-		om:  om,
+		sm:  NewEncodingSecretManager(sm),
+		om:  NewEncodeDecodingOutputsManager(om),
 		mm:  mm,
 		spm: spm,
 	}, nil
@@ -110,8 +110,8 @@ func NewForDev(ctx context.Context, cfg *config.MetadataServerConfig) (*DefaultM
 	spm := task.NewPreconfiguredSpecManager(preCfg.TaskSpecs)
 
 	return &DefaultManagerFactory{
-		sm:  sm,
-		om:  om,
+		sm:  NewEncodingSecretManager(sm),
+		om:  NewEncodeDecodingOutputsManager(om),
 		mm:  mm,
 		spm: spm,
 	}, nil

@@ -61,12 +61,18 @@ sections:
         arguments:
           task:
             description: the task name that was not found
+        metadata:
+          http:
+            status: 404
       key_not_found:
         title: Key not found
         description: key {{key}} was not found
         arguments:
           key:
             description: the key name that was not found
+        metadata:
+          http:
+            status: 404
       key_empty_error:
         title: Key empty error
         description: the output key was empty
@@ -94,6 +100,9 @@ sections:
       put_error:
         title: Put error
         description: there was an error storing the output
+      client_set_failed:
+        title: Client set failed
+        description: there was an error while setting an output using the client
 
   task:
     title: Task errors
@@ -267,6 +276,9 @@ sections:
         arguments:
           msg:
             description: a description of the timeout cause
+      kubeconfig_read_error:
+        title: Kubeconfig read error
+        description: failed to read the kubeconfig file from the adapter
 
   task_util:
     title: Task util errors
