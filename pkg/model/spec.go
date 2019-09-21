@@ -11,6 +11,7 @@ type GitSpec struct {
 type GitDetails struct {
 	Name       string `json:"name"`
 	Repository string `json:"repository"`
+	Branch     string `json:"branch"`
 	SSHKey     string `json:"ssh_key"`
 	KnownHosts string `json:"known_hosts"`
 }

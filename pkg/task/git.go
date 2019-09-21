@@ -27,8 +27,12 @@ func (ti *TaskInterface) CloneRepository(revision string, directory string) erro
 		resource.Name = DefaultName
 	}
 
-	if revision == "" {
-		revision = DefaultRevision
+	if revision != "" {
+		resource.Branch = revision
+	}
+
+	if resource.Branch == "" {
+		resource.Branch = DefaultRevision
 	}
 
 	if directory == "" {
@@ -42,7 +46,7 @@ func (ti *TaskInterface) CloneRepository(revision string, directory string) erro
 		}
 	}
 
-	err := taskutil.Fetch(revision, filepath.Join(directory, resource.Name), resource.Repository)
+	err := taskutil.Fetch(resource.Branch, filepath.Join(directory, resource.Name), resource.Repository)
 	if err != nil {
 		return err
 	}
