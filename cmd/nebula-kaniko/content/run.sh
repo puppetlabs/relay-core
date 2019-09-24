@@ -1,4 +1,5 @@
-#!/bin/sh
+#!/bin/bash
+set -euo pipefail
 
 export GOOGLE_APPLICATION_CREDENTIALS=/workspace/credentials.json
 
@@ -6,10 +7,17 @@ ni git clone
 ni credentials config
 
 NAME=$(ni get -p {.git.name})
-DOCKERFILE=$(ni get -p {.git.dockerfile})
+CONTEXT=$(ni get -p {.context})
+DOCKERFILE=$(ni get -p {.dockerfile})
 DESTINATION=$(ni get -p {.destination})
 
-WORKSPACE=/workspace/${NAME}
-DOCKERFILE=${WORKSPACE}/${DOCKERFILE:-Dockerfile}
+declare -a BUILD_ARGS_OPTIONS="($(ni get | jq -r 'try .buildArgs | to_entries[] | @sh "--build-arg=\( .key )=\( .value )"'))"
 
-/kaniko/executor --dockerfile=${DOCKERFILE} --context=${WORKSPACE} --destination=${DESTINATION}
+CONTEXT="/workspace/${NAME}/${CONTEXT}"
+DOCKERFILE="${CONTEXT}/${DOCKERFILE:-Dockerfile}"
+
+/kaniko/executor \
+    ${BUILD_ARGS_OPTIONS[@]} \
+    --dockerfile=${DOCKERFILE} \
+    --context=${CONTEXT} \
+    --destination=${DESTINATION}
