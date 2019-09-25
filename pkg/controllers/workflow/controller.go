@@ -22,7 +22,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog"
 
 	nebulav1 "github.com/puppetlabs/nebula-tasks/pkg/apis/nebula.puppet.com/v1"
@@ -57,12 +56,11 @@ type podAndTaskName struct {
 // ask kubernetes for the service account token, that it will use to proxy secrets
 // between the task pods and the vault server.
 type Controller struct {
-	kubeclientconfig clientcmd.ClientConfig
-	kubeclient       kubernetes.Interface
-	nebclient        clientset.Interface
-	tekclient        tekclientset.Interface
-	vaultclient      *vault.VaultAuth
-	storageclient    storage.BlobStore
+	kubeclient    kubernetes.Interface
+	nebclient     clientset.Interface
+	tekclient     tekclientset.Interface
+	vaultclient   *vault.VaultAuth
+	storageclient storage.BlobStore
 
 	saLister        neblisters.SecretAuthLister
 	saListerSynced  cache.InformerSynced
@@ -71,8 +69,9 @@ type Controller struct {
 	saworker        *worker
 	plrworker       *worker
 
-	cfg     *config.WorkflowControllerConfig
-	manager *DependencyManager
+	namespace string
+	cfg       *config.WorkflowControllerConfig
+	manager   *DependencyManager
 }
 
 // Run starts all required informers and spawns two worker goroutines
@@ -134,7 +133,7 @@ func (c *Controller) processSingleItem(ctx context.Context, key string) error {
 
 	if c.cfg.MetadataServiceImagePullSecret != "" {
 		klog.Info("copying secret for metadata service image")
-		ips, err = copyImagePullSecret(c.kubeclientconfig, c.kubeclient, sa, c.cfg.MetadataServiceImagePullSecret)
+		ips, err = copyImagePullSecret(c.namespace, c.kubeclient, sa, c.cfg.MetadataServiceImagePullSecret)
 		if err != nil {
 			return err
 		}
@@ -497,7 +496,7 @@ func (c *Controller) uploadLog(ctx context.Context, namespace string, podName st
 	return key, nil
 }
 
-func NewController(manager *DependencyManager, cfg *config.WorkflowControllerConfig, vc *vault.VaultAuth, bs storage.BlobStore) *Controller {
+func NewController(manager *DependencyManager, cfg *config.WorkflowControllerConfig, vc *vault.VaultAuth, bs storage.BlobStore, namespace string) *Controller {
 	saInformer := manager.SecretAuthInformer()
 	plrInformer := manager.PipelineRunInformer()
 
@@ -511,6 +510,7 @@ func NewController(manager *DependencyManager, cfg *config.WorkflowControllerCon
 		plrLister:       plrInformer.Lister(),
 		saListerSynced:  saInformer.Informer().HasSynced,
 		plrListerSynced: plrInformer.Informer().HasSynced,
+		namespace:       namespace,
 		cfg:             cfg,
 		manager:         manager,
 	}
@@ -559,12 +559,12 @@ func extractPodAndTaskNamesFromPipelineRun(plr *tekv1alpha1.PipelineRun) []podAn
 	return result
 }
 
-func copyImagePullSecret(kcfg clientcmd.ClientConfig, kc kubernetes.Interface, sa *nebulav1.SecretAuth, imagePullSecretKey string) (*corev1.Secret, error) {
+func copyImagePullSecret(workingNamespace string, kc kubernetes.Interface, sa *nebulav1.SecretAuth, imagePullSecretKey string) (*corev1.Secret, error) {
 	namespace, name, err := cache.SplitMetaNamespaceKey(imagePullSecretKey)
 	if err != nil {
 		return nil, err
 	} else if namespace == "" {
-		namespace, _, _ = kcfg.Namespace()
+		namespace = workingNamespace
 	}
 
 	ref, err := kc.CoreV1().Secrets(namespace).Get(name, metav1.GetOptions{})

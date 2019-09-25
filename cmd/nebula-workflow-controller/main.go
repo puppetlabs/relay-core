@@ -12,6 +12,7 @@ import (
 	"github.com/puppetlabs/horsehead/storage"
 	_ "github.com/puppetlabs/nebula-libs/storage/gcs"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
+	"github.com/puppetlabs/nebula-tasks/pkg/controllers"
 	"github.com/puppetlabs/nebula-tasks/pkg/controllers/workflow"
 	"github.com/puppetlabs/nebula-tasks/pkg/secrets/vault"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -25,8 +26,9 @@ func main() {
 	// configured too, which makes our command help make no sense.
 	fs := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 
-	kubeconfig := fs.String("kubeconfig", "", "path to kubeconfig file. Only required if running outside of a cluster")
+	kubeconfig := fs.String("kubeconfig", "", "path to kubeconfig file. Only required if running outside of a cluster.")
 	kubeMasterURL := fs.String("kube-master-url", "", "url to the kubernetes master")
+	kubeNamespace := fs.String("kube-namespace", "", "an optional working namespace to run the controller as. Only required if running outside of a cluster.")
 	vaultAddr := fs.String("vault-addr", "http://localhost:8200", "address to the vault server")
 	vaultToken := fs.String("vault-token", "", "token used to authenticate with the vault server")
 	vaultEngineMount := fs.String("vault-engine-mount", "nebula", "the engine mount to craft paths from")
@@ -84,7 +86,12 @@ func main() {
 		log.Fatal("Error creating controller dependency builder", err)
 	}
 
-	controller := workflow.NewController(manager, cfg, vc, blobStore)
+	namespace, err := controllers.LookupNamespace(*kubeNamespace)
+	if err != nil {
+		log.Fatal("Error looking up namespace")
+	}
+
+	controller := workflow.NewController(manager, cfg, vc, blobStore, namespace)
 
 	manager.NebulaInformerFactory.Start(stopCh)
 	manager.TektonInformerFactory.Start(stopCh)
