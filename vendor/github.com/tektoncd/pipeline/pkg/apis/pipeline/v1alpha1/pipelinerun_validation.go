@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2019 The Tekton Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,8 +20,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/knative/pkg/apis"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"knative.dev/pkg/apis"
 )
 
 // Validate pipelinerun
@@ -51,8 +51,8 @@ func (ps *PipelineRunSpec) Validate(ctx context.Context) *apis.FieldError {
 
 	if ps.Timeout != nil {
 		// timeout should be a valid duration of at least 0.
-		if ps.Timeout.Duration <= 0 {
-			return apis.ErrInvalidValue(fmt.Sprintf("%s should be > 0", ps.Timeout.Duration.String()), "spec.timeout")
+		if ps.Timeout.Duration < 0 {
+			return apis.ErrInvalidValue(fmt.Sprintf("%s should be >= 0", ps.Timeout.Duration.String()), "spec.timeout")
 		}
 	}
 

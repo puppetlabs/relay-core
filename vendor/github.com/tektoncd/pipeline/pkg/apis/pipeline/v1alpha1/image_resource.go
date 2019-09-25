@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors.
+Copyright 2019 The Tekton Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,16 +18,16 @@ package v1alpha1
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 
+	"golang.org/x/xerrors"
 	corev1 "k8s.io/api/core/v1"
 )
 
 // NewImageResource creates a new ImageResource from a PipelineResource.
 func NewImageResource(r *PipelineResource) (*ImageResource, error) {
 	if r.Spec.Type != PipelineResourceTypeImage {
-		return nil, fmt.Errorf("ImageResource: Cannot create an Image resource from a %s Pipeline Resource", r.Spec.Type)
+		return nil, xerrors.Errorf("ImageResource: Cannot create an Image resource from a %s Pipeline Resource", r.Spec.Type)
 	}
 	ir := &ImageResource{
 		Name: r.Name,
@@ -65,9 +65,6 @@ func (s ImageResource) GetType() PipelineResourceType {
 	return PipelineResourceTypeImage
 }
 
-// GetParams returns the resource params
-func (s ImageResource) GetParams() []Param { return []Param{} }
-
 // Replacements is used for template replacement on an ImageResource inside of a Taskrun.
 func (s *ImageResource) Replacements() map[string]string {
 	return map[string]string{
@@ -78,19 +75,10 @@ func (s *ImageResource) Replacements() map[string]string {
 	}
 }
 
-// GetUploadContainerSpec returns the spec for the upload container
-func (s *ImageResource) GetUploadContainerSpec() ([]corev1.Container, error) {
-	return nil, nil
-}
-
-// GetDownloadContainerSpec returns the spec for the download container
-func (s *ImageResource) GetDownloadContainerSpec() ([]corev1.Container, error) {
-	return nil, nil
-}
-
-// SetDestinationDirectory sets the destination for the resource
-func (s *ImageResource) SetDestinationDirectory(path string) {
-}
+func (s *ImageResource) GetUploadSteps(string) ([]Step, error)                    { return nil, nil }
+func (s *ImageResource) GetDownloadSteps(string) ([]Step, error)                  { return nil, nil }
+func (s *ImageResource) GetUploadVolumeSpec(*TaskSpec) ([]corev1.Volume, error)   { return nil, nil }
+func (s *ImageResource) GetDownloadVolumeSpec(*TaskSpec) ([]corev1.Volume, error) { return nil, nil }
 
 // GetOutputImageDir return the path to get the index.json file
 func (s *ImageResource) GetOutputImageDir() string {
