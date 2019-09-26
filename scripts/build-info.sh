@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 
-export RELEASE_MANIFEST=ci-release-manifest
 export TRAVIS_BRANCH="${TRAVIS_BRANCH:-$(git branch | grep \* | cut -d ' ' -f2)}"
 export TRAVIS_EVENT_TYPE="${TRAVIS_EVENT_TYPE:-}"
+export NEBULA_TASKS_BUILD_DIR="${NEBULA_TASKS_BUILD_DIR:-.build}"
+export NEBULA_TASKS_RELEASE_MANIFEST="${NEBULA_TASKS_RELEASE_MANIFEST:-${NEBULA_TASKS_BUILD_DIR}/ci-release-manifest}"
 
 DIRTY=
 [ -n "$(git status --porcelain --untracked-files=no)" ] && DIRTY="-dirty"
