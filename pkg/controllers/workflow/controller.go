@@ -29,7 +29,6 @@ import (
 	nebulav1 "github.com/puppetlabs/nebula-tasks/pkg/apis/nebula.puppet.com/v1"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
 	clientset "github.com/puppetlabs/nebula-tasks/pkg/generated/clientset/versioned"
-	nebulav1informers "github.com/puppetlabs/nebula-tasks/pkg/generated/informers/externalversions/nebula.puppet.com/v1"
 	neblisters "github.com/puppetlabs/nebula-tasks/pkg/generated/listers/nebula.puppet.com/v1"
 	"github.com/puppetlabs/nebula-tasks/pkg/secrets/vault"
 )
@@ -87,15 +86,15 @@ type Controller struct {
 	vaultclient   *vault.VaultAuth
 	storageclient storage.BlobStore
 
-	saLister                  neblisters.SecretAuthLister
-	saListerSynced            cache.InformerSynced
-	plrLister                 teklisters.PipelineRunLister
-	plrListerSynced           cache.InformerSynced
-	wfrworker                 *worker
-	saworker                  *worker
-	plrworker                 *worker
-	workflowRunInformer       nebulav1informers.WorkflowRunInformer
-	workflowRunInformerSynced cache.InformerSynced
+	saLister        neblisters.SecretAuthLister
+	saListerSynced  cache.InformerSynced
+	wfrLister       neblisters.WorkflowRunLister
+	wfrListerSynced cache.InformerSynced
+	plrLister       teklisters.PipelineRunLister
+	plrListerSynced cache.InformerSynced
+	wfrworker       *worker
+	saworker        *worker
+	plrworker       *worker
 
 	namespace string
 	cfg       *config.WorkflowControllerConfig
@@ -369,19 +368,20 @@ func (c *Controller) processPipelineRunChange(ctx context.Context, key string) e
 	labelMap := map[string]string{
 		"pipeline-id": plr.Name,
 	}
-	opts := metav1.ListOptions{
-		LabelSelector: labels.SelectorFromValidatedSet(labelMap).String(),
-	}
-	workflowList, err := c.nebclient.NebulaV1().WorkflowRuns(namespace).List(opts)
+
+	selector := labels.SelectorFromValidatedSet(labelMap)
+	workflowList, err := c.wfrLister.WorkflowRuns(namespace).List(selector)
 	if err != nil {
 		return err
 	}
 
-	for _, workflow := range workflowList.Items {
+	for _, workflow := range workflowList {
 		status, _ := c.updateWorkflowRunStatus(plr)
-		workflow.Status = *status
 
-		_, err = c.nebclient.NebulaV1().WorkflowRuns(namespace).Update(&workflow)
+		wfrCopy := workflow.DeepCopy()
+		wfrCopy.Status = *status
+
+		_, err = c.nebclient.NebulaV1().WorkflowRuns(namespace).Update(wfrCopy)
 		if err != nil {
 			return err
 		}
@@ -535,6 +535,7 @@ func (c *Controller) uploadLog(ctx context.Context, namespace string, podName st
 
 func NewController(manager *DependencyManager, cfg *config.WorkflowControllerConfig, vc *vault.VaultAuth, bs storage.BlobStore, namespace string) *Controller {
 	saInformer := manager.SecretAuthInformer()
+	wfrInformer := manager.WorkflowRunInformer()
 	plrInformer := manager.PipelineRunInformer()
 
 	c := &Controller{
@@ -544,8 +545,10 @@ func NewController(manager *DependencyManager, cfg *config.WorkflowControllerCon
 		vaultclient:     vc,
 		storageclient:   bs,
 		saLister:        saInformer.Lister(),
+		wfrLister:       wfrInformer.Lister(),
 		plrLister:       plrInformer.Lister(),
 		saListerSynced:  saInformer.Informer().HasSynced,
+		wfrListerSynced: wfrInformer.Informer().HasSynced,
 		plrListerSynced: plrInformer.Informer().HasSynced,
 		namespace:       namespace,
 		cfg:             cfg,
@@ -560,8 +563,14 @@ func NewController(manager *DependencyManager, cfg *config.WorkflowControllerCon
 		AddFunc: c.enqueueSecretAuth,
 	})
 
+	wfrInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.enqueueWorkflowRun,
+		UpdateFunc: passNew(c.enqueueWorkflowRun),
+		DeleteFunc: c.enqueueWorkflowRun,
+	})
+
 	plrInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		UpdateFunc: c.enqueuePipelineRunChange,
+		UpdateFunc: passNew(c.enqueuePipelineRun),
 	})
 
 	return c
@@ -1122,7 +1131,7 @@ func removeString(slice []string, s string) (result []string) {
 	return
 }
 
-func PassNew(f func(interface{})) func(interface{}, interface{}) {
+func passNew(f func(interface{})) func(interface{}, interface{}) {
 	return func(first, second interface{}) {
 		f(second)
 	}

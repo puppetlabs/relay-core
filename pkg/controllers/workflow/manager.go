@@ -27,6 +27,10 @@ func (d DependencyManager) SecretAuthInformer() nebv1informers.SecretAuthInforme
 	return d.NebulaInformerFactory.Nebula().V1().SecretAuths()
 }
 
+func (d DependencyManager) WorkflowRunInformer() nebv1informers.WorkflowRunInformer {
+	return d.NebulaInformerFactory.Nebula().V1().WorkflowRuns()
+}
+
 func (d DependencyManager) PipelineRunInformer() pipelinev1alpha1informers.PipelineRunInformer {
 	return d.TektonInformerFactory.Tekton().V1alpha1().PipelineRuns()
 }
