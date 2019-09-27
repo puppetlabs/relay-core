@@ -15,6 +15,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -23,12 +24,36 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog"
+	"knative.dev/pkg/apis"
 
 	nebulav1 "github.com/puppetlabs/nebula-tasks/pkg/apis/nebula.puppet.com/v1"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
 	clientset "github.com/puppetlabs/nebula-tasks/pkg/generated/clientset/versioned"
+	nebulav1informers "github.com/puppetlabs/nebula-tasks/pkg/generated/informers/externalversions/nebula.puppet.com/v1"
 	neblisters "github.com/puppetlabs/nebula-tasks/pkg/generated/listers/nebula.puppet.com/v1"
 	"github.com/puppetlabs/nebula-tasks/pkg/secrets/vault"
+)
+
+const (
+	pipelineRunAnnotation = "nebula.puppet.com/pipelinerun"
+	workflowRunAnnotation = "nebula.puppet.com/workflowrun"
+)
+
+type WorkflowRunStatus string
+type WorkflowRunStepStatus string
+
+const (
+	WorkflowRunStepStatusPending    WorkflowRunStepStatus = "pending"
+	WorkflowRunStepStatusInProgress WorkflowRunStepStatus = "in-progress"
+	WorkflowRunStepStatusSuccess    WorkflowRunStepStatus = "success"
+	WorkflowRunStepStatusFailure    WorkflowRunStepStatus = "failure"
+)
+
+const (
+	WorkflowRunStatusPending    WorkflowRunStatus = "pending"
+	WorkflowRunStatusInProgress WorkflowRunStatus = "in-progress"
+	WorkflowRunStatusSuccess    WorkflowRunStatus = "success"
+	WorkflowRunStatusFailure    WorkflowRunStatus = "failure"
 )
 
 const (
@@ -62,12 +87,15 @@ type Controller struct {
 	vaultclient   *vault.VaultAuth
 	storageclient storage.BlobStore
 
-	saLister        neblisters.SecretAuthLister
-	saListerSynced  cache.InformerSynced
-	plrLister       teklisters.PipelineRunLister
-	plrListerSynced cache.InformerSynced
-	saworker        *worker
-	plrworker       *worker
+	saLister                  neblisters.SecretAuthLister
+	saListerSynced            cache.InformerSynced
+	plrLister                 teklisters.PipelineRunLister
+	plrListerSynced           cache.InformerSynced
+	wfrworker                 *worker
+	saworker                  *worker
+	plrworker                 *worker
+	workflowRunInformer       nebulav1informers.WorkflowRunInformer
+	workflowRunInformerSynced cache.InformerSynced
 
 	namespace string
 	cfg       *config.WorkflowControllerConfig
@@ -81,13 +109,15 @@ func (c *Controller) Run(numWorkers int, stopCh chan struct{}) error {
 	defer utilruntime.HandleCrash()
 	defer c.saworker.shutdown()
 	defer c.plrworker.shutdown()
+	defer c.wfrworker.shutdown()
 
-	if !cache.WaitForCacheSync(stopCh, c.saListerSynced, c.plrListerSynced) {
+	if !cache.WaitForCacheSync(stopCh, c.saListerSynced, c.plrListerSynced, c.wfrListerSynced) {
 		return fmt.Errorf("failed to wait for informer cache to sync")
 	}
 
 	c.saworker.run(numWorkers, stopCh)
 	c.plrworker.run(numWorkers, stopCh)
+	c.wfrworker.run(numWorkers, stopCh)
 
 	<-stopCh
 
@@ -317,20 +347,6 @@ func (c *Controller) enqueueSecretAuth(obj interface{}) {
 	c.saworker.add(key)
 }
 
-func (c *Controller) enqueuePipelineRunChange(old, obj interface{}) {
-	// old is ignored because we only care about the current state
-	plr := obj.(*tekv1alpha1.PipelineRun)
-
-	key, err := cache.MetaNamespaceKeyFunc(plr)
-	if err != nil {
-		utilruntime.HandleError(err)
-
-		return
-	}
-
-	c.plrworker.add(key)
-}
-
 func (c *Controller) processPipelineRunChange(ctx context.Context, key string) error {
 	klog.Infof("syncing PipelineRun change %s", key)
 	defer klog.Infof("done syncing PipelineRun change %s", key)
@@ -348,6 +364,27 @@ func (c *Controller) processPipelineRunChange(ctx context.Context, key string) e
 	}
 	if err != nil {
 		return err
+	}
+
+	labelMap := map[string]string{
+		"pipeline-id": plr.Name,
+	}
+	opts := metav1.ListOptions{
+		LabelSelector: labels.SelectorFromValidatedSet(labelMap).String(),
+	}
+	workflowList, err := c.nebclient.NebulaV1().WorkflowRuns(namespace).List(opts)
+	if err != nil {
+		return err
+	}
+
+	for _, workflow := range workflowList.Items {
+		status, _ := c.updateWorkflowRunStatus(plr)
+		workflow.Status = *status
+
+		_, err = c.nebclient.NebulaV1().WorkflowRuns(namespace).Update(&workflow)
+		if err != nil {
+			return err
+		}
 	}
 
 	if plr.IsDone() {
@@ -516,6 +553,7 @@ func NewController(manager *DependencyManager, cfg *config.WorkflowControllerCon
 	}
 
 	c.saworker = newWorker("SecretAuths", (*c).processSingleItem, defaultMaxRetries)
+	c.wfrworker = newWorker("WorkflowRuns", (*c).processWorkflowRunChange, defaultMaxRetries)
 	c.plrworker = newWorker("PipelineRuns", (*c).processPipelineRunChange, defaultMaxRetries)
 
 	saInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -850,4 +888,242 @@ func getLabels(sa *nebulav1.SecretAuth, additional map[string]string) map[string
 	}
 
 	return labels
+}
+
+func (c *Controller) processWorkflowRunChange(ctx context.Context, key string) error {
+	namespace, name, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		return err
+	}
+
+	wf, err := c.nebclient.NebulaV1().WorkflowRuns(namespace).Get(name, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	if wf.ObjectMeta.DeletionTimestamp.IsZero() {
+		if _, ok := wf.GetAnnotations()[pipelineRunAnnotation]; !ok {
+			plr, err := c.createPipelineRun(wf.Spec.Name, namespace)
+			if err != nil {
+				return err
+			}
+
+			pipelineId := wf.Spec.Name
+			if wf.Labels == nil {
+				wf.Labels = make(map[string]string, 0)
+			}
+			wf.Labels["pipeline-id"] = pipelineId
+
+			metav1.SetMetaDataAnnotation(&wf.ObjectMeta, pipelineRunAnnotation, plr.Name)
+
+			if !containsString(wf.ObjectMeta.Finalizers, workflowRunAnnotation) {
+				wf.ObjectMeta.Finalizers = append(wf.ObjectMeta.Finalizers, workflowRunAnnotation)
+			}
+
+			wf, err = c.nebclient.NebulaV1().WorkflowRuns(namespace).Update(wf)
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		if containsString(wf.ObjectMeta.Finalizers, workflowRunAnnotation) {
+			wf.ObjectMeta.Finalizers = removeString(wf.ObjectMeta.Finalizers, workflowRunAnnotation)
+
+			wf, err = c.nebclient.NebulaV1().WorkflowRuns(namespace).Update(wf)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (c *Controller) enqueueWorkflowRun(obj interface{}) {
+	wf := obj.(*nebulav1.WorkflowRun)
+
+	key, err := cache.MetaNamespaceKeyFunc(wf)
+	if err != nil {
+		utilruntime.HandleError(err)
+
+		return
+	}
+
+	c.wfrworker.add(key)
+}
+
+func (c *Controller) enqueuePipelineRun(obj interface{}) {
+	plr := obj.(*tekv1alpha1.PipelineRun)
+
+	key, err := cache.MetaNamespaceKeyFunc(plr)
+	if err != nil {
+		utilruntime.HandleError(err)
+
+		return
+	}
+
+	c.plrworker.add(key)
+}
+
+func (c *Controller) createPipelineRun(pipelineId, namespace string) (*tekv1alpha1.PipelineRun, error) {
+	plr, err := c.tekclient.TektonV1alpha1().PipelineRuns(namespace).Get(pipelineId, metav1.GetOptions{})
+	if plr != nil && plr != (&tekv1alpha1.PipelineRun{}) && plr.Name != "" {
+		return plr, nil
+	}
+
+	labelMap := map[string]string{
+		pipelineRunAnnotation: pipelineId,
+	}
+
+	serviceAccount, err := c.createServiceAccount(pipelineId, namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	pipelineRun := &tekv1alpha1.PipelineRun{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pipelineId,
+			Namespace: namespace,
+			Labels:    labelMap,
+		},
+		Spec: tekv1alpha1.PipelineRunSpec{
+			ServiceAccount: serviceAccount.Name,
+			PipelineRef: tekv1alpha1.PipelineRef{
+				Name: pipelineId,
+			},
+		},
+	}
+
+	createdPipelineRun, err := c.tekclient.TektonV1alpha1().PipelineRuns(namespace).Create(pipelineRun)
+	if err != nil {
+		return nil, err
+	}
+
+	return createdPipelineRun, nil
+}
+
+func (c *Controller) createServiceAccount(pipelineName, namespace string) (*corev1.ServiceAccount, error) {
+	serviceAccount, _ := c.kubeclient.CoreV1().ServiceAccounts(namespace).Get(pipelineName, metav1.GetOptions{})
+	if serviceAccount != nil {
+		return serviceAccount, nil
+	}
+
+	serviceAccount = &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pipelineName,
+			Namespace: namespace,
+		},
+	}
+
+	return c.kubeclient.CoreV1().ServiceAccounts(namespace).Create(serviceAccount)
+}
+
+func (c *Controller) updateWorkflowRunStatus(plr *tekv1alpha1.PipelineRun) (*nebulav1.WorkflowRunStatus, error) {
+	pipelineRunTaskRunStatuses := make(map[string]*tekv1alpha1.PipelineRunTaskRunStatus)
+	for _, taskRun := range plr.Status.TaskRuns {
+		pipelineRunTaskRunStatuses[taskRun.PipelineTaskName] = taskRun
+	}
+
+	workflowRunSteps := make(map[string]nebulav1.WorkflowRunStep)
+
+	for taskName, taskRun := range plr.Status.TaskRuns {
+		if nil == taskRun.Status {
+			continue
+		}
+		step := nebulav1.WorkflowRunStep{
+			Name:   taskRun.PipelineTaskName,
+			Status: string(mapTaskStatus(taskRun)),
+		}
+
+		if taskRun.Status.StartTime != nil {
+			step.StartTime = taskRun.Status.StartTime
+		}
+		if taskRun.Status.CompletionTime != nil {
+			step.CompletionTime = taskRun.Status.CompletionTime
+		}
+
+		workflowRunSteps[taskName] = step
+	}
+
+	status := taskStatusesToRunStatus(workflowRunSteps)
+
+	workflowRunStatus := &nebulav1.WorkflowRunStatus{
+		Status: string(status),
+		Steps:  workflowRunSteps,
+	}
+
+	if plr.Status.StartTime != nil {
+		workflowRunStatus.StartTime = plr.Status.StartTime
+	}
+	if plr.Status.CompletionTime != nil {
+		workflowRunStatus.CompletionTime = plr.Status.CompletionTime
+	}
+
+	return workflowRunStatus, nil
+}
+
+func mapTaskStatus(taskRun *tekv1alpha1.PipelineRunTaskRunStatus) WorkflowRunStepStatus {
+	for _, cs := range taskRun.Status.Conditions {
+		switch cs.Type {
+		case apis.ConditionSucceeded:
+			switch cs.Status {
+			case corev1.ConditionUnknown:
+				return WorkflowRunStepStatusInProgress
+			case corev1.ConditionTrue:
+				return WorkflowRunStepStatusSuccess
+			case corev1.ConditionFalse:
+				return WorkflowRunStepStatusFailure
+			}
+		}
+	}
+
+	return WorkflowRunStepStatusPending
+}
+
+func taskStatusesToRunStatus(tss map[string]nebulav1.WorkflowRunStep) WorkflowRunStatus {
+	if tss == nil || len(tss) <= 0 {
+		return WorkflowRunStatusPending
+	}
+
+	wrs := WorkflowRunStatusSuccess
+	for _, rts := range tss {
+		switch WorkflowRunStepStatus(rts.Status) {
+		case WorkflowRunStepStatusFailure:
+			wrs = WorkflowRunStatusFailure
+			return wrs
+		case WorkflowRunStepStatusPending:
+			if wrs != WorkflowRunStatusInProgress {
+				wrs = WorkflowRunStatusPending
+			}
+		case WorkflowRunStepStatusInProgress:
+			wrs = WorkflowRunStatusInProgress
+		}
+	}
+
+	return wrs
+}
+
+func containsString(slice []string, s string) bool {
+	for _, item := range slice {
+		if item == s {
+			return true
+		}
+	}
+	return false
+}
+
+func removeString(slice []string, s string) (result []string) {
+	for _, item := range slice {
+		if item == s {
+			continue
+		}
+		result = append(result, item)
+	}
+	return
+}
+
+func PassNew(f func(interface{})) func(interface{}, interface{}) {
+	return func(first, second interface{}) {
+		f(second)
+	}
 }

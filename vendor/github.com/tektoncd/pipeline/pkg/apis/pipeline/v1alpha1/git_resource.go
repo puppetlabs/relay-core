@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors.
+Copyright 2019 The Tekton Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,14 +18,14 @@ package v1alpha1
 
 import (
 	"flag"
-	"fmt"
 	"strings"
 
 	"github.com/tektoncd/pipeline/pkg/names"
+	"golang.org/x/xerrors"
 	corev1 "k8s.io/api/core/v1"
 )
 
-const workspaceDir = "/workspace"
+const WorkspaceDir = "/workspace"
 
 var (
 	gitSource = "git-source"
@@ -43,14 +43,13 @@ type GitResource struct {
 	// Git revision (branch, tag, commit SHA or ref) to clone.  See
 	// https://git-scm.com/docs/gitrevisions#_specifying_revisions for more
 	// information.
-	Revision   string `json:"revision"`
-	TargetPath string
+	Revision string `json:"revision"`
 }
 
-// NewGitResource create a new git resource to pass to a Task
+// NewGitResource creates a new git resource to pass to a Task
 func NewGitResource(r *PipelineResource) (*GitResource, error) {
 	if r.Spec.Type != PipelineResourceTypeGit {
-		return nil, fmt.Errorf("GitResource: Cannot create a Git resource from a %s Pipeline Resource", r.Spec.Type)
+		return nil, xerrors.Errorf("GitResource: Cannot create a Git resource from a %s Pipeline Resource", r.Spec.Type)
 	}
 	gitResource := GitResource{
 		Name: r.Name,
@@ -64,7 +63,7 @@ func NewGitResource(r *PipelineResource) (*GitResource, error) {
 			gitResource.Revision = param.Value
 		}
 	}
-	// default revision to master is nothing is provided
+	// default revision to master if nothing is provided
 	if gitResource.Revision == "" {
 		gitResource.Revision = "master"
 	}
@@ -86,9 +85,6 @@ func (s *GitResource) GetURL() string {
 	return s.URL
 }
 
-// GetParams returns the resource params
-func (s GitResource) GetParams() []Param { return []Param{} }
-
 // Replacements is used for template replacement on a GitResource inside of a Taskrun.
 func (s *GitResource) Replacements() map[string]string {
 	return map[string]string{
@@ -99,32 +95,22 @@ func (s *GitResource) Replacements() map[string]string {
 	}
 }
 
-func (s *GitResource) GetDownloadContainerSpec() ([]corev1.Container, error) {
+func (s *GitResource) GetDownloadSteps(sourcePath string) ([]Step, error) {
 	args := []string{"-url", s.URL,
 		"-revision", s.Revision,
 	}
-	var dPath string
-	if s.TargetPath != "" {
-		dPath = s.TargetPath
-	} else {
-		dPath = s.Name
-	}
 
-	args = append(args, []string{"-path", dPath}...)
+	args = append(args, []string{"-path", sourcePath}...)
 
-	return []corev1.Container{{
+	return []Step{{Container: corev1.Container{
 		Name:       names.SimpleNameGenerator.RestrictLengthWithRandomSuffix(gitSource + "-" + s.Name),
 		Image:      *gitImage,
 		Command:    []string{"/ko-app/git-init"},
 		Args:       args,
-		WorkingDir: workspaceDir,
-	}}, nil
+		WorkingDir: WorkspaceDir,
+	}}}, nil
 }
 
-func (s *GitResource) SetDestinationDirectory(path string) {
-	s.TargetPath = path
-}
-
-func (s *GitResource) GetUploadContainerSpec() ([]corev1.Container, error) {
-	return nil, nil
-}
+func (s *GitResource) GetUploadSteps(sourcePath string) ([]Step, error)              { return nil, nil }
+func (s *GitResource) GetUploadVolumeSpec(spec *TaskSpec) ([]corev1.Volume, error)   { return nil, nil }
+func (s *GitResource) GetDownloadVolumeSpec(spec *TaskSpec) ([]corev1.Volume, error) { return nil, nil }

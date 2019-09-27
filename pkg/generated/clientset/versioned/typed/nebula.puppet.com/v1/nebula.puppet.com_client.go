@@ -27,6 +27,7 @@ import (
 type NebulaV1Interface interface {
 	RESTClient() rest.Interface
 	SecretAuthsGetter
+	WorkflowRunsGetter
 }
 
 // NebulaV1Client is used to interact with features provided by the nebula.puppet.com group.
@@ -36,6 +37,10 @@ type NebulaV1Client struct {
 
 func (c *NebulaV1Client) SecretAuths(namespace string) SecretAuthInterface {
 	return newSecretAuths(c, namespace)
+}
+
+func (c *NebulaV1Client) WorkflowRuns(namespace string) WorkflowRunInterface {
+	return newWorkflowRuns(c, namespace)
 }
 
 // NewForConfig creates a new NebulaV1Client for the given config.
