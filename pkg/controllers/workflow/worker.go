@@ -1,4 +1,4 @@
-package secretauth
+package workflow
 
 import (
 	"context"

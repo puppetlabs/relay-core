@@ -1,4 +1,4 @@
-package secretauth
+package workflow
 
 import (
 	"context"
@@ -10,8 +10,7 @@ import (
 	"github.com/puppetlabs/horsehead/storage"
 	tekv1alpha1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
 	tekclientset "github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
-	tekinformers "github.com/tektoncd/pipeline/pkg/client/informers/externalversions"
-	tekv1informer "github.com/tektoncd/pipeline/pkg/client/informers/externalversions/pipeline/v1alpha1"
+	teklisters "github.com/tektoncd/pipeline/pkg/client/listers/pipeline/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -24,16 +23,13 @@ import (
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clientcmd"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog"
 	"knative.dev/pkg/apis"
 
 	nebulav1 "github.com/puppetlabs/nebula-tasks/pkg/apis/nebula.puppet.com/v1"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
 	clientset "github.com/puppetlabs/nebula-tasks/pkg/generated/clientset/versioned"
-	informers "github.com/puppetlabs/nebula-tasks/pkg/generated/informers/externalversions"
-	nebulav1informers "github.com/puppetlabs/nebula-tasks/pkg/generated/informers/externalversions/nebula.puppet.com/v1"
+	neblisters "github.com/puppetlabs/nebula-tasks/pkg/generated/listers/nebula.puppet.com/v1"
 	"github.com/puppetlabs/nebula-tasks/pkg/secrets/vault"
 )
 
@@ -84,25 +80,25 @@ type podAndTaskName struct {
 // ask kubernetes for the service account token, that it will use to proxy secrets
 // between the task pods and the vault server.
 type Controller struct {
-	kubeclientconfig          clientcmd.ClientConfig
-	kubeclient                kubernetes.Interface
-	nebclient                 clientset.Interface
-	tekclient                 tekclientset.Interface
-	nebInformerFactory        informers.SharedInformerFactory
-	saInformer                nebulav1informers.SecretAuthInformer
-	saInformerSynced          cache.InformerSynced
-	tekInformerFactory        tekinformers.SharedInformerFactory
-	plrInformer               tekv1informer.PipelineRunInformer
-	plrInformerSynced         cache.InformerSynced
-	workflowRunInformer       nebulav1informers.WorkflowRunInformer
-	workflowRunInformerSynced cache.InformerSynced
-	saworker                  *worker
-	wfrworker                 *worker
-	plrworker                 *worker
-	vaultClient               *vault.VaultAuth
-	blobStore                 storage.BlobStore
+	kubeclient    kubernetes.Interface
+	nebclient     clientset.Interface
+	tekclient     tekclientset.Interface
+	vaultclient   *vault.VaultAuth
+	storageclient storage.BlobStore
 
-	cfg *config.SecretAuthControllerConfig
+	saLister        neblisters.SecretAuthLister
+	saListerSynced  cache.InformerSynced
+	wfrLister       neblisters.WorkflowRunLister
+	wfrListerSynced cache.InformerSynced
+	plrLister       teklisters.PipelineRunLister
+	plrListerSynced cache.InformerSynced
+	wfrworker       *worker
+	saworker        *worker
+	plrworker       *worker
+
+	namespace string
+	cfg       *config.WorkflowControllerConfig
+	manager   *DependencyManager
 }
 
 // Run starts all required informers and spawns two worker goroutines
@@ -114,15 +110,7 @@ func (c *Controller) Run(numWorkers int, stopCh chan struct{}) error {
 	defer c.plrworker.shutdown()
 	defer c.wfrworker.shutdown()
 
-	c.nebInformerFactory.Start(stopCh)
-
-	if ok := cache.WaitForCacheSync(stopCh, c.saInformerSynced); !ok {
-		return fmt.Errorf("failed to wait for informer cache to sync")
-	}
-
-	c.tekInformerFactory.Start(stopCh)
-
-	if ok := cache.WaitForCacheSync(stopCh, c.plrInformerSynced); !ok {
+	if !cache.WaitForCacheSync(stopCh, c.saListerSynced, c.plrListerSynced, c.wfrListerSynced) {
 		return fmt.Errorf("failed to wait for informer cache to sync")
 	}
 
@@ -147,7 +135,7 @@ func (c *Controller) processSingleItem(ctx context.Context, key string) error {
 		return err
 	}
 
-	sa, err := c.nebclient.NebulaV1().SecretAuths(namespace).Get(name, metav1.GetOptions{})
+	sa, err := c.saLister.SecretAuths(namespace).Get(name)
 	if errors.IsNotFound(err) {
 		return nil
 	}
@@ -174,7 +162,7 @@ func (c *Controller) processSingleItem(ctx context.Context, key string) error {
 
 	if c.cfg.MetadataServiceImagePullSecret != "" {
 		klog.Info("copying secret for metadata service image")
-		ips, err = copyImagePullSecret(c.kubeclientconfig, c.kubeclient, sa, c.cfg.MetadataServiceImagePullSecret)
+		ips, err = copyImagePullSecret(c.namespace, c.kubeclient, sa, c.cfg.MetadataServiceImagePullSecret)
 		if err != nil {
 			return err
 		}
@@ -187,12 +175,12 @@ func (c *Controller) processSingleItem(ctx context.Context, key string) error {
 
 	klog.Infof("writing vault readonly access policy %s", sa.Spec.WorkflowID)
 	// now we let vault know about the service account
-	if err := c.vaultClient.WritePolicy(namespace, sa.Spec.WorkflowID); err != nil {
+	if err := c.vaultclient.WritePolicy(namespace, sa.Spec.WorkflowID); err != nil {
 		return err
 	}
 
 	klog.Infof("enabling vault access for workflow service account %s", sa.Spec.WorkflowID)
-	if err := c.vaultClient.WriteRole(namespace, saccount.GetName(), namespace); err != nil {
+	if err := c.vaultclient.WriteRole(namespace, saccount.GetName(), namespace); err != nil {
 		return err
 	}
 
@@ -206,7 +194,7 @@ func (c *Controller) processSingleItem(ctx context.Context, key string) error {
 	// caching or additional security) instead of directly to the Vault server.
 	podVaultAddr := c.cfg.MetadataServiceVaultAddr
 	if podVaultAddr == "" {
-		podVaultAddr = c.vaultClient.Address()
+		podVaultAddr = c.vaultclient.Address()
 	}
 
 	pod, err = createMetadataAPIPod(
@@ -215,7 +203,7 @@ func (c *Controller) processSingleItem(ctx context.Context, key string) error {
 		saccount,
 		sa,
 		podVaultAddr,
-		c.vaultClient.EngineMount(),
+		c.vaultclient.EngineMount(),
 	)
 	if err != nil {
 		return err
@@ -380,19 +368,20 @@ func (c *Controller) processPipelineRunChange(ctx context.Context, key string) e
 	labelMap := map[string]string{
 		"pipeline-id": plr.Name,
 	}
-	opts := metav1.ListOptions{
-		LabelSelector: labels.SelectorFromValidatedSet(labelMap).String(),
-	}
-	workflowList, err := c.nebclient.NebulaV1().WorkflowRuns(namespace).List(opts)
+
+	selector := labels.SelectorFromValidatedSet(labelMap)
+	workflowList, err := c.wfrLister.WorkflowRuns(namespace).List(selector)
 	if err != nil {
 		return err
 	}
 
-	for _, workflow := range workflowList.Items {
+	for _, workflow := range workflowList {
 		status, _ := c.updateWorkflowRunStatus(plr)
-		workflow.Status = *status
 
-		_, err = c.nebclient.NebulaV1().WorkflowRuns(namespace).Update(&workflow)
+		wfrCopy := workflow.DeepCopy()
+		wfrCopy.Status = *status
+
+		_, err = c.nebclient.NebulaV1().WorkflowRuns(namespace).Update(wfrCopy)
 		if err != nil {
 			return err
 		}
@@ -455,12 +444,12 @@ func (c *Controller) processPipelineRunChange(ctx context.Context, key string) e
 				return err
 			}
 
-			err = c.vaultClient.DeleteRole(sa.Status.VaultAuthRole)
+			err = c.vaultclient.DeleteRole(sa.Status.VaultAuthRole)
 			if err != nil {
 				return err
 			}
 
-			err = c.vaultClient.DeletePolicy(sa.Status.VaultPolicy)
+			err = c.vaultclient.DeletePolicy(sa.Status.VaultPolicy)
 			if err != nil {
 				return err
 			}
@@ -532,7 +521,7 @@ func (c *Controller) uploadLog(ctx context.Context, namespace string, podName st
 	}
 	defer rc.Close()
 
-	err = c.blobStore.Put(ctx, key, func(w io.Writer) error {
+	err = c.storageclient.Put(ctx, key, func(w io.Writer) error {
 		_, err := io.Copy(w, rc)
 		return err
 	}, storage.PutOptions{
@@ -542,6 +531,49 @@ func (c *Controller) uploadLog(ctx context.Context, namespace string, podName st
 		return "", err
 	}
 	return key, nil
+}
+
+func NewController(manager *DependencyManager, cfg *config.WorkflowControllerConfig, vc *vault.VaultAuth, bs storage.BlobStore, namespace string) *Controller {
+	saInformer := manager.SecretAuthInformer()
+	wfrInformer := manager.WorkflowRunInformer()
+	plrInformer := manager.PipelineRunInformer()
+
+	c := &Controller{
+		kubeclient:      manager.KubeClient,
+		nebclient:       manager.NebulaClient,
+		tekclient:       manager.TektonClient,
+		vaultclient:     vc,
+		storageclient:   bs,
+		saLister:        saInformer.Lister(),
+		wfrLister:       wfrInformer.Lister(),
+		plrLister:       plrInformer.Lister(),
+		saListerSynced:  saInformer.Informer().HasSynced,
+		wfrListerSynced: wfrInformer.Informer().HasSynced,
+		plrListerSynced: plrInformer.Informer().HasSynced,
+		namespace:       namespace,
+		cfg:             cfg,
+		manager:         manager,
+	}
+
+	c.saworker = newWorker("SecretAuths", (*c).processSingleItem, defaultMaxRetries)
+	c.wfrworker = newWorker("WorkflowRuns", (*c).processWorkflowRunChange, defaultMaxRetries)
+	c.plrworker = newWorker("PipelineRuns", (*c).processPipelineRunChange, defaultMaxRetries)
+
+	saInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: c.enqueueSecretAuth,
+	})
+
+	wfrInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.enqueueWorkflowRun,
+		UpdateFunc: passNew(c.enqueueWorkflowRun),
+		DeleteFunc: c.enqueueWorkflowRun,
+	})
+
+	plrInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: passNew(c.enqueuePipelineRun),
+	})
+
+	return c
 }
 
 func extractPodAndTaskNamesFromPipelineRun(plr *tekv1alpha1.PipelineRun) []podAndTaskName {
@@ -574,87 +606,12 @@ func extractPodAndTaskNamesFromPipelineRun(plr *tekv1alpha1.PipelineRun) []podAn
 	return result
 }
 
-func NewController(cfg *config.SecretAuthControllerConfig, vaultClient *vault.VaultAuth, blobStore storage.BlobStore) (*Controller, error) {
-	// The following two statements are essentially equivalent to calling
-	// clientcmd.BuildConfigFromFlags(), but we need the Namespace() method from
-	// the clientcmd.ClientConfig, so we have to unwrap it.
-	kcfg := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		&clientcmd.ClientConfigLoadingRules{ExplicitPath: cfg.Kubeconfig},
-		&clientcmd.ConfigOverrides{ClusterInfo: clientcmdapi.Cluster{Server: cfg.KubeMasterURL}},
-	)
-
-	kcc, err := kcfg.ClientConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	kc, err := kubernetes.NewForConfig(kcc)
-	if err != nil {
-		return nil, err
-	}
-
-	nebclient, err := clientset.NewForConfig(kcc)
-	if err != nil {
-		return nil, err
-	}
-
-	tekclient, err := tekclientset.NewForConfig(kcc)
-	if err != nil {
-		return nil, err
-	}
-
-	nebInformerFactory := informers.NewSharedInformerFactory(nebclient, time.Second*30)
-	saInformer := nebInformerFactory.Nebula().V1().SecretAuths()
-	workflowRunInformer := nebInformerFactory.Nebula().V1().WorkflowRuns()
-
-	tekInformerFactory := tekinformers.NewSharedInformerFactory(tekclient, time.Second*30)
-	plrInformer := tekInformerFactory.Tekton().V1alpha1().PipelineRuns()
-
-	c := &Controller{
-		kubeclientconfig:          kcfg,
-		kubeclient:                kc,
-		nebclient:                 nebclient,
-		tekclient:                 tekclient,
-		nebInformerFactory:        nebInformerFactory,
-		saInformer:                saInformer,
-		saInformerSynced:          saInformer.Informer().HasSynced,
-		workflowRunInformer:       workflowRunInformer,
-		workflowRunInformerSynced: workflowRunInformer.Informer().HasSynced,
-		tekInformerFactory:        tekInformerFactory,
-		plrInformer:               plrInformer,
-		plrInformerSynced:         plrInformer.Informer().HasSynced,
-		vaultClient:               vaultClient,
-		blobStore:                 blobStore,
-		cfg:                       cfg,
-	}
-
-	c.saworker = newWorker("SecretAuths", (*c).processSingleItem, defaultMaxRetries)
-	c.wfrworker = newWorker("WorkflowRuns", (*c).processWorkflowRunChange, defaultMaxRetries)
-	c.plrworker = newWorker("PipelineRuns", (*c).processPipelineRunChange, defaultMaxRetries)
-
-	saInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: c.enqueueSecretAuth,
-	})
-
-	workflowRunInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.enqueueWorkflowRun,
-		UpdateFunc: PassNew(c.enqueueWorkflowRun),
-		DeleteFunc: c.enqueueWorkflowRun,
-	})
-
-	plrInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		UpdateFunc: PassNew(c.enqueuePipelineRun),
-	})
-
-	return c, nil
-}
-
-func copyImagePullSecret(kcfg clientcmd.ClientConfig, kc kubernetes.Interface, sa *nebulav1.SecretAuth, imagePullSecretKey string) (*corev1.Secret, error) {
+func copyImagePullSecret(workingNamespace string, kc kubernetes.Interface, sa *nebulav1.SecretAuth, imagePullSecretKey string) (*corev1.Secret, error) {
 	namespace, name, err := cache.SplitMetaNamespaceKey(imagePullSecretKey)
 	if err != nil {
 		return nil, err
 	} else if namespace == "" {
-		namespace, _, _ = kcfg.Namespace()
+		namespace = workingNamespace
 	}
 
 	ref, err := kc.CoreV1().Secrets(namespace).Get(name, metav1.GetOptions{})
@@ -1174,7 +1131,7 @@ func removeString(slice []string, s string) (result []string) {
 	return
 }
 
-func PassNew(f func(interface{})) func(interface{}, interface{}) {
+func passNew(f func(interface{})) func(interface{}, interface{}) {
 	return func(first, second interface{}) {
 		f(second)
 	}
