@@ -28,6 +28,7 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&SecretAuth{},
 		&SecretAuthList{},
 		&WorkflowRun{},
+		&WorkflowRunList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil
