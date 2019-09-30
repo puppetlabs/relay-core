@@ -83,7 +83,7 @@ type Controller struct {
 	kubeclient    kubernetes.Interface
 	nebclient     clientset.Interface
 	tekclient     tekclientset.Interface
-	vaultclient   *vault.VaultAuth
+	secretsclient SecretAuthAccessManager
 	storageclient storage.BlobStore
 
 	saLister        neblisters.SecretAuthLister
@@ -173,14 +173,9 @@ func (c *Controller) processSingleItem(ctx context.Context, key string) error {
 		return err
 	}
 
-	klog.Infof("writing vault readonly access policy %s", sa.Spec.WorkflowID)
-	// now we let vault know about the service account
-	if err := c.vaultclient.WritePolicy(namespace, sa.Spec.WorkflowID); err != nil {
-		return err
-	}
-
-	klog.Infof("enabling vault access for workflow service account %s", sa.Spec.WorkflowID)
-	if err := c.vaultclient.WriteRole(namespace, saccount.GetName(), namespace); err != nil {
+	klog.Infof("granting workflow access to scoped secrets %s", sa.Spec.WorkflowID)
+	grant, err := c.secretsclient.GrantScopedAccess(ctx, sa.Spec.WorkflowID, namespace, saccount.GetName())
+	if err != nil {
 		return err
 	}
 
@@ -194,7 +189,7 @@ func (c *Controller) processSingleItem(ctx context.Context, key string) error {
 	// caching or additional security) instead of directly to the Vault server.
 	podVaultAddr := c.cfg.MetadataServiceVaultAddr
 	if podVaultAddr == "" {
-		podVaultAddr = c.vaultclient.Address()
+		podVaultAddr = grant.BackendAddr
 	}
 
 	pod, err = createMetadataAPIPod(
@@ -203,7 +198,7 @@ func (c *Controller) processSingleItem(ctx context.Context, key string) error {
 		saccount,
 		sa,
 		podVaultAddr,
-		c.vaultclient.EngineMount(),
+		grant.ScopedPath,
 	)
 	if err != nil {
 		return err
@@ -247,8 +242,6 @@ func (c *Controller) processSingleItem(ctx context.Context, key string) error {
 	saCopy.Status.ConfigMap = configMap.GetName()
 	saCopy.Status.Role = role.GetName()
 	saCopy.Status.RoleBinding = binding.GetName()
-	saCopy.Status.VaultPolicy = namespace
-	saCopy.Status.VaultAuthRole = namespace
 
 	if ips != nil {
 		saCopy.Status.MetadataServiceImagePullSecret = ips.GetName()
@@ -407,50 +400,37 @@ func (c *Controller) processPipelineRunChange(ctx context.Context, key string) e
 		for _, sa := range sas.Items {
 			klog.Infof("deleting resources created by %s", sa.GetName())
 
-			err = core.Pods(namespace).Delete(sa.Status.MetadataServicePod, opts)
-			if err != nil {
+			if err := core.Pods(namespace).Delete(sa.Status.MetadataServicePod, opts); err != nil {
 				return err
 			}
 
-			err = core.Services(namespace).Delete(sa.Status.MetadataServiceService, opts)
-			if err != nil {
+			if err := core.Services(namespace).Delete(sa.Status.MetadataServiceService, opts); err != nil {
 				return err
 			}
 
-			err = core.ServiceAccounts(namespace).Delete(sa.Status.ServiceAccount, opts)
-			if err != nil {
+			if err := core.ServiceAccounts(namespace).Delete(sa.Status.ServiceAccount, opts); err != nil {
 				return err
 			}
 
-			err = core.ConfigMaps(namespace).Delete(sa.Status.ConfigMap, opts)
-			if err != nil {
+			if err := core.ConfigMaps(namespace).Delete(sa.Status.ConfigMap, opts); err != nil {
 				return err
 			}
 
 			if sa.Status.MetadataServiceImagePullSecret != "" {
-				err = core.Secrets(namespace).Delete(sa.Status.MetadataServiceImagePullSecret, opts)
-				if err != nil {
+				if err := core.Secrets(namespace).Delete(sa.Status.MetadataServiceImagePullSecret, opts); err != nil {
 					return err
 				}
 			}
 
-			err = rbac.RoleBindings(namespace).Delete(sa.Status.RoleBinding, opts)
-			if err != nil {
+			if err := rbac.RoleBindings(namespace).Delete(sa.Status.RoleBinding, opts); err != nil {
 				return err
 			}
 
-			err = rbac.Roles(namespace).Delete(sa.Status.Role, opts)
-			if err != nil {
+			if err := rbac.Roles(namespace).Delete(sa.Status.Role, opts); err != nil {
 				return err
 			}
 
-			err = c.vaultclient.DeleteRole(sa.Status.VaultAuthRole)
-			if err != nil {
-				return err
-			}
-
-			err = c.vaultclient.DeletePolicy(sa.Status.VaultPolicy)
-			if err != nil {
+			if err := c.secretsclient.RevokeScopedAccess(ctx, namespace); err != nil {
 				return err
 			}
 
@@ -542,7 +522,7 @@ func NewController(manager *DependencyManager, cfg *config.WorkflowControllerCon
 		kubeclient:      manager.KubeClient,
 		nebclient:       manager.NebulaClient,
 		tekclient:       manager.TektonClient,
-		vaultclient:     vc,
+		secretsclient:   vc,
 		storageclient:   bs,
 		saLister:        saInformer.Lister(),
 		wfrLister:       wfrInformer.Lister(),
@@ -750,7 +730,7 @@ func createRBAC(kc kubernetes.Interface, sa *nebulav1.SecretAuth) (*rbacv1.Role,
 }
 
 func createMetadataAPIPod(kc kubernetes.Interface, image string, saccount *corev1.ServiceAccount,
-	sa *nebulav1.SecretAuth, vaultAddr, vaultEngineMount string) (*corev1.Pod, error) {
+	sa *nebulav1.SecretAuth, secretsAddr, scopedSecretsPath string) (*corev1.Pod, error) {
 
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -771,13 +751,13 @@ func createMetadataAPIPod(kc kubernetes.Interface, image string, saccount *corev
 						"-bind-addr",
 						":7000",
 						"-vault-addr",
-						vaultAddr,
+						secretsAddr,
 						"-vault-role",
 						sa.GetNamespace(),
 						"-workflow-id",
 						sa.Spec.WorkflowID,
-						"-vault-engine-mount",
-						vaultEngineMount,
+						"-scoped-secrets-path",
+						scopedSecretsPath,
 						"-namespace",
 						sa.GetNamespace(),
 					},

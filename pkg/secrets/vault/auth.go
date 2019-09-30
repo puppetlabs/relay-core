@@ -1,11 +1,13 @@
 package vault
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"path"
 
 	vaultapi "github.com/hashicorp/vault/api"
+	"github.com/puppetlabs/nebula-tasks/pkg/secrets"
 )
 
 const defaultEngineMount = "nebula"
@@ -17,19 +19,40 @@ type VaultAuth struct {
 	engineMount string
 }
 
-// Address returns the http server address to the vault server
-func (v VaultAuth) Address() string {
-	return v.client.Address()
+// GrantScopedAccess grants pods in namespace with serviceAccount attached access to secrets scoped under
+// workflowID.
+func (v VaultAuth) GrantScopedAccess(_ context.Context, workflowID, namespace, serviceAccount string) (*secrets.AccessGrant, error) {
+	if err := v.writePolicy(namespace, workflowID); err != nil {
+		return nil, err
+	}
+
+	if err := v.writeRole(namespace, serviceAccount); err != nil {
+		return nil, err
+	}
+
+	return &secrets.AccessGrant{
+		BackendAddr: v.client.Address(),
+		ScopedPath:  v.buildMountPath(workflowID),
+	}, nil
 }
 
-func (v VaultAuth) EngineMount() string {
-	return v.engineMount
+// RevokeScopedAccess deletes roles and policies related to namespace.
+func (v VaultAuth) RevokeScopedAccess(_ context.Context, namespace string) error {
+	if err := v.deletePolicy(namespace); err != nil {
+		return err
+	}
+
+	if err := v.deleteRole(namespace); err != nil {
+		return err
+	}
+
+	return nil
 }
 
-// WritePolicy creates a readonly policy granting an entity access to only
+// writePolicy creates a readonly policy granting an entity access to only
 // their secrets under a given path using workflowID
-func (v *VaultAuth) WritePolicy(policyName, workflowID string) error {
-	if policyName == "" {
+func (v *VaultAuth) writePolicy(namespace, workflowID string) error {
+	if namespace == "" {
 		return errors.New("policy cannot be blank")
 	}
 
@@ -39,7 +62,7 @@ func (v *VaultAuth) WritePolicy(policyName, workflowID string) error {
 
 	readOnlyPolicy := fmt.Sprintf(`path "%s/*" { capabilities = ["read", "list"] }`, v.buildMountPath(workflowID))
 
-	err := v.client.Sys().PutPolicy(policyName, readOnlyPolicy)
+	err := v.client.Sys().PutPolicy(namespace, readOnlyPolicy)
 	if err != nil {
 		return err
 	}
@@ -47,13 +70,13 @@ func (v *VaultAuth) WritePolicy(policyName, workflowID string) error {
 	return nil
 }
 
-// DeletePolicy deletes a policy named policyName.
-func (v *VaultAuth) DeletePolicy(policyName string) error {
-	if policyName == "" {
+// deletePolicy deletes a policy for namespace.
+func (v *VaultAuth) deletePolicy(namespace string) error {
+	if namespace == "" {
 		return errors.New("namespace cannot be blank")
 	}
 
-	err := v.client.Sys().DeletePolicy(policyName)
+	err := v.client.Sys().DeletePolicy(namespace)
 	if err != nil {
 		return err
 	}
@@ -61,9 +84,10 @@ func (v *VaultAuth) DeletePolicy(policyName string) error {
 	return nil
 }
 
-// WriteRole takes a kubernetes namespace, service account name and policy name
+// writeRole takes a kubernetes namespace, service account name
 // and asks vault to create an auth role with those parameters.
-func (v *VaultAuth) WriteRole(namespace, serviceAccount, policy string) error {
+// It uses the namespace as the policy name.
+func (v *VaultAuth) writeRole(namespace, serviceAccount string) error {
 	if namespace == "" {
 		return errors.New("namespace cannot be blank")
 	}
@@ -72,14 +96,10 @@ func (v *VaultAuth) WriteRole(namespace, serviceAccount, policy string) error {
 		return errors.New("serviceAccount cannot be blank")
 	}
 
-	if policy == "" {
-		return errors.New("policy cannot be blank")
-	}
-
 	data := make(map[string]interface{})
 	data["bound_service_account_names"] = serviceAccount
 	data["bound_service_account_namespaces"] = namespace
-	data["policies"] = []string{policy}
+	data["policies"] = []string{namespace}
 
 	_, err := v.client.Logical().Write(v.roleMountPath(namespace), data)
 	if err != nil {
@@ -89,9 +109,9 @@ func (v *VaultAuth) WriteRole(namespace, serviceAccount, policy string) error {
 	return nil
 }
 
-// DeleteRole takes a kubernetes namespace and deletes the role that
+// deleteRole takes a kubernetes namespace and deletes the role that
 // the service account is attached to.
-func (v *VaultAuth) DeleteRole(namespace string) error {
+func (v *VaultAuth) deleteRole(namespace string) error {
 	if namespace == "" {
 		return errors.New("namespace cannot be blank")
 	}
