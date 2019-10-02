@@ -6,14 +6,13 @@ KUBECONFIG=/workspace/${CLUSTER}/kubeconfig
 
 ni cluster config
 
-PATH=$(ni get -p {.path})
-WORKSPACE_PATH=${PATH}
+WORKSPACE_PATH=$(ni get -p {.path})
 
 GIT=$(ni get -p {.git})
 if [ -n "${GIT}" ]; then
     ni git clone
     NAME=$(ni get -p {.git.name})
-    WORKSPACE_PATH=/workspace/${NAME}/${PATH}
+    WORKSPACE_PATH=/workspace/${NAME}/${WORKSPACE_PATH}
 fi
 
 kubectl kustomize ${WORKSPACE_PATH}
