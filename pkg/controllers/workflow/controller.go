@@ -123,7 +123,7 @@ func (c *Controller) Run(numWorkers int, stopCh chan struct{}) error {
 	return nil
 }
 
-// processSingleItem is responsible for creating all the resouces required for
+// processSingleItem is responsible for creating all the resources required for
 // secret handling and authentication.
 // TODO break this logic out into smaller chunks... especially the calls to the vault api
 func (c *Controller) processSingleItem(ctx context.Context, key string) error {
@@ -900,6 +900,9 @@ func getLabels(sa *nebulav1.SecretAuth, additional map[string]string) map[string
 }
 
 func (c *Controller) processWorkflowRunChange(ctx context.Context, key string) error {
+	klog.Infof("syncing WorkflowRun change %s", key)
+	defer klog.Infof("done syncing WorkflowRun change %s", key)
+
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		return err
@@ -1028,14 +1031,9 @@ func (c *Controller) createServiceAccount(pipelineName, namespace string) (*core
 }
 
 func (c *Controller) updateWorkflowRunStatus(plr *tekv1alpha1.PipelineRun) (*nebulav1.WorkflowRunStatus, error) {
-	pipelineRunTaskRunStatuses := make(map[string]*tekv1alpha1.PipelineRunTaskRunStatus)
-	for _, taskRun := range plr.Status.TaskRuns {
-		pipelineRunTaskRunStatuses[taskRun.PipelineTaskName] = taskRun
-	}
-
 	workflowRunSteps := make(map[string]nebulav1.WorkflowRunStep)
 
-	for taskName, taskRun := range plr.Status.TaskRuns {
+	for _, taskRun := range plr.Status.TaskRuns {
 		if nil == taskRun.Status {
 			continue
 		}
@@ -1051,7 +1049,7 @@ func (c *Controller) updateWorkflowRunStatus(plr *tekv1alpha1.PipelineRun) (*neb
 			step.CompletionTime = taskRun.Status.CompletionTime
 		}
 
-		workflowRunSteps[taskName] = step
+		workflowRunSteps[taskRun.PipelineTaskName] = step
 	}
 
 	status := taskStatusesToRunStatus(workflowRunSteps)
