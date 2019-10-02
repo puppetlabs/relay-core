@@ -4,8 +4,13 @@ release_docker_images() {
     if [ -n "${NEBULA_TASKS_RELEASE_MANIFEST}" ] && [ "${NO_DOCKER_PUSH}" != "yes" ]; then
         gcloud auth configure-docker || fail "gcloud authentication was not configured correctly"
 
-        for repo in $(cat "${NEBULA_TASKS_RELEASE_MANIFEST}"); do
-            docker push "${repo}" || fail "failed to push to the docker repository"
+        for repo_tag in $(cat "${NEBULA_TASKS_RELEASE_MANIFEST}"); do
+            IFS=':' read -r REPO TAG <<<"${repo_tag}"
+            docker push "${REPO}:${TAG}" || fail "failed to push to the docker repository"
+            if [ "${NEBULA_TASKS_RELEASE_LATEST}" = "true" ]; then
+                docker tag "${REPO}:${TAG}" "${REPO}"
+                docker push "${REPO}" || fail "failed to push to the docker repository"
+            fi
         done
     else
         echo "docker images were created, but not pushed"
