@@ -1,11 +1,13 @@
 package workflow
 
 import (
+	"context"
 	"time"
 
 	nebclientset "github.com/puppetlabs/nebula-tasks/pkg/generated/clientset/versioned"
 	nebinformers "github.com/puppetlabs/nebula-tasks/pkg/generated/informers/externalversions"
 	nebv1informers "github.com/puppetlabs/nebula-tasks/pkg/generated/informers/externalversions/nebula.puppet.com/v1"
+	"github.com/puppetlabs/nebula-tasks/pkg/secrets"
 	tekclientset "github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
 	tekinformers "github.com/tektoncd/pipeline/pkg/client/informers/externalversions"
 	pipelinev1alpha1informers "github.com/tektoncd/pipeline/pkg/client/informers/externalversions/pipeline/v1alpha1"
@@ -60,4 +62,9 @@ func NewDependencyManager(kcfg *rest.Config) (*DependencyManager, error) {
 	}
 
 	return d, nil
+}
+
+type SecretAuthAccessManager interface {
+	GrantScopedAccess(ctx context.Context, workflowID, namespace, serviceAccount string) (*secrets.AccessGrant, error)
+	RevokeScopedAccess(ctx context.Context, namespace string) error
 }
