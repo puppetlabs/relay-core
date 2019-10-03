@@ -45,10 +45,9 @@ type MetadataServerConfig struct {
 	Logger logging.Logger
 }
 
-// SecretAuthControllerConfig is the configuration object used to
-// configure the SecretAuth controller that creates a security context
-// for namespaced pods to access their secret values from vault.
-type SecretAuthControllerConfig struct {
+// WorkflowControllerConfig is the configuration object used to
+// configure the Workflow controller.
+type WorkflowControllerConfig struct {
 	Kubeconfig                     string
 	KubeMasterURL                  string
 	VaultAddr                      string

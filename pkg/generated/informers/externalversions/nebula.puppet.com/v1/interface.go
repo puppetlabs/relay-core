@@ -26,6 +26,8 @@ import (
 type Interface interface {
 	// SecretAuths returns a SecretAuthInformer.
 	SecretAuths() SecretAuthInformer
+	// WorkflowRuns returns a WorkflowRunInformer.
+	WorkflowRuns() WorkflowRunInformer
 }
 
 type version struct {
@@ -42,4 +44,9 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 // SecretAuths returns a SecretAuthInformer.
 func (v *version) SecretAuths() SecretAuthInformer {
 	return &secretAuthInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// WorkflowRuns returns a WorkflowRunInformer.
+func (v *version) WorkflowRuns() WorkflowRunInformer {
+	return &workflowRunInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

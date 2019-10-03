@@ -32,6 +32,10 @@ func (c *FakeNebulaV1) SecretAuths(namespace string) v1.SecretAuthInterface {
 	return &FakeSecretAuths{c, namespace}
 }
 
+func (c *FakeNebulaV1) WorkflowRuns(namespace string) v1.WorkflowRunInterface {
+	return &FakeWorkflowRuns{c, namespace}
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeNebulaV1) RESTClient() rest.Interface {
