@@ -31,6 +31,7 @@ cd ${WORKSPACE_PATH}
 
 export TF_IN_AUTOMATION=true
 
+terraform version
 terraform init
 terraform workspace new ${WORKSPACE}
 terraform workspace select ${WORKSPACE}
