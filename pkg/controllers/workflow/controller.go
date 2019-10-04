@@ -757,7 +757,8 @@ func createMetadataAPIPod(kc kubernetes.Interface, image string, saccount *corev
 			Name:      metadataServiceName,
 			Namespace: sa.GetNamespace(),
 			Labels: getLabels(sa, map[string]string{
-				"app": metadataServiceName,
+				"app.kubernetes.io/name":      "nebula",
+				"app.kubernetes.io/component": metadataServiceName,
 			}),
 		},
 		Spec: corev1.PodSpec{
@@ -821,7 +822,8 @@ func createMetadataAPIService(kc kubernetes.Interface, sa *nebulav1.SecretAuth) 
 			Name:      metadataServiceName,
 			Namespace: sa.GetNamespace(),
 			Labels: getLabels(sa, map[string]string{
-				"app": metadataServiceName,
+				"app.kubernetes.io/name":      "nebula",
+				"app.kubernetes.io/component": metadataServiceName,
 			}),
 		},
 		Spec: corev1.ServiceSpec{
@@ -832,7 +834,8 @@ func createMetadataAPIService(kc kubernetes.Interface, sa *nebulav1.SecretAuth) 
 				},
 			},
 			Selector: map[string]string{
-				"app": metadataServiceName,
+				"app.kubernetes.io/name":      "nebula",
+				"app.kubernetes.io/component": metadataServiceName,
 			},
 		},
 	}
