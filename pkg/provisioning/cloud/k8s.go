@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/url"
@@ -162,6 +163,52 @@ func (k *K8sClusterAdapter) ProvisionCluster(ctx context.Context) errors.Error {
 	}
 
 	return nil
+}
+
+func (k *K8sClusterAdapter) GetKubeconfig(ctx context.Context) (io.Reader, errors.Error) {
+	stateStoreURL, err := k.support.StateStoreURL(ctx)
+	if err != nil {
+		return nil, errors.NewK8sProvisionerKopsExecError().WithCause(err)
+	}
+
+	vars, err := k.support.EnvironmentVariables(ctx)
+	if err != nil {
+		return nil, errors.NewK8sProvisionerKopsExecError().WithCause(err)
+	}
+
+	kubeconfigPath := filepath.Join(k.workdir, "kubeconfig")
+
+	// sets the location to store the kubeconfig file
+	vars = append(vars, fmt.Sprintf("KUBECONFIG=%s", kubeconfigPath))
+
+	kerr := kopsExec(ctx, command{
+		args: []string{
+			"--state", stateStoreURL.String(),
+			"export", "kubecfg", k.spec.ClusterName,
+		},
+		env:    vars,
+		stdout: os.Stdout,
+		stderr: os.Stderr,
+	})
+	if kerr != nil {
+		return nil, errors.NewK8sProvisionerKopsExecError().WithCause(err)
+	}
+
+	f, goerr := os.Open(kubeconfigPath)
+	if goerr != nil {
+		return nil, errors.NewK8sProvisionerKubeconfigReadError().WithCause(goerr)
+	}
+
+	defer f.Close()
+
+	// here we are draining the file object (ReadCloser) into a standard byte array buffer
+	// so we can just return a Reader (easier for the caller to use).
+	buf := &bytes.Buffer{}
+	if _, err := buf.ReadFrom(f); err != nil {
+		return nil, errors.NewK8sProvisionerKubeconfigReadError().WithCause(err)
+	}
+
+	return buf, nil
 }
 
 func (k *K8sClusterAdapter) GetCluster(ctx context.Context) (*models.K8sCluster, errors.Error) {

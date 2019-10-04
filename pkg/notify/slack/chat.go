@@ -41,11 +41,17 @@ func (c *Chat) PostMessage(req PostMessageRequest) (*PostMessageResponse, error)
 	if res.StatusCode/100 != 2 {
 		return nil, errors.New("Unexpected status code in chat.postMessage: " + string(bytes))
 	}
-	var decoded PostMessageResponse
-	if err := json.Unmarshal(bytes, &decoded); nil != err {
+
+	c.log.Debug("chat.postMessage", "req", req, "res", string(bytes))
+
+	var postMessageResponse PostMessageResponse
+	if err := json.Unmarshal(bytes, &postMessageResponse); nil != err {
 		return nil, err
 	}
 
-	c.log.Debug("chat.postMessage", "req", req, "res", string(bytes))
-	return &decoded, nil
+	if !postMessageResponse.Ok {
+		return nil, errors.New(postMessageResponse.Error)
+	}
+
+	return &postMessageResponse, nil
 }

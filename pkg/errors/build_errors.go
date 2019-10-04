@@ -512,6 +512,54 @@ func NewK8sProvisionerKopsSupportSetupError() Error {
 	return NewK8sProvisionerKopsSupportSetupErrorBuilder().Build()
 }
 
+// K8sProvisionerKubeconfigReadErrorCode is the code for an instance of "kubeconfig_read_error".
+const K8sProvisionerKubeconfigReadErrorCode = "nt_k8s_provisioner_kubeconfig_read_error"
+
+// IsK8sProvisionerKubeconfigReadError tests whether a given error is an instance of "kubeconfig_read_error".
+func IsK8sProvisionerKubeconfigReadError(err errawr.Error) bool {
+	return err != nil && err.Is(K8sProvisionerKubeconfigReadErrorCode)
+}
+
+// IsK8sProvisionerKubeconfigReadError tests whether a given error is an instance of "kubeconfig_read_error".
+func (External) IsK8sProvisionerKubeconfigReadError(err errawr.Error) bool {
+	return IsK8sProvisionerKubeconfigReadError(err)
+}
+
+// K8sProvisionerKubeconfigReadErrorBuilder is a builder for "kubeconfig_read_error" errors.
+type K8sProvisionerKubeconfigReadErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "kubeconfig_read_error" from this builder.
+func (b *K8sProvisionerKubeconfigReadErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "failed to read the kubeconfig file from the adapter",
+		Technical: "failed to read the kubeconfig file from the adapter",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "kubeconfig_read_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     K8sProvisionerSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Kubeconfig read error",
+		Version:          1,
+	}
+}
+
+// NewK8sProvisionerKubeconfigReadErrorBuilder creates a new error builder for the code "kubeconfig_read_error".
+func NewK8sProvisionerKubeconfigReadErrorBuilder() *K8sProvisionerKubeconfigReadErrorBuilder {
+	return &K8sProvisionerKubeconfigReadErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewK8sProvisionerKubeconfigReadError creates a new error with the code "kubeconfig_read_error".
+func NewK8sProvisionerKubeconfigReadError() Error {
+	return NewK8sProvisionerKubeconfigReadErrorBuilder().Build()
+}
+
 // K8sProvisionerPlatformSetupErrorCode is the code for an instance of "platform_setup_error".
 const K8sProvisionerPlatformSetupErrorCode = "nt_k8s_provisioner_platform_setup_error"
 
@@ -1006,6 +1054,54 @@ func NewOutputsBackendDoesNotExist(backend string) Error {
 	return NewOutputsBackendDoesNotExistBuilder(backend).Build()
 }
 
+// OutputsClientSetFailedCode is the code for an instance of "client_set_failed".
+const OutputsClientSetFailedCode = "nt_outputs_client_set_failed"
+
+// IsOutputsClientSetFailed tests whether a given error is an instance of "client_set_failed".
+func IsOutputsClientSetFailed(err errawr.Error) bool {
+	return err != nil && err.Is(OutputsClientSetFailedCode)
+}
+
+// IsOutputsClientSetFailed tests whether a given error is an instance of "client_set_failed".
+func (External) IsOutputsClientSetFailed(err errawr.Error) bool {
+	return IsOutputsClientSetFailed(err)
+}
+
+// OutputsClientSetFailedBuilder is a builder for "client_set_failed" errors.
+type OutputsClientSetFailedBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "client_set_failed" from this builder.
+func (b *OutputsClientSetFailedBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "there was an error while setting an output using the client",
+		Technical: "there was an error while setting an output using the client",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "client_set_failed",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     OutputsSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Client set failed",
+		Version:          1,
+	}
+}
+
+// NewOutputsClientSetFailedBuilder creates a new error builder for the code "client_set_failed".
+func NewOutputsClientSetFailedBuilder() *OutputsClientSetFailedBuilder {
+	return &OutputsClientSetFailedBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewOutputsClientSetFailed creates a new error with the code "client_set_failed".
+func NewOutputsClientSetFailed() Error {
+	return NewOutputsClientSetFailedBuilder().Build()
+}
+
 // OutputsGetErrorCode is the code for an instance of "get_error".
 const OutputsGetErrorCode = "nt_outputs_get_error"
 
@@ -1132,7 +1228,10 @@ func (b *OutputsKeyNotFoundBuilder) Build() Error {
 		ErrorCode:        "key_not_found",
 		ErrorDescription: description,
 		ErrorDomain:      Domain,
-		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorMetadata: &impl.ErrorMetadata{HTTPErrorMetadata: &impl.HTTPErrorMetadata{
+			ErrorHeaders: impl.HTTPErrorMetadataHeaders{},
+			ErrorStatus:  404,
+		}},
 		ErrorSection:     OutputsSection,
 		ErrorSensitivity: errawr.ErrorSensitivityNone,
 		ErrorTitle:       "Key not found",
@@ -1276,7 +1375,10 @@ func (b *OutputsTaskNotFoundBuilder) Build() Error {
 		ErrorCode:        "task_not_found",
 		ErrorDescription: description,
 		ErrorDomain:      Domain,
-		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorMetadata: &impl.ErrorMetadata{HTTPErrorMetadata: &impl.HTTPErrorMetadata{
+			ErrorHeaders: impl.HTTPErrorMetadataHeaders{},
+			ErrorStatus:  404,
+		}},
 		ErrorSection:     OutputsSection,
 		ErrorSensitivity: errawr.ErrorSensitivityNone,
 		ErrorTitle:       "Task not found",

@@ -19,3 +19,5 @@ limitations under the License.
 package v1
 
 type SecretAuthExpansion interface{}
+
+type WorkflowRunExpansion interface{}

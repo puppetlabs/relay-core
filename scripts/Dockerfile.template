@@ -1,7 +1,2 @@
-FROM golang:1.12-alpine as builder
-ENV GO111MODULE on
-ENV CGO_ENABLED 0
-WORKDIR /go/src/github.com/puppetlabs/nebula-tasks
-COPY . .
+FROM nebula-task-builder as builder
 RUN go build -a -installsuffix cgo -mod vendor -o __OUTPUTBIN__ __GOMAIN__
-RUN go build -a -installsuffix cgo -mod vendor -o ni ./include/ni

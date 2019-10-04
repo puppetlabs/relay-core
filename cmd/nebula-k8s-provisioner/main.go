@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/puppetlabs/horsehead/workdir"
+	"github.com/puppetlabs/nebula-tasks/pkg/outputs/client"
 	"github.com/puppetlabs/nebula-tasks/pkg/provisioning"
 	"github.com/puppetlabs/nebula-tasks/pkg/provisioning/models"
 	"github.com/puppetlabs/nebula-tasks/pkg/taskutil"
@@ -50,7 +51,18 @@ func main() {
 
 	}
 
-	manager, err := provisioning.NewK8sClusterManagerFromSpec(&spec, wd.Path)
+	outputs, err := client.NewDefaultOutputsClientFromNebulaEnv()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	managerCfg := provisioning.K8sClusterManagerConfig{
+		Spec:          &spec,
+		Workdir:       wd.Path,
+		OutputsClient: outputs,
+	}
+
+	manager, err := provisioning.NewK8sClusterManagerFromSpec(managerCfg)
 	if err != nil {
 		log.Fatal(err)
 	}

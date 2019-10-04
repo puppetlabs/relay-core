@@ -115,15 +115,16 @@ func (v *VaultAuth) roleMountPath(namespace string) string {
 	return path.Join("auth/kubernetes/role", namespace)
 }
 
-// NewVaultAuth takes a vault addr and auth token and returns a new
-// VaultAuth instance.
-func NewVaultAuth(addr, token, engineMount string) (*VaultAuth, error) {
-	v, err := vaultapi.NewClient(&vaultapi.Config{Address: addr})
+// NewVaultAuth takes a vault Config and returns a new VaultAuth instance.
+func NewVaultAuth(cfg *Config) (*VaultAuth, error) {
+	v, err := vaultapi.NewClient(&vaultapi.Config{Address: cfg.Addr})
 	if err != nil {
 		return nil, err
 	}
 
-	v.SetToken(token)
+	v.SetToken(cfg.Token)
+
+	engineMount := cfg.EngineMount
 
 	if engineMount == "" {
 		engineMount = defaultEngineMount
