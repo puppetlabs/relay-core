@@ -6,10 +6,29 @@ release_docker_images() {
 
         for repo_tag in $(cat "${NEBULA_TASKS_RELEASE_MANIFEST}"); do
             IFS=':' read -r REPO TAG <<<"${repo_tag}"
+            IFS='/' read -r _ CONTAINER <<<"${REPO}"
             docker push "${REPO}:${TAG}" || fail "failed to push to the docker repository"
             if [ "${NEBULA_TASKS_RELEASE_LATEST}" = "true" ]; then
-                docker tag "${REPO}:${TAG}" "${REPO}"
-                docker push "${REPO}" || fail "failed to push to the docker repository"
+                VERSION_FILE="cmd/nebula-${CONTAINER}/VERSION"
+                VERSION_FILE_CHANGED=$(git diff --exit-code --name-only HEAD^ -- "${VERSION_FILE}")
+                if [ -n "${VERSION_FILE_CHANGED}" ] ; then
+                    NEW_VERSION=$(cat "${VERSION_FILE}")
+                    IFS='.' read -r MAJOR MINOR BUGFIX <<<"${NEW_VERSION}"
+
+                    # Tag and push latest
+                    docker tag "${REPO}:${TAG}" "${REPO}"
+                    docker push "${REPO}" || fail "failed to push to the docker repository"
+
+                    # Tag and push x and x.y because these are overwritten with every tag.
+                    docker tag "${REPO}:${TAG}" "${REPO}:${MAJOR}"
+                    docker push "${REPO}:${MAJOR}" || fail "failed to push to the docker repository"
+                    docker tag "${REPO}:${TAG}" "${REPO}:${MAJOR}.${MINOR}"
+                    docker push "${REPO}:${MAJOR}.${MINOR}" || fail "failed to push to the docker repository"
+
+                    # Tag and push x.y.z
+                    docker tag "${REPO}:${TAG}" "${REPO}:${MAJOR}.${MINOR}.${BUGFIX}"
+                    docker push "${REPO}:${MAJOR}.${MINOR}.${BUGFIX}" || fail "failed to push to the docker repository"
+                fi
             fi
         done
     else
