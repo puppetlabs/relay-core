@@ -67,6 +67,16 @@ const (
 	MaxLogArchiveTries        = 7
 )
 
+// Per
+// https://cloud.google.com/container-optimized-os/docs/how-to/create-configure-instance,
+// user IDs in the range [2000, 4999] are acceptable for our use.
+
+var (
+	CustomerUserID            int64 = 2101
+	CustomerGroupID           int64 = 2101
+	CustomerFileSystemGroupID int64 = 2102
+)
+
 type podAndTaskName struct {
 	PodName  string
 	TaskName string
@@ -1005,6 +1015,23 @@ func (c *Controller) createPipelineRun(pipelineId, namespace string) (*tekv1alph
 			ServiceAccount: serviceAccount.Name,
 			PipelineRef: tekv1alpha1.PipelineRef{
 				Name: pipelineId,
+			},
+			PodTemplate: tekv1alpha1.PodTemplate{
+				SecurityContext: &corev1.PodSecurityContext{
+					RunAsUser:  &CustomerUserID,
+					RunAsGroup: &CustomerGroupID,
+					FSGroup:    &CustomerFileSystemGroupID,
+				},
+				NodeSelector: map[string]string{
+					"nebula.puppet.com/scheduling.customer-ready": "true",
+				},
+				Tolerations: []corev1.Toleration{
+					{
+						Key:    "nebula.puppet.com/scheduling.customer-workload",
+						Value:  "true",
+						Effect: corev1.TaintEffectNoSchedule,
+					},
+				},
 			},
 		},
 	}
