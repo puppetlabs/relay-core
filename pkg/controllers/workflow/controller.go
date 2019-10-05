@@ -145,19 +145,15 @@ func (c *Controller) processSingleItem(ctx context.Context, key string) error {
 
 	// if anything fails while creating resources, the status object will not be filled out
 	// and saved. this means that if any of the keys are empty, we haven't created resources yet.
-	if sa.Status.ServiceAccount != "" {
+	if sa.Status.Status == "Ready" {
 		klog.Infof("resources have already been created %s", key)
 		return nil
 	}
 
 	var (
-		ips       *corev1.Secret
-		saccount  *corev1.ServiceAccount
-		role      *rbacv1.Role
-		binding   *rbacv1.RoleBinding
-		pod       *corev1.Pod
-		service   *corev1.Service
-		configMap *corev1.ConfigMap
+		ips      *corev1.Secret
+		saccount *corev1.ServiceAccount
+		service  *corev1.Service
 	)
 
 	if c.cfg.MetadataServiceImagePullSecret != "" {
@@ -179,7 +175,7 @@ func (c *Controller) processSingleItem(ctx context.Context, key string) error {
 		return err
 	}
 
-	role, binding, err = createRBAC(c.kubeclient, sa)
+	_, _, err = createRBAC(c.kubeclient, sa)
 	if err != nil {
 		return err
 	}
@@ -192,7 +188,7 @@ func (c *Controller) processSingleItem(ctx context.Context, key string) error {
 		podVaultAddr = grant.BackendAddr
 	}
 
-	pod, err = createMetadataAPIPod(
+	_, err = createMetadataAPIPod(
 		c.kubeclient,
 		c.cfg.MetadataServiceImage,
 		saccount,
@@ -209,7 +205,7 @@ func (c *Controller) processSingleItem(ctx context.Context, key string) error {
 		return err
 	}
 
-	configMap, err = createWorkflowConfigMap(c.kubeclient, service, sa)
+	_, err = createWorkflowConfigMap(c.kubeclient, service, sa)
 	if err != nil {
 		return err
 	}
@@ -236,16 +232,7 @@ func (c *Controller) processSingleItem(ctx context.Context, key string) error {
 	klog.Infof("metadata service is ready %s", sa.Spec.WorkflowID)
 
 	saCopy := sa.DeepCopy()
-	saCopy.Status.MetadataServicePod = pod.GetName()
-	saCopy.Status.MetadataServiceService = service.GetName()
-	saCopy.Status.ServiceAccount = saccount.GetName()
-	saCopy.Status.ConfigMap = configMap.GetName()
-	saCopy.Status.Role = role.GetName()
-	saCopy.Status.RoleBinding = binding.GetName()
-
-	if ips != nil {
-		saCopy.Status.MetadataServiceImagePullSecret = ips.GetName()
-	}
+	saCopy.Status.Status = "Ready"
 
 	klog.Info("updating secretauth resource status for ", sa.Spec.WorkflowID)
 	saCopy, err = c.nebclient.NebulaV1().SecretAuths(namespace).Update(saCopy)
@@ -368,76 +355,108 @@ func (c *Controller) processPipelineRunChange(ctx context.Context, key string) e
 		return err
 	}
 
-	for _, workflow := range workflowList {
+	for _, wfr := range workflowList {
 		status, _ := c.updateWorkflowRunStatus(plr)
 
-		wfrCopy := workflow.DeepCopy()
+		wfrCopy := wfr.DeepCopy()
 		wfrCopy.Status = *status
 
 		_, err = c.nebclient.NebulaV1().WorkflowRuns(namespace).Update(wfrCopy)
 		if err != nil {
 			return err
 		}
+
+		if plr.IsDone() {
+			// Upload the logs that are not defined on the PipelineRun record...
+			err = c.uploadLogs(ctx, plr)
+			if nil != err {
+				return err
+			}
+
+			klog.Infof("deleting resources created by %s", wfr.GetName())
+
+			labelMap := map[string]string{
+				"workflow-run-id": wfr.Spec.Name,
+				"workflow-id":     wfr.Spec.Workflow.Name,
+			}
+
+			if err := c.deleteLabeledResources(ctx, namespace, labelMap); err != nil {
+				return err
+			}
+		}
 	}
 
-	if plr.IsDone() {
-		// Upload the logs that are not defined on the PipelineRun record...
-		err = c.uploadLogs(ctx, plr)
-		if nil != err {
+	return nil
+}
+
+func (c *Controller) deleteLabeledResources(ctx context.Context, namespace string, labelMap map[string]string) error {
+	if len(labelMap) == 0 {
+		klog.Warning("deleteLabeledResources: empty label map; not deleting anything")
+
+		return nil
+	}
+
+	core := c.kubeclient.CoreV1()
+	rbac := c.kubeclient.RbacV1()
+	sac := c.nebclient.NebulaV1().SecretAuths(namespace)
+	taskruns := c.tekclient.TektonV1alpha1().TaskRuns(namespace)
+	pipelineruns := c.tekclient.TektonV1alpha1().PipelineRuns(namespace)
+	delOpts := &metav1.DeleteOptions{}
+	listOpts := metav1.ListOptions{
+		LabelSelector: labels.SelectorFromValidatedSet(labelMap).String(),
+	}
+
+	// the service client doesn't have a way to delete an entire collection using listOpts, so we have to
+	// list them first and then iterate over the results.
+	services, err := core.Services(namespace).List(listOpts)
+	if err != nil {
+		return err
+	}
+
+	for _, service := range services.Items {
+		if err := core.Services(namespace).Delete(service.GetName(), delOpts); err != nil {
 			return err
 		}
+	}
 
-		sas, err := c.nebclient.NebulaV1().SecretAuths(namespace).List(metav1.ListOptions{})
-		if err != nil {
-			return err
-		}
+	if err := core.Pods(namespace).DeleteCollection(delOpts, listOpts); err != nil {
+		return err
+	}
 
-		core := c.kubeclient.CoreV1()
-		rbac := c.kubeclient.RbacV1()
-		sac := c.nebclient.NebulaV1().SecretAuths(namespace)
-		opts := &metav1.DeleteOptions{}
+	if err := core.ServiceAccounts(namespace).DeleteCollection(delOpts, listOpts); err != nil {
+		return err
+	}
 
-		for _, sa := range sas.Items {
-			klog.Infof("deleting resources created by %s", sa.GetName())
+	if err := core.ConfigMaps(namespace).DeleteCollection(delOpts, listOpts); err != nil {
+		return err
+	}
 
-			if err := core.Pods(namespace).Delete(sa.Status.MetadataServicePod, opts); err != nil {
-				return err
-			}
+	if err := core.Secrets(namespace).DeleteCollection(delOpts, listOpts); err != nil {
+		return err
+	}
 
-			if err := core.Services(namespace).Delete(sa.Status.MetadataServiceService, opts); err != nil {
-				return err
-			}
+	if err := rbac.RoleBindings(namespace).DeleteCollection(delOpts, listOpts); err != nil {
+		return err
+	}
 
-			if err := core.ServiceAccounts(namespace).Delete(sa.Status.ServiceAccount, opts); err != nil {
-				return err
-			}
+	if err := rbac.Roles(namespace).DeleteCollection(delOpts, listOpts); err != nil {
+		return err
+	}
 
-			if err := core.ConfigMaps(namespace).Delete(sa.Status.ConfigMap, opts); err != nil {
-				return err
-			}
+	if err := sac.DeleteCollection(delOpts, listOpts); err != nil {
+		return err
+	}
 
-			if sa.Status.MetadataServiceImagePullSecret != "" {
-				if err := core.Secrets(namespace).Delete(sa.Status.MetadataServiceImagePullSecret, opts); err != nil {
-					return err
-				}
-			}
+	if err := taskruns.DeleteCollection(delOpts, listOpts); err != nil {
+		return err
+	}
 
-			if err := rbac.RoleBindings(namespace).Delete(sa.Status.RoleBinding, opts); err != nil {
-				return err
-			}
+	if err := pipelineruns.DeleteCollection(delOpts, listOpts); err != nil {
+		return err
+	}
 
-			if err := rbac.Roles(namespace).Delete(sa.Status.Role, opts); err != nil {
-				return err
-			}
-
-			if err := c.secretsclient.RevokeScopedAccess(ctx, namespace); err != nil {
-				return err
-			}
-
-			if err := sac.Delete(sa.GetName(), opts); err != nil {
-				return err
-			}
-		}
+	if err := c.secretsclient.RevokeScopedAccess(ctx, namespace); err != nil {
+		return err
 	}
 
 	return nil
@@ -611,6 +630,7 @@ func copyImagePullSecret(workingNamespace string, kc kubernetes.Interface, sa *n
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      metadataImagePullSecretName,
 			Namespace: sa.GetNamespace(),
+			Labels:    getLabels(sa, nil),
 		},
 		Type: ref.Type,
 		Data: ref.Data,
@@ -895,7 +915,7 @@ func (c *Controller) processWorkflowRunChange(ctx context.Context, key string) e
 
 	if wf.ObjectMeta.DeletionTimestamp.IsZero() {
 		if _, ok := wf.GetAnnotations()[pipelineRunAnnotation]; !ok {
-			plr, err := c.createPipelineRun(wf.Spec.Name, namespace)
+			plr, err := c.createPipelineRun(wf, namespace)
 			if err != nil {
 				return err
 			}
@@ -957,31 +977,35 @@ func (c *Controller) enqueuePipelineRun(obj interface{}) {
 	c.plrworker.add(key)
 }
 
-func (c *Controller) createPipelineRun(pipelineId, namespace string) (*tekv1alpha1.PipelineRun, error) {
-	plr, err := c.tekclient.TektonV1alpha1().PipelineRuns(namespace).Get(pipelineId, metav1.GetOptions{})
+func (c *Controller) createPipelineRun(wr *nebulav1.WorkflowRun, namespace string) (*tekv1alpha1.PipelineRun, error) {
+	plr, err := c.tekclient.TektonV1alpha1().PipelineRuns(namespace).Get(wr.Spec.Name, metav1.GetOptions{})
 	if plr != nil && plr != (&tekv1alpha1.PipelineRun{}) && plr.Name != "" {
 		return plr, nil
 	}
 
+	runID := wr.Spec.Name
+
 	labelMap := map[string]string{
-		pipelineRunAnnotation: pipelineId,
+		pipelineRunAnnotation: runID,
+		"workflow-run-id":     runID,
+		"workflow-id":         wr.Spec.Workflow.Name,
 	}
 
-	serviceAccount, err := c.createServiceAccount(pipelineId, namespace)
+	serviceAccount, err := c.createServiceAccount(runID, namespace)
 	if err != nil {
 		return nil, err
 	}
 
 	pipelineRun := &tekv1alpha1.PipelineRun{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      pipelineId,
+			Name:      runID,
 			Namespace: namespace,
 			Labels:    labelMap,
 		},
 		Spec: tekv1alpha1.PipelineRunSpec{
 			ServiceAccount: serviceAccount.Name,
 			PipelineRef: tekv1alpha1.PipelineRef{
-				Name: pipelineId,
+				Name: runID,
 			},
 		},
 	}

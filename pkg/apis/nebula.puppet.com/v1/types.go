@@ -27,18 +27,15 @@ type SecretAuthSpec struct {
 }
 
 type SecretAuthStatus struct {
-	MetadataServicePod             string `json:"metadataServicePod"`
-	MetadataServiceService         string `json:"metadataServiceService"`
-	MetadataServiceImagePullSecret string `json:"metadataServiceImagePullSecret"`
-	ServiceAccount                 string `json:"serviceAccount"`
-	Role                           string `json:"Role"`
-	RoleBinding                    string `json:"RoleBinding"`
-	ConfigMap                      string `json:"configMap"`
-	VaultPolicy                    string `json:"vaultPolicy"`
-	VaultAuthRole                  string `json:"vaultAuthRole"`
+	// TODO this needs to eventually implement the k8s conditions api,
+	// but given how much work that is, we will just accept an empty string
+	// as not ready and Ready as it is ready.
+	Status string `json:"status"`
 }
 
+// +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +groupName=nebula.puppet.com
 
 type SecretAuthList struct {
 	metav1.TypeMeta `json:",inline"`
@@ -60,8 +57,7 @@ type WorkflowRun struct {
 }
 
 type WorkflowRunSpec struct {
-	Name string `json:"name"`
-
+	Name     string   `json:"name"`
 	Workflow Workflow `json:"workflow,omitempty"`
 }
 

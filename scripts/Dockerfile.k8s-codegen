@@ -2,8 +2,9 @@ FROM golang:1.13-alpine
 
 ENV GO111MODULE=off
 
-RUN go get k8s.io/code-generator/...; exit 0
-RUN go get k8s.io/apimachinery/...; exit 0
+RUN apk add --no-cache bash git && \
+    go get k8s.io/code-generator/...; exit 0 && \
+    go get k8s.io/apimachinery/...; exit 0
 
 ARG repo="${GOPATH}/src/github.com/puppetlabs/nebula-tasks"
 
