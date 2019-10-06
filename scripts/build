@@ -18,8 +18,7 @@ build_images() {
     local cmd="${1}"
 
     if [ ! -n "${cmd}" ]; then
-        # XXX: This is for testing only. DO NOT LET THIS BE MERGED! NO! BAD NOAH!
-        for cmd in ./cmd/nebula-metadata-api ./cmd/nebula-workflow-controller; do
+        for cmd in ./cmd/*; do
             build_image "${cmd}"
         done
     else
