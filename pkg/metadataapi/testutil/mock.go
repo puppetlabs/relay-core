@@ -1,6 +1,8 @@
 package testutil
 
 import (
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -37,9 +39,10 @@ func MockTask(t *testing.T, cfg MockTaskConfig) []runtime.Object {
 	specData, err := json.Marshal(cfg.SpecData)
 	require.NoError(t, err)
 
+	taskHash := sha1.Sum([]byte(cfg.Name))
+
 	labels := map[string]string{
-		"task-id":   cfg.ID,
-		"task-name": cfg.Name,
+		"nebula.puppet.com/task.hash": hex.EncodeToString(taskHash[:]),
 	}
 
 	return []runtime.Object{

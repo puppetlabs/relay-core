@@ -50,10 +50,12 @@ func (c DefaultOutputsClient) SetOutput(ctx context.Context, key, value string) 
 
 	buf := bytes.NewBufferString(value)
 
-	req, err := http.NewRequestWithContext(ctx, "PUT", loc.String(), buf)
+	req, err := http.NewRequest("PUT", loc.String(), buf)
 	if err != nil {
 		return err
 	}
+
+	req = req.WithContext(ctx)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -81,10 +83,12 @@ func (c DefaultOutputsClient) GetOutput(ctx context.Context, taskName, key strin
 	loc := *c.apiURL
 	loc.Path = path.Join(loc.Path, taskName, key)
 
-	req, err := http.NewRequestWithContext(ctx, "GET", loc.String(), nil)
+	req, err := http.NewRequest("GET", loc.String(), nil)
 	if err != nil {
 		return "", err
 	}
+
+	req = req.WithContext(ctx)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

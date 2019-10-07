@@ -2,6 +2,8 @@ package task
 
 import (
 	"context"
+	"crypto/sha1"
+	"encoding/hex"
 	"fmt"
 
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
@@ -59,9 +61,18 @@ func (mm *KubernetesMetadataManager) GetByIP(ctx context.Context, ip string) (*M
 	// this scenario.
 	pod := pods.Items[0]
 
-	labels := pod.GetLabels()
+	taskHashHex := pod.GetLabels()["nebula.puppet.com/task.hash"]
+	taskHash, err := hex.DecodeString(taskHashHex)
+	if err != nil {
+		return nil, errors.NewTaskInvalidHashError().WithCause(err).Bug()
+	} else if len(taskHash) != sha1.Size {
+		return nil, errors.NewTaskInvalidHashError().Bug()
+	}
 
-	return &Metadata{Name: labels["task-name"], ID: labels["task-ip"]}, nil
+	md := &Metadata{}
+	copy(md.Hash[:], taskHash)
+
+	return md, nil
 }
 
 func NewKubernetesMetadataManager(kubeclient kubernetes.Interface, namespace string) *KubernetesMetadataManager {

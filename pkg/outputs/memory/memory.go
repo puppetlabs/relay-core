@@ -3,6 +3,8 @@ package memory
 import (
 	"bytes"
 	"context"
+	"crypto/sha1"
+	"encoding/hex"
 	"io"
 	"sync"
 
@@ -20,28 +22,33 @@ func (om *OutputsManager) Get(ctx context.Context, taskName, key string) (*outpu
 	om.Lock()
 	defer om.Unlock()
 
+	taskHash := sha1.Sum([]byte(taskName))
+	taskHashKey := hex.EncodeToString(taskHash[:])
+
 	if om.data == nil {
 		return nil, errors.NewOutputsTaskNotFound(taskName)
 	}
 
-	if om.data[taskName] == nil {
+	if om.data[taskHashKey] == nil {
 		return nil, errors.NewOutputsTaskNotFound(taskName)
 	}
 
-	if om.data[taskName][key] == nil {
+	if om.data[taskHashKey][key] == nil {
 		return nil, errors.NewOutputsKeyNotFound(key)
 	}
 
 	return &outputs.Output{
 		TaskName: taskName,
 		Key:      key,
-		Value:    string(om.data[taskName][key]),
+		Value:    string(om.data[taskHashKey][key]),
 	}, nil
 }
 
-func (om *OutputsManager) Put(ctx context.Context, taskName, key string, value io.Reader) errors.Error {
+func (om *OutputsManager) Put(ctx context.Context, taskHash [sha1.Size]byte, key string, value io.Reader) errors.Error {
 	om.Lock()
 	defer om.Unlock()
+
+	taskHashKey := hex.EncodeToString(taskHash[:])
 
 	if key == "" {
 		return errors.NewOutputsKeyEmptyError()
@@ -51,8 +58,8 @@ func (om *OutputsManager) Put(ctx context.Context, taskName, key string, value i
 		om.data = make(map[string]map[string][]byte)
 	}
 
-	if om.data[taskName] == nil {
-		om.data[taskName] = make(map[string][]byte)
+	if om.data[taskHashKey] == nil {
+		om.data[taskHashKey] = make(map[string][]byte)
 	}
 
 	buf := &bytes.Buffer{}
@@ -61,7 +68,7 @@ func (om *OutputsManager) Put(ctx context.Context, taskName, key string, value i
 		return errors.NewOutputsValueReadError().WithCause(err)
 	}
 
-	om.data[taskName][key] = buf.Bytes()
+	om.data[taskHashKey][key] = buf.Bytes()
 
 	return nil
 }

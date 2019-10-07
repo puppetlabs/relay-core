@@ -2770,6 +2770,54 @@ var TaskSection = &impl.ErrorSection{
 	Title: "Task errors",
 }
 
+// TaskInvalidHashErrorCode is the code for an instance of "invalid_hash_error".
+const TaskInvalidHashErrorCode = "nt_task_invalid_hash_error"
+
+// IsTaskInvalidHashError tests whether a given error is an instance of "invalid_hash_error".
+func IsTaskInvalidHashError(err errawr.Error) bool {
+	return err != nil && err.Is(TaskInvalidHashErrorCode)
+}
+
+// IsTaskInvalidHashError tests whether a given error is an instance of "invalid_hash_error".
+func (External) IsTaskInvalidHashError(err errawr.Error) bool {
+	return IsTaskInvalidHashError(err)
+}
+
+// TaskInvalidHashErrorBuilder is a builder for "invalid_hash_error" errors.
+type TaskInvalidHashErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "invalid_hash_error" from this builder.
+func (b *TaskInvalidHashErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "the task does not have a valid hash associated with it",
+		Technical: "the task does not have a valid hash associated with it",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "invalid_hash_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     TaskSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Invalid hash",
+		Version:          1,
+	}
+}
+
+// NewTaskInvalidHashErrorBuilder creates a new error builder for the code "invalid_hash_error".
+func NewTaskInvalidHashErrorBuilder() *TaskInvalidHashErrorBuilder {
+	return &TaskInvalidHashErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewTaskInvalidHashError creates a new error with the code "invalid_hash_error".
+func NewTaskInvalidHashError() Error {
+	return NewTaskInvalidHashErrorBuilder().Build()
+}
+
 // TaskNotFoundForIPCode is the code for an instance of "not_found_for_ip".
 const TaskNotFoundForIPCode = "nt_task_not_found_for_ip"
 
