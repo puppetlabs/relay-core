@@ -32,7 +32,7 @@ cd ${WORKSPACE_PATH}
 
 export TF_IN_AUTOMATION=true
 
-terraform init -backend-config "tf_state_bucket=$BUCKET"
+terraform init -backend-config "bucket=$BUCKET"
 terraform workspace new ${WORKSPACE}
 terraform workspace select ${WORKSPACE}
 terraform apply -auto-approve
