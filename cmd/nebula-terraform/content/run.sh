@@ -2,6 +2,7 @@
 
 DIRECTORY=$(ni get -p {.directory})
 WORKSPACE=$(ni get -p {.workspace})
+BUCKET=$(ni get -p {.vars.tf_state_bucket})
 WORKSPACE_FILE=workspace.${WORKSPACE}.tfvars.json
 
 CREDENTIALS=$(ni get -p {.credentials})
@@ -31,7 +32,7 @@ cd ${WORKSPACE_PATH}
 
 export TF_IN_AUTOMATION=true
 
-terraform init
+terraform init -backend-config "tf_state_bucket=$BUCKET"
 terraform workspace new ${WORKSPACE}
 terraform workspace select ${WORKSPACE}
 terraform apply -auto-approve
