@@ -58,6 +58,7 @@ func TestServerOutputsHandler(t *testing.T) {
 	}
 
 	managers := testutil.NewMockManagerFactory(t, testutil.MockManagerFactoryConfig{
+		Namespace:    "test-task",
 		K8sResources: testutil.MockTask(t, taskConfig),
 	})
 	logger := logging.Builder().At("server-test").Build()

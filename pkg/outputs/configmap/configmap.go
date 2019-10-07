@@ -3,6 +3,7 @@ package configmap
 import (
 	"bytes"
 	"context"
+	"crypto/sha1"
 	"fmt"
 	"io"
 
@@ -24,7 +25,8 @@ type OutputsManager struct {
 }
 
 func (om OutputsManager) Get(ctx context.Context, taskName, key string) (*outputs.Output, errors.Error) {
-	name := fmt.Sprintf("%s-outputs", taskName)
+	taskHash := sha1.Sum([]byte(taskName))
+	name := fmt.Sprintf("task-%x-outputs", taskHash)
 
 	cm, err := om.kubeclient.CoreV1().ConfigMaps(om.namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
@@ -47,8 +49,8 @@ func (om OutputsManager) Get(ctx context.Context, taskName, key string) (*output
 	}, nil
 }
 
-func (om OutputsManager) Put(ctx context.Context, taskName, key string, value io.Reader) errors.Error {
-	name := fmt.Sprintf("%s-outputs", taskName)
+func (om OutputsManager) Put(ctx context.Context, taskHash [sha1.Size]byte, key string, value io.Reader) errors.Error {
+	name := fmt.Sprintf("task-%x-outputs", taskHash)
 
 	cm, err := om.kubeclient.CoreV1().ConfigMaps(om.namespace).Get(name, metav1.GetOptions{})
 	if err != nil {

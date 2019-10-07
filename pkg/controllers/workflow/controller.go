@@ -757,7 +757,8 @@ func createMetadataAPIPod(kc kubernetes.Interface, image string, saccount *corev
 			Name:      metadataServiceName,
 			Namespace: sa.GetNamespace(),
 			Labels: getLabels(sa, map[string]string{
-				"app": metadataServiceName,
+				"app.kubernetes.io/name":      "nebula",
+				"app.kubernetes.io/component": metadataServiceName,
 			}),
 		},
 		Spec: corev1.PodSpec{
@@ -821,7 +822,8 @@ func createMetadataAPIService(kc kubernetes.Interface, sa *nebulav1.SecretAuth) 
 			Name:      metadataServiceName,
 			Namespace: sa.GetNamespace(),
 			Labels: getLabels(sa, map[string]string{
-				"app": metadataServiceName,
+				"app.kubernetes.io/name":      "nebula",
+				"app.kubernetes.io/component": metadataServiceName,
 			}),
 		},
 		Spec: corev1.ServiceSpec{
@@ -832,7 +834,8 @@ func createMetadataAPIService(kc kubernetes.Interface, sa *nebulav1.SecretAuth) 
 				},
 			},
 			Selector: map[string]string{
-				"app": metadataServiceName,
+				"app.kubernetes.io/name":      "nebula",
+				"app.kubernetes.io/component": metadataServiceName,
 			},
 		},
 	}
@@ -1002,6 +1005,18 @@ func (c *Controller) createPipelineRun(pipelineId, namespace string) (*tekv1alph
 			ServiceAccount: serviceAccount.Name,
 			PipelineRef: tekv1alpha1.PipelineRef{
 				Name: pipelineId,
+			},
+			PodTemplate: tekv1alpha1.PodTemplate{
+				NodeSelector: map[string]string{
+					"nebula.puppet.com/scheduling.customer-ready": "true",
+				},
+				Tolerations: []corev1.Toleration{
+					{
+						Key:    "nebula.puppet.com/scheduling.customer-workload",
+						Value:  "true",
+						Effect: corev1.TaintEffectNoSchedule,
+					},
+				},
 			},
 		},
 	}
