@@ -32,14 +32,13 @@ func (o outputsHandler) put(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
-	taskName := md.Name
 	key, _ := shiftPath(r.URL.Path)
 
 	buf := &bytes.Buffer{}
 	buf.ReadFrom(r.Body)
 	defer r.Body.Close()
 
-	if err := om.Put(ctx, taskName, key, buf); err != nil {
+	if err := om.Put(ctx, md.Hash, key, buf); err != nil {
 		utilapi.WriteError(ctx, w, err)
 
 		return
