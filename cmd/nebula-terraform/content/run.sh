@@ -1,9 +1,11 @@
-#!/bin/sh
+#!/bin/bash
 
 DIRECTORY=$(ni get -p {.directory})
 WORKSPACE=$(ni get -p {.workspace})
-BUCKET=$(ni get -p {.vars.tf_state_bucket})
 WORKSPACE_FILE=workspace.${WORKSPACE}.tfvars.json
+JQ=jq
+NI=ni
+
 
 CREDENTIALS=$(ni get -p {.credentials})
 if [ -n "${CREDENTIALS}" ]; then
@@ -32,7 +34,9 @@ cd ${WORKSPACE_PATH}
 
 export TF_IN_AUTOMATION=true
 
-terraform init -backend-config "bucket=$BUCKET"
+declare -a BACKEND_CONFIGS="( $( $NI get | $JQ -r 'try .backendConfig | to_entries[] | "-backend-config=\( .key )=\( .value )" | @sh' ) )"
+
+terraform init ${BACKEND_CONFIGS[@]}
 terraform workspace new ${WORKSPACE}
 terraform workspace select ${WORKSPACE}
 terraform apply -auto-approve
