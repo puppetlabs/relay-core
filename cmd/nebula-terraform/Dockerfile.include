@@ -2,7 +2,7 @@ FROM hashicorp/terraform:light
 
 COPY --from=builder /go/src/github.com/puppetlabs/nebula-tasks/__OUTPUTBIN__ /usr/bin/__OUTPUTBIN__
 COPY --from=builder /go/src/github.com/puppetlabs/nebula-tasks/ni /usr/bin/ni
-RUN apk update && apk --no-cache add git gcc bind-dev musl-dev ca-certificates curl jq openssh openssl && update-ca-certificates
+RUN apk update && apk --no-cache add bash git gcc bind-dev musl-dev ca-certificates curl jq openssh openssl && update-ca-certificates
 
 ARG KUBE_VERSION="v1.15.0"
 
