@@ -50,7 +50,7 @@ func main() {
 		os.Exit(1)
 	}
 	if "" == spec.Channel || "" == spec.Message || "" == spec.Apitoken {
-		fmt.Printf("Missing required fields. Expect spec to contain 'apitoken', 'channel' and 'message', got %v\n", *spec)
+		fmt.Printf("Missing required fields. Expect spec to contain 'apitoken', 'channel' and 'message'")
 		os.Exit(1)
 	}
 	if "" == spec.Username {
@@ -58,7 +58,7 @@ func main() {
 	}
 
 	client := slack.New(spec.Apitoken)
-	res, err := client.Chat().PostMessage(
+	_, err = client.Chat().PostMessage(
 		slack.PostMessageRequest{
 			Channel:  spec.Channel,
 			Text:     spec.Message,
@@ -69,6 +69,6 @@ func main() {
 		fmt.Printf("%v\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("Response: %+v\n", res)
+
 	os.Exit(0)
 }
