@@ -6,7 +6,6 @@ WORKSPACE_FILE=workspace.${WORKSPACE}.tfvars.json
 JQ=jq
 NI=ni
 
-
 CREDENTIALS=$(ni get -p {.credentials})
 if [ -n "${CREDENTIALS}" ]; then
     ni credentials config
@@ -41,10 +40,11 @@ terraform workspace new ${WORKSPACE}
 terraform workspace select ${WORKSPACE}
 terraform apply -auto-approve
 
-outputs="$(terraform output -json | jq -c '. | to_entries[] | {"key": .key, "value": .value.value}')"
-
-for row in ${outputs}; do
-    output_key="$(echo ${row} | jq -r '.key')"
-    output_value="$(echo ${row} | jq -r '.value')"
-    ni output set --key "${output_key}" --value "${output_value}"
+keys=$(terraform output -json | jq -r '. | keys | .[]')
+for key in ${keys}; do
+    value=$(terraform output ${key})
+    if [[ "${value}" == *$'\n'* ]]; then
+        value=$(echo "${value}" | base64 | tr -d '\n')
+    fi
+    ni output set --key "${key}" --value "${value}"
 done
