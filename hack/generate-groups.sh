@@ -11,7 +11,6 @@ set -euo pipefail
 # Commands
 #
 
-GIT="${GIT:-git}"
 LN_S="${LN_S:-ln -s}"
 MKDIR_P="${MKDIR_P:-mkdir -p}"
 MKTEMP="${MKTEMP:-mktemp}"
@@ -27,19 +26,13 @@ trap '$RM_F -r "${BASEDIR}"' EXIT
 MODULE_NAME="$( go list -m )"
 MODULE_DIR="$( go list -m -f '{{ .Dir }}' )"
 
-# Our source code
 $MKDIR_P "${BASEDIR}/src/$( dirname "${MODULE_NAME}" )"
 $LN_S "${MODULE_DIR}" "${BASEDIR}/src/${MODULE_NAME}"
-
-# The upstream code generator
-$GIT submodule update --init "${MODULE_DIR}/hack/code-generator"
-$MKDIR_P "${BASEDIR}/src/k8s.io"
-$LN_S "${MODULE_DIR}/hack/code-generator" "${BASEDIR}/src/k8s.io/code-generator"
 
 GOPKGPATH="$( go env GOPATH )/pkg"
 [ -d "${GOPKGPATH}" ] && $LN_S "${GOPKGPATH}" "${BASEDIR}/pkg"
 
-GOPATH="${BASEDIR}" bash "${BASEDIR}/src/k8s.io/code-generator/generate-groups.sh" \
+GOPATH="${BASEDIR}" bash "${MODULE_DIR}/vendor/k8s.io/code-generator/generate-groups.sh" \
   all \
   "${MODULE_NAME}/pkg/generated" \
   "${MODULE_NAME}/pkg/apis" \

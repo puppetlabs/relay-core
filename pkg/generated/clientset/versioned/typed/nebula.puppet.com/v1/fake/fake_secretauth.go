@@ -119,7 +119,7 @@ func (c *FakeSecretAuths) DeleteCollection(options *v1.DeleteOptions, listOption
 // Patch applies the patch and returns the patched secretAuth.
 func (c *FakeSecretAuths) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *nebulapuppetcomv1.SecretAuth, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(secretauthsResource, c.ns, name, data, subresources...), &nebulapuppetcomv1.SecretAuth{})
+		Invokes(testing.NewPatchSubresourceAction(secretauthsResource, c.ns, name, pt, data, subresources...), &nebulapuppetcomv1.SecretAuth{})
 
 	if obj == nil {
 		return nil, err

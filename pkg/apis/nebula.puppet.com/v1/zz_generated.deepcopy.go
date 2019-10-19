@@ -44,7 +44,7 @@ func (in *SecretAuth) DeepCopyObject() runtime.Object {
 func (in *SecretAuthList) DeepCopyInto(out *SecretAuthList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]SecretAuth, len(*in))
@@ -153,7 +153,7 @@ func (in *WorkflowRun) DeepCopyObject() runtime.Object {
 func (in *WorkflowRunList) DeepCopyInto(out *WorkflowRunList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]WorkflowRun, len(*in))

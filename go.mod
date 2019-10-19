@@ -5,10 +5,8 @@ go 1.12
 require (
 	contrib.go.opencensus.io/exporter/prometheus v0.1.0 // indirect
 	contrib.go.opencensus.io/exporter/stackdriver v0.12.7 // indirect
-	github.com/Azure/go-autorest v11.1.2+incompatible // indirect
 	github.com/aws/aws-sdk-go v1.25.0 // indirect
 	github.com/evanphx/json-patch v4.2.0+incompatible // indirect
-	github.com/golang/groupcache v0.0.0-20160516000752-02826c3e7903 // indirect
 	github.com/google/go-containerregistry v0.0.0-20191017210159-68bc585818ee // indirect
 	github.com/google/uuid v1.1.1
 	github.com/hashicorp/vault/api v1.0.4
@@ -27,11 +25,11 @@ require (
 	go.uber.org/zap v1.10.0 // indirect
 	golang.org/x/crypto v0.0.0-20190611184440-5c40567a22f8 // indirect
 	gopkg.in/yaml.v2 v2.2.4
-	k8s.io/api v0.0.0-20190528110122-9ad12a4af326
-	k8s.io/apimachinery v0.0.0-20190221084156-01f179d85dbc
-	k8s.io/client-go v0.0.0-20190528110200-4f3abb12cae2
+	k8s.io/api v0.0.0-20191016110246-af539daaa43a
+	k8s.io/apimachinery v0.0.0-20191004115701-31ade1b30762
+	k8s.io/client-go v0.0.0-20191016110837-54936ba21026
+	k8s.io/code-generator v0.0.0-20190612205613-18da4a14b22b
 	k8s.io/klog v1.0.0
 	k8s.io/kube-openapi v0.0.0-20190816220812-743ec37842bf // indirect
-	k8s.io/kubernetes v1.12.9 // indirect
 	knative.dev/pkg v0.0.0-20190925130640-d02c80dc6256
 )

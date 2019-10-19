@@ -119,7 +119,7 @@ func (c *FakeWorkflowRuns) DeleteCollection(options *v1.DeleteOptions, listOptio
 // Patch applies the patch and returns the patched workflowRun.
 func (c *FakeWorkflowRuns) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *nebulapuppetcomv1.WorkflowRun, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(workflowrunsResource, c.ns, name, data, subresources...), &nebulapuppetcomv1.WorkflowRun{})
+		Invokes(testing.NewPatchSubresourceAction(workflowrunsResource, c.ns, name, pt, data, subresources...), &nebulapuppetcomv1.WorkflowRun{})
 
 	if obj == nil {
 		return nil, err

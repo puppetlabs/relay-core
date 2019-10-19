@@ -16,8 +16,6 @@ import (
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	NebulaV1() nebulav1.NebulaV1Interface
-	// Deprecated: please explicitly pick a version if possible.
-	Nebula() nebulav1.NebulaV1Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
@@ -29,12 +27,6 @@ type Clientset struct {
 
 // NebulaV1 retrieves the NebulaV1Client
 func (c *Clientset) NebulaV1() nebulav1.NebulaV1Interface {
-	return c.nebulaV1
-}
-
-// Deprecated: Nebula retrieves the default version of NebulaClient.
-// Please explicitly pick a version.
-func (c *Clientset) Nebula() nebulav1.NebulaV1Interface {
 	return c.nebulaV1
 }
 
