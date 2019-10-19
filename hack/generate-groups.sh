@@ -32,7 +32,7 @@ $MKDIR_P "${BASEDIR}/src/$( dirname "${MODULE_NAME}" )"
 $LN_S "${MODULE_DIR}" "${BASEDIR}/src/${MODULE_NAME}"
 
 # The upstream code generator
-$GIT submodule update "${MODULE_DIR}/hack/code-generator"
+$GIT submodule update --init "${MODULE_DIR}/hack/code-generator"
 $MKDIR_P "${BASEDIR}/src/k8s.io"
 $LN_S "${MODULE_DIR}/hack/code-generator" "${BASEDIR}/src/k8s.io/code-generator"
 
