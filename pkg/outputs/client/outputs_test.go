@@ -26,6 +26,7 @@ func TestDefaultOutputsClient(t *testing.T) {
 	}
 
 	managers := testutil.NewMockManagerFactory(t, testutil.MockManagerFactoryConfig{
+		Namespace:    "test-task",
 		K8sResources: testutil.MockTask(t, taskConfig),
 	})
 	logger := logging.Builder().At("outputs-client-test").Build()

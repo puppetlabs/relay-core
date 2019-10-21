@@ -3,6 +3,7 @@ package op
 import (
 	"bytes"
 	"context"
+	"crypto/sha1"
 	"io"
 
 	"github.com/puppetlabs/horsehead/encoding/transfer"
@@ -12,7 +13,7 @@ import (
 
 type OutputsManager interface {
 	Get(ctx context.Context, taskName, key string) (*outputs.Output, errors.Error)
-	Put(ctx context.Context, taskName, key string, value io.Reader) errors.Error
+	Put(ctx context.Context, taskHash [sha1.Size]byte, key string, value io.Reader) errors.Error
 }
 
 type EncodeDecodingOutputsManager struct {
@@ -35,7 +36,7 @@ func (m EncodeDecodingOutputsManager) Get(ctx context.Context, taskName, key str
 	return out, nil
 }
 
-func (m EncodeDecodingOutputsManager) Put(ctx context.Context, taskName, key string, value io.Reader) errors.Error {
+func (m EncodeDecodingOutputsManager) Put(ctx context.Context, taskHash [sha1.Size]byte, key string, value io.Reader) errors.Error {
 	buf := &bytes.Buffer{}
 
 	_, err := buf.ReadFrom(value)
@@ -50,7 +51,7 @@ func (m EncodeDecodingOutputsManager) Put(ctx context.Context, taskName, key str
 
 	buf = bytes.NewBufferString(encoded)
 
-	return m.delegate.Put(ctx, taskName, key, buf)
+	return m.delegate.Put(ctx, taskHash, key, buf)
 }
 
 func NewEncodeDecodingOutputsManager(om OutputsManager) *EncodeDecodingOutputsManager {

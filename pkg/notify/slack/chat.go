@@ -42,8 +42,6 @@ func (c *Chat) PostMessage(req PostMessageRequest) (*PostMessageResponse, error)
 		return nil, errors.New("Unexpected status code in chat.postMessage: " + string(bytes))
 	}
 
-	c.log.Debug("chat.postMessage", "req", req, "res", string(bytes))
-
 	var postMessageResponse PostMessageResponse
 	if err := json.Unmarshal(bytes, &postMessageResponse); nil != err {
 		return nil, err

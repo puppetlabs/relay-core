@@ -65,7 +65,7 @@ func Fetch(revision, path, url string) error {
 	if err := run("git", "fetch", "--depth=1", "--recurse-submodules=yes", "origin", revision); err != nil {
 		// Fetch can fail if an old commitid was used so try git pull, performing regardless of error
 		// as no guarantee that the same error is returned by all git servers gitlab, github etc...
-		if err := run("git", "pull", "--recurse-submodules=yes", "origin"); err != nil {
+		if err := run("git", "pull", "--recurse-submodules=yes", "origin", revision); err != nil {
 			return err
 		}
 		if err := run("git", "checkout", revision); err != nil {

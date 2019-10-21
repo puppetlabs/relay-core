@@ -137,6 +137,9 @@ sections:
         metadata:
           http:
             status: 500
+      invalid_hash_error:
+        title: Invalid hash
+        description: the task does not have a valid hash associated with it
 
   kubernetes:
     title: Kubernetes errors
