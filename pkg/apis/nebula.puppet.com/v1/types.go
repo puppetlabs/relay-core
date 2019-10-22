@@ -11,10 +11,9 @@ import (
 type SecretAuth struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              SecretAuthSpec `json:"spec"`
 
-	// +optional
-	Status SecretAuthStatus `json:"status,omitempty"`
+	Spec   SecretAuthSpec   `json:"spec"`
+	Status SecretAuthStatus `json:"status"`
 }
 
 type SecretAuthSpec struct {
@@ -30,7 +29,7 @@ type SecretAuthStatus struct {
 	// TODO this needs to eventually implement the k8s conditions api,
 	// but given how much work that is, we will just accept an empty string
 	// as not ready and Ready as it is ready.
-	Status string `json:"status"`
+	Ready string `json:"ready"`
 }
 
 // +genclient

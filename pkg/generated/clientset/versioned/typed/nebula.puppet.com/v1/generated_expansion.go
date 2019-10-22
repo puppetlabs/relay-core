@@ -20,4 +20,6 @@ package v1
 
 type SecretAuthExpansion interface{}
 
+type SecretAuthListExpansion interface{}
+
 type WorkflowRunExpansion interface{}

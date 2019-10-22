@@ -1,15 +1,8 @@
 FROM golang:1.13-alpine
-
-ENV GO111MODULE=off
-
 RUN apk add --no-cache bash git && \
-    go get k8s.io/code-generator/...; exit 0 && \
-    go get k8s.io/apimachinery/...; exit 0
-
+    go get k8s.io/code-generator/...; exit 0
+ENV GO111MODULE=off
 ARG repo="${GOPATH}/src/github.com/puppetlabs/nebula-tasks"
-
 RUN mkdir -p $repo
-
-WORKDIR $GOPATH/src/k8s.io/code-generator
-
 VOLUME $repo
+WORKDIR $repo

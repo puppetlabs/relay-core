@@ -145,7 +145,7 @@ func (c *Controller) processSingleItem(ctx context.Context, key string) error {
 
 	// if anything fails while creating resources, the status object will not be filled out
 	// and saved. this means that if any of the keys are empty, we haven't created resources yet.
-	if sa.Status.Status == "Ready" {
+	if sa.Status.Ready == "True" {
 		klog.Infof("resources have already been created %s", key)
 		return nil
 	}
@@ -232,7 +232,7 @@ func (c *Controller) processSingleItem(ctx context.Context, key string) error {
 	klog.Infof("metadata service is ready %s", sa.Spec.WorkflowID)
 
 	saCopy := sa.DeepCopy()
-	saCopy.Status.Status = "Ready"
+	saCopy.Status.Ready = "True"
 
 	klog.Info("updating secretauth resource status for ", sa.Spec.WorkflowID)
 	saCopy, err = c.nebclient.NebulaV1().SecretAuths(namespace).Update(saCopy)
