@@ -27,7 +27,6 @@ import (
 type NebulaV1Interface interface {
 	RESTClient() rest.Interface
 	SecretAuthsGetter
-	SecretAuthListsGetter
 	WorkflowRunsGetter
 }
 
@@ -38,10 +37,6 @@ type NebulaV1Client struct {
 
 func (c *NebulaV1Client) SecretAuths(namespace string) SecretAuthInterface {
 	return newSecretAuths(c, namespace)
-}
-
-func (c *NebulaV1Client) SecretAuthLists(namespace string) SecretAuthListInterface {
-	return newSecretAuthLists(c, namespace)
 }
 
 func (c *NebulaV1Client) WorkflowRuns(namespace string) WorkflowRunInterface {

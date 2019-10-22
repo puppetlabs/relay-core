@@ -32,10 +32,6 @@ func (c *FakeNebulaV1) SecretAuths(namespace string) v1.SecretAuthInterface {
 	return &FakeSecretAuths{c, namespace}
 }
 
-func (c *FakeNebulaV1) SecretAuthLists(namespace string) v1.SecretAuthListInterface {
-	return &FakeSecretAuthLists{c, namespace}
-}
-
 func (c *FakeNebulaV1) WorkflowRuns(namespace string) v1.WorkflowRunInterface {
 	return &FakeWorkflowRuns{c, namespace}
 }

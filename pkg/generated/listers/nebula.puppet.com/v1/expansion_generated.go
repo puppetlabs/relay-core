@@ -26,14 +26,6 @@ type SecretAuthListerExpansion interface{}
 // SecretAuthNamespaceLister.
 type SecretAuthNamespaceListerExpansion interface{}
 
-// SecretAuthListListerExpansion allows custom methods to be added to
-// SecretAuthListLister.
-type SecretAuthListListerExpansion interface{}
-
-// SecretAuthListNamespaceListerExpansion allows custom methods to be added to
-// SecretAuthListNamespaceLister.
-type SecretAuthListNamespaceListerExpansion interface{}
-
 // WorkflowRunListerExpansion allows custom methods to be added to
 // WorkflowRunLister.
 type WorkflowRunListerExpansion interface{}

@@ -32,9 +32,7 @@ type SecretAuthStatus struct {
 	Ready string `json:"ready"`
 }
 
-// +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +groupName=nebula.puppet.com
 
 type SecretAuthList struct {
 	metav1.TypeMeta `json:",inline"`

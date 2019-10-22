@@ -26,8 +26,6 @@ import (
 type Interface interface {
 	// SecretAuths returns a SecretAuthInformer.
 	SecretAuths() SecretAuthInformer
-	// SecretAuthLists returns a SecretAuthListInformer.
-	SecretAuthLists() SecretAuthListInformer
 	// WorkflowRuns returns a WorkflowRunInformer.
 	WorkflowRuns() WorkflowRunInformer
 }
@@ -46,11 +44,6 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 // SecretAuths returns a SecretAuthInformer.
 func (v *version) SecretAuths() SecretAuthInformer {
 	return &secretAuthInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
-}
-
-// SecretAuthLists returns a SecretAuthListInformer.
-func (v *version) SecretAuthLists() SecretAuthListInformer {
-	return &secretAuthListInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // WorkflowRuns returns a WorkflowRunInformer.
