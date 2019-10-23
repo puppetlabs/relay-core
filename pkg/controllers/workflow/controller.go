@@ -31,6 +31,7 @@ import (
 	clientset "github.com/puppetlabs/nebula-tasks/pkg/generated/clientset/versioned"
 	neblisters "github.com/puppetlabs/nebula-tasks/pkg/generated/listers/nebula.puppet.com/v1"
 	"github.com/puppetlabs/nebula-tasks/pkg/secrets/vault"
+	"github.com/puppetlabs/nebula-tasks/pkg/util"
 )
 
 const (
@@ -64,7 +65,6 @@ const (
 
 	// PipelineRun annotation indicating the log upload location
 	logUploadAnnotationPrefix = "nebula.puppet.com/log-archive-"
-	MaxLogArchiveTries        = 7
 )
 
 type podAndTaskName struct {
@@ -219,27 +219,6 @@ func (c *Controller) processSingleItem(ctx context.Context, key string) error {
 		return err
 	}
 
-	klog.Infof("waiting for metadata service to become ready %s", sa.Spec.WorkflowID)
-
-	// This waits for a Modified watch event on a service's Endpoint object.
-	// When this event is received, it will check it's addresses to see if there's
-	// pods that are ready to be served.
-	if err := c.waitForEndpoint(service); err != nil {
-		return err
-	}
-
-	// Because of a possible race condition bug in the kernel or kubelet network stack, there's a very
-	// tiny window of time where packets will get dropped if you try to make requests to the ports
-	// that are supposed to be forwarded to underlying pods. This unfortunately happens quite frequently
-	// since we exec task pods from Tekton very quickly. This function will make GET requests in a loop
-	// to the readiness endpoint of the pod (via the service dns) to make sure it actually gets a 200
-	// response before setting the status object on SecretAuth resources.
-	if err := c.waitForSuccessfulServiceResponse(service); err != nil {
-		return err
-	}
-
-	klog.Infof("metadata service is ready %s", sa.Spec.WorkflowID)
-
 	saCopy := sa.DeepCopy()
 	saCopy.Status.MetadataServicePod = pod.GetName()
 	saCopy.Status.MetadataServiceService = service.GetName()
@@ -274,6 +253,14 @@ func (c *Controller) waitForEndpoint(service *corev1.Service) error {
 		return err
 	}
 
+	if endpoints.Subsets != nil && len(endpoints.Subsets) > 0 {
+		for _, subset := range endpoints.Subsets {
+			if subset.Addresses != nil && len(subset.Addresses) > 0 {
+				return nil
+			}
+		}
+	}
+
 	listOptions := metav1.SingleObject(endpoints.ObjectMeta)
 	listOptions.TimeoutSeconds = &timeout
 
@@ -302,7 +289,7 @@ eventLoop:
 	}
 
 	if !conditionMet {
-		return fmt.Errorf("timeout occurred while waiting for the metadata service to be ready")
+		return fmt.Errorf("timeout occurred while waiting for service %s to be ready", service.GetName())
 	}
 
 	return nil
@@ -316,16 +303,17 @@ func (c *Controller) waitForSuccessfulServiceResponse(service *corev1.Service) e
 	)
 
 	return wait.PollImmediate(interval, timeout, func() (bool, error) {
-		resp, err := http.Get(u)
+		client := http.Client{
+			Timeout: timeout,
+		}
+		resp, err := client.Get(u)
 		if err != nil {
-			klog.Infof("got an error when probing the metadata api %s", err)
-
+			klog.Infof("got an error when probing the service %s - %s", service.GetName(), err)
 			return false, nil
 		}
 
 		if resp.StatusCode != http.StatusOK {
-			klog.Infof("got an invalid status code when probing the metadata api %d", resp.StatusCode)
-
+			klog.Infof("got an invalid status code when probing service %s %d", service.GetName(), resp.StatusCode)
 			return false, nil
 		}
 
@@ -375,24 +363,21 @@ func (c *Controller) processPipelineRunChange(ctx context.Context, key string) e
 		return err
 	}
 
-	for _, workflow := range workflowList {
-		status, _ := c.updateWorkflowRunStatus(plr)
-
-		wfrCopy := workflow.DeepCopy()
-		wfrCopy.Status = *status
-
-		_, err = c.nebclient.NebulaV1().WorkflowRuns(namespace).Update(wfrCopy)
-		if err != nil {
-			return err
-		}
-	}
+	logAnnotations := make(map[string]string, 0)
 
 	if plr.IsDone() {
 		// Upload the logs that are not defined on the PipelineRun record...
-		err = c.uploadLogs(ctx, plr)
+		logAnnotations, err = c.uploadLogs(ctx, plr)
 		if nil != err {
 			return err
 		}
+
+		// FIXME This will be removed later in favor of the WorkflowRun
+		for name, value := range logAnnotations {
+			metav1.SetMetaDataAnnotation(&plr.ObjectMeta, name, value)
+		}
+
+		plr, err = c.tekclient.TektonV1alpha1().PipelineRuns(plr.Namespace).Update(plr)
 
 		sas, err := c.nebclient.NebulaV1().SecretAuths(namespace).List(metav1.ListOptions{})
 		if err != nil {
@@ -460,12 +445,30 @@ func (c *Controller) processPipelineRunChange(ctx context.Context, key string) e
 		}
 	}
 
+	for _, workflow := range workflowList {
+		status, _ := c.updateWorkflowRunStatus(plr)
+
+		wfrCopy := workflow.DeepCopy()
+		wfrCopy.Status = *status
+
+		for name, value := range logAnnotations {
+			metav1.SetMetaDataAnnotation(&wfrCopy.ObjectMeta, name, value)
+		}
+
+		_, err = c.nebclient.NebulaV1().WorkflowRuns(namespace).Update(wfrCopy)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
-func (c *Controller) uploadLogs(ctx context.Context, plr *tekv1alpha1.PipelineRun) error {
+func (c *Controller) uploadLogs(ctx context.Context, plr *tekv1alpha1.PipelineRun) (map[string]string, error) {
+
+	logAnnotations := make(map[string]string, 0)
 	for _, pt := range extractPodAndTaskNamesFromPipelineRun(plr) {
-		annotation := logUploadAnnotationPrefix + pt.TaskName
+		annotation := util.Slug(logUploadAnnotationPrefix + pt.TaskName)
 		if _, ok := plr.Annotations[annotation]; ok {
 			continue
 		}
@@ -477,36 +480,12 @@ func (c *Controller) uploadLogs(ctx context.Context, plr *tekv1alpha1.PipelineRu
 				pt.PodName,
 				containerName,
 				err)
-			return err
+			continue
 		}
-		for retry := uint(0); ; retry++ {
-			metav1.SetMetaDataAnnotation(&plr.ObjectMeta, annotation, logName)
-			plr, err = c.tekclient.TektonV1alpha1().PipelineRuns(plr.Namespace).Update(plr)
-			if nil == err {
-				break
-			} else if !errors.IsConflict(err) {
-				return err
-			}
-			if retry > MaxLogArchiveTries {
-				return err
-			}
-			klog.Warningf("Conflict during pipelineRun=%s/%s update",
-				plr.Namespace,
-				plr.Name)
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After((1 << retry) * 10 * time.Millisecond):
-			}
-			plr, err = c.tekclient.TektonV1alpha1().
-				PipelineRuns(plr.Namespace).
-				Get(plr.Name, metav1.GetOptions{})
-			if nil != err {
-				return err
-			}
-		}
+
+		logAnnotations[annotation] = logName
 	}
-	return nil
+	return logAnnotations, nil
 }
 
 func (c *Controller) uploadLog(ctx context.Context, namespace string, podName string, containerName string) (string, error) {
@@ -918,6 +897,39 @@ func (c *Controller) processWorkflowRunChange(ctx context.Context, key string) e
 
 	if wf.ObjectMeta.DeletionTimestamp.IsZero() {
 		if _, ok := wf.GetAnnotations()[pipelineRunAnnotation]; !ok {
+			sa, err := c.nebclient.NebulaV1().SecretAuths(namespace).Get(wf.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+
+			service, err := c.kubeclient.CoreV1().Services(namespace).Get(sa.Status.MetadataServiceService, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+
+			klog.Infof("waiting for service %s to become ready", service.GetName())
+
+			// This waits for a Modified watch event on a service's Endpoint object.
+			// When this event is received, it will check it's addresses to see if there's
+			// pods that are ready to be served.
+			if err := c.waitForEndpoint(service); err != nil {
+				return err
+			}
+
+			klog.Infof("waiting for successful %s service response", service.GetName())
+
+			// Because of a possible race condition bug in the kernel or kubelet network stack, there's a very
+			// tiny window of time where packets will get dropped if you try to make requests to the ports
+			// that are supposed to be forwarded to underlying pods. This unfortunately happens quite frequently
+			// since we exec task pods from Tekton very quickly. This function will make GET requests in a loop
+			// to the readiness endpoint of the pod (via the service dns) to make sure it actually gets a 200
+			// response before setting the status object on SecretAuth resources.
+			if err := c.waitForSuccessfulServiceResponse(service); err != nil {
+				return err
+			}
+
+			klog.Infof("service %s is ready", service.GetName())
+
 			plr, err := c.createPipelineRun(wf.Spec.Name, namespace)
 			if err != nil {
 				return err
