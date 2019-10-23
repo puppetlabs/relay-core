@@ -53,8 +53,6 @@ func (f *genericInformer) Lister() cache.GenericLister {
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
 	// Group=nebula.puppet.com, Version=v1
-	case v1.SchemeGroupVersion.WithResource("secretauths"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Nebula().V1().SecretAuths().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("workflowruns"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Nebula().V1().WorkflowRuns().Informer()}, nil
 

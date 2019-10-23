@@ -25,10 +25,6 @@ type DependencyManager struct {
 	TektonInformerFactory tekinformers.SharedInformerFactory
 }
 
-func (d DependencyManager) SecretAuthInformer() nebv1informers.SecretAuthInformer {
-	return d.NebulaInformerFactory.Nebula().V1().SecretAuths()
-}
-
 func (d DependencyManager) WorkflowRunInformer() nebv1informers.WorkflowRunInformer {
 	return d.NebulaInformerFactory.Nebula().V1().WorkflowRuns()
 }
