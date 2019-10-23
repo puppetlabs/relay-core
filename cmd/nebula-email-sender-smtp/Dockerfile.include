@@ -1,9 +1,0 @@
-FROM alpine:latest
-
-COPY --from=builder /go/src/github.com/puppetlabs/nebula-tasks/__OUTPUTBIN__ /usr/bin/__OUTPUTBIN__
-COPY --from=builder /go/src/github.com/puppetlabs/nebula-tasks/ni /usr/bin/ni
-
-RUN apk --no-cache add ca-certificates && update-ca-certificates
-
-WORKDIR /nebula
-CMD ["__DOCKER_CMD__"]
