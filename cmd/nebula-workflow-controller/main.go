@@ -9,8 +9,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/puppetlabs/horsehead/storage"
-	_ "github.com/puppetlabs/nebula-libs/storage/gcs"
+	"github.com/puppetlabs/horsehead/v2/storage"
+	_ "github.com/puppetlabs/nebula-libs/storage/gcs/v2"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
 	"github.com/puppetlabs/nebula-tasks/pkg/controllers"
 	"github.com/puppetlabs/nebula-tasks/pkg/controllers/workflow"

@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/puppetlabs/horsehead/logging"
+	"github.com/puppetlabs/horsehead/v2/logging"
 	"github.com/puppetlabs/nebula-sdk/pkg/outputs"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server"

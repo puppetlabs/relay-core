@@ -2,7 +2,6 @@ package taskutil
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -10,6 +9,9 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"time"
+
+	"github.com/mitchellh/mapstructure"
 )
 
 const SpecURLEnvName = "SPEC_URL"
@@ -78,17 +80,7 @@ func NewLocalSpecLoader(path string) LocalSpecLoader {
 }
 
 type SpecDecoder interface {
-	DecodeSpec(io.Reader, interface{}) error
-}
-
-type DefaultJSONSpecDecoder struct{}
-
-func (u DefaultJSONSpecDecoder) DecodeSpec(r io.Reader, v interface{}) error {
-	if err := json.NewDecoder(r).Decode(v); err != nil {
-		return fmt.Errorf("failed to decode JSON: %+v", err)
-	}
-
-	return nil
+	DecodeSpec(io.Reader) (interface{}, error)
 }
 
 type DefaultPlanOptions struct {
@@ -125,16 +117,28 @@ func PopulateSpecFromDefaultPlan(v interface{}, opts DefaultPlanOptions) error {
 	default:
 		return fmt.Errorf("unknown scheme %s in spec URL", u.Scheme)
 	}
-	decoder := DefaultJSONSpecDecoder{}
 
 	r, err := loader.LoadSpec()
 	if err != nil {
 		return err
 	}
 
-	if err := decoder.DecodeSpec(r, v); err != nil {
+	mv, err := (&JSONSpecDecoder{}).DecodeSpec(r)
+	if err != nil {
 		return err
 	}
 
-	return nil
+	d, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		DecodeHook: mapstructure.ComposeDecodeHookFunc(
+			mapstructure.StringToTimeDurationHookFunc(),
+			mapstructure.StringToTimeHookFunc(time.RFC3339Nano),
+		),
+		Result:  v,
+		TagName: "spec",
+	})
+	if err != nil {
+		return err
+	}
+
+	return d.Decode(mv)
 }

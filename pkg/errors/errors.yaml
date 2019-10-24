@@ -24,6 +24,9 @@ sections:
         arguments:
           key:
             description: the key that is missing
+      value_encoding_error:
+        title: Value encoding error
+        description: encoding the secret value failed
       value_decoding_error:
         title: Value decoding error
         description: decoding the secret value failed

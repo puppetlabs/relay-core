@@ -110,7 +110,12 @@ func (c DefaultOutputsClient) GetOutput(ctx context.Context, taskName, key strin
 		return "", err
 	}
 
-	return output.Value, nil
+	v, err := output.Value.Decode()
+	if err != nil {
+		return "", err
+	}
+
+	return string(v), nil
 }
 
 func NewDefaultOutputsClient(location *url.URL) OutputsClient {
