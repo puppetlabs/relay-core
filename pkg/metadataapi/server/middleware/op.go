@@ -5,7 +5,7 @@ import (
 	"net"
 	"net/http"
 
-	utilapi "github.com/puppetlabs/horsehead/httputil/api"
+	utilapi "github.com/puppetlabs/horsehead/v2/httputil/api"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/op"
 	"github.com/puppetlabs/nebula-tasks/pkg/task"

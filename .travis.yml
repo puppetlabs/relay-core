@@ -5,10 +5,8 @@ env:
   global:
   - GO111MODULE: 'on'
   - NEBULA_EMAIL: nebula-team@puppet.com
-  - DOCKER_USERNAME: projectnebulaautomation
   - secure: o67qTsynCkX85r3w/B9s1SkOBSEInNEIPx/wGh0+tHVllPRmj+ciEpH9HvWS5vjny6N3g6qdejEyRt4QSIdt2X7gHmDlOLrNTp7UDf+Tu8hI4EtQehL44VP7UCcwuympjrCmAkHlOKvHGhhnuQGcfJYXJM8ijHVBFa3+ZD8sfWJ4XFiS8aG4S3TIQ+E1CDvReKzROTV7yaQqRt0L2SHJpEiy/XAsUGp0/xcp/CC5g5yMy7LEb7Wwbpl0EiO585tzquHPFwIs4dM9YfNUIj6eH4eMFJ1tw29Yu9MR2rPDX3NShuoqOt7GkswmRcq5j8zNHWMhZvu92Y9QL1lluRIYWNepWXDvlKv+8ZrTDoSP8VdQcfRwGVGp+Jw/tI5nxJTxdObvnLAXX436ZVgSW65Mai2t7BYVpMU7a3B/yF+lsvKleDcuIphlgzwt7kYju2ZldC7AdjdH2uhGaICAlWp5ESM8J2Jff2dNYDfvL9qJtI8ua27zBMf6eAFYUTouDsN2dxtNC2cJZmvnd3qw2yub46oDRL5JVlyWJt1POwl51p36NGRV7Gmx0voumCEFwywMoF5+xQ5NqHclbTsDENX/n+FFQly9XgHWhRmF5pC4whlfz1ezZLKlq89mMQrsNsPsJSKeLA0Y3bA4W72PT4QH2I3wtPjNgA9Fw4UcuSbEV6M=
   - secure: KSeV/KzTSYJFUkk/y1t6nd7VxZC6/g5ok91k0lbk/NA4/c5YfLIusCP/iKw8YvGaMbHvUekXR9OqdjbPq1yA7x9BdwGjR9zLbAO+f4HXkR5RWVXrEY04OjAWBmazJtEnNfyshVCP/7nhZ0lXBC0y+LfbN9lu/gdkv/mwUoDD4wfSULyDJEPgbDwPbNuL4t9qBZgjzik8B1cQJqMaJbo/IW8LaQtaONR2K9Q02rJo/K1dav1f04c8v6Hu38mda2GrlbXaccyR4M0qIeTdSoWcA627hZHWqlKav85A0rCwnB/6e/XZ8N61gYeOFUVLrYuQhrC6Cy0VPqLmk69eZEhLzB3NWwmZSuVI7PPAwoprFGLu3T6X+QebTmEjsRJrxuOYru5s8U5k5ta7lr09ZHOmKgSMOYPmdURKuWiQKBpUItuWfR1rZRhddJ3Q0XQjoAgcJya3368tpG/t3Hzr0L7gHtm519vx6pGhH4UozypFV3eL1qOLz1hC3nvbxuyZ+E+aX9qP2E85uiveaNYtaQ8HL8tO8BXPlwbtx/oHy/IuNNioanT9u8XUn24ev3Z7P4SEv25oehmVisU3a9b6el4FPg/0vDwg2aRl0jm4+lziiMq38tTXwupHkj6aVbAbmV2m3rpKWmH6tsX3tdDU9vI01kGrd9WL54PwM5FVumeb9M4=
-  - secure: Kw5CeOPHujxAtxzfBHMH/EIto+GYXwfsehBhvCF1nAdnR/P8g8UFqWNv5rQ6xuGm6HQqWOjrgmQhl2UpFn4deSLp/1syD0dY8LCGeZ12qgxDKUhjSHoHkV96Y31STKGIqBZNwQXwalUH6mFgensQKNijtYsnj+hGzb8MLhYicwmNT32qmINsrKt3zTaWHHO60vRrNLrkYuL8VNRiawnWC/CEBm2N3wUtpCP1hluEUqyUcVAHYqPlSPG9+4mzkWs71KI8DzaUvpE4CekMgW/a1kse4ChptHBuc5c74PYAhpRBZZiizlJYWdjaPzOK4i4lqgYm/Y/i24/b1eReVPCpvtULXyGnXg2G7WPSCq5Rz9+RzxaTXk3SDVRqJsphsyrWdRaV0CZ2MAbp7+8yxPhT+Xnb6ZtlS85iRxsr0/WK4Nt6nkUkAljHyIod5W61S9WXADKg+lYDn+e1FePXcV3971EWgDX71Dnz4ZFGfhoC/R8NneIawXOH3GlExeTGzkC1ZPwZTp9Picqw/TY48UO3T1CELYVs9bDn7N/J3KlBCkEzUI60Yy7x9enRab2uqgDAQGUimhQu9MFHr730R7ZLwSfP6mh4IwbUvlLQ0E7pY5qHryXmCg64m5Gh1Ir69hc26+R7gIwghcRNAkyrvCCGSh95LX1gMStL949TXlpY8Ro=
 jobs:
   include:
   - stage: test
@@ -25,7 +23,6 @@ jobs:
       -d
     - gcloud auth activate-service-account --key-file scripts/nebula-gcloud-service-account.json
     - gcloud --quiet auth configure-docker
-    - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
     script:
     - "./scripts/ci build"
     - "./scripts/ci release"

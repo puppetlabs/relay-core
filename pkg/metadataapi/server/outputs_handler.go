@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"net/http"
 
-	utilapi "github.com/puppetlabs/horsehead/httputil/api"
-	"github.com/puppetlabs/horsehead/logging"
+	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
+	utilapi "github.com/puppetlabs/horsehead/v2/httputil/api"
+	"github.com/puppetlabs/horsehead/v2/logging"
+	"github.com/puppetlabs/nebula-sdk/pkg/outputs"
+	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"
 )
 
@@ -62,9 +65,20 @@ func (o outputsHandler) get(w http.ResponseWriter, r *http.Request) {
 	response, err := om.Get(ctx, taskName, key)
 	if err != nil {
 		utilapi.WriteError(ctx, w, err)
-
 		return
 	}
 
-	utilapi.WriteObjectOK(ctx, w, response)
+	ev, verr := transfer.EncodeJSON([]byte(response.Value))
+	if verr != nil {
+		utilapi.WriteError(ctx, w, errors.NewOutputsValueEncodingError().WithCause(verr).Bug())
+		return
+	}
+
+	env := &outputs.Output{
+		TaskName: response.TaskName,
+		Key:      response.Key,
+		Value:    ev,
+	}
+
+	utilapi.WriteObjectOK(ctx, w, env)
 }

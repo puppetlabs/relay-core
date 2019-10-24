@@ -1883,6 +1883,54 @@ func NewSecretsValueDecodingError() Error {
 	return NewSecretsValueDecodingErrorBuilder().Build()
 }
 
+// SecretsValueEncodingErrorCode is the code for an instance of "value_encoding_error".
+const SecretsValueEncodingErrorCode = "nt_secrets_value_encoding_error"
+
+// IsSecretsValueEncodingError tests whether a given error is an instance of "value_encoding_error".
+func IsSecretsValueEncodingError(err errawr.Error) bool {
+	return err != nil && err.Is(SecretsValueEncodingErrorCode)
+}
+
+// IsSecretsValueEncodingError tests whether a given error is an instance of "value_encoding_error".
+func (External) IsSecretsValueEncodingError(err errawr.Error) bool {
+	return IsSecretsValueEncodingError(err)
+}
+
+// SecretsValueEncodingErrorBuilder is a builder for "value_encoding_error" errors.
+type SecretsValueEncodingErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "value_encoding_error" from this builder.
+func (b *SecretsValueEncodingErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "encoding the secret value failed",
+		Technical: "encoding the secret value failed",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "value_encoding_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     SecretsSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Value encoding error",
+		Version:          1,
+	}
+}
+
+// NewSecretsValueEncodingErrorBuilder creates a new error builder for the code "value_encoding_error".
+func NewSecretsValueEncodingErrorBuilder() *SecretsValueEncodingErrorBuilder {
+	return &SecretsValueEncodingErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewSecretsValueEncodingError creates a new error with the code "value_encoding_error".
+func NewSecretsValueEncodingError() Error {
+	return NewSecretsValueEncodingErrorBuilder().Build()
+}
+
 // SecretsVaultAuthenticationNotConfiguredErrorCode is the code for an instance of "vault_authentication_not_configured_error".
 const SecretsVaultAuthenticationNotConfiguredErrorCode = "nt_secrets_vault_authentication_not_configured_error"
 
@@ -2172,10 +2220,10 @@ func NewSecretsVaultTokenRenewError() Error {
 }
 
 // ServerSection defines a section of errors with the following scope:
-// Sever errors
+// Server errors
 var ServerSection = &impl.ErrorSection{
 	Key:   "server",
-	Title: "Sever errors",
+	Title: "Server errors",
 }
 
 // ServerClientIPErrorCode is the code for an instance of "client_ip_error".
@@ -3020,347 +3068,4 @@ func NewTaskSpecNotFoundForIDBuilder(id string) *TaskSpecNotFoundForIDBuilder {
 // NewTaskSpecNotFoundForID creates a new error with the code "spec_not_found_for_id".
 func NewTaskSpecNotFoundForID(id string) Error {
 	return NewTaskSpecNotFoundForIDBuilder(id).Build()
-}
-
-// TaskUtilSection defines a section of errors with the following scope:
-// Task util errors
-var TaskUtilSection = &impl.ErrorSection{
-	Key:   "task_util",
-	Title: "Task util errors",
-}
-
-// TaskUtilDefaultJSONSpecDecodingErrorCode is the code for an instance of "default_json_spec_decoding_error".
-const TaskUtilDefaultJSONSpecDecodingErrorCode = "nt_task_util_default_json_spec_decoding_error"
-
-// IsTaskUtilDefaultJSONSpecDecodingError tests whether a given error is an instance of "default_json_spec_decoding_error".
-func IsTaskUtilDefaultJSONSpecDecodingError(err errawr.Error) bool {
-	return err != nil && err.Is(TaskUtilDefaultJSONSpecDecodingErrorCode)
-}
-
-// IsTaskUtilDefaultJSONSpecDecodingError tests whether a given error is an instance of "default_json_spec_decoding_error".
-func (External) IsTaskUtilDefaultJSONSpecDecodingError(err errawr.Error) bool {
-	return IsTaskUtilDefaultJSONSpecDecodingError(err)
-}
-
-// TaskUtilDefaultJSONSpecDecodingErrorBuilder is a builder for "default_json_spec_decoding_error" errors.
-type TaskUtilDefaultJSONSpecDecodingErrorBuilder struct {
-	arguments impl.ErrorArguments
-}
-
-// Build creates the error for the code "default_json_spec_decoding_error" from this builder.
-func (b *TaskUtilDefaultJSONSpecDecodingErrorBuilder) Build() Error {
-	description := &impl.ErrorDescription{
-		Friendly:  "failed to decode spec from json content",
-		Technical: "failed to decode spec from json content",
-	}
-
-	return &impl.Error{
-		ErrorArguments:   b.arguments,
-		ErrorCode:        "default_json_spec_decoding_error",
-		ErrorDescription: description,
-		ErrorDomain:      Domain,
-		ErrorMetadata:    &impl.ErrorMetadata{},
-		ErrorSection:     TaskUtilSection,
-		ErrorSensitivity: errawr.ErrorSensitivityNone,
-		ErrorTitle:       "Default JSON spec decoding error",
-		Version:          1,
-	}
-}
-
-// NewTaskUtilDefaultJSONSpecDecodingErrorBuilder creates a new error builder for the code "default_json_spec_decoding_error".
-func NewTaskUtilDefaultJSONSpecDecodingErrorBuilder() *TaskUtilDefaultJSONSpecDecodingErrorBuilder {
-	return &TaskUtilDefaultJSONSpecDecodingErrorBuilder{arguments: impl.ErrorArguments{}}
-}
-
-// NewTaskUtilDefaultJSONSpecDecodingError creates a new error with the code "default_json_spec_decoding_error".
-func NewTaskUtilDefaultJSONSpecDecodingError() Error {
-	return NewTaskUtilDefaultJSONSpecDecodingErrorBuilder().Build()
-}
-
-// TaskUtilDefaultSpecPlanFailedCode is the code for an instance of "default_spec_plan_failed".
-const TaskUtilDefaultSpecPlanFailedCode = "nt_task_util_default_spec_plan_failed"
-
-// IsTaskUtilDefaultSpecPlanFailed tests whether a given error is an instance of "default_spec_plan_failed".
-func IsTaskUtilDefaultSpecPlanFailed(err errawr.Error) bool {
-	return err != nil && err.Is(TaskUtilDefaultSpecPlanFailedCode)
-}
-
-// IsTaskUtilDefaultSpecPlanFailed tests whether a given error is an instance of "default_spec_plan_failed".
-func (External) IsTaskUtilDefaultSpecPlanFailed(err errawr.Error) bool {
-	return IsTaskUtilDefaultSpecPlanFailed(err)
-}
-
-// TaskUtilDefaultSpecPlanFailedBuilder is a builder for "default_spec_plan_failed" errors.
-type TaskUtilDefaultSpecPlanFailedBuilder struct {
-	arguments impl.ErrorArguments
-}
-
-// Build creates the error for the code "default_spec_plan_failed" from this builder.
-func (b *TaskUtilDefaultSpecPlanFailedBuilder) Build() Error {
-	description := &impl.ErrorDescription{
-		Friendly:  "using the default plan failed with {{reason}}",
-		Technical: "using the default plan failed with {{reason}}",
-	}
-
-	return &impl.Error{
-		ErrorArguments:   b.arguments,
-		ErrorCode:        "default_spec_plan_failed",
-		ErrorDescription: description,
-		ErrorDomain:      Domain,
-		ErrorMetadata:    &impl.ErrorMetadata{},
-		ErrorSection:     TaskUtilSection,
-		ErrorSensitivity: errawr.ErrorSensitivityNone,
-		ErrorTitle:       "Default spec plan failed",
-		Version:          1,
-	}
-}
-
-// NewTaskUtilDefaultSpecPlanFailedBuilder creates a new error builder for the code "default_spec_plan_failed".
-func NewTaskUtilDefaultSpecPlanFailedBuilder(reason string) *TaskUtilDefaultSpecPlanFailedBuilder {
-	return &TaskUtilDefaultSpecPlanFailedBuilder{arguments: impl.ErrorArguments{"reason": impl.NewErrorArgument(reason, "the reason the plan failed to execute")}}
-}
-
-// NewTaskUtilDefaultSpecPlanFailed creates a new error with the code "default_spec_plan_failed".
-func NewTaskUtilDefaultSpecPlanFailed(reason string) Error {
-	return NewTaskUtilDefaultSpecPlanFailedBuilder(reason).Build()
-}
-
-// TaskUtilSetOutputErrorCode is the code for an instance of "set_output_error".
-const TaskUtilSetOutputErrorCode = "nt_task_util_set_output_error"
-
-// IsTaskUtilSetOutputError tests whether a given error is an instance of "set_output_error".
-func IsTaskUtilSetOutputError(err errawr.Error) bool {
-	return err != nil && err.Is(TaskUtilSetOutputErrorCode)
-}
-
-// IsTaskUtilSetOutputError tests whether a given error is an instance of "set_output_error".
-func (External) IsTaskUtilSetOutputError(err errawr.Error) bool {
-	return IsTaskUtilSetOutputError(err)
-}
-
-// TaskUtilSetOutputErrorBuilder is a builder for "set_output_error" errors.
-type TaskUtilSetOutputErrorBuilder struct {
-	arguments impl.ErrorArguments
-}
-
-// Build creates the error for the code "set_output_error" from this builder.
-func (b *TaskUtilSetOutputErrorBuilder) Build() Error {
-	description := &impl.ErrorDescription{
-		Friendly:  "an error occurred while trying to set the task output",
-		Technical: "an error occurred while trying to set the task output",
-	}
-
-	return &impl.Error{
-		ErrorArguments:   b.arguments,
-		ErrorCode:        "set_output_error",
-		ErrorDescription: description,
-		ErrorDomain:      Domain,
-		ErrorMetadata:    &impl.ErrorMetadata{},
-		ErrorSection:     TaskUtilSection,
-		ErrorSensitivity: errawr.ErrorSensitivityNone,
-		ErrorTitle:       "Set output error",
-		Version:          1,
-	}
-}
-
-// NewTaskUtilSetOutputErrorBuilder creates a new error builder for the code "set_output_error".
-func NewTaskUtilSetOutputErrorBuilder() *TaskUtilSetOutputErrorBuilder {
-	return &TaskUtilSetOutputErrorBuilder{arguments: impl.ErrorArguments{}}
-}
-
-// NewTaskUtilSetOutputError creates a new error with the code "set_output_error".
-func NewTaskUtilSetOutputError() Error {
-	return NewTaskUtilSetOutputErrorBuilder().Build()
-}
-
-// TaskUtilSetOutputMetadataAPIURLErrorCode is the code for an instance of "set_output_metadata_api_url_error".
-const TaskUtilSetOutputMetadataAPIURLErrorCode = "nt_task_util_set_output_metadata_api_url_error"
-
-// IsTaskUtilSetOutputMetadataAPIURLError tests whether a given error is an instance of "set_output_metadata_api_url_error".
-func IsTaskUtilSetOutputMetadataAPIURLError(err errawr.Error) bool {
-	return err != nil && err.Is(TaskUtilSetOutputMetadataAPIURLErrorCode)
-}
-
-// IsTaskUtilSetOutputMetadataAPIURLError tests whether a given error is an instance of "set_output_metadata_api_url_error".
-func (External) IsTaskUtilSetOutputMetadataAPIURLError(err errawr.Error) bool {
-	return IsTaskUtilSetOutputMetadataAPIURLError(err)
-}
-
-// TaskUtilSetOutputMetadataAPIURLErrorBuilder is a builder for "set_output_metadata_api_url_error" errors.
-type TaskUtilSetOutputMetadataAPIURLErrorBuilder struct {
-	arguments impl.ErrorArguments
-}
-
-// Build creates the error for the code "set_output_metadata_api_url_error" from this builder.
-func (b *TaskUtilSetOutputMetadataAPIURLErrorBuilder) Build() Error {
-	description := &impl.ErrorDescription{
-		Friendly:  "there was an error parsing the metadata url",
-		Technical: "there was an error parsing the metadata url",
-	}
-
-	return &impl.Error{
-		ErrorArguments:   b.arguments,
-		ErrorCode:        "set_output_metadata_api_url_error",
-		ErrorDescription: description,
-		ErrorDomain:      Domain,
-		ErrorMetadata:    &impl.ErrorMetadata{},
-		ErrorSection:     TaskUtilSection,
-		ErrorSensitivity: errawr.ErrorSensitivityNone,
-		ErrorTitle:       "Set output metadata api url error",
-		Version:          1,
-	}
-}
-
-// NewTaskUtilSetOutputMetadataAPIURLErrorBuilder creates a new error builder for the code "set_output_metadata_api_url_error".
-func NewTaskUtilSetOutputMetadataAPIURLErrorBuilder() *TaskUtilSetOutputMetadataAPIURLErrorBuilder {
-	return &TaskUtilSetOutputMetadataAPIURLErrorBuilder{arguments: impl.ErrorArguments{}}
-}
-
-// NewTaskUtilSetOutputMetadataAPIURLError creates a new error with the code "set_output_metadata_api_url_error".
-func NewTaskUtilSetOutputMetadataAPIURLError() Error {
-	return NewTaskUtilSetOutputMetadataAPIURLErrorBuilder().Build()
-}
-
-// TaskUtilSetOutputRequiredValueEmptyCode is the code for an instance of "set_output_required_value_empty".
-const TaskUtilSetOutputRequiredValueEmptyCode = "nt_task_util_set_output_required_value_empty"
-
-// IsTaskUtilSetOutputRequiredValueEmpty tests whether a given error is an instance of "set_output_required_value_empty".
-func IsTaskUtilSetOutputRequiredValueEmpty(err errawr.Error) bool {
-	return err != nil && err.Is(TaskUtilSetOutputRequiredValueEmptyCode)
-}
-
-// IsTaskUtilSetOutputRequiredValueEmpty tests whether a given error is an instance of "set_output_required_value_empty".
-func (External) IsTaskUtilSetOutputRequiredValueEmpty(err errawr.Error) bool {
-	return IsTaskUtilSetOutputRequiredValueEmpty(err)
-}
-
-// TaskUtilSetOutputRequiredValueEmptyBuilder is a builder for "set_output_required_value_empty" errors.
-type TaskUtilSetOutputRequiredValueEmptyBuilder struct {
-	arguments impl.ErrorArguments
-}
-
-// Build creates the error for the code "set_output_required_value_empty" from this builder.
-func (b *TaskUtilSetOutputRequiredValueEmptyBuilder) Build() Error {
-	description := &impl.ErrorDescription{
-		Friendly:  "the value for {{param}} must not be empty",
-		Technical: "the value for {{param}} must not be empty",
-	}
-
-	return &impl.Error{
-		ErrorArguments:   b.arguments,
-		ErrorCode:        "set_output_required_value_empty",
-		ErrorDescription: description,
-		ErrorDomain:      Domain,
-		ErrorMetadata:    &impl.ErrorMetadata{},
-		ErrorSection:     TaskUtilSection,
-		ErrorSensitivity: errawr.ErrorSensitivityNone,
-		ErrorTitle:       "Set output required value empty",
-		Version:          1,
-	}
-}
-
-// NewTaskUtilSetOutputRequiredValueEmptyBuilder creates a new error builder for the code "set_output_required_value_empty".
-func NewTaskUtilSetOutputRequiredValueEmptyBuilder(param string) *TaskUtilSetOutputRequiredValueEmptyBuilder {
-	return &TaskUtilSetOutputRequiredValueEmptyBuilder{arguments: impl.ErrorArguments{"param": impl.NewErrorArgument(param, "the parameter that was empty")}}
-}
-
-// NewTaskUtilSetOutputRequiredValueEmpty creates a new error with the code "set_output_required_value_empty".
-func NewTaskUtilSetOutputRequiredValueEmpty(param string) Error {
-	return NewTaskUtilSetOutputRequiredValueEmptyBuilder(param).Build()
-}
-
-// TaskUtilSetOutputUnexpectedStatusCodeCode is the code for an instance of "set_output_unexpected_status_code".
-const TaskUtilSetOutputUnexpectedStatusCodeCode = "nt_task_util_set_output_unexpected_status_code"
-
-// IsTaskUtilSetOutputUnexpectedStatusCode tests whether a given error is an instance of "set_output_unexpected_status_code".
-func IsTaskUtilSetOutputUnexpectedStatusCode(err errawr.Error) bool {
-	return err != nil && err.Is(TaskUtilSetOutputUnexpectedStatusCodeCode)
-}
-
-// IsTaskUtilSetOutputUnexpectedStatusCode tests whether a given error is an instance of "set_output_unexpected_status_code".
-func (External) IsTaskUtilSetOutputUnexpectedStatusCode(err errawr.Error) bool {
-	return IsTaskUtilSetOutputUnexpectedStatusCode(err)
-}
-
-// TaskUtilSetOutputUnexpectedStatusCodeBuilder is a builder for "set_output_unexpected_status_code" errors.
-type TaskUtilSetOutputUnexpectedStatusCodeBuilder struct {
-	arguments impl.ErrorArguments
-}
-
-// Build creates the error for the code "set_output_unexpected_status_code" from this builder.
-func (b *TaskUtilSetOutputUnexpectedStatusCodeBuilder) Build() Error {
-	description := &impl.ErrorDescription{
-		Friendly:  "got an unexpected status code {{status_code}} when trying to set the output",
-		Technical: "got an unexpected status code {{status_code}} when trying to set the output",
-	}
-
-	return &impl.Error{
-		ErrorArguments:   b.arguments,
-		ErrorCode:        "set_output_unexpected_status_code",
-		ErrorDescription: description,
-		ErrorDomain:      Domain,
-		ErrorMetadata:    &impl.ErrorMetadata{},
-		ErrorSection:     TaskUtilSection,
-		ErrorSensitivity: errawr.ErrorSensitivityNone,
-		ErrorTitle:       "Set output unexpected status code",
-		Version:          1,
-	}
-}
-
-// NewTaskUtilSetOutputUnexpectedStatusCodeBuilder creates a new error builder for the code "set_output_unexpected_status_code".
-func NewTaskUtilSetOutputUnexpectedStatusCodeBuilder(statusCode int64) *TaskUtilSetOutputUnexpectedStatusCodeBuilder {
-	return &TaskUtilSetOutputUnexpectedStatusCodeBuilder{arguments: impl.ErrorArguments{"status_code": impl.NewErrorArgument(statusCode, "the status code recieved from the api")}}
-}
-
-// NewTaskUtilSetOutputUnexpectedStatusCode creates a new error with the code "set_output_unexpected_status_code".
-func NewTaskUtilSetOutputUnexpectedStatusCode(statusCode int64) Error {
-	return NewTaskUtilSetOutputUnexpectedStatusCodeBuilder(statusCode).Build()
-}
-
-// TaskUtilSpecLoaderErrorCode is the code for an instance of "spec_loader_error".
-const TaskUtilSpecLoaderErrorCode = "nt_task_util_spec_loader_error"
-
-// IsTaskUtilSpecLoaderError tests whether a given error is an instance of "spec_loader_error".
-func IsTaskUtilSpecLoaderError(err errawr.Error) bool {
-	return err != nil && err.Is(TaskUtilSpecLoaderErrorCode)
-}
-
-// IsTaskUtilSpecLoaderError tests whether a given error is an instance of "spec_loader_error".
-func (External) IsTaskUtilSpecLoaderError(err errawr.Error) bool {
-	return IsTaskUtilSpecLoaderError(err)
-}
-
-// TaskUtilSpecLoaderErrorBuilder is a builder for "spec_loader_error" errors.
-type TaskUtilSpecLoaderErrorBuilder struct {
-	arguments impl.ErrorArguments
-}
-
-// Build creates the error for the code "spec_loader_error" from this builder.
-func (b *TaskUtilSpecLoaderErrorBuilder) Build() Error {
-	description := &impl.ErrorDescription{
-		Friendly:  "fetching the spec failed with: {{msg}}",
-		Technical: "fetching the spec failed with: {{msg}}",
-	}
-
-	return &impl.Error{
-		ErrorArguments:   b.arguments,
-		ErrorCode:        "spec_loader_error",
-		ErrorDescription: description,
-		ErrorDomain:      Domain,
-		ErrorMetadata:    &impl.ErrorMetadata{},
-		ErrorSection:     TaskUtilSection,
-		ErrorSensitivity: errawr.ErrorSensitivityNone,
-		ErrorTitle:       "Spec loader error",
-		Version:          1,
-	}
-}
-
-// NewTaskUtilSpecLoaderErrorBuilder creates a new error builder for the code "spec_loader_error".
-func NewTaskUtilSpecLoaderErrorBuilder(msg string) *TaskUtilSpecLoaderErrorBuilder {
-	return &TaskUtilSpecLoaderErrorBuilder{arguments: impl.ErrorArguments{"msg": impl.NewErrorArgument(msg, "the message describing the error")}}
-}
-
-// NewTaskUtilSpecLoaderError creates a new error with the code "spec_loader_error".
-func NewTaskUtilSpecLoaderError(msg string) Error {
-	return NewTaskUtilSpecLoaderErrorBuilder(msg).Build()
 }

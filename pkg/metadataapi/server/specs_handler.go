@@ -5,15 +5,16 @@ import (
 	"encoding/json"
 	"net/http"
 
-	utilapi "github.com/puppetlabs/horsehead/httputil/api"
-	"github.com/puppetlabs/horsehead/logging"
+	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
+	utilapi "github.com/puppetlabs/horsehead/v2/httputil/api"
+	"github.com/puppetlabs/horsehead/v2/logging"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/op"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"
 	"github.com/puppetlabs/nebula-tasks/pkg/task"
 )
 
-type fetcherFunc func(context.Context, op.ManagerFactory, map[string]interface{}) (string, errors.Error)
+type fetcherFunc func(context.Context, op.ManagerFactory, map[string]interface{}) (transfer.JSONOrStr, errors.Error)
 
 var valueFetchers = map[task.SpecValueType]fetcherFunc{
 	task.SpecValueSecret: fetchSecret,
@@ -100,37 +101,47 @@ func (h *specsHandler) expandValues(ctx context.Context, managers op.ManagerFact
 	}
 }
 
-func fetchSecret(ctx context.Context, managers op.ManagerFactory, obj map[string]interface{}) (string, errors.Error) {
+func fetchSecret(ctx context.Context, managers op.ManagerFactory, obj map[string]interface{}) (transfer.JSONOrStr, errors.Error) {
 	name, ok := obj["name"].(string)
 	if !ok {
-		return "", errors.NewServerSecretFetcherNameValidationError()
+		return transfer.JSONOrStr{}, errors.NewServerSecretFetcherNameValidationError()
 	}
 
 	secret, err := managers.SecretsManager().Get(ctx, name)
 	if err != nil {
-		return "", errors.NewServerSecretFetcherGetError().WithCause(err)
+		return transfer.JSONOrStr{}, errors.NewServerSecretFetcherGetError().WithCause(err)
 	}
 
-	return secret.Value, nil
+	ev, verr := transfer.EncodeJSON([]byte(secret.Value))
+	if verr != nil {
+		return transfer.JSONOrStr{}, errors.NewSecretsValueEncodingError().WithCause(verr).Bug()
+	}
+
+	return ev, nil
 }
 
-func fetchOutput(ctx context.Context, managers op.ManagerFactory, obj map[string]interface{}) (string, errors.Error) {
+func fetchOutput(ctx context.Context, managers op.ManagerFactory, obj map[string]interface{}) (transfer.JSONOrStr, errors.Error) {
 	name, ok := obj["name"].(string)
 	if !ok {
-		return "", errors.NewServerOutputFetcherNameValidationError()
+		return transfer.JSONOrStr{}, errors.NewServerOutputFetcherNameValidationError()
 	}
 
 	taskName, ok := obj["taskName"].(string)
 	if !ok {
-		return "", errors.NewServerOutputFetcherTaskNameValidationError()
+		return transfer.JSONOrStr{}, errors.NewServerOutputFetcherTaskNameValidationError()
 	}
 
 	output, err := managers.OutputsManager().Get(ctx, taskName, name)
 	if err != nil {
-		return "", errors.NewServerOutputFetcherGetError().WithCause(err)
+		return transfer.JSONOrStr{}, errors.NewServerOutputFetcherGetError().WithCause(err)
 	}
 
-	return output.Value, nil
+	ev, verr := transfer.EncodeJSON([]byte(output.Value))
+	if verr != nil {
+		return transfer.JSONOrStr{}, errors.NewOutputsValueEncodingError().WithCause(verr).Bug()
+	}
+
+	return ev, nil
 }
 
 func extractSecretName(obj map[string]interface{}) *string {

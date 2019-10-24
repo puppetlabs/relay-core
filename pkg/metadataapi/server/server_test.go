@@ -9,19 +9,18 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/puppetlabs/horsehead/encoding/transfer"
-	"github.com/puppetlabs/horsehead/logging"
+	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
+	"github.com/puppetlabs/horsehead/v2/logging"
+	"github.com/puppetlabs/nebula-sdk/pkg/outputs"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/testutil"
-	"github.com/puppetlabs/nebula-tasks/pkg/outputs"
-	"github.com/puppetlabs/nebula-tasks/pkg/secrets"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
 func TestServerSecretsHandler(t *testing.T) {
-	encodedBar, err := transfer.EncodeForTransfer([]byte("bar"))
+	encodedBar, err := transfer.EncodeForTransfer([]byte("bar\x90"))
 	require.NoError(t, err)
 
 	managers := testutil.NewMockManagerFactory(t, testutil.MockManagerFactoryConfig{
@@ -41,11 +40,14 @@ func TestServerSecretsHandler(t *testing.T) {
 
 		defer resp.Body.Close()
 
-		var sec secrets.Secret
+		var sec Secret
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(&sec))
 
 		require.Equal(t, "foo", sec.Key)
-		require.Equal(t, "bar", sec.Value)
+
+		v, err := sec.Value.Decode()
+		require.NoError(t, err)
+		require.Equal(t, "bar\x90", string(v))
 	})
 }
 
@@ -69,7 +71,7 @@ func TestServerOutputsHandler(t *testing.T) {
 	testutil.WithTestMetadataAPIServer(srv, mw, func(ts *httptest.Server) {
 		client := ts.Client()
 
-		req, err := http.NewRequest(http.MethodPut, ts.URL+"/outputs/foo", strings.NewReader("bar"))
+		req, err := http.NewRequest(http.MethodPut, ts.URL+"/outputs/foo", strings.NewReader("bar\x90"))
 		require.NoError(t, err)
 
 		resp, err := client.Do(req)
@@ -88,8 +90,11 @@ func TestServerOutputsHandler(t *testing.T) {
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(&out))
 
 		require.Equal(t, "foo", out.Key)
-		require.Equal(t, "bar", out.Value)
 		require.Equal(t, "test-task", out.TaskName)
+
+		v, err := out.Value.Decode()
+		require.NoError(t, err)
+		require.Equal(t, "bar\x90", string(v))
 	})
 }
 

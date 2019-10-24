@@ -1,5 +1,0 @@
-FROM alpine:latest
-COPY --from=builder /go/src/github.com/puppetlabs/nebula-tasks/__OUTPUTBIN__ /usr/bin/__OUTPUTBIN__
-COPY --from=builder /go/src/github.com/puppetlabs/nebula-tasks/ni /usr/bin/ni
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
-CMD ["__DOCKER_CMD__"]

@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/puppetlabs/horsehead/storage"
+	"github.com/puppetlabs/horsehead/v2/storage"
 	tekv1alpha1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
 	tekclientset "github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
 	teklisters "github.com/tektoncd/pipeline/pkg/client/listers/pipeline/v1alpha1"

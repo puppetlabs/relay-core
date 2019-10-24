@@ -7,8 +7,8 @@ import (
 	"path"
 	"strings"
 
-	"github.com/puppetlabs/horsehead/logging"
-	"github.com/puppetlabs/horsehead/netutil"
+	"github.com/puppetlabs/horsehead/v2/logging"
+	"github.com/puppetlabs/horsehead/v2/netutil"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/op"

@@ -6,7 +6,7 @@ import (
 	"crypto/sha1"
 	"io"
 
-	"github.com/puppetlabs/horsehead/encoding/transfer"
+	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/outputs"
 )
@@ -46,7 +46,7 @@ func (m EncodeDecodingOutputsManager) Put(ctx context.Context, taskHash [sha1.Si
 
 	encoded, err := transfer.EncodeForTransfer(buf.Bytes())
 	if err != nil {
-		return errors.NewOutputsValueEncodingError().WithCause(err)
+		return errors.NewOutputsValueEncodingError().WithCause(err).Bug()
 	}
 
 	buf = bytes.NewBufferString(encoded)
