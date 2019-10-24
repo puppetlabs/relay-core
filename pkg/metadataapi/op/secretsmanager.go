@@ -3,7 +3,7 @@ package op
 import (
 	"context"
 
-	"github.com/puppetlabs/horsehead/encoding/transfer"
+	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/secrets"
 )

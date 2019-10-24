@@ -8,8 +8,8 @@ import (
 	"io"
 	"sync"
 
-	"github.com/puppetlabs/nebula-sdk/pkg/outputs"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
+	"github.com/puppetlabs/nebula-tasks/pkg/outputs"
 )
 
 type OutputsManager struct {

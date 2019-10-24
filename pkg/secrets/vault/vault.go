@@ -9,7 +9,7 @@ import (
 	"time"
 
 	vaultapi "github.com/hashicorp/vault/api"
-	"github.com/puppetlabs/horsehead/logging"
+	"github.com/puppetlabs/horsehead/v2/logging"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/secrets"
 )

@@ -1883,6 +1883,54 @@ func NewSecretsValueDecodingError() Error {
 	return NewSecretsValueDecodingErrorBuilder().Build()
 }
 
+// SecretsValueEncodingErrorCode is the code for an instance of "value_encoding_error".
+const SecretsValueEncodingErrorCode = "nt_secrets_value_encoding_error"
+
+// IsSecretsValueEncodingError tests whether a given error is an instance of "value_encoding_error".
+func IsSecretsValueEncodingError(err errawr.Error) bool {
+	return err != nil && err.Is(SecretsValueEncodingErrorCode)
+}
+
+// IsSecretsValueEncodingError tests whether a given error is an instance of "value_encoding_error".
+func (External) IsSecretsValueEncodingError(err errawr.Error) bool {
+	return IsSecretsValueEncodingError(err)
+}
+
+// SecretsValueEncodingErrorBuilder is a builder for "value_encoding_error" errors.
+type SecretsValueEncodingErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "value_encoding_error" from this builder.
+func (b *SecretsValueEncodingErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "encoding the secret value failed",
+		Technical: "encoding the secret value failed",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "value_encoding_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     SecretsSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Value encoding error",
+		Version:          1,
+	}
+}
+
+// NewSecretsValueEncodingErrorBuilder creates a new error builder for the code "value_encoding_error".
+func NewSecretsValueEncodingErrorBuilder() *SecretsValueEncodingErrorBuilder {
+	return &SecretsValueEncodingErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewSecretsValueEncodingError creates a new error with the code "value_encoding_error".
+func NewSecretsValueEncodingError() Error {
+	return NewSecretsValueEncodingErrorBuilder().Build()
+}
+
 // SecretsVaultAuthenticationNotConfiguredErrorCode is the code for an instance of "vault_authentication_not_configured_error".
 const SecretsVaultAuthenticationNotConfiguredErrorCode = "nt_secrets_vault_authentication_not_configured_error"
 
