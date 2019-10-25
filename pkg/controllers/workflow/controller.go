@@ -408,8 +408,8 @@ func (c *Controller) ensureAccessResourcesExist(ctx context.Context, wr *nebulav
 		return err
 	}
 
-	klog.Infof("granting workflow run access to scoped secrets %s", wr.Spec.Workflow.ID)
-	grant, err := c.secretsclient.GrantScopedAccess(ctx, wr.Spec.Workflow.ID, namespace, saccount.GetName())
+	klog.Infof("granting workflow run access to scoped secrets %s", wr.Spec.Workflow.Name)
+	grant, err := c.secretsclient.GrantScopedAccess(ctx, wr.Spec.Workflow.Name, namespace, saccount.GetName())
 	if err != nil {
 		return err
 	}
@@ -449,7 +449,7 @@ func (c *Controller) ensureAccessResourcesExist(ctx context.Context, wr *nebulav
 		return err
 	}
 
-	klog.Infof("waiting for metadata service to become ready %s", wr.Spec.Workflow.ID)
+	klog.Infof("waiting for metadata service to become ready %s", wr.Spec.Workflow.Name)
 
 	// This waits for a Modified watch event on a service's Endpoint object.
 	// When this event is received, it will check it's addresses to see if there's
@@ -468,7 +468,7 @@ func (c *Controller) ensureAccessResourcesExist(ctx context.Context, wr *nebulav
 		return err
 	}
 
-	klog.Infof("metadata service is ready %s", wr.Spec.Workflow.ID)
+	klog.Infof("metadata service is ready %s", wr.Spec.Workflow.Name)
 
 	return nil
 }
@@ -740,7 +740,7 @@ func createServiceAccount(kc kubernetes.Interface, wfr *nebulav1.WorkflowRun, im
 		}
 	}
 
-	klog.Infof("creating service account %s", wfr.Spec.Workflow.ID)
+	klog.Infof("creating service account %s", wfr.Spec.Workflow.Name)
 	saccount, err := kc.CoreV1().ServiceAccounts(wfr.GetNamespace()).Create(saccount)
 	if errors.IsAlreadyExists(err) {
 		saccount, err = kc.CoreV1().ServiceAccounts(wfr.GetNamespace()).Get(getName(wfr, ""), metav1.GetOptions{})
@@ -805,7 +805,7 @@ func createRBAC(kc kubernetes.Interface, wfr *nebulav1.WorkflowRun) (*rbacv1.Rol
 		},
 	}
 
-	klog.Infof("creating role %s", wfr.Spec.Workflow.ID)
+	klog.Infof("creating role %s", wfr.Spec.Workflow.Name)
 	role, err = kc.RbacV1().Roles(wfr.GetNamespace()).Create(role)
 	if errors.IsAlreadyExists(err) {
 		role, err = kc.RbacV1().Roles(wfr.GetNamespace()).Get(getName(wfr, ""), metav1.GetOptions{})
@@ -814,7 +814,7 @@ func createRBAC(kc kubernetes.Interface, wfr *nebulav1.WorkflowRun) (*rbacv1.Rol
 		return nil, nil, err
 	}
 
-	klog.Infof("creating role binding %s", wfr.Spec.Workflow.ID)
+	klog.Infof("creating role binding %s", wfr.Spec.Workflow.Name)
 	binding, err = kc.RbacV1().RoleBindings(wfr.GetNamespace()).Create(binding)
 	if errors.IsAlreadyExists(err) {
 		binding, err = kc.RbacV1().RoleBindings(wfr.GetNamespace()).Get(getName(wfr, ""), metav1.GetOptions{})
@@ -854,7 +854,7 @@ func createMetadataAPIPod(kc kubernetes.Interface, image string, saccount *corev
 						"-vault-role",
 						wfr.GetNamespace(),
 						"-workflow-id",
-						wfr.Spec.Workflow.ID,
+						wfr.Spec.Workflow.Name,
 						"-scoped-secrets-path",
 						scopedSecretsPath,
 						"-namespace",
@@ -881,7 +881,7 @@ func createMetadataAPIPod(kc kubernetes.Interface, image string, saccount *corev
 		},
 	}
 
-	klog.Infof("creating metadata service pod %s", wfr.Spec.Workflow.ID)
+	klog.Infof("creating metadata service pod %s", wfr.Spec.Workflow.Name)
 
 	pod, err := kc.CoreV1().Pods(wfr.GetNamespace()).Create(pod)
 	if errors.IsAlreadyExists(err) {
@@ -919,7 +919,7 @@ func createMetadataAPIService(kc kubernetes.Interface, wfr *nebulav1.WorkflowRun
 		},
 	}
 
-	klog.Infof("creating pod service %s", wfr.Spec.Workflow.ID)
+	klog.Infof("creating pod service %s", wfr.Spec.Workflow.Name)
 
 	service, err := kc.CoreV1().Services(wfr.GetNamespace()).Create(service)
 	if errors.IsAlreadyExists(err) {
@@ -945,7 +945,7 @@ func createWorkflowConfigMap(kc kubernetes.Interface, service *corev1.Service, w
 		},
 	}
 
-	klog.Infof("creating config map %s", wfr.Spec.Workflow.ID)
+	klog.Infof("creating config map %s", wfr.Spec.Workflow.Name)
 	configMap, err := kc.CoreV1().ConfigMaps(wfr.GetNamespace()).Create(configMap)
 	if errors.IsAlreadyExists(err) {
 		configMap, err = kc.CoreV1().ConfigMaps(wfr.GetNamespace()).Get(getName(wfr, ""), metav1.GetOptions{})
@@ -961,16 +961,16 @@ func getName(wfr *nebulav1.WorkflowRun, name string) string {
 	prefix := "wr"
 
 	if name == "" {
-		return fmt.Sprintf("%s-%s", prefix, wfr.Spec.ID)
+		return fmt.Sprintf("%s-%s", prefix, wfr.Spec.Name)
 	}
 
-	return fmt.Sprintf("%s-%s-%s", prefix, wfr.Spec.ID, name)
+	return fmt.Sprintf("%s-%s-%s", prefix, wfr.Spec.Name, name)
 }
 
 func getLabels(wfr *nebulav1.WorkflowRun, additional map[string]string) map[string]string {
 	labels := map[string]string{
-		"nebula.puppet.com/workflow-run-id": wfr.Spec.ID,
-		"nebula.puppet.com/workflow-id":     wfr.Spec.Workflow.ID,
+		"nebula.puppet.com/workflow-run-id": wfr.Spec.Name,
+		"nebula.puppet.com/workflow-id":     wfr.Spec.Workflow.Name,
 	}
 
 	if additional != nil {
