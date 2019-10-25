@@ -1,7 +1,7 @@
 package config
 
 import (
-	"github.com/puppetlabs/horsehead/logging"
+	"github.com/puppetlabs/horsehead/v2/logging"
 )
 
 // MetadataServerConfig is the configuration object used to configure

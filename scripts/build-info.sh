@@ -4,7 +4,6 @@ export TRAVIS_BRANCH="${TRAVIS_BRANCH:-$(git branch | grep \* | cut -d ' ' -f2)}
 export TRAVIS_PULL_REQUEST="${TRAVIS_PULL_REQUEST:-}"
 export TRAVIS_EVENT_TYPE="${TRAVIS_EVENT_TYPE:-}"
 export NEBULA_TASKS_BUILD_DIR="${NEBULA_TASKS_BUILD_DIR:-.build}"
-export NEBULA_TASKS_RELEASE_MANIFEST="${NEBULA_TASKS_RELEASE_MANIFEST:-${NEBULA_TASKS_BUILD_DIR}/ci-release-manifest}"
 
 export NEBULA_TASKS_RELEASE_LATEST=
 [ "${TRAVIS_BRANCH}" = "master" ] && [ "${TRAVIS_PULL_REQUEST}" = "false" ] && export NEBULA_TASKS_RELEASE_LATEST=true
@@ -29,6 +28,8 @@ declare -A NEBULA_WORKFLOWS
 
 NEBULA_WORKFLOWS[master]=nebula-system-deploy-prod-1
 NEBULA_WORKFLOWS[development]=nebula-system-deploy-stage-1
+
+export NO_DOCKER_PUSH=
 
 NEBULA_WORKFLOW=${NEBULA_WORKFLOWS["$TRAVIS_BRANCH"]:-}
 if [ -z "${NEBULA_WORKFLOW}" ]; then

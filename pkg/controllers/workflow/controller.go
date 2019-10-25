@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/puppetlabs/horsehead/storage"
+	"github.com/puppetlabs/horsehead/v2/storage"
 	tekv1alpha1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
 	tekclientset "github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
 	teklisters "github.com/tektoncd/pipeline/pkg/client/listers/pipeline/v1alpha1"
@@ -31,6 +31,7 @@ import (
 	clientset "github.com/puppetlabs/nebula-tasks/pkg/generated/clientset/versioned"
 	neblisters "github.com/puppetlabs/nebula-tasks/pkg/generated/listers/nebula.puppet.com/v1"
 	"github.com/puppetlabs/nebula-tasks/pkg/secrets/vault"
+	"github.com/puppetlabs/nebula-tasks/pkg/util"
 )
 
 var controllerKind = nebulav1.SchemeGroupVersion.WithKind("WorkflowRun")
@@ -66,7 +67,6 @@ const (
 
 	// PipelineRun annotation indicating the log upload location
 	logUploadAnnotationPrefix = "nebula.puppet.com/log-archive-"
-	maxLogArchiveTries        = 7
 )
 
 type podAndTaskName struct {
@@ -131,6 +131,14 @@ func (c *Controller) waitForEndpoint(service *corev1.Service) error {
 		return err
 	}
 
+	if endpoints.Subsets != nil && len(endpoints.Subsets) > 0 {
+		for _, subset := range endpoints.Subsets {
+			if subset.Addresses != nil && len(subset.Addresses) > 0 {
+				return nil
+			}
+		}
+	}
+
 	listOptions := metav1.SingleObject(endpoints.ObjectMeta)
 	listOptions.TimeoutSeconds = &timeout
 
@@ -159,7 +167,7 @@ eventLoop:
 	}
 
 	if !conditionMet {
-		return fmt.Errorf("timeout occurred while waiting for the metadata service to be ready")
+		return fmt.Errorf("timeout occurred while waiting for service %s to be ready", service.GetName())
 	}
 
 	return nil
@@ -173,16 +181,17 @@ func (c *Controller) waitForSuccessfulServiceResponse(service *corev1.Service) e
 	)
 
 	return wait.PollImmediate(interval, timeout, func() (bool, error) {
-		resp, err := http.Get(u)
+		client := http.Client{
+			Timeout: timeout,
+		}
+		resp, err := client.Get(u)
 		if err != nil {
-			klog.Infof("got an error when probing the metadata api %s", err)
-
+			klog.Infof("got an error when probing the service %s - %s", service.GetName(), err)
 			return false, nil
 		}
 
 		if resp.StatusCode != http.StatusOK {
-			klog.Infof("got an invalid status code when probing the metadata api %d", resp.StatusCode)
-
+			klog.Infof("got an invalid status code when probing service %s %d", service.GetName(), resp.StatusCode)
 			return false, nil
 		}
 
@@ -217,41 +226,55 @@ func (c *Controller) processPipelineRunChange(ctx context.Context, key string) e
 		return err
 	}
 
-	for _, wfr := range workflowList {
+	logAnnotations := make(map[string]string, 0)
+
+	if plr.IsDone() {
+		// Upload the logs that are not defined on the PipelineRun record...
+		logAnnotations, err = c.uploadLogs(ctx, plr)
+		if nil != err {
+			return err
+		}
+
+		// FIXME This will be removed later in favor of the WorkflowRun
+		for name, value := range logAnnotations {
+			metav1.SetMetaDataAnnotation(&plr.ObjectMeta, name, value)
+		}
+
+		plr, err = c.tekclient.TektonV1alpha1().PipelineRuns(plr.Namespace).Update(plr)
+	}
+
+	for _, workflow := range workflowList {
+		klog.Infof("revoking workflow run secret access %s", workflow.GetName())
+		if err := c.secretsclient.RevokeScopedAccess(ctx, namespace); err != nil {
+			return err
+		}
+
 		status, _ := c.updateWorkflowRunStatus(plr)
 
-		wfrCopy := wfr.DeepCopy()
+		wfrCopy := workflow.DeepCopy()
 		wfrCopy.Status = *status
+
+		for name, value := range logAnnotations {
+			metav1.SetMetaDataAnnotation(&wfrCopy.ObjectMeta, name, value)
+		}
 
 		_, err = c.nebclient.NebulaV1().WorkflowRuns(namespace).Update(wfrCopy)
 		if err != nil {
 			return err
-		}
-
-		if plr.IsDone() {
-			klog.Infof("revoking secret access %s", wfr.GetName())
-			if err := c.secretsclient.RevokeScopedAccess(ctx, namespace); err != nil {
-				return err
-			}
-
-			// Upload the logs that are not defined on the PipelineRun record...
-			err = c.uploadLogs(ctx, plr)
-			if nil != err {
-				return err
-			}
 		}
 	}
 
 	return nil
 }
 
-func (c *Controller) uploadLogs(ctx context.Context, plr *tekv1alpha1.PipelineRun) error {
+func (c *Controller) uploadLogs(ctx context.Context, plr *tekv1alpha1.PipelineRun) (map[string]string, error) {
+	logAnnotations := make(map[string]string, 0)
+
 	for _, pt := range extractPodAndTaskNamesFromPipelineRun(plr) {
-		annotation := logUploadAnnotationPrefix + pt.TaskName
+		annotation := util.Slug(logUploadAnnotationPrefix + pt.TaskName)
 		if _, ok := plr.Annotations[annotation]; ok {
 			continue
 		}
-
 		containerName := "step-" + pt.TaskName
 		logName, err := c.uploadLog(ctx, plr.Namespace, pt.PodName, containerName)
 		if nil != err {
@@ -260,39 +283,13 @@ func (c *Controller) uploadLogs(ctx context.Context, plr *tekv1alpha1.PipelineRu
 				pt.PodName,
 				containerName,
 				err)
-
-			return err
+			continue
 		}
 
-		for retry := uint(0); ; retry++ {
-			metav1.SetMetaDataAnnotation(&plr.ObjectMeta, annotation, logName)
-			plr, err = c.tekclient.TektonV1alpha1().PipelineRuns(plr.Namespace).Update(plr)
-			if nil == err {
-				break
-			} else if !errors.IsConflict(err) {
-				return err
-			}
-
-			if retry > maxLogArchiveTries {
-				return err
-			}
-
-			klog.Warningf("Conflict during pipelineRun=%s/%s update", plr.Namespace, plr.Name)
-
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After((1 << retry) * 10 * time.Millisecond):
-			}
-
-			plr, err = c.tekclient.TektonV1alpha1().PipelineRuns(plr.Namespace).Get(plr.Name, metav1.GetOptions{})
-			if nil != err {
-				return err
-			}
-		}
+		logAnnotations[annotation] = logName
 	}
 
-	return nil
+	return logAnnotations, nil
 }
 
 func (c *Controller) uploadLog(ctx context.Context, namespace string, podName string, containerName string) (string, error) {

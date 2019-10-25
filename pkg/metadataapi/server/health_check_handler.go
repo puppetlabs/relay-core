@@ -3,7 +3,7 @@ package server
 import (
 	"net/http"
 
-	utilapi "github.com/puppetlabs/horsehead/httputil/api"
+	utilapi "github.com/puppetlabs/horsehead/v2/httputil/api"
 )
 
 type status struct {

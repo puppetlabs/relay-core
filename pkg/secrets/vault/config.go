@@ -1,6 +1,6 @@
 package vault
 
-import "github.com/puppetlabs/horsehead/logging"
+import "github.com/puppetlabs/horsehead/v2/logging"
 
 // Config is used to configure vault clients with authentication,
 // policies and paths for fetching secrets.

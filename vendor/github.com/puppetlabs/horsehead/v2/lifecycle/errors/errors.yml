@@ -1,0 +1,19 @@
+version: 1
+domain:
+  key: hlife
+  title: Horsehead lifecycle management
+sections:
+  #
+  # Closer errors
+  #
+  closer:
+    title: Closer errors
+    errors:
+      error:
+        title: Close error
+        description: >
+          An error occurred when closing resources.
+      panic_error:
+        title: Panic
+        description: >
+          An unexpected error occurred when closing resources.

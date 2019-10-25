@@ -1,2 +1,0 @@
-FROM nebula-task-builder as builder
-RUN go build -a -installsuffix cgo -mod vendor -o __OUTPUTBIN__ __GOMAIN__

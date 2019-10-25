@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/puppetlabs/horsehead/mainutil"
+	"github.com/puppetlabs/horsehead/v2/mainutil"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/op"

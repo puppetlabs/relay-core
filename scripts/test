@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
 go_test() {
     go test -race -mod=vendor ./...
