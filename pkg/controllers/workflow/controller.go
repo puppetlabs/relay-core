@@ -848,8 +848,6 @@ func createMetadataAPIPod(kc kubernetes.Interface, image string, saccount *corev
 						secretsAddr,
 						"-vault-role",
 						wfr.GetNamespace(),
-						"-workflow-id",
-						wfr.Spec.Workflow.Name,
 						"-scoped-secrets-path",
 						scopedSecretsPath,
 						"-namespace",
