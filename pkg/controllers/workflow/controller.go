@@ -444,11 +444,6 @@ func (c *Controller) ensureAccessResourcesExist(ctx context.Context, wr *nebulav
 		return err
 	}
 
-	_, err = createWorkflowConfigMap(c.kubeclient, service, wr)
-	if err != nil {
-		return err
-	}
-
 	klog.Infof("waiting for metadata service to become ready %s", wr.Spec.Workflow.Name)
 
 	// This waits for a Modified watch event on a service's Endpoint object.
@@ -930,31 +925,6 @@ func createMetadataAPIService(kc kubernetes.Interface, wfr *nebulav1.WorkflowRun
 	}
 
 	return service, nil
-}
-
-func createWorkflowConfigMap(kc kubernetes.Interface, service *corev1.Service, wfr *nebulav1.WorkflowRun) (*corev1.ConfigMap, error) {
-	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            getName(wfr, ""),
-			Namespace:       wfr.GetNamespace(),
-			Labels:          getLabels(wfr, nil),
-			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(wfr, controllerKind)},
-		},
-		Data: map[string]string{
-			"metadata-api-url": fmt.Sprintf("http://%s.%s.svc.cluster.local", service.GetName(), wfr.GetNamespace()),
-		},
-	}
-
-	klog.Infof("creating config map %s", wfr.Spec.Workflow.Name)
-	configMap, err := kc.CoreV1().ConfigMaps(wfr.GetNamespace()).Create(configMap)
-	if errors.IsAlreadyExists(err) {
-		configMap, err = kc.CoreV1().ConfigMaps(wfr.GetNamespace()).Get(getName(wfr, ""), metav1.GetOptions{})
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	return configMap, nil
 }
 
 func getName(wfr *nebulav1.WorkflowRun, name string) string {
