@@ -2,8 +2,8 @@
 
 export TRAVIS_BRANCH="${TRAVIS_BRANCH:-$(git branch | grep \* | cut -d ' ' -f2)}"
 export TRAVIS_PULL_REQUEST="${TRAVIS_PULL_REQUEST:-}"
-export TRAVIS_EVENT_TYPE="${TRAVIS_EVENT_TYPE:-}"
 export NEBULA_TASKS_BUILD_DIR="${NEBULA_TASKS_BUILD_DIR:-.build}"
+export NO_DOCKER_PUSH="${NO_DOCKER_PUSH:-yes}"
 
 export NEBULA_TASKS_RELEASE_LATEST=
 [ "${TRAVIS_BRANCH}" = "master" ] && [ "${TRAVIS_PULL_REQUEST}" = "false" ] && export NEBULA_TASKS_RELEASE_LATEST=true
@@ -18,8 +18,8 @@ if [ -n "${TAG}" ]; then
         export VERSION="$(git rev-parse --short HEAD)${DIRTY}"
 fi
 
-if [[ "$TRAVIS_EVENT_TYPE" == "pull_request" ]]; then
-        export NO_DOCKER_PUSH=yes
+if [[ "$TRAVIS_PULL_REQUEST" == "false" ]]; then
+        export NO_DOCKER_PUSH=
 fi
 
 declare -A NEBULA_WORKFLOWS
@@ -29,8 +29,6 @@ declare -A NEBULA_WORKFLOWS
 NEBULA_WORKFLOWS[master]=nebula-system-deploy-prod-1
 NEBULA_WORKFLOWS[development]=nebula-system-deploy-stage-1
 
-export NO_DOCKER_PUSH=
-
 NEBULA_WORKFLOW=${NEBULA_WORKFLOWS["$TRAVIS_BRANCH"]:-}
 if [ -z "${NEBULA_WORKFLOW}" ]; then
     export NO_DOCKER_PUSH=yes
@@ -39,7 +37,7 @@ else
 fi
 
 if [ -n "${DIRTY}" ]; then
-        export NO_DOCKER_PUSH=yes
+    export NO_DOCKER_PUSH=yes
 fi
 
 fail() {
