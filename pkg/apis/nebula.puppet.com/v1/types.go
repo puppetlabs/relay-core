@@ -18,13 +18,11 @@ type WorkflowRun struct {
 }
 
 type WorkflowRunSpec struct {
-	ID       string   `json:"id"`
 	Name     string   `json:"name"`
 	Workflow Workflow `json:"workflow,omitempty"`
 }
 
 type Workflow struct {
-	ID   string `json:"id"`
 	Name string `json:"name"`
 }
 
