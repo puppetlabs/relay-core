@@ -220,13 +220,6 @@ func (c *Controller) processPipelineRunChange(ctx context.Context, key string) e
 		if nil != err {
 			return err
 		}
-
-		// FIXME This will be removed later in favor of the WorkflowRun
-		for name, value := range logAnnotations {
-			metav1.SetMetaDataAnnotation(&plr.ObjectMeta, name, value)
-		}
-
-		plr, err = c.tekclient.TektonV1alpha1().PipelineRuns(plr.Namespace).Update(plr)
 	}
 
 	labelMap := map[string]string{
@@ -240,9 +233,11 @@ func (c *Controller) processPipelineRunChange(ctx context.Context, key string) e
 	}
 
 	for _, workflow := range workflowList {
-		klog.Infof("revoking workflow run secret access %s", workflow.GetName())
-		if err := c.secretsclient.RevokeScopedAccess(ctx, namespace); err != nil {
-			return err
+		if plr.IsDone() {
+			klog.Infof("revoking workflow run secret access %s", workflow.GetName())
+			if err := c.secretsclient.RevokeScopedAccess(ctx, namespace); err != nil {
+				return err
+			}
 		}
 
 		status, _ := c.updateWorkflowRunStatus(plr)
