@@ -52,7 +52,7 @@ func (v *vaultLoggedInClient) read(path string) (*vaultapi.Secret, error) {
 
 // mountPath returns a vault-api style path to the secret
 func (v *vaultLoggedInClient) mountPath(key string) string {
-	return path.Join(v.cfg.EngineMount, "data", "workflows", v.cfg.Bucket, key)
+	return path.Join(v.cfg.ScopedSecretsPath, key)
 }
 
 // extractValue fetches the secret value from the secretRef key (standard location for nebula

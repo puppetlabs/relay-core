@@ -15,14 +15,12 @@ type MetadataServerConfig struct {
 	// Nebula and the metadata-api, this is most-likely the kubernetes namespace
 	// that the workflow is running under.
 	VaultRole string
-	// VaultEngineMount is the store to use inside vault. Added to the path
-	// segment when crafting the path to a secret.
-	VaultEngineMount string
 	// VaultToken is an optional token to use for authenticating with the
 	// vaule server or agent.
 	VaultToken string
-	// WorkflowID is the ID of the workflow to run the metadata-api under
-	WorkflowID string
+	// ScopedSecretsPath is the store to use inside secrets backends. Added to the path
+	// segment when crafting the path to a secret.
+	ScopedSecretsPath string
 	// K8sServiceAccountTokenPath is the path to the Service Account token. This
 	// defaults to the standard kubernetes location that is set when a pod is run.
 	K8sServiceAccountTokenPath string
