@@ -38,8 +38,11 @@ import (
 var controllerKind = nebulav1.SchemeGroupVersion.WithKind("WorkflowRun")
 
 const (
-	pipelineRunAnnotation = "nebula.puppet.com/pipelinerun"
-	workflowRunAnnotation = "nebula.puppet.com/workflowrun"
+	nebulaGroupNamePrefix = "nebula.puppet.com/"
+	pipelineRunAnnotation = nebulaGroupNamePrefix + "pipelinerun"
+	workflowRunAnnotation = nebulaGroupNamePrefix + "workflowrun"
+	workflowRunLabel      = nebulaGroupNamePrefix + "workflow-run-id"
+	workflowLabel         = nebulaGroupNamePrefix + "workflow-id"
 )
 
 type WorkflowRunStatus string
@@ -209,16 +212,6 @@ func (c *Controller) processPipelineRunChange(ctx context.Context, key string) e
 		return err
 	}
 
-	labelMap := map[string]string{
-		"pipeline-id": plr.Name,
-	}
-
-	selector := labels.SelectorFromValidatedSet(labelMap)
-	workflowList, err := c.wfrLister.WorkflowRuns(namespace).List(selector)
-	if err != nil {
-		return err
-	}
-
 	logAnnotations := make(map[string]string, 0)
 
 	if plr.IsDone() {
@@ -234,6 +227,16 @@ func (c *Controller) processPipelineRunChange(ctx context.Context, key string) e
 		}
 
 		plr, err = c.tekclient.TektonV1alpha1().PipelineRuns(plr.Namespace).Update(plr)
+	}
+
+	labelMap := map[string]string{
+		pipelineRunAnnotation: plr.Name,
+	}
+
+	selector := labels.SelectorFromValidatedSet(labelMap)
+	workflowList, err := c.wfrLister.WorkflowRuns(namespace).List(selector)
+	if err != nil {
+		return err
 	}
 
 	for _, workflow := range workflowList {
@@ -264,7 +267,7 @@ func (c *Controller) uploadLogs(ctx context.Context, plr *tekv1alpha1.PipelineRu
 	logAnnotations := make(map[string]string, 0)
 
 	for _, pt := range extractPodAndTaskNamesFromPipelineRun(plr) {
-		annotation := util.Slug(logUploadAnnotationPrefix + pt.TaskName)
+		annotation := nebulaGroupNamePrefix + util.Slug(logUploadAnnotationPrefix+pt.TaskName)
 		if _, ok := plr.Annotations[annotation]; ok {
 			continue
 		}
@@ -351,7 +354,7 @@ func (c *Controller) processWorkflowRun(ctx context.Context, key string) error {
 			if wr.Labels == nil {
 				wr.Labels = make(map[string]string, 0)
 			}
-			wr.Labels["pipeline-id"] = pipelineId
+			wr.Labels[pipelineRunAnnotation] = pipelineId
 
 			metav1.SetMetaDataAnnotation(&wr.ObjectMeta, pipelineRunAnnotation, plr.Name)
 
@@ -497,12 +500,6 @@ func (c *Controller) createPipelineRun(wr *nebulav1.WorkflowRun) (*tekv1alpha1.P
 
 	runID := wr.Spec.Name
 
-	labelMap := map[string]string{
-		pipelineRunAnnotation: runID,
-		"workflow-run-id":     runID,
-		"workflow-id":         wr.Spec.Workflow.Name,
-	}
-
 	serviceAccount, err := c.createServiceAccount(wr)
 	if err != nil {
 		return nil, err
@@ -512,7 +509,7 @@ func (c *Controller) createPipelineRun(wr *nebulav1.WorkflowRun) (*tekv1alpha1.P
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            runID,
 			Namespace:       namespace,
-			Labels:          labelMap,
+			Labels:          getLabels(wr, nil),
 			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(wr, controllerKind)},
 		},
 		Spec: tekv1alpha1.PipelineRunSpec{
@@ -928,8 +925,8 @@ func getName(wfr *nebulav1.WorkflowRun, name string) string {
 
 func getLabels(wfr *nebulav1.WorkflowRun, additional map[string]string) map[string]string {
 	labels := map[string]string{
-		"nebula.puppet.com/workflow-run-id": wfr.Spec.Name,
-		"nebula.puppet.com/workflow-id":     wfr.Spec.Workflow.Name,
+		workflowRunLabel: wfr.Spec.Name,
+		workflowLabel:    wfr.Spec.Workflow.Name,
 	}
 
 	if additional != nil {
