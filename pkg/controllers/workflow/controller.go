@@ -25,6 +25,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog"
 	"knative.dev/pkg/apis"
+	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 
 	nebulav1 "github.com/puppetlabs/nebula-tasks/pkg/apis/nebula.puppet.com/v1"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
@@ -42,14 +43,6 @@ const (
 )
 
 type WorkflowRunStatus string
-type WorkflowRunStepStatus string
-
-const (
-	WorkflowRunStepStatusPending    WorkflowRunStepStatus = "pending"
-	WorkflowRunStepStatusInProgress WorkflowRunStepStatus = "in-progress"
-	WorkflowRunStepStatusSuccess    WorkflowRunStepStatus = "success"
-	WorkflowRunStepStatusFailure    WorkflowRunStepStatus = "failure"
-)
 
 const (
 	WorkflowRunStatusPending    WorkflowRunStatus = "pending"
@@ -578,7 +571,7 @@ func (c *Controller) updateWorkflowRunStatus(plr *tekv1alpha1.PipelineRun) (*neb
 		}
 		step := nebulav1.WorkflowRunStep{
 			Name:   taskRun.PipelineTaskName,
-			Status: string(mapTaskStatus(taskRun)),
+			Status: string(mapStatus(taskRun.Status.Status)),
 		}
 
 		if taskRun.Status.StartTime != nil {
@@ -591,10 +584,8 @@ func (c *Controller) updateWorkflowRunStatus(plr *tekv1alpha1.PipelineRun) (*neb
 		workflowRunSteps[taskRun.PipelineTaskName] = step
 	}
 
-	status := taskStatusesToRunStatus(workflowRunSteps)
-
 	workflowRunStatus := &nebulav1.WorkflowRunStatus{
-		Status: string(status),
+		Status: string(mapStatus(plr.Status.Status)),
 		Steps:  workflowRunSteps,
 	}
 
@@ -950,45 +941,22 @@ func getLabels(wfr *nebulav1.WorkflowRun, additional map[string]string) map[stri
 	return labels
 }
 
-func mapTaskStatus(taskRun *tekv1alpha1.PipelineRunTaskRunStatus) WorkflowRunStepStatus {
-	for _, cs := range taskRun.Status.Conditions {
+func mapStatus(status duckv1beta1.Status) WorkflowRunStatus {
+	for _, cs := range status.Conditions {
 		switch cs.Type {
 		case apis.ConditionSucceeded:
 			switch cs.Status {
 			case corev1.ConditionUnknown:
-				return WorkflowRunStepStatusInProgress
+				return WorkflowRunStatusInProgress
 			case corev1.ConditionTrue:
-				return WorkflowRunStepStatusSuccess
+				return WorkflowRunStatusSuccess
 			case corev1.ConditionFalse:
-				return WorkflowRunStepStatusFailure
+				return WorkflowRunStatusFailure
 			}
 		}
 	}
 
-	return WorkflowRunStepStatusPending
-}
-
-func taskStatusesToRunStatus(tss map[string]nebulav1.WorkflowRunStep) WorkflowRunStatus {
-	if tss == nil || len(tss) <= 0 {
-		return WorkflowRunStatusPending
-	}
-
-	wrs := WorkflowRunStatusSuccess
-	for _, rts := range tss {
-		switch WorkflowRunStepStatus(rts.Status) {
-		case WorkflowRunStepStatusFailure:
-			wrs = WorkflowRunStatusFailure
-			return wrs
-		case WorkflowRunStepStatusPending:
-			if wrs != WorkflowRunStatusInProgress {
-				wrs = WorkflowRunStatusPending
-			}
-		case WorkflowRunStepStatusInProgress:
-			wrs = WorkflowRunStatusInProgress
-		}
-	}
-
-	return wrs
+	return WorkflowRunStatusPending
 }
 
 func containsString(slice []string, s string) bool {
