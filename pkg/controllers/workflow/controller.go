@@ -214,7 +214,7 @@ func (c *Controller) processPipelineRunChange(ctx context.Context, key string) e
 
 	logAnnotations := make(map[string]string, 0)
 
-	if plr.IsDone() {
+	if areWeDoneYet(plr) {
 		// Upload the logs that are not defined on the PipelineRun record...
 		logAnnotations, err = c.uploadLogs(ctx, plr)
 		if nil != err {
@@ -233,7 +233,7 @@ func (c *Controller) processPipelineRunChange(ctx context.Context, key string) e
 	}
 
 	for _, workflow := range workflowList {
-		if plr.IsDone() {
+		if areWeDoneYet(plr) {
 			klog.Infof("revoking workflow run secret access %s", workflow.GetName())
 			if err := c.secretsclient.RevokeScopedAccess(ctx, namespace); err != nil {
 				return err
@@ -906,6 +906,25 @@ func createMetadataAPIService(kc kubernetes.Interface, wfr *nebulav1.WorkflowRun
 	}
 
 	return service, nil
+}
+
+func areWeDoneYet(plr *tekv1alpha1.PipelineRun) bool {
+	if !plr.IsDone() && !plr.IsCancelled() {
+		return false
+	}
+
+	for _, task := range plr.Status.TaskRuns {
+		if task.Status == nil {
+			continue
+		}
+
+		status := mapStatus(task.Status.Status)
+		if status == WorkflowRunStatusInProgress {
+			return false
+		}
+	}
+
+	return true
 }
 
 func getName(wfr *nebulav1.WorkflowRun, name string) string {
