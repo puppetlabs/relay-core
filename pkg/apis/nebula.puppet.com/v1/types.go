@@ -18,12 +18,25 @@ type WorkflowRun struct {
 }
 
 type WorkflowRunSpec struct {
-	Name     string   `json:"name"`
-	Workflow Workflow `json:"workflow,omitempty"`
+	Name       string                `json:"name"`
+	Parameters WorkflowRunParameters `json:"parameters,omitempty"`
+	Workflow   Workflow              `json:"workflow,omitempty"`
 }
 
 type Workflow struct {
-	Name string `json:"name"`
+	Name       string             `json:"name"`
+	Parameters WorkflowParameters `json:"parameters,omitempty"`
+	Steps      []*WorkflowStep    `json:"steps"`
+}
+
+type WorkflowStep struct {
+	Name      string           `json:"name"`
+	Image     string           `json:"image"`
+	Spec      WorkflowStepSpec `json:"spec,omitempty"`
+	Input     []string         `json:"input,omitempty"`
+	Command   string           `json:"command,omitempty"`
+	Args      []string         `json:"args,omitempty"`
+	DependsOn []string         `json:"depends_on,omitempty"`
 }
 
 type WorkflowRunStep struct {
@@ -46,4 +59,49 @@ type WorkflowRunList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []WorkflowRun `json:"items"`
+}
+
+type WorkflowParameters map[string]interface{}
+
+type WorkflowRunParameters map[string]interface{}
+
+type WorkflowStepSpec map[string]interface{}
+
+func (in *WorkflowParameters) DeepCopy() *WorkflowParameters {
+	if in == nil {
+		return nil
+	}
+
+	out := make(WorkflowParameters)
+	for key, value := range *in {
+		out[key] = value
+	}
+
+	return &out
+}
+
+func (in *WorkflowRunParameters) DeepCopy() *WorkflowRunParameters {
+	if in == nil {
+		return nil
+	}
+
+	out := make(WorkflowRunParameters)
+	for key, value := range *in {
+		out[key] = value
+	}
+
+	return &out
+}
+
+func (in *WorkflowStepSpec) DeepCopy() *WorkflowStepSpec {
+	if in == nil {
+		return nil
+	}
+
+	out := make(WorkflowStepSpec)
+	for key, value := range *in {
+		out[key] = value
+	}
+
+	return &out
 }
