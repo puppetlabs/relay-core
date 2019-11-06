@@ -3,5 +3,5 @@
 # branch at that workflow.
 
 # NEBULA_WORKFLOWS[features/iteration-3-rbac]=nebula-deploy-tr-i3-rbac-1
-NEBULA_WORKFLOWS[improvements/workflow-controller]=nebula-system-deploy-tr-workctl
+NEBULA_WORKFLOWS[improvements/workflows]=nebula
 NEBULA_WORKFLOWS[improvements/cluster-security]=nebula-system-deploy-tr-security

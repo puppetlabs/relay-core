@@ -6,6 +6,4 @@ Copyright (c) Puppet, Inc.
 
 package v1
 
-type SecretAuthExpansion interface{}
-
 type WorkflowRunExpansion interface{}

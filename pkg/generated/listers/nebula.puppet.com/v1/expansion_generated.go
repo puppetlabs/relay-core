@@ -6,14 +6,6 @@ Copyright (c) Puppet, Inc.
 
 package v1
 
-// SecretAuthListerExpansion allows custom methods to be added to
-// SecretAuthLister.
-type SecretAuthListerExpansion interface{}
-
-// SecretAuthNamespaceListerExpansion allows custom methods to be added to
-// SecretAuthNamespaceLister.
-type SecretAuthNamespaceListerExpansion interface{}
-
 // WorkflowRunListerExpansion allows custom methods to be added to
 // WorkflowRunLister.
 type WorkflowRunListerExpansion interface{}

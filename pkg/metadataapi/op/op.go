@@ -36,20 +36,26 @@ type DefaultManagerFactory struct {
 	spm SpecsManager
 }
 
-// SecretsManager creates and returns a new SecretsManager implementation.
+// SecretsManager returns a configured SecretsManager implementation.
+// See pkg/metadataapi/op/secretsmanager.go
 func (m DefaultManagerFactory) SecretsManager() SecretsManager {
 	return m.sm
 }
 
-// OutputsManager creates and returns a new OutputsManager based on values in Configuration type.
+// OutputsManager returns a configured OutputsManager based on values in Configuration type.
+// See pkg/metadataapi/op/outputsmanager.go
 func (m DefaultManagerFactory) OutputsManager() OutputsManager {
 	return m.om
 }
 
+// MetadataManager returns a configured MetadataManager used to get task metadata.
+// See pkg/metadataapi/op/metadatamanager.go
 func (m DefaultManagerFactory) MetadataManager() MetadataManager {
 	return m.mm
 }
 
+// SpecsManager returns a configured SpecsManager.
+// See pkg/metadataapi/op/specsmanager.go
 func (m DefaultManagerFactory) SpecsManager() SpecsManager {
 	return m.spm
 }
@@ -66,8 +72,7 @@ func NewForKubernetes(ctx context.Context, cfg *config.MetadataServerConfig) (*D
 		K8sServiceAccountTokenPath: cfg.K8sServiceAccountTokenPath,
 		Token:                      cfg.VaultToken,
 		Role:                       cfg.VaultRole,
-		Bucket:                     cfg.WorkflowID,
-		EngineMount:                cfg.VaultEngineMount,
+		ScopedSecretsPath:          cfg.ScopedSecretsPath,
 		Logger:                     cfg.Logger,
 	})
 	if err != nil {
@@ -92,6 +97,9 @@ type developmentPreConfig struct {
 	TaskSpecs    map[string]string         `yaml:"taskSpecs"`
 }
 
+// NewForDev returns a new DefaultManagerFactory useful for development and running the metadata api server
+// locally. The manager implementations are mostly non-persistent in-memory storage backends. No data will be written
+// to disk and this should not be used in production.
 func NewForDev(ctx context.Context, cfg *config.MetadataServerConfig) (*DefaultManagerFactory, errors.Error) {
 	var preCfg developmentPreConfig
 

@@ -25,28 +25,27 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog"
 	"knative.dev/pkg/apis"
+	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 
 	nebulav1 "github.com/puppetlabs/nebula-tasks/pkg/apis/nebula.puppet.com/v1"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
 	clientset "github.com/puppetlabs/nebula-tasks/pkg/generated/clientset/versioned"
 	neblisters "github.com/puppetlabs/nebula-tasks/pkg/generated/listers/nebula.puppet.com/v1"
 	"github.com/puppetlabs/nebula-tasks/pkg/secrets/vault"
+	"github.com/puppetlabs/nebula-tasks/pkg/util"
 )
 
+var controllerKind = nebulav1.SchemeGroupVersion.WithKind("WorkflowRun")
+
 const (
-	pipelineRunAnnotation = "nebula.puppet.com/pipelinerun"
-	workflowRunAnnotation = "nebula.puppet.com/workflowrun"
+	nebulaGroupNamePrefix = "nebula.puppet.com/"
+	pipelineRunAnnotation = nebulaGroupNamePrefix + "pipelinerun"
+	workflowRunAnnotation = nebulaGroupNamePrefix + "workflowrun"
+	workflowRunLabel      = nebulaGroupNamePrefix + "workflow-run-id"
+	workflowLabel         = nebulaGroupNamePrefix + "workflow-id"
 )
 
 type WorkflowRunStatus string
-type WorkflowRunStepStatus string
-
-const (
-	WorkflowRunStepStatusPending    WorkflowRunStepStatus = "pending"
-	WorkflowRunStepStatusInProgress WorkflowRunStepStatus = "in-progress"
-	WorkflowRunStepStatusSuccess    WorkflowRunStepStatus = "success"
-	WorkflowRunStepStatusFailure    WorkflowRunStepStatus = "failure"
-)
 
 const (
 	WorkflowRunStatusPending    WorkflowRunStatus = "pending"
@@ -64,7 +63,6 @@ const (
 
 	// PipelineRun annotation indicating the log upload location
 	logUploadAnnotationPrefix = "nebula.puppet.com/log-archive-"
-	MaxLogArchiveTries        = 7
 )
 
 type podAndTaskName struct {
@@ -72,8 +70,8 @@ type podAndTaskName struct {
 	TaskName string
 }
 
-// Controller watches for nebulav1.SecretAuth resource changes.
-// If a SecretAuth resource is created, the controller will create a service acccount + rbac
+// Controller watches for nebulav1.WorkflowRun resource changes.
+// If a WorkflowRun resource is created, the controller will create a service acccount + rbac
 // for the namespace, then inform vault that that service account is allowed to access
 // readonly secrets under a preconfigured path related to a nebula workflow. It will then
 // spin up a pod running an instance of nebula-metadata-api that knows how to
@@ -83,17 +81,14 @@ type Controller struct {
 	kubeclient    kubernetes.Interface
 	nebclient     clientset.Interface
 	tekclient     tekclientset.Interface
-	vaultclient   *vault.VaultAuth
+	secretsclient SecretAuthAccessManager
 	storageclient storage.BlobStore
 
-	saLister        neblisters.SecretAuthLister
-	saListerSynced  cache.InformerSynced
 	wfrLister       neblisters.WorkflowRunLister
 	wfrListerSynced cache.InformerSynced
 	plrLister       teklisters.PipelineRunLister
 	plrListerSynced cache.InformerSynced
 	wfrworker       *worker
-	saworker        *worker
 	plrworker       *worker
 
 	namespace string
@@ -106,159 +101,17 @@ type Controller struct {
 // until stopCh is closed or an earlier bootstrap call results in an error.
 func (c *Controller) Run(numWorkers int, stopCh chan struct{}) error {
 	defer utilruntime.HandleCrash()
-	defer c.saworker.shutdown()
 	defer c.plrworker.shutdown()
 	defer c.wfrworker.shutdown()
 
-	if !cache.WaitForCacheSync(stopCh, c.saListerSynced, c.plrListerSynced, c.wfrListerSynced) {
+	if !cache.WaitForCacheSync(stopCh, c.plrListerSynced, c.wfrListerSynced) {
 		return fmt.Errorf("failed to wait for informer cache to sync")
 	}
 
-	c.saworker.run(numWorkers, stopCh)
 	c.plrworker.run(numWorkers, stopCh)
 	c.wfrworker.run(numWorkers, stopCh)
 
 	<-stopCh
-
-	return nil
-}
-
-// processSingleItem is responsible for creating all the resources required for
-// secret handling and authentication.
-// TODO break this logic out into smaller chunks... especially the calls to the vault api
-func (c *Controller) processSingleItem(ctx context.Context, key string) error {
-	klog.Infof("syncing SecretAuth %s", key)
-	defer klog.Infof("done syncing SecretAuth %s", key)
-
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		return err
-	}
-
-	sa, err := c.saLister.SecretAuths(namespace).Get(name)
-	if errors.IsNotFound(err) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-
-	// if anything fails while creating resources, the status object will not be filled out
-	// and saved. this means that if any of the keys are empty, we haven't created resources yet.
-	if sa.Status.ServiceAccount != "" {
-		klog.Infof("resources have already been created %s", key)
-		return nil
-	}
-
-	var (
-		ips       *corev1.Secret
-		saccount  *corev1.ServiceAccount
-		role      *rbacv1.Role
-		binding   *rbacv1.RoleBinding
-		pod       *corev1.Pod
-		service   *corev1.Service
-		configMap *corev1.ConfigMap
-	)
-
-	if c.cfg.MetadataServiceImagePullSecret != "" {
-		klog.Info("copying secret for metadata service image")
-		ips, err = copyImagePullSecret(c.namespace, c.kubeclient, sa, c.cfg.MetadataServiceImagePullSecret)
-		if err != nil {
-			return err
-		}
-	}
-
-	saccount, err = createServiceAccount(c.kubeclient, sa, ips)
-	if err != nil {
-		return err
-	}
-
-	klog.Infof("writing vault readonly access policy %s", sa.Spec.WorkflowID)
-	// now we let vault know about the service account
-	if err := c.vaultclient.WritePolicy(namespace, sa.Spec.WorkflowID); err != nil {
-		return err
-	}
-
-	klog.Infof("enabling vault access for workflow service account %s", sa.Spec.WorkflowID)
-	if err := c.vaultclient.WriteRole(namespace, saccount.GetName(), namespace); err != nil {
-		return err
-	}
-
-	role, binding, err = createRBAC(c.kubeclient, sa)
-	if err != nil {
-		return err
-	}
-
-	// It is possible that the metadata service and this controller talk to
-	// different Vault endpoints: each might be talking to a Vault agent (for
-	// caching or additional security) instead of directly to the Vault server.
-	podVaultAddr := c.cfg.MetadataServiceVaultAddr
-	if podVaultAddr == "" {
-		podVaultAddr = c.vaultclient.Address()
-	}
-
-	pod, err = createMetadataAPIPod(
-		c.kubeclient,
-		c.cfg.MetadataServiceImage,
-		saccount,
-		sa,
-		podVaultAddr,
-		c.vaultclient.EngineMount(),
-	)
-	if err != nil {
-		return err
-	}
-
-	service, err = createMetadataAPIService(c.kubeclient, sa)
-	if err != nil {
-		return err
-	}
-
-	configMap, err = createWorkflowConfigMap(c.kubeclient, service, sa)
-	if err != nil {
-		return err
-	}
-
-	klog.Infof("waiting for metadata service to become ready %s", sa.Spec.WorkflowID)
-
-	// This waits for a Modified watch event on a service's Endpoint object.
-	// When this event is received, it will check it's addresses to see if there's
-	// pods that are ready to be served.
-	if err := c.waitForEndpoint(service); err != nil {
-		return err
-	}
-
-	// Because of a possible race condition bug in the kernel or kubelet network stack, there's a very
-	// tiny window of time where packets will get dropped if you try to make requests to the ports
-	// that are supposed to be forwarded to underlying pods. This unfortunately happens quite frequently
-	// since we exec task pods from Tekton very quickly. This function will make GET requests in a loop
-	// to the readiness endpoint of the pod (via the service dns) to make sure it actually gets a 200
-	// response before setting the status object on SecretAuth resources.
-	if err := c.waitForSuccessfulServiceResponse(service); err != nil {
-		return err
-	}
-
-	klog.Infof("metadata service is ready %s", sa.Spec.WorkflowID)
-
-	saCopy := sa.DeepCopy()
-	saCopy.Status.MetadataServicePod = pod.GetName()
-	saCopy.Status.MetadataServiceService = service.GetName()
-	saCopy.Status.ServiceAccount = saccount.GetName()
-	saCopy.Status.ConfigMap = configMap.GetName()
-	saCopy.Status.Role = role.GetName()
-	saCopy.Status.RoleBinding = binding.GetName()
-	saCopy.Status.VaultPolicy = namespace
-	saCopy.Status.VaultAuthRole = namespace
-
-	if ips != nil {
-		saCopy.Status.MetadataServiceImagePullSecret = ips.GetName()
-	}
-
-	klog.Info("updating secretauth resource status for ", sa.Spec.WorkflowID)
-	saCopy, err = c.nebclient.NebulaV1().SecretAuths(namespace).Update(saCopy)
-	if err != nil {
-		return err
-	}
 
 	return nil
 }
@@ -272,6 +125,14 @@ func (c *Controller) waitForEndpoint(service *corev1.Service) error {
 	endpoints, err := c.kubeclient.CoreV1().Endpoints(service.GetNamespace()).Get(service.GetName(), metav1.GetOptions{})
 	if err != nil {
 		return err
+	}
+
+	if endpoints.Subsets != nil && len(endpoints.Subsets) > 0 {
+		for _, subset := range endpoints.Subsets {
+			if subset.Addresses != nil && len(subset.Addresses) > 0 {
+				return nil
+			}
+		}
 	}
 
 	listOptions := metav1.SingleObject(endpoints.ObjectMeta)
@@ -302,7 +163,7 @@ eventLoop:
 	}
 
 	if !conditionMet {
-		return fmt.Errorf("timeout occurred while waiting for the metadata service to be ready")
+		return fmt.Errorf("timeout occurred while waiting for service %s to be ready", service.GetName())
 	}
 
 	return nil
@@ -316,34 +177,22 @@ func (c *Controller) waitForSuccessfulServiceResponse(service *corev1.Service) e
 	)
 
 	return wait.PollImmediate(interval, timeout, func() (bool, error) {
-		resp, err := http.Get(u)
+		client := http.Client{
+			Timeout: timeout,
+		}
+		resp, err := client.Get(u)
 		if err != nil {
-			klog.Infof("got an error when probing the metadata api %s", err)
-
+			klog.Infof("got an error when probing the service %s - %s", service.GetName(), err)
 			return false, nil
 		}
 
 		if resp.StatusCode != http.StatusOK {
-			klog.Infof("got an invalid status code when probing the metadata api %d", resp.StatusCode)
-
+			klog.Infof("got an invalid status code when probing service %s %d", service.GetName(), resp.StatusCode)
 			return false, nil
 		}
 
 		return true, nil
 	})
-}
-
-func (c *Controller) enqueueSecretAuth(obj interface{}) {
-	sa := obj.(*nebulav1.SecretAuth)
-
-	key, err := cache.MetaNamespaceKeyFunc(sa)
-	if err != nil {
-		utilruntime.HandleError(err)
-
-		return
-	}
-
-	c.saworker.add(key)
 }
 
 func (c *Controller) processPipelineRunChange(ctx context.Context, key string) error {
@@ -357,16 +206,24 @@ func (c *Controller) processPipelineRunChange(ctx context.Context, key string) e
 
 	plr, err := c.tekclient.TektonV1alpha1().PipelineRuns(namespace).Get(name, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
-		// TODO if the pipeline run isn't found, then we will still need to clean up SecretAuth
-		// resources, but the business logic for this still needs to be defined
 		return nil
 	}
 	if err != nil {
 		return err
 	}
 
+	logAnnotations := make(map[string]string, 0)
+
+	if areWeDoneYet(plr) {
+		// Upload the logs that are not defined on the PipelineRun record...
+		logAnnotations, err = c.uploadLogs(ctx, plr)
+		if nil != err {
+			return err
+		}
+	}
+
 	labelMap := map[string]string{
-		"pipeline-id": plr.Name,
+		pipelineRunAnnotation: plr.Name,
 	}
 
 	selector := labels.SelectorFromValidatedSet(labelMap)
@@ -376,10 +233,21 @@ func (c *Controller) processPipelineRunChange(ctx context.Context, key string) e
 	}
 
 	for _, workflow := range workflowList {
+		if areWeDoneYet(plr) {
+			klog.Infof("revoking workflow run secret access %s", workflow.GetName())
+			if err := c.secretsclient.RevokeScopedAccess(ctx, namespace); err != nil {
+				return err
+			}
+		}
+
 		status, _ := c.updateWorkflowRunStatus(plr)
 
 		wfrCopy := workflow.DeepCopy()
 		wfrCopy.Status = *status
+
+		for name, value := range logAnnotations {
+			metav1.SetMetaDataAnnotation(&wfrCopy.ObjectMeta, name, value)
+		}
 
 		_, err = c.nebclient.NebulaV1().WorkflowRuns(namespace).Update(wfrCopy)
 		if err != nil {
@@ -387,85 +255,14 @@ func (c *Controller) processPipelineRunChange(ctx context.Context, key string) e
 		}
 	}
 
-	if plr.IsDone() {
-		// Upload the logs that are not defined on the PipelineRun record...
-		err = c.uploadLogs(ctx, plr)
-		if nil != err {
-			return err
-		}
-
-		sas, err := c.nebclient.NebulaV1().SecretAuths(namespace).List(metav1.ListOptions{})
-		if err != nil {
-			return err
-		}
-
-		core := c.kubeclient.CoreV1()
-		rbac := c.kubeclient.RbacV1()
-		sac := c.nebclient.NebulaV1().SecretAuths(namespace)
-		opts := &metav1.DeleteOptions{}
-
-		for _, sa := range sas.Items {
-			klog.Infof("deleting resources created by %s", sa.GetName())
-
-			err = core.Pods(namespace).Delete(sa.Status.MetadataServicePod, opts)
-			if err != nil {
-				return err
-			}
-
-			err = core.Services(namespace).Delete(sa.Status.MetadataServiceService, opts)
-			if err != nil {
-				return err
-			}
-
-			err = core.ServiceAccounts(namespace).Delete(sa.Status.ServiceAccount, opts)
-			if err != nil {
-				return err
-			}
-
-			err = core.ConfigMaps(namespace).Delete(sa.Status.ConfigMap, opts)
-			if err != nil {
-				return err
-			}
-
-			if sa.Status.MetadataServiceImagePullSecret != "" {
-				err = core.Secrets(namespace).Delete(sa.Status.MetadataServiceImagePullSecret, opts)
-				if err != nil {
-					return err
-				}
-			}
-
-			err = rbac.RoleBindings(namespace).Delete(sa.Status.RoleBinding, opts)
-			if err != nil {
-				return err
-			}
-
-			err = rbac.Roles(namespace).Delete(sa.Status.Role, opts)
-			if err != nil {
-				return err
-			}
-
-			err = c.vaultclient.DeleteRole(sa.Status.VaultAuthRole)
-			if err != nil {
-				return err
-			}
-
-			err = c.vaultclient.DeletePolicy(sa.Status.VaultPolicy)
-			if err != nil {
-				return err
-			}
-
-			if err := sac.Delete(sa.GetName(), opts); err != nil {
-				return err
-			}
-		}
-	}
-
 	return nil
 }
 
-func (c *Controller) uploadLogs(ctx context.Context, plr *tekv1alpha1.PipelineRun) error {
+func (c *Controller) uploadLogs(ctx context.Context, plr *tekv1alpha1.PipelineRun) (map[string]string, error) {
+	logAnnotations := make(map[string]string, 0)
+
 	for _, pt := range extractPodAndTaskNamesFromPipelineRun(plr) {
-		annotation := logUploadAnnotationPrefix + pt.TaskName
+		annotation := nebulaGroupNamePrefix + util.Slug(logUploadAnnotationPrefix+pt.TaskName)
 		if _, ok := plr.Annotations[annotation]; ok {
 			continue
 		}
@@ -477,36 +274,13 @@ func (c *Controller) uploadLogs(ctx context.Context, plr *tekv1alpha1.PipelineRu
 				pt.PodName,
 				containerName,
 				err)
-			return err
+			continue
 		}
-		for retry := uint(0); ; retry++ {
-			metav1.SetMetaDataAnnotation(&plr.ObjectMeta, annotation, logName)
-			plr, err = c.tekclient.TektonV1alpha1().PipelineRuns(plr.Namespace).Update(plr)
-			if nil == err {
-				break
-			} else if !errors.IsConflict(err) {
-				return err
-			}
-			if retry > MaxLogArchiveTries {
-				return err
-			}
-			klog.Warningf("Conflict during pipelineRun=%s/%s update",
-				plr.Namespace,
-				plr.Name)
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After((1 << retry) * 10 * time.Millisecond):
-			}
-			plr, err = c.tekclient.TektonV1alpha1().
-				PipelineRuns(plr.Namespace).
-				Get(plr.Name, metav1.GetOptions{})
-			if nil != err {
-				return err
-			}
-		}
+
+		logAnnotations[annotation] = logName
 	}
-	return nil
+
+	return logAnnotations, nil
 }
 
 func (c *Controller) uploadLog(ctx context.Context, namespace string, podName string, containerName string) (string, error) {
@@ -521,20 +295,303 @@ func (c *Controller) uploadLog(ctx context.Context, namespace string, podName st
 	}
 	defer rc.Close()
 
+	storageOpts := storage.PutOptions{
+		ContentType: "application/octet-stream",
+	}
+
 	err = c.storageclient.Put(ctx, key, func(w io.Writer) error {
 		_, err := io.Copy(w, rc)
+
 		return err
-	}, storage.PutOptions{
-		ContentType: "application/octet-stream",
-	})
+	}, storageOpts)
 	if err != nil {
 		return "", err
 	}
+
 	return key, nil
 }
 
+func (c *Controller) processWorkflowRun(ctx context.Context, key string) error {
+	klog.Infof("syncing WorkflowRun change %s", key)
+	defer klog.Infof("done syncing WorkflowRun change %s", key)
+
+	namespace, name, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		return err
+	}
+
+	wr, err := c.nebclient.NebulaV1().WorkflowRuns(namespace).Get(name, metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		klog.Infof("%s %s has been deleted", wr.Kind, key)
+
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	// If we haven't set the state of the run yet, then we need to ensure all the secret access
+	// and rbac is setup.
+	if wr.Status.Status == "" {
+		if err := c.ensureAccessResourcesExist(ctx, wr); err != nil {
+			return err
+		}
+	}
+
+	if wr.ObjectMeta.DeletionTimestamp.IsZero() {
+		if _, ok := wr.GetAnnotations()[pipelineRunAnnotation]; !ok {
+			plr, err := c.createPipelineRun(wr)
+			if err != nil {
+				return err
+			}
+
+			pipelineId := wr.Spec.Name
+			if wr.Labels == nil {
+				wr.Labels = make(map[string]string, 0)
+			}
+			wr.Labels[pipelineRunAnnotation] = pipelineId
+
+			metav1.SetMetaDataAnnotation(&wr.ObjectMeta, pipelineRunAnnotation, plr.Name)
+
+			if !containsString(wr.ObjectMeta.Finalizers, workflowRunAnnotation) {
+				wr.ObjectMeta.Finalizers = append(wr.ObjectMeta.Finalizers, workflowRunAnnotation)
+			}
+
+			wr, err = c.nebclient.NebulaV1().WorkflowRuns(namespace).Update(wr)
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		if containsString(wr.ObjectMeta.Finalizers, workflowRunAnnotation) {
+			wr.ObjectMeta.Finalizers = removeString(wr.ObjectMeta.Finalizers, workflowRunAnnotation)
+
+			wr, err = c.nebclient.NebulaV1().WorkflowRuns(namespace).Update(wr)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (c *Controller) ensureAccessResourcesExist(ctx context.Context, wr *nebulav1.WorkflowRun) error {
+	var (
+		ips      *corev1.Secret
+		saccount *corev1.ServiceAccount
+		service  *corev1.Service
+		err      error
+	)
+
+	namespace := wr.GetNamespace()
+
+	if c.cfg.MetadataServiceImagePullSecret != "" {
+		klog.Info("copying secret for metadata service image")
+		ips, err = copyImagePullSecret(c.namespace, c.kubeclient, wr, c.cfg.MetadataServiceImagePullSecret)
+		if err != nil {
+			return err
+		}
+	}
+
+	saccount, err = createServiceAccount(c.kubeclient, wr, ips)
+	if err != nil {
+		return err
+	}
+
+	klog.Infof("granting workflow run access to scoped secrets %s", wr.Spec.Workflow.Name)
+	grant, err := c.secretsclient.GrantScopedAccess(ctx, wr.Spec.Workflow.Name, namespace, saccount.GetName())
+	if err != nil {
+		return err
+	}
+
+	_, _, err = createRBAC(c.kubeclient, wr)
+	if err != nil {
+		return err
+	}
+
+	// It is possible that the metadata service and this controller talk to
+	// different Vault endpoints: each might be talking to a Vault agent (for
+	// caching or additional security) instead of directly to the Vault server.
+	podVaultAddr := c.cfg.MetadataServiceVaultAddr
+	if podVaultAddr == "" {
+		podVaultAddr = grant.BackendAddr
+	}
+
+	_, err = createMetadataAPIPod(
+		c.kubeclient,
+		c.cfg.MetadataServiceImage,
+		saccount,
+		wr,
+		podVaultAddr,
+		grant.ScopedPath,
+	)
+	if err != nil {
+		return err
+	}
+
+	service, err = createMetadataAPIService(c.kubeclient, wr)
+	if err != nil {
+		return err
+	}
+
+	klog.Infof("waiting for metadata service to become ready %s", wr.Spec.Workflow.Name)
+
+	// This waits for a Modified watch event on a service's Endpoint object.
+	// When this event is received, it will check it's addresses to see if there's
+	// pods that are ready to be served.
+	if err := c.waitForEndpoint(service); err != nil {
+		return err
+	}
+
+	// Because of a possible race condition bug in the kernel or kubelet network stack, there's a very
+	// tiny window of time where packets will get dropped if you try to make requests to the ports
+	// that are supposed to be forwarded to underlying pods. This unfortunately happens quite frequently
+	// since we exec task pods from Tekton very quickly. This function will make GET requests in a loop
+	// to the readiness endpoint of the pod (via the service dns) to make sure it actually gets a 200
+	// response before setting the status object on SecretAuth resources.
+	if err := c.waitForSuccessfulServiceResponse(service); err != nil {
+		return err
+	}
+
+	klog.Infof("metadata service is ready %s", wr.Spec.Workflow.Name)
+
+	return nil
+}
+
+func (c *Controller) enqueueWorkflowRun(obj interface{}) {
+	wf := obj.(*nebulav1.WorkflowRun)
+
+	key, err := cache.MetaNamespaceKeyFunc(wf)
+	if err != nil {
+		utilruntime.HandleError(err)
+
+		return
+	}
+
+	c.wfrworker.add(key)
+}
+
+func (c *Controller) enqueuePipelineRun(obj interface{}) {
+	plr := obj.(*tekv1alpha1.PipelineRun)
+
+	key, err := cache.MetaNamespaceKeyFunc(plr)
+	if err != nil {
+		utilruntime.HandleError(err)
+
+		return
+	}
+
+	c.plrworker.add(key)
+}
+
+func (c *Controller) createPipelineRun(wr *nebulav1.WorkflowRun) (*tekv1alpha1.PipelineRun, error) {
+	namespace := wr.GetNamespace()
+
+	plr, err := c.tekclient.TektonV1alpha1().PipelineRuns(namespace).Get(wr.Spec.Name, metav1.GetOptions{})
+	if plr != nil && plr != (&tekv1alpha1.PipelineRun{}) && plr.Name != "" {
+		return plr, nil
+	}
+
+	runID := wr.Spec.Name
+
+	serviceAccount, err := c.createServiceAccount(wr)
+	if err != nil {
+		return nil, err
+	}
+
+	pipelineRun := &tekv1alpha1.PipelineRun{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            runID,
+			Namespace:       namespace,
+			Labels:          getLabels(wr, nil),
+			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(wr, controllerKind)},
+		},
+		Spec: tekv1alpha1.PipelineRunSpec{
+			ServiceAccount: serviceAccount.Name,
+			PipelineRef: tekv1alpha1.PipelineRef{
+				Name: runID,
+			},
+			PodTemplate: tekv1alpha1.PodTemplate{
+				NodeSelector: map[string]string{
+					"nebula.puppet.com/scheduling.customer-ready": "true",
+				},
+				Tolerations: []corev1.Toleration{
+					{
+						Key:    "nebula.puppet.com/scheduling.customer-workload",
+						Value:  "true",
+						Effect: corev1.TaintEffectNoSchedule,
+					},
+				},
+			},
+		},
+	}
+
+	createdPipelineRun, err := c.tekclient.TektonV1alpha1().PipelineRuns(namespace).Create(pipelineRun)
+	if err != nil {
+		return nil, err
+	}
+
+	return createdPipelineRun, nil
+}
+
+func (c *Controller) createServiceAccount(wr *nebulav1.WorkflowRun) (*corev1.ServiceAccount, error) {
+	namespace := wr.GetNamespace()
+
+	serviceAccount, _ := c.kubeclient.CoreV1().ServiceAccounts(namespace).Get(wr.Spec.Name, metav1.GetOptions{})
+	if serviceAccount != nil {
+		return serviceAccount, nil
+	}
+
+	serviceAccount = &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            wr.Spec.Name,
+			Namespace:       namespace,
+			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(wr, controllerKind)},
+		},
+	}
+
+	return c.kubeclient.CoreV1().ServiceAccounts(namespace).Create(serviceAccount)
+}
+
+func (c *Controller) updateWorkflowRunStatus(plr *tekv1alpha1.PipelineRun) (*nebulav1.WorkflowRunStatus, error) {
+	workflowRunSteps := make(map[string]nebulav1.WorkflowRunStep)
+
+	for _, taskRun := range plr.Status.TaskRuns {
+		if nil == taskRun.Status {
+			continue
+		}
+		step := nebulav1.WorkflowRunStep{
+			Name:   taskRun.PipelineTaskName,
+			Status: string(mapStatus(taskRun.Status.Status)),
+		}
+
+		if taskRun.Status.StartTime != nil {
+			step.StartTime = taskRun.Status.StartTime
+		}
+		if taskRun.Status.CompletionTime != nil {
+			step.CompletionTime = taskRun.Status.CompletionTime
+		}
+
+		workflowRunSteps[taskRun.PipelineTaskName] = step
+	}
+
+	workflowRunStatus := &nebulav1.WorkflowRunStatus{
+		Status: string(mapStatus(plr.Status.Status)),
+		Steps:  workflowRunSteps,
+	}
+
+	if plr.Status.StartTime != nil {
+		workflowRunStatus.StartTime = plr.Status.StartTime
+	}
+	if plr.Status.CompletionTime != nil {
+		workflowRunStatus.CompletionTime = plr.Status.CompletionTime
+	}
+
+	return workflowRunStatus, nil
+}
+
 func NewController(manager *DependencyManager, cfg *config.WorkflowControllerConfig, vc *vault.VaultAuth, bs storage.BlobStore, namespace string) *Controller {
-	saInformer := manager.SecretAuthInformer()
 	wfrInformer := manager.WorkflowRunInformer()
 	plrInformer := manager.PipelineRunInformer()
 
@@ -542,12 +599,10 @@ func NewController(manager *DependencyManager, cfg *config.WorkflowControllerCon
 		kubeclient:      manager.KubeClient,
 		nebclient:       manager.NebulaClient,
 		tekclient:       manager.TektonClient,
-		vaultclient:     vc,
+		secretsclient:   vc,
 		storageclient:   bs,
-		saLister:        saInformer.Lister(),
 		wfrLister:       wfrInformer.Lister(),
 		plrLister:       plrInformer.Lister(),
-		saListerSynced:  saInformer.Informer().HasSynced,
 		wfrListerSynced: wfrInformer.Informer().HasSynced,
 		plrListerSynced: plrInformer.Informer().HasSynced,
 		namespace:       namespace,
@@ -555,13 +610,8 @@ func NewController(manager *DependencyManager, cfg *config.WorkflowControllerCon
 		manager:         manager,
 	}
 
-	c.saworker = newWorker("SecretAuths", (*c).processSingleItem, defaultMaxRetries)
-	c.wfrworker = newWorker("WorkflowRuns", (*c).processWorkflowRunChange, defaultMaxRetries)
+	c.wfrworker = newWorker("WorkflowRuns", (*c).processWorkflowRun, defaultMaxRetries)
 	c.plrworker = newWorker("PipelineRuns", (*c).processPipelineRunChange, defaultMaxRetries)
-
-	saInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: c.enqueueSecretAuth,
-	})
 
 	wfrInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.enqueueWorkflowRun,
@@ -606,7 +656,7 @@ func extractPodAndTaskNamesFromPipelineRun(plr *tekv1alpha1.PipelineRun) []podAn
 	return result
 }
 
-func copyImagePullSecret(workingNamespace string, kc kubernetes.Interface, sa *nebulav1.SecretAuth, imagePullSecretKey string) (*corev1.Secret, error) {
+func copyImagePullSecret(workingNamespace string, kc kubernetes.Interface, wfr *nebulav1.WorkflowRun, imagePullSecretKey string) (*corev1.Secret, error) {
 	namespace, name, err := cache.SplitMetaNamespaceKey(imagePullSecretKey)
 	if err != nil {
 		return nil, err
@@ -629,16 +679,18 @@ func copyImagePullSecret(workingNamespace string, kc kubernetes.Interface, sa *n
 			Kind:       "Secret",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      metadataImagePullSecretName,
-			Namespace: sa.GetNamespace(),
+			Name:            metadataImagePullSecretName,
+			Namespace:       wfr.GetNamespace(),
+			Labels:          getLabels(wfr, nil),
+			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(wfr, controllerKind)},
 		},
 		Type: ref.Type,
 		Data: ref.Data,
 	}
 
-	secret, err = kc.CoreV1().Secrets(sa.GetNamespace()).Create(secret)
+	secret, err = kc.CoreV1().Secrets(wfr.GetNamespace()).Create(secret)
 	if errors.IsAlreadyExists(err) {
-		secret, err = kc.CoreV1().Secrets(sa.GetNamespace()).Get(secret.GetName(), metav1.GetOptions{})
+		secret, err = kc.CoreV1().Secrets(wfr.GetNamespace()).Get(secret.GetName(), metav1.GetOptions{})
 	} else if err != nil {
 		return nil, err
 	}
@@ -646,16 +698,17 @@ func copyImagePullSecret(workingNamespace string, kc kubernetes.Interface, sa *n
 	return secret, nil
 }
 
-func createServiceAccount(kc kubernetes.Interface, sa *nebulav1.SecretAuth, imagePullSecret *corev1.Secret) (*corev1.ServiceAccount, error) {
+func createServiceAccount(kc kubernetes.Interface, wfr *nebulav1.WorkflowRun, imagePullSecret *corev1.Secret) (*corev1.ServiceAccount, error) {
 	saccount := &corev1.ServiceAccount{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
 			Kind:       "ServiceAccount",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      getName(sa, ""),
-			Namespace: sa.GetNamespace(),
-			Labels:    getLabels(sa, nil),
+			Name:            getName(wfr, ""),
+			Namespace:       wfr.GetNamespace(),
+			Labels:          getLabels(wfr, nil),
+			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(wfr, controllerKind)},
 		},
 	}
 
@@ -665,10 +718,10 @@ func createServiceAccount(kc kubernetes.Interface, sa *nebulav1.SecretAuth, imag
 		}
 	}
 
-	klog.Infof("creating service account %s", sa.Spec.WorkflowID)
-	saccount, err := kc.CoreV1().ServiceAccounts(sa.GetNamespace()).Create(saccount)
+	klog.Infof("creating service account %s", wfr.Spec.Workflow.Name)
+	saccount, err := kc.CoreV1().ServiceAccounts(wfr.GetNamespace()).Create(saccount)
 	if errors.IsAlreadyExists(err) {
-		saccount, err = kc.CoreV1().ServiceAccounts(sa.GetNamespace()).Get(getName(sa, ""), metav1.GetOptions{})
+		saccount, err = kc.CoreV1().ServiceAccounts(wfr.GetNamespace()).Get(getName(wfr, ""), metav1.GetOptions{})
 	}
 	if err != nil {
 		return nil, err
@@ -677,7 +730,7 @@ func createServiceAccount(kc kubernetes.Interface, sa *nebulav1.SecretAuth, imag
 	return saccount, nil
 }
 
-func createRBAC(kc kubernetes.Interface, sa *nebulav1.SecretAuth) (*rbacv1.Role, *rbacv1.RoleBinding, error) {
+func createRBAC(kc kubernetes.Interface, wfr *nebulav1.WorkflowRun) (*rbacv1.Role, *rbacv1.RoleBinding, error) {
 	var err error
 
 	role := &rbacv1.Role{
@@ -686,9 +739,10 @@ func createRBAC(kc kubernetes.Interface, sa *nebulav1.SecretAuth) (*rbacv1.Role,
 			Kind:       "Role",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      getName(sa, ""),
-			Namespace: sa.GetNamespace(),
-			Labels:    getLabels(sa, nil),
+			Name:            getName(wfr, ""),
+			Namespace:       wfr.GetNamespace(),
+			Labels:          getLabels(wfr, nil),
+			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(wfr, controllerKind)},
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -710,37 +764,38 @@ func createRBAC(kc kubernetes.Interface, sa *nebulav1.SecretAuth) (*rbacv1.Role,
 			Kind:       "RoleBinding",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      getName(sa, ""),
-			Namespace: sa.GetNamespace(),
-			Labels:    getLabels(sa, nil),
+			Name:            getName(wfr, ""),
+			Namespace:       wfr.GetNamespace(),
+			Labels:          getLabels(wfr, nil),
+			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(wfr, controllerKind)},
 		},
 		RoleRef: rbacv1.RoleRef{
 			Kind:     "Role",
 			APIGroup: "rbac.authorization.k8s.io",
-			Name:     getName(sa, ""),
+			Name:     getName(wfr, ""),
 		},
 		Subjects: []rbacv1.Subject{
 			{
-				Name:      getName(sa, ""),
+				Name:      getName(wfr, ""),
 				Kind:      "ServiceAccount",
-				Namespace: sa.GetNamespace(),
+				Namespace: wfr.GetNamespace(),
 			},
 		},
 	}
 
-	klog.Infof("creating role %s", sa.Spec.WorkflowID)
-	role, err = kc.RbacV1().Roles(sa.GetNamespace()).Create(role)
+	klog.Infof("creating role %s", wfr.Spec.Workflow.Name)
+	role, err = kc.RbacV1().Roles(wfr.GetNamespace()).Create(role)
 	if errors.IsAlreadyExists(err) {
-		role, err = kc.RbacV1().Roles(sa.GetNamespace()).Get(getName(sa, ""), metav1.GetOptions{})
+		role, err = kc.RbacV1().Roles(wfr.GetNamespace()).Get(getName(wfr, ""), metav1.GetOptions{})
 	}
 	if err != nil {
 		return nil, nil, err
 	}
 
-	klog.Infof("creating role binding %s", sa.Spec.WorkflowID)
-	binding, err = kc.RbacV1().RoleBindings(sa.GetNamespace()).Create(binding)
+	klog.Infof("creating role binding %s", wfr.Spec.Workflow.Name)
+	binding, err = kc.RbacV1().RoleBindings(wfr.GetNamespace()).Create(binding)
 	if errors.IsAlreadyExists(err) {
-		binding, err = kc.RbacV1().RoleBindings(sa.GetNamespace()).Get(getName(sa, ""), metav1.GetOptions{})
+		binding, err = kc.RbacV1().RoleBindings(wfr.GetNamespace()).Get(getName(wfr, ""), metav1.GetOptions{})
 	}
 	if err != nil {
 		return nil, nil, err
@@ -750,16 +805,17 @@ func createRBAC(kc kubernetes.Interface, sa *nebulav1.SecretAuth) (*rbacv1.Role,
 }
 
 func createMetadataAPIPod(kc kubernetes.Interface, image string, saccount *corev1.ServiceAccount,
-	sa *nebulav1.SecretAuth, vaultAddr, vaultEngineMount string) (*corev1.Pod, error) {
+	wfr *nebulav1.WorkflowRun, secretsAddr, scopedSecretsPath string) (*corev1.Pod, error) {
 
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      metadataServiceName,
-			Namespace: sa.GetNamespace(),
-			Labels: getLabels(sa, map[string]string{
+			Namespace: wfr.GetNamespace(),
+			Labels: getLabels(wfr, map[string]string{
 				"app.kubernetes.io/name":      "nebula",
 				"app.kubernetes.io/component": metadataServiceName,
 			}),
+			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(wfr, controllerKind)},
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
@@ -772,15 +828,13 @@ func createMetadataAPIPod(kc kubernetes.Interface, image string, saccount *corev
 						"-bind-addr",
 						":7000",
 						"-vault-addr",
-						vaultAddr,
+						secretsAddr,
 						"-vault-role",
-						sa.GetNamespace(),
-						"-workflow-id",
-						sa.Spec.WorkflowID,
-						"-vault-engine-mount",
-						vaultEngineMount,
+						wfr.GetNamespace(),
+						"-scoped-secrets-path",
+						scopedSecretsPath,
 						"-namespace",
-						sa.GetNamespace(),
+						wfr.GetNamespace(),
 					},
 					Ports: []corev1.ContainerPort{
 						{
@@ -803,11 +857,11 @@ func createMetadataAPIPod(kc kubernetes.Interface, image string, saccount *corev
 		},
 	}
 
-	klog.Infof("creating metadata service pod %s", sa.Spec.WorkflowID)
+	klog.Infof("creating metadata service pod %s", wfr.Spec.Workflow.Name)
 
-	pod, err := kc.CoreV1().Pods(sa.GetNamespace()).Create(pod)
+	pod, err := kc.CoreV1().Pods(wfr.GetNamespace()).Create(pod)
 	if errors.IsAlreadyExists(err) {
-		pod, err = kc.CoreV1().Pods(sa.GetNamespace()).Get(metadataServiceName, metav1.GetOptions{})
+		pod, err = kc.CoreV1().Pods(wfr.GetNamespace()).Get(metadataServiceName, metav1.GetOptions{})
 	}
 	if err != nil {
 		return nil, err
@@ -816,15 +870,16 @@ func createMetadataAPIPod(kc kubernetes.Interface, image string, saccount *corev
 	return pod, nil
 }
 
-func createMetadataAPIService(kc kubernetes.Interface, sa *nebulav1.SecretAuth) (*corev1.Service, error) {
+func createMetadataAPIService(kc kubernetes.Interface, wfr *nebulav1.WorkflowRun) (*corev1.Service, error) {
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      metadataServiceName,
-			Namespace: sa.GetNamespace(),
-			Labels: getLabels(sa, map[string]string{
+			Namespace: wfr.GetNamespace(),
+			Labels: getLabels(wfr, map[string]string{
 				"app.kubernetes.io/name":      "nebula",
 				"app.kubernetes.io/component": metadataServiceName,
 			}),
+			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(wfr, controllerKind)},
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
@@ -840,11 +895,11 @@ func createMetadataAPIService(kc kubernetes.Interface, sa *nebulav1.SecretAuth) 
 		},
 	}
 
-	klog.Infof("creating pod service %s", sa.Spec.WorkflowID)
+	klog.Infof("creating pod service %s", wfr.Spec.Workflow.Name)
 
-	service, err := kc.CoreV1().Services(sa.GetNamespace()).Create(service)
+	service, err := kc.CoreV1().Services(wfr.GetNamespace()).Create(service)
 	if errors.IsAlreadyExists(err) {
-		service, err = kc.CoreV1().Services(sa.GetNamespace()).Get(metadataServiceName, metav1.GetOptions{})
+		service, err = kc.CoreV1().Services(wfr.GetNamespace()).Get(metadataServiceName, metav1.GetOptions{})
 	}
 	if err != nil {
 		return nil, err
@@ -853,44 +908,39 @@ func createMetadataAPIService(kc kubernetes.Interface, sa *nebulav1.SecretAuth) 
 	return service, nil
 }
 
-func createWorkflowConfigMap(kc kubernetes.Interface, service *corev1.Service, sa *nebulav1.SecretAuth) (*corev1.ConfigMap, error) {
-	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      getName(sa, ""),
-			Namespace: sa.GetNamespace(),
-			Labels:    getLabels(sa, nil),
-		},
-		Data: map[string]string{
-			"metadata-api-url": fmt.Sprintf("http://%s.%s.svc.cluster.local", service.GetName(), sa.GetNamespace()),
-		},
+func areWeDoneYet(plr *tekv1alpha1.PipelineRun) bool {
+	if !plr.IsDone() && !plr.IsCancelled() {
+		return false
 	}
 
-	klog.Infof("creating config map %s", sa.Spec.WorkflowID)
-	configMap, err := kc.CoreV1().ConfigMaps(sa.GetNamespace()).Create(configMap)
-	if errors.IsAlreadyExists(err) {
-		configMap, err = kc.CoreV1().ConfigMaps(sa.GetNamespace()).Get(getName(sa, ""), metav1.GetOptions{})
-	}
-	if err != nil {
-		return nil, err
+	for _, task := range plr.Status.TaskRuns {
+		if task.Status == nil {
+			continue
+		}
+
+		status := mapStatus(task.Status.Status)
+		if status == WorkflowRunStatusInProgress {
+			return false
+		}
 	}
 
-	return configMap, nil
+	return true
 }
 
-func getName(sa *nebulav1.SecretAuth, name string) string {
+func getName(wfr *nebulav1.WorkflowRun, name string) string {
 	prefix := "wr"
 
 	if name == "" {
-		return fmt.Sprintf("%s-%s", prefix, sa.Spec.WorkflowRunID)
+		return fmt.Sprintf("%s-%s", prefix, wfr.Spec.Name)
 	}
 
-	return fmt.Sprintf("%s-%s-%s", prefix, sa.Spec.WorkflowRunID, name)
+	return fmt.Sprintf("%s-%s-%s", prefix, wfr.Spec.Name, name)
 }
 
-func getLabels(sa *nebulav1.SecretAuth, additional map[string]string) map[string]string {
+func getLabels(wfr *nebulav1.WorkflowRun, additional map[string]string) map[string]string {
 	labels := map[string]string{
-		"workflow-run-id": sa.Spec.WorkflowRunID,
-		"workflow-id":     sa.Spec.WorkflowID,
+		workflowRunLabel: wfr.Spec.Name,
+		workflowLabel:    wfr.Spec.Workflow.Name,
 	}
 
 	if additional != nil {
@@ -902,227 +952,22 @@ func getLabels(sa *nebulav1.SecretAuth, additional map[string]string) map[string
 	return labels
 }
 
-func (c *Controller) processWorkflowRunChange(ctx context.Context, key string) error {
-	klog.Infof("syncing WorkflowRun change %s", key)
-	defer klog.Infof("done syncing WorkflowRun change %s", key)
-
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		return err
-	}
-
-	wf, err := c.nebclient.NebulaV1().WorkflowRuns(namespace).Get(name, metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-
-	if wf.ObjectMeta.DeletionTimestamp.IsZero() {
-		if _, ok := wf.GetAnnotations()[pipelineRunAnnotation]; !ok {
-			plr, err := c.createPipelineRun(wf.Spec.Name, namespace)
-			if err != nil {
-				return err
-			}
-
-			pipelineId := wf.Spec.Name
-			if wf.Labels == nil {
-				wf.Labels = make(map[string]string, 0)
-			}
-			wf.Labels["pipeline-id"] = pipelineId
-
-			metav1.SetMetaDataAnnotation(&wf.ObjectMeta, pipelineRunAnnotation, plr.Name)
-
-			if !containsString(wf.ObjectMeta.Finalizers, workflowRunAnnotation) {
-				wf.ObjectMeta.Finalizers = append(wf.ObjectMeta.Finalizers, workflowRunAnnotation)
-			}
-
-			wf, err = c.nebclient.NebulaV1().WorkflowRuns(namespace).Update(wf)
-			if err != nil {
-				return err
-			}
-		}
-	} else {
-		if containsString(wf.ObjectMeta.Finalizers, workflowRunAnnotation) {
-			wf.ObjectMeta.Finalizers = removeString(wf.ObjectMeta.Finalizers, workflowRunAnnotation)
-
-			wf, err = c.nebclient.NebulaV1().WorkflowRuns(namespace).Update(wf)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
-func (c *Controller) enqueueWorkflowRun(obj interface{}) {
-	wf := obj.(*nebulav1.WorkflowRun)
-
-	key, err := cache.MetaNamespaceKeyFunc(wf)
-	if err != nil {
-		utilruntime.HandleError(err)
-
-		return
-	}
-
-	c.wfrworker.add(key)
-}
-
-func (c *Controller) enqueuePipelineRun(obj interface{}) {
-	plr := obj.(*tekv1alpha1.PipelineRun)
-
-	key, err := cache.MetaNamespaceKeyFunc(plr)
-	if err != nil {
-		utilruntime.HandleError(err)
-
-		return
-	}
-
-	c.plrworker.add(key)
-}
-
-func (c *Controller) createPipelineRun(pipelineId, namespace string) (*tekv1alpha1.PipelineRun, error) {
-	plr, err := c.tekclient.TektonV1alpha1().PipelineRuns(namespace).Get(pipelineId, metav1.GetOptions{})
-	if plr != nil && plr != (&tekv1alpha1.PipelineRun{}) && plr.Name != "" {
-		return plr, nil
-	}
-
-	labelMap := map[string]string{
-		pipelineRunAnnotation: pipelineId,
-	}
-
-	serviceAccount, err := c.createServiceAccount(pipelineId, namespace)
-	if err != nil {
-		return nil, err
-	}
-
-	pipelineRun := &tekv1alpha1.PipelineRun{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      pipelineId,
-			Namespace: namespace,
-			Labels:    labelMap,
-		},
-		Spec: tekv1alpha1.PipelineRunSpec{
-			ServiceAccount: serviceAccount.Name,
-			PipelineRef: tekv1alpha1.PipelineRef{
-				Name: pipelineId,
-			},
-			PodTemplate: tekv1alpha1.PodTemplate{
-				NodeSelector: map[string]string{
-					"nebula.puppet.com/scheduling.customer-ready": "true",
-				},
-				Tolerations: []corev1.Toleration{
-					{
-						Key:    "nebula.puppet.com/scheduling.customer-workload",
-						Value:  "true",
-						Effect: corev1.TaintEffectNoSchedule,
-					},
-				},
-			},
-		},
-	}
-
-	createdPipelineRun, err := c.tekclient.TektonV1alpha1().PipelineRuns(namespace).Create(pipelineRun)
-	if err != nil {
-		return nil, err
-	}
-
-	return createdPipelineRun, nil
-}
-
-func (c *Controller) createServiceAccount(pipelineName, namespace string) (*corev1.ServiceAccount, error) {
-	serviceAccount, _ := c.kubeclient.CoreV1().ServiceAccounts(namespace).Get(pipelineName, metav1.GetOptions{})
-	if serviceAccount != nil {
-		return serviceAccount, nil
-	}
-
-	serviceAccount = &corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      pipelineName,
-			Namespace: namespace,
-		},
-	}
-
-	return c.kubeclient.CoreV1().ServiceAccounts(namespace).Create(serviceAccount)
-}
-
-func (c *Controller) updateWorkflowRunStatus(plr *tekv1alpha1.PipelineRun) (*nebulav1.WorkflowRunStatus, error) {
-	workflowRunSteps := make(map[string]nebulav1.WorkflowRunStep)
-
-	for _, taskRun := range plr.Status.TaskRuns {
-		if nil == taskRun.Status {
-			continue
-		}
-		step := nebulav1.WorkflowRunStep{
-			Name:   taskRun.PipelineTaskName,
-			Status: string(mapTaskStatus(taskRun)),
-		}
-
-		if taskRun.Status.StartTime != nil {
-			step.StartTime = taskRun.Status.StartTime
-		}
-		if taskRun.Status.CompletionTime != nil {
-			step.CompletionTime = taskRun.Status.CompletionTime
-		}
-
-		workflowRunSteps[taskRun.PipelineTaskName] = step
-	}
-
-	status := taskStatusesToRunStatus(workflowRunSteps)
-
-	workflowRunStatus := &nebulav1.WorkflowRunStatus{
-		Status: string(status),
-		Steps:  workflowRunSteps,
-	}
-
-	if plr.Status.StartTime != nil {
-		workflowRunStatus.StartTime = plr.Status.StartTime
-	}
-	if plr.Status.CompletionTime != nil {
-		workflowRunStatus.CompletionTime = plr.Status.CompletionTime
-	}
-
-	return workflowRunStatus, nil
-}
-
-func mapTaskStatus(taskRun *tekv1alpha1.PipelineRunTaskRunStatus) WorkflowRunStepStatus {
-	for _, cs := range taskRun.Status.Conditions {
+func mapStatus(status duckv1beta1.Status) WorkflowRunStatus {
+	for _, cs := range status.Conditions {
 		switch cs.Type {
 		case apis.ConditionSucceeded:
 			switch cs.Status {
 			case corev1.ConditionUnknown:
-				return WorkflowRunStepStatusInProgress
+				return WorkflowRunStatusInProgress
 			case corev1.ConditionTrue:
-				return WorkflowRunStepStatusSuccess
+				return WorkflowRunStatusSuccess
 			case corev1.ConditionFalse:
-				return WorkflowRunStepStatusFailure
+				return WorkflowRunStatusFailure
 			}
 		}
 	}
 
-	return WorkflowRunStepStatusPending
-}
-
-func taskStatusesToRunStatus(tss map[string]nebulav1.WorkflowRunStep) WorkflowRunStatus {
-	if tss == nil || len(tss) <= 0 {
-		return WorkflowRunStatusPending
-	}
-
-	wrs := WorkflowRunStatusSuccess
-	for _, rts := range tss {
-		switch WorkflowRunStepStatus(rts.Status) {
-		case WorkflowRunStepStatusFailure:
-			wrs = WorkflowRunStatusFailure
-			return wrs
-		case WorkflowRunStepStatusPending:
-			if wrs != WorkflowRunStatusInProgress {
-				wrs = WorkflowRunStatusPending
-			}
-		case WorkflowRunStepStatusInProgress:
-			wrs = WorkflowRunStatusInProgress
-		}
-	}
-
-	return wrs
+	return WorkflowRunStatusPending
 }
 
 func containsString(slice []string, s string) bool {

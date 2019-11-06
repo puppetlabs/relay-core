@@ -25,21 +25,24 @@ func main() {
 	vaultRole := flag.String("vault-role", "", "The role to use when logging into the vault server")
 	serviceAccountTokenPath := flag.String("service-account-token-path",
 		defaultServiceAccountTokenPath, "The path to k8s pod service account token")
-	workflowID := flag.String("workflow-id", "", "The id of the workflow these secrets are scoped to")
-	vaultEngineMount := flag.String("vault-engine-mount", "nebula", "The engine mount to use when crafting secret paths")
+	scopedSecretsPath := flag.String("scoped-secrets-path", "", "The path to use when crafting secret paths")
 	namespace := flag.String("namespace", "", "The kubernetes namespace that contains the workflow")
 	devPreConfigPath := flag.String("development-preconfiguration-path", "", "The path to a development preconfiguration file. This option will put the server in development mode and all managers will operate in in-memory mode.")
 
 	flag.Parse()
 
+	if *scopedSecretsPath == "" {
+		fmt.Fprintln(os.Stderr, "server requires a path to scoped secrets (-scoped-secrets-path)")
+		os.Exit(1)
+	}
+
 	cfg := config.MetadataServerConfig{
 		BindAddr:                   *bindAddr,
 		VaultAddr:                  *vaultAddr,
 		VaultRole:                  *vaultRole,
-		VaultEngineMount:           *vaultEngineMount,
 		VaultToken:                 *vaultToken,
+		ScopedSecretsPath:          *scopedSecretsPath,
 		K8sServiceAccountTokenPath: *serviceAccountTokenPath,
-		WorkflowID:                 *workflowID,
 		Namespace:                  *namespace,
 		DevelopmentPreConfigPath:   *devPreConfigPath,
 		Logger:                     NewLogger(LoggerOptions{Debug: *debug}),
