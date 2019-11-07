@@ -78,21 +78,17 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	var mets *metrics.Metrics
+	metricsOpts := metrics.Options{
+		DelegateType:  delegates.PrometheusDelegate,
+		ErrorBehavior: metrics.ErrorBehaviorLog,
+	}
+
+	mets, err := metrics.NewNamespace("workflow-controller", metricsOpts)
+	if err != nil {
+		log.Fatal("Error setting up metrics server")
+	}
 
 	if *metricsEnabled {
-		var err error
-
-		opts := metrics.Options{
-			DelegateType:  delegates.PrometheusDelegate,
-			ErrorBehavior: metrics.ErrorBehaviorLog,
-		}
-
-		mets, err = metrics.NewNamespace("workflow-controller", opts)
-		if err != nil {
-			log.Fatal("Error setting up metrics server")
-		}
-
 		ms := metricsserver.New(mets, metricsserver.Options{
 			BindAddr: *metricsServerBindAddr,
 		})
