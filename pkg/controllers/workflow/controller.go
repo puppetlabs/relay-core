@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/puppetlabs/horsehead/v2/instrumentation/metrics"
+	"github.com/puppetlabs/horsehead/v2/instrumentation/metrics/collectors"
 	"github.com/puppetlabs/horsehead/v2/storage"
 	tekv1alpha1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
 	tekclientset "github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
@@ -65,6 +67,10 @@ const (
 	logUploadAnnotationPrefix = "nebula.puppet.com/log-archive-"
 )
 
+const (
+	metricWorkflowRunStartUpDuration = "workflow-run-startup-duration"
+)
+
 type podAndTaskName struct {
 	PodName  string
 	TaskName string
@@ -94,6 +100,7 @@ type Controller struct {
 	namespace string
 	cfg       *config.WorkflowControllerConfig
 	manager   *DependencyManager
+	metrics   *metrics.Metrics
 }
 
 // Run starts all required informers and spawns two worker goroutines
@@ -329,6 +336,9 @@ func (c *Controller) processWorkflowRun(ctx context.Context, key string) error {
 	if err != nil {
 		return err
 	}
+
+	timerHandle := c.metrics.MustTimer(metricWorkflowRunStartUpDuration).Start()
+	defer c.metrics.MustTimer(metricWorkflowRunStartUpDuration).ObserveDuration(timerHandle)
 
 	// If we haven't set the state of the run yet, then we need to ensure all the secret access
 	// and rbac is setup.
@@ -591,7 +601,7 @@ func (c *Controller) updateWorkflowRunStatus(plr *tekv1alpha1.PipelineRun) (*neb
 	return workflowRunStatus, nil
 }
 
-func NewController(manager *DependencyManager, cfg *config.WorkflowControllerConfig, vc *vault.VaultAuth, bs storage.BlobStore, namespace string) *Controller {
+func NewController(manager *DependencyManager, cfg *config.WorkflowControllerConfig, vc *vault.VaultAuth, bs storage.BlobStore, namespace string, mets *metrics.Metrics) *Controller {
 	wfrInformer := manager.WorkflowRunInformer()
 	plrInformer := manager.PipelineRunInformer()
 
@@ -608,6 +618,7 @@ func NewController(manager *DependencyManager, cfg *config.WorkflowControllerCon
 		namespace:       namespace,
 		cfg:             cfg,
 		manager:         manager,
+		metrics:         mets,
 	}
 
 	c.wfrworker = newWorker("WorkflowRuns", (*c).processWorkflowRun, defaultMaxRetries)
@@ -621,6 +632,10 @@ func NewController(manager *DependencyManager, cfg *config.WorkflowControllerCon
 
 	plrInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: passNew(c.enqueuePipelineRun),
+	})
+
+	c.metrics.MustRegisterTimer(metricWorkflowRunStartUpDuration, collectors.TimerOptions{
+		Description: "duration of fully starting a workflow run",
 	})
 
 	return c

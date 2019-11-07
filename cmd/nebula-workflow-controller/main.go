@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 	"net/url"
@@ -9,12 +10,16 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/puppetlabs/horsehead/v2/instrumentation/metrics"
+	"github.com/puppetlabs/horsehead/v2/instrumentation/metrics/delegates"
+	metricsserver "github.com/puppetlabs/horsehead/v2/instrumentation/metrics/server"
 	"github.com/puppetlabs/horsehead/v2/storage"
 	_ "github.com/puppetlabs/nebula-libs/storage/gcs/v2"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
 	"github.com/puppetlabs/nebula-tasks/pkg/controllers"
 	"github.com/puppetlabs/nebula-tasks/pkg/controllers/workflow"
 	"github.com/puppetlabs/nebula-tasks/pkg/secrets/vault"
+
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -37,6 +42,8 @@ func main() {
 	metadataServiceImagePullSecret := fs.String("metadata-service-image-pull-secret", "", "the optionally namespaced name of the image pull secret to use for the metadata service")
 	metadataServiceVaultAddr := fs.String("metadata-service-vault-addr", "", "the address to use when authenticating the metadata service to Vault")
 	numWorkers := fs.Int("num-workers", 2, "the number of worker threads to spawn that process Workflow resources")
+	metricsEnabled := fs.Bool("metrics-enabled", false, "enables the metrics collection and server")
+	metricsServerBindAddr := fs.String("metrics-server-bind-addr", "localhost:3050", "the host:port to bind the metrics server to")
 
 	fs.Parse(os.Args[1:])
 
@@ -68,6 +75,31 @@ func main() {
 		log.Fatal("Error initializing the storage client from the -storage-addr", err)
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var mets *metrics.Metrics
+
+	if *metricsEnabled {
+		var err error
+
+		opts := metrics.Options{
+			DelegateType:  delegates.PrometheusDelegate,
+			ErrorBehavior: metrics.ErrorBehaviorLog,
+		}
+
+		mets, err = metrics.NewNamespace("workflow-controller", opts)
+		if err != nil {
+			log.Fatal("Error setting up metrics server")
+		}
+
+		ms := metricsserver.New(mets, metricsserver.Options{
+			BindAddr: *metricsServerBindAddr,
+		})
+
+		go ms.Run(ctx)
+	}
+
 	kcfg := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 		&clientcmd.ClientConfigLoadingRules{ExplicitPath: *kubeconfig},
 		&clientcmd.ConfigOverrides{ClusterInfo: clientcmdapi.Cluster{Server: *kubeMasterURL}},
@@ -91,7 +123,7 @@ func main() {
 		log.Fatal("Error looking up namespace")
 	}
 
-	controller := workflow.NewController(manager, cfg, vc, blobStore, namespace)
+	controller := workflow.NewController(manager, cfg, vc, blobStore, namespace, mets)
 
 	manager.NebulaInformerFactory.Start(stopCh)
 	manager.TektonInformerFactory.Start(stopCh)
