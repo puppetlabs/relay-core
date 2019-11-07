@@ -357,18 +357,14 @@ func (c *Controller) processWorkflowRun(ctx context.Context, key string) error {
 	if wr.Status.Status == "" {
 		service, err := c.createAccessResources(ctx, wr)
 		if err != nil {
-			klog.Error(err)
 			return err
 		}
 
-		err = c.createWorkflowRun(wr, service)
+		err = c.initializePipeline(wr, service)
 		if err != nil {
-			klog.Error(err)
 			return err
 		}
-
 		if err := c.ensureAccessResourcesExist(ctx, wr, service); err != nil {
-			klog.Error(err)
 			return err
 		}
 	}
@@ -632,9 +628,13 @@ func (c *Controller) updateWorkflowRunStatus(plr *tekv1alpha1.PipelineRun) (*neb
 	return workflowRunStatus, nil
 }
 
-func (c *Controller) createWorkflowRun(wr *nebulav1.WorkflowRun, service *corev1.Service) errors.Error {
+func (c *Controller) initializePipeline(wr *nebulav1.WorkflowRun, service *corev1.Service) errors.Error {
 	klog.Infof("creating WorkflowRun %s", wr.GetName())
 	defer klog.Infof("done creating WorkflowRun %s", wr.GetName())
+
+	if len(wr.Spec.Workflow.Steps) == 0 {
+		return nil
+	}
 
 	pipeline, err := c.tekclient.TektonV1alpha1().Pipelines(wr.GetNamespace()).Get(wr.GetName(), metav1.GetOptions{})
 	if err != nil && !k8serrors.IsNotFound(err) {
