@@ -524,6 +524,9 @@ func (c *Controller) enqueuePipelineRun(obj interface{}) {
 }
 
 func (c *Controller) createPipelineRun(wr *nebulav1.WorkflowRun) (*tekv1alpha1.PipelineRun, error) {
+	klog.Infof("creating PipelineRun for WorkflowRun %s", wr.GetName())
+	defer klog.Infof("done creating PipelineRun for WorkflowRun %s", wr.GetName())
+
 	namespace := wr.GetNamespace()
 
 	plr, err := c.tekclient.TektonV1alpha1().PipelineRuns(namespace).Get(wr.Spec.Name, metav1.GetOptions{})
@@ -630,10 +633,8 @@ func (c *Controller) updateWorkflowRunStatus(plr *tekv1alpha1.PipelineRun) (*neb
 }
 
 func (c *Controller) createWorkflowRun(wr *nebulav1.WorkflowRun, service *corev1.Service) errors.Error {
-	klog.Info(wr.GetName(), wr.Spec.Parameters, wr.Spec.Workflow.Parameters)
-	for name, value := range wr.Spec.Workflow.Steps {
-		klog.Info(wr.GetName(), name, value)
-	}
+	klog.Infof("creating WorkflowRun %s", wr.GetName())
+	defer klog.Infof("done creating WorkflowRun %s", wr.GetName())
 
 	pipeline, err := c.tekclient.TektonV1alpha1().Pipelines(wr.GetNamespace()).Get(wr.GetName(), metav1.GetOptions{})
 	if err != nil && !k8serrors.IsNotFound(err) {
