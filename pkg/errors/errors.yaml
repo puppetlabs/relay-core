@@ -212,3 +212,22 @@ sections:
         metadata:
           http:
             status: 500
+      json_encoding_error:
+        title: JSON encoding error
+        description: Failed to encode JSON
+
+  workflow:
+    title: Workflow errors
+    errors:
+      execution_error:
+        title: Workflow execution error
+        description: The workflow failed to execute.
+      invalid_step_dependency_error:
+        title: Invalid step dependency error
+        arguments:
+          step:
+            description: The invalid step name
+        description: Step name {{step}} is not a valid dependency
+        metadata:
+          http:
+            status: 422
