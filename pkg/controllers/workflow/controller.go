@@ -68,7 +68,8 @@ const (
 )
 
 const (
-	metricWorkflowRunStartUpDuration = "workflow-run-startup-duration"
+	metricWorkflowRunStartUpDuration                   = "workflow_run_startup_duration"
+	metricWorkflowRunWaitForMetadataAPIServiceDuration = "workflow_run_wait_for_metadata_api_service_duration"
 )
 
 type podAndTaskName struct {
@@ -447,6 +448,9 @@ func (c *Controller) ensureAccessResourcesExist(ctx context.Context, wr *nebulav
 
 	klog.Infof("waiting for metadata service to become ready %s", wr.Spec.Workflow.Name)
 
+	timerHandle := c.metrics.MustTimer(metricWorkflowRunWaitForMetadataAPIServiceDuration).Start()
+	defer c.metrics.MustTimer(metricWorkflowRunWaitForMetadataAPIServiceDuration).ObserveDuration(timerHandle)
+
 	// This waits for a Modified watch event on a service's Endpoint object.
 	// When this event is received, it will check it's addresses to see if there's
 	// pods that are ready to be served.
@@ -636,6 +640,10 @@ func NewController(manager *DependencyManager, cfg *config.WorkflowControllerCon
 
 	c.metrics.MustRegisterTimer(metricWorkflowRunStartUpDuration, collectors.TimerOptions{
 		Description: "duration of fully starting a workflow run",
+	})
+
+	c.metrics.MustRegisterTimer(metricWorkflowRunWaitForMetadataAPIServiceDuration, collectors.TimerOptions{
+		Description: "time spent waiting for the metadata api service to be available",
 	})
 
 	return c
