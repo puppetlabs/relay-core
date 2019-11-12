@@ -83,7 +83,7 @@ func main() {
 		ErrorBehavior: metrics.ErrorBehaviorLog,
 	}
 
-	mets, err := metrics.NewNamespace("workflow-controller", metricsOpts)
+	mets, err := metrics.NewNamespace("workflow_controller", metricsOpts)
 	if err != nil {
 		log.Fatal("Error setting up metrics server")
 	}
