@@ -338,15 +338,16 @@ func (c *Controller) processWorkflowRun(ctx context.Context, key string) error {
 		return err
 	}
 
-	timerHandle := c.metrics.MustTimer(metricWorkflowRunStartUpDuration).Start()
-	defer c.metrics.MustTimer(metricWorkflowRunStartUpDuration).ObserveDuration(timerHandle)
-
 	// If we haven't set the state of the run yet, then we need to ensure all the secret access
 	// and rbac is setup.
 	if wr.Status.Status == "" {
+		timerHandle := c.metrics.MustTimer(metricWorkflowRunStartUpDuration).Start()
+
 		if err := c.ensureAccessResourcesExist(ctx, wr); err != nil {
 			return err
 		}
+
+		c.metrics.MustTimer(metricWorkflowRunStartUpDuration).ObserveDuration(timerHandle)
 	}
 
 	if wr.ObjectMeta.DeletionTimestamp.IsZero() {
@@ -447,9 +448,7 @@ func (c *Controller) ensureAccessResourcesExist(ctx context.Context, wr *nebulav
 	}
 
 	klog.Infof("waiting for metadata service to become ready %s", wr.Spec.Workflow.Name)
-
 	timerHandle := c.metrics.MustTimer(metricWorkflowRunWaitForMetadataAPIServiceDuration).Start()
-	defer c.metrics.MustTimer(metricWorkflowRunWaitForMetadataAPIServiceDuration).ObserveDuration(timerHandle)
 
 	// This waits for a Modified watch event on a service's Endpoint object.
 	// When this event is received, it will check it's addresses to see if there's
@@ -468,6 +467,7 @@ func (c *Controller) ensureAccessResourcesExist(ctx context.Context, wr *nebulav
 		return err
 	}
 
+	c.metrics.MustTimer(metricWorkflowRunWaitForMetadataAPIServiceDuration).ObserveDuration(timerHandle)
 	klog.Infof("metadata service is ready %s", wr.Spec.Workflow.Name)
 
 	return nil
