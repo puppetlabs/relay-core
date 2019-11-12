@@ -16,6 +16,7 @@ import (
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"
 	"github.com/puppetlabs/nebula-tasks/pkg/outputs/configmap"
 	smemory "github.com/puppetlabs/nebula-tasks/pkg/secrets/memory"
+	stconfigmap "github.com/puppetlabs/nebula-tasks/pkg/state/configmap"
 	"github.com/puppetlabs/nebula-tasks/pkg/task"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -78,6 +79,7 @@ type MockManagerFactoryConfig struct {
 type MockManagerFactory struct {
 	sm  op.SecretsManager
 	om  op.OutputsManager
+	stm op.StateManager
 	mm  op.MetadataManager
 	spm op.SpecsManager
 }
@@ -88,6 +90,10 @@ func (m MockManagerFactory) SecretsManager() op.SecretsManager {
 
 func (m MockManagerFactory) OutputsManager() op.OutputsManager {
 	return m.om
+}
+
+func (m MockManagerFactory) StateManager() op.StateManager {
+	return m.stm
 }
 
 func (m MockManagerFactory) MetadataManager() op.MetadataManager {
@@ -103,6 +109,7 @@ func NewMockManagerFactory(t *testing.T, cfg MockManagerFactoryConfig) MockManag
 	kc.PrependReactor("create", "*", setObjectUID)
 
 	om := configmap.New(kc, cfg.Namespace)
+	stm := stconfigmap.New(kc, cfg.Namespace)
 	mm := task.NewKubernetesMetadataManager(kc, cfg.Namespace)
 	sm := smemory.New(cfg.SecretData)
 	spm := task.NewKubernetesSpecManager(kc, cfg.Namespace)
@@ -110,6 +117,7 @@ func NewMockManagerFactory(t *testing.T, cfg MockManagerFactoryConfig) MockManag
 	return MockManagerFactory{
 		sm:  op.NewEncodingSecretManager(sm),
 		om:  op.NewEncodeDecodingOutputsManager(om),
+		stm: op.NewEncodeDecodingStateManager(stm),
 		mm:  mm,
 		spm: spm,
 	}

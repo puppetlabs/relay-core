@@ -10,6 +10,8 @@ import (
 	omemory "github.com/puppetlabs/nebula-tasks/pkg/outputs/memory"
 	smemory "github.com/puppetlabs/nebula-tasks/pkg/secrets/memory"
 	"github.com/puppetlabs/nebula-tasks/pkg/secrets/vault"
+	stconfigmap "github.com/puppetlabs/nebula-tasks/pkg/state/configmap"
+	stmemory "github.com/puppetlabs/nebula-tasks/pkg/state/memory"
 	"github.com/puppetlabs/nebula-tasks/pkg/task"
 
 	"gopkg.in/yaml.v2"
@@ -23,6 +25,7 @@ import (
 type ManagerFactory interface {
 	SecretsManager() SecretsManager
 	OutputsManager() OutputsManager
+	StateManager() StateManager
 	MetadataManager() MetadataManager
 	SpecsManager() SpecsManager
 }
@@ -32,6 +35,7 @@ type ManagerFactory interface {
 type DefaultManagerFactory struct {
 	sm  SecretsManager
 	om  OutputsManager
+	stm StateManager
 	mm  MetadataManager
 	spm SpecsManager
 }
@@ -46,6 +50,12 @@ func (m DefaultManagerFactory) SecretsManager() SecretsManager {
 // See pkg/metadataapi/op/outputsmanager.go
 func (m DefaultManagerFactory) OutputsManager() OutputsManager {
 	return m.om
+}
+
+// StateManager returns a configured StateManager.
+// See pkg/metadataapi/op/statemanager.go
+func (m DefaultManagerFactory) StateManager() StateManager {
+	return m.stm
 }
 
 // MetadataManager returns a configured MetadataManager used to get task metadata.
@@ -80,12 +90,14 @@ func NewForKubernetes(ctx context.Context, cfg *config.MetadataServerConfig) (*D
 	}
 
 	om := configmap.New(kc, cfg.Namespace)
+	stm := stconfigmap.New(kc, cfg.Namespace)
 	mm := task.NewKubernetesMetadataManager(kc, cfg.Namespace)
 	spm := task.NewKubernetesSpecManager(kc, cfg.Namespace)
 
 	return &DefaultManagerFactory{
 		sm:  NewEncodingSecretManager(sm),
 		om:  NewEncodeDecodingOutputsManager(om),
+		stm: NewEncodeDecodingStateManager(stm),
 		mm:  mm,
 		spm: spm,
 	}, nil
@@ -114,12 +126,14 @@ func NewForDev(ctx context.Context, cfg *config.MetadataServerConfig) (*DefaultM
 
 	sm := smemory.New(preCfg.Secrets)
 	om := omemory.New()
+	stm := stmemory.New()
 	mm := task.NewPreconfiguredMetadataManager(preCfg.TaskMetadata)
 	spm := task.NewPreconfiguredSpecManager(preCfg.TaskSpecs)
 
 	return &DefaultManagerFactory{
 		sm:  NewEncodingSecretManager(sm),
 		om:  NewEncodeDecodingOutputsManager(om),
+		stm: NewEncodeDecodingStateManager(stm),
 		mm:  mm,
 		spm: spm,
 	}, nil
