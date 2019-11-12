@@ -341,13 +341,15 @@ func (c *Controller) processWorkflowRun(ctx context.Context, key string) error {
 	// If we haven't set the state of the run yet, then we need to ensure all the secret access
 	// and rbac is setup.
 	if wr.Status.Status == "" {
-		timerHandle := c.metrics.MustTimer(metricWorkflowRunStartUpDuration).Start()
+		var err error
 
-		if err := c.ensureAccessResourcesExist(ctx, wr); err != nil {
+		c.metrics.OnTimer(c.metrics.MustTimer(metricWorkflowRunStartUpDuration), func() {
+			err = c.ensureAccessResourcesExist(ctx, wr)
+		})
+
+		if err != nil {
 			return err
 		}
-
-		c.metrics.MustTimer(metricWorkflowRunStartUpDuration).ObserveDuration(timerHandle)
 	}
 
 	if wr.ObjectMeta.DeletionTimestamp.IsZero() {
