@@ -18,8 +18,8 @@ require (
 	github.com/markbates/inflect v1.0.4 // indirect
 	github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a // indirect
 	github.com/puppetlabs/errawr-gen v1.0.1
-	github.com/puppetlabs/errawr-go/v2 v2.1.0
-	github.com/puppetlabs/horsehead/v2 v2.1.2
+	github.com/puppetlabs/errawr-go/v2 v2.2.0
+	github.com/puppetlabs/horsehead/v2 v2.3.1-0.20191112233503-afda64785a3f
 	github.com/puppetlabs/nebula-libs/storage/gcs/v2 v2.0.0
 	github.com/puppetlabs/nebula-sdk v0.0.0-20191024004533-0ce8e70552f2
 	github.com/stretchr/testify v1.4.0

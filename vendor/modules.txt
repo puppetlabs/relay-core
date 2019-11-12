@@ -143,12 +143,12 @@ github.com/puppetlabs/errawr-gen/pkg/errors
 github.com/puppetlabs/errawr-gen/pkg/generator
 github.com/puppetlabs/errawr-gen/pkg/lang/golang
 github.com/puppetlabs/errawr-gen/pkg/util/fs
-# github.com/puppetlabs/errawr-go/v2 v2.1.0
+# github.com/puppetlabs/errawr-go/v2 v2.2.0
 github.com/puppetlabs/errawr-go/v2/pkg/encoding
 github.com/puppetlabs/errawr-go/v2/pkg/errawr
 github.com/puppetlabs/errawr-go/v2/pkg/golang
 github.com/puppetlabs/errawr-go/v2/pkg/impl
-# github.com/puppetlabs/horsehead/v2 v2.1.2
+# github.com/puppetlabs/horsehead/v2 v2.3.1-0.20191112233503-afda64785a3f
 github.com/puppetlabs/horsehead/v2/encoding/transfer
 github.com/puppetlabs/horsehead/v2/httputil/api
 github.com/puppetlabs/horsehead/v2/httputil/errors

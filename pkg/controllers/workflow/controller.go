@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/puppetlabs/horsehead/v2/instrumentation/metrics"
-	"github.com/puppetlabs/horsehead/v2/instrumentation/metrics/collectors"
 	"github.com/puppetlabs/horsehead/v2/storage"
 	tekv1alpha1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
 	tekclientset "github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
@@ -67,11 +66,6 @@ const (
 	logUploadAnnotationPrefix = "nebula.puppet.com/log-archive-"
 )
 
-const (
-	metricWorkflowRunStartUpDuration                   = "workflow_run_startup_duration"
-	metricWorkflowRunWaitForMetadataAPIServiceDuration = "workflow_run_wait_for_metadata_api_service_duration"
-)
-
 type podAndTaskName struct {
 	PodName  string
 	TaskName string
@@ -101,7 +95,7 @@ type Controller struct {
 	namespace string
 	cfg       *config.WorkflowControllerConfig
 	manager   *DependencyManager
-	metrics   *metrics.Metrics
+	metrics   *controllerObservations
 }
 
 // Run starts all required informers and spawns two worker goroutines
@@ -341,10 +335,11 @@ func (c *Controller) processWorkflowRun(ctx context.Context, key string) error {
 	// If we haven't set the state of the run yet, then we need to ensure all the secret access
 	// and rbac is setup.
 	if wr.Status.Status == "" {
+		klog.Infof("unreconciled %s %s", wr.Kind, key)
 		var err error
 
-		c.metrics.OnTimer(c.metrics.MustTimer(metricWorkflowRunStartUpDuration), func() {
-			err = c.ensureAccessResourcesExist(ctx, wr)
+		c.metrics.trackDurationWithOutcome(metricWorkflowRunStartUpDuration, func() error {
+			return c.ensureAccessResourcesExist(ctx, wr)
 		})
 
 		if err != nil {
@@ -449,28 +444,34 @@ func (c *Controller) ensureAccessResourcesExist(ctx context.Context, wr *nebulav
 		return err
 	}
 
-	klog.Infof("waiting for metadata service to become ready %s", wr.Spec.Workflow.Name)
-	timerHandle := c.metrics.MustTimer(metricWorkflowRunWaitForMetadataAPIServiceDuration).Start()
+	c.metrics.trackDurationWithOutcome(metricWorkflowRunWaitForMetadataAPIServiceDuration, func() error {
+		klog.Infof("waiting for metadata service to become ready %s", wr.Spec.Workflow.Name)
 
-	// This waits for a Modified watch event on a service's Endpoint object.
-	// When this event is received, it will check it's addresses to see if there's
-	// pods that are ready to be served.
-	if err := c.waitForEndpoint(service); err != nil {
+		// This waits for a Modified watch event on a service's Endpoint object.
+		// When this event is received, it will check it's addresses to see if there's
+		// pods that are ready to be served.
+		if err = c.waitForEndpoint(service); err != nil {
+			return err
+		}
+
+		// Because of a possible race condition bug in the kernel or kubelet network stack, there's a very
+		// tiny window of time where packets will get dropped if you try to make requests to the ports
+		// that are supposed to be forwarded to underlying pods. This unfortunately happens quite frequently
+		// since we exec task pods from Tekton very quickly. This function will make GET requests in a loop
+		// to the readiness endpoint of the pod (via the service dns) to make sure it actually gets a 200
+		// response before setting the status object on SecretAuth resources.
+		if err = c.waitForSuccessfulServiceResponse(service); err != nil {
+			return err
+		}
+
+		klog.Infof("metadata service is ready %s", wr.Spec.Workflow.Name)
+
+		return nil
+	})
+
+	if err != nil {
 		return err
 	}
-
-	// Because of a possible race condition bug in the kernel or kubelet network stack, there's a very
-	// tiny window of time where packets will get dropped if you try to make requests to the ports
-	// that are supposed to be forwarded to underlying pods. This unfortunately happens quite frequently
-	// since we exec task pods from Tekton very quickly. This function will make GET requests in a loop
-	// to the readiness endpoint of the pod (via the service dns) to make sure it actually gets a 200
-	// response before setting the status object on SecretAuth resources.
-	if err := c.waitForSuccessfulServiceResponse(service); err != nil {
-		return err
-	}
-
-	c.metrics.MustTimer(metricWorkflowRunWaitForMetadataAPIServiceDuration).ObserveDuration(timerHandle)
-	klog.Infof("metadata service is ready %s", wr.Spec.Workflow.Name)
 
 	return nil
 }
@@ -624,7 +625,7 @@ func NewController(manager *DependencyManager, cfg *config.WorkflowControllerCon
 		namespace:       namespace,
 		cfg:             cfg,
 		manager:         manager,
-		metrics:         mets,
+		metrics:         newControllerObservations(mets),
 	}
 
 	c.wfrworker = newWorker("WorkflowRuns", (*c).processWorkflowRun, defaultMaxRetries)
@@ -638,14 +639,6 @@ func NewController(manager *DependencyManager, cfg *config.WorkflowControllerCon
 
 	plrInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: passNew(c.enqueuePipelineRun),
-	})
-
-	c.metrics.MustRegisterTimer(metricWorkflowRunStartUpDuration, collectors.TimerOptions{
-		Description: "duration of fully starting a workflow run",
-	})
-
-	c.metrics.MustRegisterTimer(metricWorkflowRunWaitForMetadataAPIServiceDuration, collectors.TimerOptions{
-		Description: "time spent waiting for the metadata api service to be available",
 	})
 
 	return c

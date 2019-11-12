@@ -7,6 +7,7 @@ import (
 	"net/url"
 
 	"github.com/puppetlabs/errawr-go/v2/pkg/encoding"
+	"github.com/puppetlabs/errawr-go/v2/pkg/errawr"
 	"github.com/puppetlabs/horsehead/v2/httputil/errors"
 	"github.com/puppetlabs/horsehead/v2/instrumentation/alerts/trackers"
 )
@@ -137,6 +138,12 @@ func NewErrorEnvelope(err errors.Error) *ErrorEnvelope {
 	}
 }
 
+func NewErrorEnvelopeWithSensitivity(err errors.Error, sensitivity errawr.ErrorSensitivity) *ErrorEnvelope {
+	return &ErrorEnvelope{
+		Error: encoding.ForDisplayWithSensitivity(err, sensitivity),
+	}
+}
+
 func WriteError(ctx context.Context, w http.ResponseWriter, err errors.Error) {
 	status := http.StatusInternalServerError
 	if hm, ok := err.Metadata().HTTP(); ok {
@@ -161,7 +168,15 @@ func WriteError(ctx context.Context, w http.ResponseWriter, err errors.Error) {
 
 	w.Header().Set("content-type", "application/json")
 	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(NewErrorEnvelope(err)); err != nil {
+
+	var env *ErrorEnvelope
+	if sensitivity, ok := ErrorSensitivityFromContext(ctx); ok {
+		env = NewErrorEnvelopeWithSensitivity(err, sensitivity)
+	} else {
+		env = NewErrorEnvelope(err)
+	}
+
+	if err := json.NewEncoder(w).Encode(env); err != nil {
 		log(ctx).Error("Writing HTTP response failed.", "error", err)
 
 		// Force this request to be abandoned.

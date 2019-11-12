@@ -91,12 +91,7 @@ func (m *Metrics) MustTimer(name string, labels ...collectors.Label) collectors.
 		return noop.Timer{}
 	}
 
-	t, err = t.WithLabels(labels)
-	if err != nil {
-		m.handleError(err)
-
-		return noop.Timer{}
-	}
+	t = t.WithLabels(labels...)
 
 	return t
 }

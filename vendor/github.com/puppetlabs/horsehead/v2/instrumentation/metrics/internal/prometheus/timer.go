@@ -4,29 +4,23 @@ import (
 	"sync"
 
 	prom "github.com/prometheus/client_golang/prometheus"
-	"github.com/puppetlabs/horsehead/v2/instrumentation/errors"
 	"github.com/puppetlabs/horsehead/v2/instrumentation/metrics/collectors"
 )
 
 type Timer struct {
-	vector   prom.ObserverVec
-	delegate prom.Observer
-	timers   map[*collectors.TimerHandle]*prom.Timer
+	vector prom.ObserverVec
+	timers map[*collectors.TimerHandle]*prom.Timer
+	labels []collectors.Label
 
 	sync.RWMutex
 }
 
-func (t *Timer) WithLabels(labels []collectors.Label) (collectors.Timer, error) {
-	delegate, err := t.vector.GetMetricWith(convertLabels(labels))
-	if err != nil {
-		return nil, errors.NewMetricsUnknownError("prometheus").WithCause(err)
-	}
-
+func (t *Timer) WithLabels(labels ...collectors.Label) collectors.Timer {
 	return &Timer{
-		vector:   t.vector,
-		delegate: delegate,
-		timers:   make(map[*collectors.TimerHandle]*prom.Timer),
-	}, nil
+		vector: t.vector,
+		labels: labels,
+		timers: make(map[*collectors.TimerHandle]*prom.Timer),
+	}
 }
 
 func (t *Timer) Start() *collectors.TimerHandle {
@@ -34,8 +28,11 @@ func (t *Timer) Start() *collectors.TimerHandle {
 	defer t.Unlock()
 
 	h := &collectors.TimerHandle{}
+
 	promt := prom.NewTimer(prom.ObserverFunc(func(v float64) {
-		t.delegate.Observe(v)
+		// we can change the label values while a timer is in flight. this allows us to capture
+		// context about what happened inside a callback.
+		t.vector.With(convertLabels(t.labels)).Observe(v)
 	}))
 
 	t.timers[h] = promt
@@ -43,9 +40,11 @@ func (t *Timer) Start() *collectors.TimerHandle {
 	return h
 }
 
-func (t *Timer) ObserveDuration(h *collectors.TimerHandle) {
+func (t *Timer) ObserveDuration(h *collectors.TimerHandle, labels ...collectors.Label) {
 	t.RLock()
 	defer t.RUnlock()
+
+	t.labels = labels
 
 	if promt, ok := t.timers[h]; ok {
 		promt.ObserveDuration()
