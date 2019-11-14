@@ -6,17 +6,10 @@ import (
 	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
 	utilapi "github.com/puppetlabs/horsehead/v2/httputil/api"
 	"github.com/puppetlabs/horsehead/v2/logging"
+	"github.com/puppetlabs/nebula-sdk/pkg/secrets"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"
 )
-
-// Secret is the envelope type for a secret.
-//
-// TODO: Move to nebula-sdk?
-type Secret struct {
-	Key   string             `json:"key"`
-	Value transfer.JSONOrStr `json:"value"`
-}
 
 type secretsHandler struct {
 	logger logging.Logger
@@ -52,7 +45,7 @@ func (h *secretsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	env := &Secret{
+	env := &secrets.Secret{
 		Key:   sec.Key,
 		Value: ev,
 	}

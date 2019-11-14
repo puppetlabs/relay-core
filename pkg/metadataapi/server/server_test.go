@@ -12,6 +12,7 @@ import (
 	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
 	"github.com/puppetlabs/horsehead/v2/logging"
 	"github.com/puppetlabs/nebula-sdk/pkg/outputs"
+	"github.com/puppetlabs/nebula-sdk/pkg/secrets"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/testutil"
@@ -34,13 +35,14 @@ func TestServerSecretsHandler(t *testing.T) {
 	testutil.WithTestMetadataAPIServer(srv, []middleware.MiddlewareFunc{}, func(ts *httptest.Server) {
 		client := ts.Client()
 
+		// Get with valid secret.
 		resp, err := client.Get(ts.URL + "/secrets/foo")
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 
 		defer resp.Body.Close()
 
-		var sec Secret
+		var sec secrets.Secret
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(&sec))
 
 		require.Equal(t, "foo", sec.Key)
@@ -48,6 +50,13 @@ func TestServerSecretsHandler(t *testing.T) {
 		v, err := sec.Value.Decode()
 		require.NoError(t, err)
 		require.Equal(t, "bar\x90", string(v))
+
+		// Get with invalid secret.
+		resp, err = client.Get(ts.URL + "/secrets/bar")
+		require.NoError(t, err)
+		require.Equal(t, http.StatusNotFound, resp.StatusCode)
+
+		defer resp.Body.Close()
 	})
 }
 
