@@ -24,6 +24,9 @@ sections:
         arguments:
           key:
             description: the key that is missing
+        metadata:
+          http:
+            status: 404
       value_encoding_error:
         title: Value encoding error
         description: encoding the secret value failed

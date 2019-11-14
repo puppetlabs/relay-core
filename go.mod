@@ -19,15 +19,14 @@ require (
 	github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a // indirect
 	github.com/puppetlabs/errawr-gen v1.0.1
 	github.com/puppetlabs/errawr-go/v2 v2.1.0
-	github.com/puppetlabs/horsehead/v2 v2.1.2
+	github.com/puppetlabs/horsehead/v2 v2.2.0
 	github.com/puppetlabs/nebula-libs/storage/gcs/v2 v2.0.0
-	github.com/puppetlabs/nebula-sdk v0.0.0-20191024004533-0ce8e70552f2
+	github.com/puppetlabs/nebula-sdk v1.3.1-0.20191114003713-873dcbf8703d
 	github.com/stretchr/testify v1.4.0
 	github.com/tektoncd/pipeline v0.7.0
 	go.uber.org/atomic v1.4.0 // indirect
 	go.uber.org/multierr v1.2.0 // indirect
 	go.uber.org/zap v1.10.0 // indirect
-	golang.org/x/crypto v0.0.0-20190611184440-5c40567a22f8 // indirect
 	golang.org/x/net v0.0.0-20191021144547-ec77196f6094 // indirect
 	golang.org/x/sys v0.0.0-20191023151326-f89234f9a2c2 // indirect
 	golang.org/x/tools v0.0.0-20191023202404-2b779830f9d3 // indirect

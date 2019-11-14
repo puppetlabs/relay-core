@@ -850,7 +850,10 @@ func (b *SecretsKeyNotFoundBuilder) Build() Error {
 		ErrorCode:        "key_not_found",
 		ErrorDescription: description,
 		ErrorDomain:      Domain,
-		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorMetadata: &impl.ErrorMetadata{HTTPErrorMetadata: &impl.HTTPErrorMetadata{
+			ErrorHeaders: impl.HTTPErrorMetadataHeaders{},
+			ErrorStatus:  404,
+		}},
 		ErrorSection:     SecretsSection,
 		ErrorSensitivity: errawr.ErrorSensitivityNone,
 		ErrorTitle:       "Key not found",
