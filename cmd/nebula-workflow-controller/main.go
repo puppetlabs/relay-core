@@ -46,6 +46,7 @@ func main() {
 	numWorkers := fs.Int("num-workers", 2, "the number of worker threads to spawn that process Workflow resources")
 	metricsEnabled := fs.Bool("metrics-enabled", false, "enables the metrics collection and server")
 	metricsServerBindAddr := fs.String("metrics-server-bind-addr", "localhost:3050", "the host:port to bind the metrics server to")
+	approvalTypeImage := fs.String("approval-type-image", "gcr.io/nebula-235818/nebula-approvals:latest", "the image and tag to use when waiting for approvals")
 
 	fs.Parse(os.Args[1:])
 
@@ -57,6 +58,7 @@ func main() {
 		MetadataServiceImagePullSecret: *metadataServiceImagePullSecret,
 		MetadataServiceVaultAddr:       *metadataServiceVaultAddr,
 		MetadataServiceCheckEnabled:    *metadataServiceCheckEnabled,
+		ApprovalTypeImage:              *approvalTypeImage,
 	}
 
 	vc, err := vault.NewVaultAuth(&vault.Config{
