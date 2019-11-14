@@ -218,7 +218,11 @@ func (c *Controller) processPipelineRunChange(ctx context.Context, key string) e
 
 	if areWeDoneYet(plr) {
 		// Upload the logs that are not defined on the PipelineRun record...
-		logAnnotations, err = c.uploadLogs(ctx, plr)
+		err := c.metrics.trackDurationWithOutcome(metricWorkflowRunLogUploadDuration, func() error {
+			logAnnotations, err = c.uploadLogs(ctx, plr)
+
+			return err
+		})
 		if nil != err {
 			return err
 		}

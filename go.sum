@@ -331,6 +331,8 @@ github.com/puppetlabs/errawr-go/v2 v2.1.0 h1:SMZe3K6fSWOpo8Ol1u1G3slNroihmuka5uu
 github.com/puppetlabs/errawr-go/v2 v2.1.0/go.mod h1:TFKBrNpfPDG8ta8/NfaqpC+hMMsJqd9xKvBJDRgHFCQ=
 github.com/puppetlabs/errawr-go/v2 v2.2.0 h1:HiX2K0PoZCwe2F2ZPf4QF3xeNzNNuov3QCwZprsNcqI=
 github.com/puppetlabs/errawr-go/v2 v2.2.0/go.mod h1:SJ1lTqOW0HcfqVPS/F7kSrUAc4o/6DfjBatQ5TTS/JU=
+github.com/puppetlabs/horsehead v1.11.0 h1:1eUpsDPyaFBTQQr61D2H0zuKOG9oPaurSrmLRtr/iTs=
+github.com/puppetlabs/horsehead v1.11.0/go.mod h1:goPK6VZQe6iSfMBc2OD2aF4HPwxseMNm1+W1bsp7r6k=
 github.com/puppetlabs/horsehead/v2 v2.0.1/go.mod h1:zqwzgk8gZKT3xg3vhYUc65NXZ4m9kC6iSGz6BlUWqhs=
 github.com/puppetlabs/horsehead/v2 v2.1.2 h1:mFSrBCFgEn8koMWgAiv0RnDfGuBSvdtZ6bxgx7l9760=
 github.com/puppetlabs/horsehead/v2 v2.1.2/go.mod h1:TrvfxBhiFpR9fmqLVO8NfjbGSyBL64/F0vaPi4VACPA=
