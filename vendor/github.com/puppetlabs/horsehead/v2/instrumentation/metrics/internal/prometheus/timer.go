@@ -44,7 +44,9 @@ func (t *Timer) ObserveDuration(h *collectors.TimerHandle, labels ...collectors.
 	t.RLock()
 	defer t.RUnlock()
 
-	t.labels = labels
+	if len(labels) > 0 {
+		t.labels = labels
+	}
 
 	if promt, ok := t.timers[h]; ok {
 		promt.ObserveDuration()

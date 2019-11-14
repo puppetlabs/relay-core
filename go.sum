@@ -336,6 +336,8 @@ github.com/puppetlabs/horsehead/v2 v2.1.2 h1:mFSrBCFgEn8koMWgAiv0RnDfGuBSvdtZ6bx
 github.com/puppetlabs/horsehead/v2 v2.1.2/go.mod h1:TrvfxBhiFpR9fmqLVO8NfjbGSyBL64/F0vaPi4VACPA=
 github.com/puppetlabs/horsehead/v2 v2.3.1-0.20191112233503-afda64785a3f h1:XhgABdRO7c7luXvPeeWJPFtpEiKaoGfZbX5LBIYxycY=
 github.com/puppetlabs/horsehead/v2 v2.3.1-0.20191112233503-afda64785a3f/go.mod h1:VchB+xsq4Ck/YI6aN0iRSdVCb74dkJxx74cbA62HVnI=
+github.com/puppetlabs/horsehead/v2 v2.4.0 h1:v8N7rw34cbpohAaOruw7oIBIiCG9EGugR+zRzsS89Fk=
+github.com/puppetlabs/horsehead/v2 v2.4.0/go.mod h1:VchB+xsq4Ck/YI6aN0iRSdVCb74dkJxx74cbA62HVnI=
 github.com/puppetlabs/insights-logging v0.0.0-20180912211921-3b7d3d14cd5b h1:csdggFOzdzhikHBgnuFDwcdtFV4o/iF/7v2yySMWMvE=
 github.com/puppetlabs/insights-logging v0.0.0-20180912211921-3b7d3d14cd5b/go.mod h1:wPccOvbQAZAyYVoYD96psW8poDy42dBZVyZoq49fT/I=
 github.com/puppetlabs/nebula-libs/storage/gcs/v2 v2.0.0 h1:U7nFTBwzt1SBDBt2WjWvlRHesqqCGYtohqcapwleK2Q=

@@ -62,14 +62,15 @@ func (m *Metrics) RegisterTimer(name string, opts collectors.TimerOptions) error
 	return nil
 }
 
-// MustRegisterTimer calls RegisterTimer and logs an error if one occurs
+// MustRegisterTimer is like RegisterTimer but if an error is returned, it will pass
+// it to the configured error handler.
 func (m *Metrics) MustRegisterTimer(name string, opts collectors.TimerOptions) {
 	if err := m.RegisterTimer(name, opts); err != nil {
 		m.handleError(err)
 	}
 }
 
-// Timer returns a Timer metric at name
+// Timer returns a Timer metric registered as name.
 func (m *Metrics) Timer(name string) (collectors.Timer, error) {
 	m.Lock()
 	defer m.Unlock()
@@ -103,6 +104,8 @@ func (m *Metrics) OnTimer(t collectors.Timer, fn func()) {
 	t.ObserveDuration(h)
 }
 
+// RegisterCounter registers a counter metric in the metrics backend as name. A counter
+// metric cannot be used unless it was first registered.
 func (m *Metrics) RegisterCounter(name string, opts collectors.CounterOptions) error {
 	m.Lock()
 	defer m.Unlock()
@@ -119,6 +122,8 @@ func (m *Metrics) RegisterCounter(name string, opts collectors.CounterOptions) e
 	return nil
 }
 
+// MustRegisterCounter is like RegisterCounter but if an error is returned, it will pass
+// it to the configured error handler.
 func (m *Metrics) MustRegisterCounter(name string, opts collectors.CounterOptions) {
 	if err := m.RegisterCounter(name, opts); err != nil {
 		m.handleError(err)
@@ -137,6 +142,9 @@ func (m *Metrics) Counter(name string) (collectors.Counter, error) {
 	return m.counters[name], nil
 }
 
+// MustCounter is like Counter but if an error is returned, it will pass it to
+// the configured error handler and return a noop.Counter{} allowing programs to
+// continue to function instead of crashing.
 func (m *Metrics) MustCounter(name string, labels ...collectors.Label) collectors.Counter {
 	c, err := m.Counter(name)
 	if err != nil {
@@ -155,6 +163,7 @@ func (m *Metrics) MustCounter(name string, labels ...collectors.Label) collector
 	return c
 }
 
+// RegisterDurationMiddleware registers a HTTP duration middleware metric in the metrics backend as name.
 func (m *Metrics) RegisterDurationMiddleware(name string, opts collectors.DurationMiddlewareOptions) error {
 	m.Lock()
 	defer m.Unlock()
@@ -171,12 +180,15 @@ func (m *Metrics) RegisterDurationMiddleware(name string, opts collectors.Durati
 	return nil
 }
 
+// MustRegisterDurationMiddleware is like RegisterDurationMiddleware but if an error is returned, it will pass
+// it to the configured error handler.
 func (m *Metrics) MustRegisterDurationMiddleware(name string, opts collectors.DurationMiddlewareOptions) {
 	if err := m.RegisterDurationMiddleware(name, opts); err != nil {
 		m.handleError(err)
 	}
 }
 
+// DurationMiddleware returns a new DurationMiddleware register as name.
 func (m *Metrics) DurationMiddleware(name string) (collectors.DurationMiddleware, error) {
 	m.Lock()
 	defer m.Unlock()
@@ -188,6 +200,8 @@ func (m *Metrics) DurationMiddleware(name string) (collectors.DurationMiddleware
 	return m.durationMiddleware[name], nil
 }
 
+// MustDurationMiddleware is like DurationMiddleware but if an error is returned, it will pass
+// it to the configured error handler.
 func (m *Metrics) MustDurationMiddleware(name string, labels ...collectors.Label) collectors.DurationMiddleware {
 	d, err := m.DurationMiddleware(name)
 	if err != nil {
@@ -206,7 +220,7 @@ func (m *Metrics) MustDurationMiddleware(name string, labels ...collectors.Label
 	return d
 }
 
-// Handler returns the http handler from the delegate if there is one
+// Handler returns the http handler from the delegate if there is one.
 func (m *Metrics) Handler() http.Handler {
 	return m.delegate.NewHandler()
 }

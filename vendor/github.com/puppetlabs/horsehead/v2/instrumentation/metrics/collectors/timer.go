@@ -15,6 +15,11 @@ type TimerOptions struct {
 type Timer interface {
 	// WithLabels returns a new Timer with labels attached.
 	WithLabels(...Label) Timer
+	// Start starts the timer clock and returns a TimerHandle that represents a specific
+	// clock that's ticking.
 	Start() *TimerHandle
+	// ObserveDuration takes a TimerHandle and stops the clock, recording the duration
+	// that elapsed to the metrics backend. Optionally takes labels to apply. This is
+	// useful if you want to record the duration on a metric labeled as a failure.
 	ObserveDuration(*TimerHandle, ...Label)
 }

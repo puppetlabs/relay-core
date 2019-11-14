@@ -148,7 +148,7 @@ github.com/puppetlabs/errawr-go/v2/pkg/encoding
 github.com/puppetlabs/errawr-go/v2/pkg/errawr
 github.com/puppetlabs/errawr-go/v2/pkg/golang
 github.com/puppetlabs/errawr-go/v2/pkg/impl
-# github.com/puppetlabs/horsehead/v2 v2.3.1-0.20191112233503-afda64785a3f
+# github.com/puppetlabs/horsehead/v2 v2.4.0
 github.com/puppetlabs/horsehead/v2/encoding/transfer
 github.com/puppetlabs/horsehead/v2/httputil/api
 github.com/puppetlabs/horsehead/v2/httputil/errors
