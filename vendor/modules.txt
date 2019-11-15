@@ -171,8 +171,9 @@ github.com/puppetlabs/horsehead/v2/request
 github.com/puppetlabs/horsehead/v2/storage
 # github.com/puppetlabs/nebula-libs/storage/gcs/v2 v2.0.0
 github.com/puppetlabs/nebula-libs/storage/gcs/v2
-# github.com/puppetlabs/nebula-sdk v0.0.0-20191024004533-0ce8e70552f2
+# github.com/puppetlabs/nebula-sdk v1.3.1-0.20191114003713-873dcbf8703d
 github.com/puppetlabs/nebula-sdk/pkg/outputs
+github.com/puppetlabs/nebula-sdk/pkg/secrets
 github.com/puppetlabs/nebula-sdk/pkg/taskutil
 # github.com/reflect/raymond v0.0.0-20190227215356-5fa3955f4a50
 github.com/reflect/raymond
@@ -206,11 +207,11 @@ github.com/tektoncd/pipeline/pkg/client/informers/externalversions/pipeline/v1al
 github.com/tektoncd/pipeline/pkg/client/listers/pipeline/v1alpha1
 github.com/tektoncd/pipeline/pkg/list
 github.com/tektoncd/pipeline/pkg/names
-# github.com/xeipuuv/gojsonpointer v0.0.0-20170225233418-6fe8760cad35
+# github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f
 github.com/xeipuuv/gojsonpointer
-# github.com/xeipuuv/gojsonreference v0.0.0-20150808065054-e02fc20de94c
+# github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415
 github.com/xeipuuv/gojsonreference
-# github.com/xeipuuv/gojsonschema v0.0.0-20171025060643-212d8a0df7ac
+# github.com/xeipuuv/gojsonschema v1.2.0
 github.com/xeipuuv/gojsonschema
 # go.opencensus.io v0.22.1
 go.opencensus.io
@@ -229,7 +230,7 @@ go.opencensus.io/trace
 go.opencensus.io/trace/internal
 go.opencensus.io/trace/propagation
 go.opencensus.io/trace/tracestate
-# golang.org/x/crypto v0.0.0-20190611184440-5c40567a22f8
+# golang.org/x/crypto v0.0.0-20190911031432-227b76d455e7
 golang.org/x/crypto/ed25519
 golang.org/x/crypto/ed25519/internal/edwards25519
 golang.org/x/crypto/pbkdf2

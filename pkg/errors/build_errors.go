@@ -850,7 +850,10 @@ func (b *SecretsKeyNotFoundBuilder) Build() Error {
 		ErrorCode:        "key_not_found",
 		ErrorDescription: description,
 		ErrorDomain:      Domain,
-		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorMetadata: &impl.ErrorMetadata{HTTPErrorMetadata: &impl.HTTPErrorMetadata{
+			ErrorHeaders: impl.HTTPErrorMetadataHeaders{},
+			ErrorStatus:  404,
+		}},
 		ErrorSection:     SecretsSection,
 		ErrorSensitivity: errawr.ErrorSensitivityNone,
 		ErrorTitle:       "Key not found",
@@ -1604,6 +1607,54 @@ func NewServerInClusterConfigError() Error {
 	return NewServerInClusterConfigErrorBuilder().Build()
 }
 
+// ServerJSONEncodingErrorCode is the code for an instance of "json_encoding_error".
+const ServerJSONEncodingErrorCode = "nt_server_json_encoding_error"
+
+// IsServerJSONEncodingError tests whether a given error is an instance of "json_encoding_error".
+func IsServerJSONEncodingError(err errawr.Error) bool {
+	return err != nil && err.Is(ServerJSONEncodingErrorCode)
+}
+
+// IsServerJSONEncodingError tests whether a given error is an instance of "json_encoding_error".
+func (External) IsServerJSONEncodingError(err errawr.Error) bool {
+	return IsServerJSONEncodingError(err)
+}
+
+// ServerJSONEncodingErrorBuilder is a builder for "json_encoding_error" errors.
+type ServerJSONEncodingErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "json_encoding_error" from this builder.
+func (b *ServerJSONEncodingErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "Failed to encode JSON",
+		Technical: "Failed to encode JSON",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "json_encoding_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     ServerSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "JSON encoding error",
+		Version:          1,
+	}
+}
+
+// NewServerJSONEncodingErrorBuilder creates a new error builder for the code "json_encoding_error".
+func NewServerJSONEncodingErrorBuilder() *ServerJSONEncodingErrorBuilder {
+	return &ServerJSONEncodingErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewServerJSONEncodingError creates a new error with the code "json_encoding_error".
+func NewServerJSONEncodingError() Error {
+	return NewServerJSONEncodingErrorBuilder().Build()
+}
+
 // ServerNewK8sClientErrorCode is the code for an instance of "new_k8s_client_error".
 const ServerNewK8sClientErrorCode = "nt_server_new_k8s_client_error"
 
@@ -2245,4 +2296,110 @@ func NewTaskSpecNotFoundForIDBuilder(id string) *TaskSpecNotFoundForIDBuilder {
 // NewTaskSpecNotFoundForID creates a new error with the code "spec_not_found_for_id".
 func NewTaskSpecNotFoundForID(id string) Error {
 	return NewTaskSpecNotFoundForIDBuilder(id).Build()
+}
+
+// WorkflowSection defines a section of errors with the following scope:
+// Workflow errors
+var WorkflowSection = &impl.ErrorSection{
+	Key:   "workflow",
+	Title: "Workflow errors",
+}
+
+// WorkflowExecutionErrorCode is the code for an instance of "execution_error".
+const WorkflowExecutionErrorCode = "nt_workflow_execution_error"
+
+// IsWorkflowExecutionError tests whether a given error is an instance of "execution_error".
+func IsWorkflowExecutionError(err errawr.Error) bool {
+	return err != nil && err.Is(WorkflowExecutionErrorCode)
+}
+
+// IsWorkflowExecutionError tests whether a given error is an instance of "execution_error".
+func (External) IsWorkflowExecutionError(err errawr.Error) bool {
+	return IsWorkflowExecutionError(err)
+}
+
+// WorkflowExecutionErrorBuilder is a builder for "execution_error" errors.
+type WorkflowExecutionErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "execution_error" from this builder.
+func (b *WorkflowExecutionErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "The workflow failed to execute.",
+		Technical: "The workflow failed to execute.",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "execution_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     WorkflowSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Workflow execution error",
+		Version:          1,
+	}
+}
+
+// NewWorkflowExecutionErrorBuilder creates a new error builder for the code "execution_error".
+func NewWorkflowExecutionErrorBuilder() *WorkflowExecutionErrorBuilder {
+	return &WorkflowExecutionErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewWorkflowExecutionError creates a new error with the code "execution_error".
+func NewWorkflowExecutionError() Error {
+	return NewWorkflowExecutionErrorBuilder().Build()
+}
+
+// WorkflowInvalidStepDependencyErrorCode is the code for an instance of "invalid_step_dependency_error".
+const WorkflowInvalidStepDependencyErrorCode = "nt_workflow_invalid_step_dependency_error"
+
+// IsWorkflowInvalidStepDependencyError tests whether a given error is an instance of "invalid_step_dependency_error".
+func IsWorkflowInvalidStepDependencyError(err errawr.Error) bool {
+	return err != nil && err.Is(WorkflowInvalidStepDependencyErrorCode)
+}
+
+// IsWorkflowInvalidStepDependencyError tests whether a given error is an instance of "invalid_step_dependency_error".
+func (External) IsWorkflowInvalidStepDependencyError(err errawr.Error) bool {
+	return IsWorkflowInvalidStepDependencyError(err)
+}
+
+// WorkflowInvalidStepDependencyErrorBuilder is a builder for "invalid_step_dependency_error" errors.
+type WorkflowInvalidStepDependencyErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "invalid_step_dependency_error" from this builder.
+func (b *WorkflowInvalidStepDependencyErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "Step name {{step}} is not a valid dependency",
+		Technical: "Step name {{step}} is not a valid dependency",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "invalid_step_dependency_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata: &impl.ErrorMetadata{HTTPErrorMetadata: &impl.HTTPErrorMetadata{
+			ErrorHeaders: impl.HTTPErrorMetadataHeaders{},
+			ErrorStatus:  422,
+		}},
+		ErrorSection:     WorkflowSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Invalid step dependency error",
+		Version:          1,
+	}
+}
+
+// NewWorkflowInvalidStepDependencyErrorBuilder creates a new error builder for the code "invalid_step_dependency_error".
+func NewWorkflowInvalidStepDependencyErrorBuilder(step string) *WorkflowInvalidStepDependencyErrorBuilder {
+	return &WorkflowInvalidStepDependencyErrorBuilder{arguments: impl.ErrorArguments{"step": impl.NewErrorArgument(step, "The invalid step name")}}
+}
+
+// NewWorkflowInvalidStepDependencyError creates a new error with the code "invalid_step_dependency_error".
+func NewWorkflowInvalidStepDependencyError(step string) Error {
+	return NewWorkflowInvalidStepDependencyErrorBuilder(step).Build()
 }
