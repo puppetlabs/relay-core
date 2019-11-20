@@ -10,6 +10,8 @@ cloud.google.com/go/internal/version
 cloud.google.com/go/storage
 # github.com/BurntSushi/toml v0.3.1
 github.com/BurntSushi/toml
+# github.com/PaesslerAG/gval v1.0.2-0.20190803062529-6fceb06ca162
+github.com/PaesslerAG/gval
 # github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973
 github.com/beorn7/perks/quantile
 # github.com/dave/jennifer v0.0.0-20171004025221-97587ff16f68
@@ -18,6 +20,8 @@ github.com/dave/jennifer/jen
 github.com/davecgh/go-spew/spew
 # github.com/evanphx/json-patch v4.2.0+incompatible
 github.com/evanphx/json-patch
+# github.com/generikvault/gvalstrings v0.0.0-20180926130504-471f38f0112a
+github.com/generikvault/gvalstrings
 # github.com/go-stack/stack v1.8.0
 github.com/go-stack/stack
 # github.com/gogo/protobuf v1.3.0
@@ -149,6 +153,7 @@ github.com/puppetlabs/errawr-go/v2/pkg/errawr
 github.com/puppetlabs/errawr-go/v2/pkg/golang
 github.com/puppetlabs/errawr-go/v2/pkg/impl
 # github.com/puppetlabs/horsehead/v2 v2.4.0
+github.com/puppetlabs/horsehead/v2/datastructure
 github.com/puppetlabs/horsehead/v2/encoding/transfer
 github.com/puppetlabs/horsehead/v2/httputil/api
 github.com/puppetlabs/horsehead/v2/httputil/errors
@@ -169,12 +174,22 @@ github.com/puppetlabs/horsehead/v2/netutil
 github.com/puppetlabs/horsehead/v2/netutil/errors
 github.com/puppetlabs/horsehead/v2/request
 github.com/puppetlabs/horsehead/v2/storage
+# github.com/puppetlabs/nebula-libs/storage/file/v2 v2.0.0
+github.com/puppetlabs/nebula-libs/storage/file/v2
 # github.com/puppetlabs/nebula-libs/storage/gcs/v2 v2.0.0
 github.com/puppetlabs/nebula-libs/storage/gcs/v2
-# github.com/puppetlabs/nebula-sdk v1.3.1-0.20191114003713-873dcbf8703d
+# github.com/puppetlabs/nebula-sdk v1.4.0
 github.com/puppetlabs/nebula-sdk/pkg/outputs
 github.com/puppetlabs/nebula-sdk/pkg/secrets
-github.com/puppetlabs/nebula-sdk/pkg/taskutil
+github.com/puppetlabs/nebula-sdk/pkg/util/jsonpath
+github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/evaluate
+github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/fn
+github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/parse
+github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/resolve
+# github.com/puppetlabs/paesslerag-gval v1.0.2-0.20191119012647-d2c694821b5b
+github.com/puppetlabs/paesslerag-gval
+# github.com/puppetlabs/paesslerag-jsonpath v0.1.2-0.20191119013138-25b86105f641
+github.com/puppetlabs/paesslerag-jsonpath
 # github.com/reflect/raymond v0.0.0-20190227215356-5fa3955f4a50
 github.com/reflect/raymond
 github.com/reflect/raymond/ast
@@ -386,6 +401,8 @@ gopkg.in/square/go-jose.v2/json
 gopkg.in/square/go-jose.v2/jwt
 # gopkg.in/yaml.v2 v2.2.4
 gopkg.in/yaml.v2
+# gopkg.in/yaml.v3 v3.0.0-20191010095647-fc94e3f71652
+gopkg.in/yaml.v3
 # honnef.co/go/tools v0.0.1-2019.2.3
 honnef.co/go/tools/arg
 honnef.co/go/tools/cmd/staticcheck

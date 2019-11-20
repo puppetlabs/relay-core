@@ -2,24 +2,16 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 
-	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
 	utilapi "github.com/puppetlabs/horsehead/v2/httputil/api"
 	"github.com/puppetlabs/horsehead/v2/logging"
+	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/evaluate"
+	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/parse"
+	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/resolve"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
-	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/op"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"
-	"github.com/puppetlabs/nebula-tasks/pkg/task"
 )
-
-type fetcherFunc func(context.Context, op.ManagerFactory, map[string]interface{}) (transfer.JSONOrStr, errors.Error)
-
-var valueFetchers = map[task.SpecValueType]fetcherFunc{
-	task.SpecValueSecret: fetchSecret,
-	task.SpecValueOutput: fetchOutput,
-}
 
 type specsHandler struct {
 	logger logging.Logger
@@ -48,115 +40,39 @@ func (h *specsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var spec interface{}
-	if err := json.Unmarshal([]byte(specData), &spec); nil != err {
-		utilapi.WriteError(ctx, w, errors.NewTaskSpecDecodingError().WithCause(err))
-
+	tree, perr := parse.ParseJSONString(specData)
+	if perr != nil {
+		utilapi.WriteError(ctx, w, errors.NewTaskSpecDecodingError().WithCause(perr))
 		return
 	}
 
-	spec = h.expandValues(ctx, managers, spec)
-	utilapi.WriteObjectOK(ctx, w, spec)
-}
-
-func (h *specsHandler) expandValues(ctx context.Context, managers op.ManagerFactory, spec interface{}) interface{} {
-	switch v := spec.(type) {
-	case []interface{}:
-		result := make([]interface{}, len(v))
-
-		for index, elm := range v {
-			result[index] = h.expandValues(ctx, managers, elm)
-		}
-
-		return result
-	case map[string]interface{}:
-		typ, ok := v["$type"].(string)
-		if !ok {
-			result := make(map[string]interface{})
-
-			for key, val := range v {
-				result[key] = h.expandValues(ctx, managers, val)
+	ev := evaluate.NewEvaluator(
+		evaluate.WithSecretTypeResolver(resolve.SecretTypeResolverFunc(func(ctx context.Context, name string) (string, error) {
+			s, err := managers.SecretsManager().Get(ctx, name)
+			if errors.IsSecretsKeyNotFound(err) {
+				return "", &resolve.SecretNotFoundError{Name: name}
+			} else if err != nil {
+				return "", err
 			}
+			return s.Value, nil
+		})),
+		evaluate.WithOutputTypeResolver(resolve.OutputTypeResolverFunc(func(ctx context.Context, from, name string) (string, error) {
+			o, err := managers.OutputsManager().Get(ctx, from, name)
+			if errors.IsOutputsTaskNotFound(err) || errors.IsOutputsKeyNotFound(err) {
+				return "", &resolve.OutputNotFoundError{From: from, Name: name}
+			} else if err != nil {
+				return "", err
+			}
+			return o.Value, nil
+		})),
+		evaluate.WithResultMapper(evaluate.NewUTF8SafeResultMapper()),
+	)
 
-			return result
-		}
-
-		valueType, ok := task.SpecValueMapping[typ]
-		if !ok {
-			h.logger.Warn("no such value type", "valueType", valueType)
-
-			return ""
-		}
-
-		result, err := valueFetchers[valueType](ctx, managers, v)
-		if err != nil {
-			h.logger.Warn("failed to get value", "error", err, "spec", v)
-
-			return ""
-		}
-
-		return result
-	default:
-		return v
-	}
-}
-
-func fetchSecret(ctx context.Context, managers op.ManagerFactory, obj map[string]interface{}) (transfer.JSONOrStr, errors.Error) {
-	name, ok := obj["name"].(string)
-	if !ok {
-		return transfer.JSONOrStr{}, errors.NewServerSecretFetcherNameValidationError()
+	rv, rerr := ev.EvaluateAll(ctx, tree)
+	if rerr != nil {
+		utilapi.WriteError(ctx, w, errors.NewTaskSpecEvaluationError().WithCause(rerr))
+		return
 	}
 
-	secret, err := managers.SecretsManager().Get(ctx, name)
-	if err != nil {
-		return transfer.JSONOrStr{}, errors.NewServerSecretFetcherGetError().WithCause(err)
-	}
-
-	ev, verr := transfer.EncodeJSON([]byte(secret.Value))
-	if verr != nil {
-		return transfer.JSONOrStr{}, errors.NewSecretsValueEncodingError().WithCause(verr).Bug()
-	}
-
-	return ev, nil
-}
-
-func fetchOutput(ctx context.Context, managers op.ManagerFactory, obj map[string]interface{}) (transfer.JSONOrStr, errors.Error) {
-	name, ok := obj["name"].(string)
-	if !ok {
-		return transfer.JSONOrStr{}, errors.NewServerOutputFetcherNameValidationError()
-	}
-
-	taskName, ok := obj["taskName"].(string)
-	if !ok {
-		return transfer.JSONOrStr{}, errors.NewServerOutputFetcherTaskNameValidationError()
-	}
-
-	output, err := managers.OutputsManager().Get(ctx, taskName, name)
-	if err != nil {
-		return transfer.JSONOrStr{}, errors.NewServerOutputFetcherGetError().WithCause(err)
-	}
-
-	ev, verr := transfer.EncodeJSON([]byte(output.Value))
-	if verr != nil {
-		return transfer.JSONOrStr{}, errors.NewOutputsValueEncodingError().WithCause(verr).Bug()
-	}
-
-	return ev, nil
-}
-
-func extractSecretName(obj map[string]interface{}) *string {
-	if len(obj) != 2 {
-		return nil
-	}
-
-	if ty, ok := obj["$type"].(string); !ok || "Secret" != ty {
-		return nil
-	}
-
-	name, ok := obj["name"].(string)
-	if !ok || "" == name {
-		return nil
-	}
-
-	return &name
+	utilapi.WriteObjectOK(ctx, w, rv.Value)
 }

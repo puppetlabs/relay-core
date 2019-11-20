@@ -14,6 +14,7 @@ import (
 	"github.com/puppetlabs/horsehead/v2/instrumentation/metrics/delegates"
 	metricsserver "github.com/puppetlabs/horsehead/v2/instrumentation/metrics/server"
 	"github.com/puppetlabs/horsehead/v2/storage"
+	_ "github.com/puppetlabs/nebula-libs/storage/file/v2"
 	_ "github.com/puppetlabs/nebula-libs/storage/gcs/v2"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
 	"github.com/puppetlabs/nebula-tasks/pkg/controllers"
@@ -41,6 +42,7 @@ func main() {
 	metadataServiceImage := fs.String("metadata-service-image", "gcr.io/nebula-235818/nebula-metadata-api:latest", "the image and tag to use for the metadata service api")
 	metadataServiceImagePullSecret := fs.String("metadata-service-image-pull-secret", "", "the optionally namespaced name of the image pull secret to use for the metadata service")
 	metadataServiceVaultAddr := fs.String("metadata-service-vault-addr", "", "the address to use when authenticating the metadata service to Vault")
+	metadataServiceCheckEnabled := fs.Bool("metadata-service-check-enabled", true, "whether to enable checking the metadata service over HTTP")
 	numWorkers := fs.Int("num-workers", 2, "the number of worker threads to spawn that process Workflow resources")
 	metricsEnabled := fs.Bool("metrics-enabled", false, "enables the metrics collection and server")
 	metricsServerBindAddr := fs.String("metrics-server-bind-addr", "localhost:3050", "the host:port to bind the metrics server to")
@@ -54,6 +56,7 @@ func main() {
 		MetadataServiceImage:           *metadataServiceImage,
 		MetadataServiceImagePullSecret: *metadataServiceImagePullSecret,
 		MetadataServiceVaultAddr:       *metadataServiceVaultAddr,
+		MetadataServiceCheckEnabled:    *metadataServiceCheckEnabled,
 	}
 
 	vc, err := vault.NewVaultAuth(&vault.Config{

@@ -146,6 +146,9 @@ sections:
       invalid_hash_error:
         title: Invalid hash
         description: the task does not have a valid hash associated with it
+      spec_evaluation_error:
+        title: Evaluation error
+        description: failed to evaluate the step specification
 
   kubernetes:
     title: Kubernetes errors

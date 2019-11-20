@@ -10,15 +10,13 @@ import (
 	"net/url"
 	"os"
 	"path"
-
-	"github.com/puppetlabs/nebula-sdk/pkg/taskutil"
 )
 
 var (
 	ErrOutputsClientKeyEmpty      = errors.New("key is required but was empty")
 	ErrOutputsClientValueEmpty    = errors.New("value is required but was empty")
 	ErrOutputsClientTaskNameEmpty = errors.New("taskName is required but was empty")
-	ErrOutputsClientEnvVarMissing = errors.New(taskutil.MetadataAPIURLEnvName + " was expected but was empty")
+	ErrOutputsClientEnvVarMissing = errors.New(MetadataAPIURLEnvName + " was expected but was empty")
 	ErrOutputsClientNotFound      = errors.New("output was not found")
 )
 
@@ -123,7 +121,7 @@ func NewDefaultOutputsClient(location *url.URL) OutputsClient {
 }
 
 func NewDefaultOutputsClientFromNebulaEnv() (OutputsClient, error) {
-	locStr := os.Getenv(taskutil.MetadataAPIURLEnvName)
+	locStr := os.Getenv(MetadataAPIURLEnvName)
 
 	if locStr == "" {
 		return nil, ErrOutputsClientEnvVarMissing
