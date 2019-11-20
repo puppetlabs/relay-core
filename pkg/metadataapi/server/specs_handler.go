@@ -50,7 +50,11 @@ func (h *specsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		evaluate.WithSecretTypeResolver(resolve.SecretTypeResolverFunc(func(ctx context.Context, name string) (string, error) {
 			s, err := managers.SecretsManager().Get(ctx, name)
 			if errors.IsSecretsKeyNotFound(err) {
-				return "", &resolve.SecretNotFoundError{Name: name}
+				// TODO: We should formally define what we want this behavior to
+				// be. Typically this would return an instance of
+				// *resolve.SecretNotFoundError, but it breaks our current
+				// informal contract with Ni.
+				return "", nil
 			} else if err != nil {
 				return "", err
 			}
@@ -59,7 +63,9 @@ func (h *specsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		evaluate.WithOutputTypeResolver(resolve.OutputTypeResolverFunc(func(ctx context.Context, from, name string) (string, error) {
 			o, err := managers.OutputsManager().Get(ctx, from, name)
 			if errors.IsOutputsTaskNotFound(err) || errors.IsOutputsKeyNotFound(err) {
-				return "", &resolve.OutputNotFoundError{From: from, Name: name}
+				// TODO: Similarly, this would typically return an instance of
+				// *resolve.OutputNotFoundError.
+				return "", nil
 			} else if err != nil {
 				return "", err
 			}
