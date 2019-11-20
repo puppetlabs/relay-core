@@ -2196,6 +2196,54 @@ func NewTaskSpecDecodingError() Error {
 	return NewTaskSpecDecodingErrorBuilder().Build()
 }
 
+// TaskSpecEvaluationErrorCode is the code for an instance of "spec_evaluation_error".
+const TaskSpecEvaluationErrorCode = "nt_task_spec_evaluation_error"
+
+// IsTaskSpecEvaluationError tests whether a given error is an instance of "spec_evaluation_error".
+func IsTaskSpecEvaluationError(err errawr.Error) bool {
+	return err != nil && err.Is(TaskSpecEvaluationErrorCode)
+}
+
+// IsTaskSpecEvaluationError tests whether a given error is an instance of "spec_evaluation_error".
+func (External) IsTaskSpecEvaluationError(err errawr.Error) bool {
+	return IsTaskSpecEvaluationError(err)
+}
+
+// TaskSpecEvaluationErrorBuilder is a builder for "spec_evaluation_error" errors.
+type TaskSpecEvaluationErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "spec_evaluation_error" from this builder.
+func (b *TaskSpecEvaluationErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "failed to evaluate the step specification",
+		Technical: "failed to evaluate the step specification",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "spec_evaluation_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     TaskSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Evaluation error",
+		Version:          1,
+	}
+}
+
+// NewTaskSpecEvaluationErrorBuilder creates a new error builder for the code "spec_evaluation_error".
+func NewTaskSpecEvaluationErrorBuilder() *TaskSpecEvaluationErrorBuilder {
+	return &TaskSpecEvaluationErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewTaskSpecEvaluationError creates a new error with the code "spec_evaluation_error".
+func NewTaskSpecEvaluationError() Error {
+	return NewTaskSpecEvaluationErrorBuilder().Build()
+}
+
 // TaskSpecLookupErrorCode is the code for an instance of "spec_lookup_error".
 const TaskSpecLookupErrorCode = "nt_task_spec_lookup_error"
 

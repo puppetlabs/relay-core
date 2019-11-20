@@ -20,8 +20,9 @@ require (
 	github.com/puppetlabs/errawr-gen v1.0.1
 	github.com/puppetlabs/errawr-go/v2 v2.2.0
 	github.com/puppetlabs/horsehead/v2 v2.4.0
+	github.com/puppetlabs/nebula-libs/storage/file/v2 v2.0.0
 	github.com/puppetlabs/nebula-libs/storage/gcs/v2 v2.0.0
-	github.com/puppetlabs/nebula-sdk v1.3.1-0.20191114003713-873dcbf8703d
+	github.com/puppetlabs/nebula-sdk v1.4.0
 	github.com/stretchr/testify v1.4.0
 	github.com/tektoncd/pipeline v0.7.0
 	go.uber.org/atomic v1.4.0 // indirect

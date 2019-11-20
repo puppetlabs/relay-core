@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha1"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,6 +13,9 @@ import (
 
 	"github.com/puppetlabs/horsehead/v2/instrumentation/metrics"
 	"github.com/puppetlabs/horsehead/v2/storage"
+	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/evaluate"
+	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/parse"
+	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/resolve"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
 	tekv1alpha1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
 	tekclientset "github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
@@ -194,6 +196,10 @@ eventLoop:
 }
 
 func (c *Controller) waitForSuccessfulServiceResponse(service *corev1.Service) error {
+	if !c.cfg.MetadataServiceCheckEnabled {
+		return nil
+	}
+
 	var (
 		u        = fmt.Sprintf("http://%s.%s.svc.cluster.local/healthz", service.GetName(), service.GetNamespace())
 		interval = time.Millisecond * 750
@@ -1146,71 +1152,29 @@ func getVolumeMounts(name string, step *nebulav1.WorkflowStep) []corev1.VolumeMo
 	return volumeMounts
 }
 
-func expandSpecification(workflowParameters nebulav1.WorkflowParameters, workflowRunParameters nebulav1.WorkflowRunParameters, spec interface{}) interface{} {
-	switch v := spec.(type) {
-	case []interface{}:
-		result := make([]interface{}, len(v))
-		for index, elm := range v {
-			result[index] = expandSpecification(workflowParameters, workflowRunParameters, elm)
-		}
-		return result
-	case map[string]interface{}:
-		name := extractName(ParameterTypeName, v)
-		if name != nil {
-			value := workflowRunParameters[*name]
-
-			if value != nil {
-				wrp, ok := workflowRunParameters[*name]
-				if ok {
-					return wrp
-				}
-			}
-
-			wp, ok := workflowParameters[*name]
-			if ok {
-				return wp
-			}
-		}
-		result := make(map[string]interface{})
-		for key, val := range v {
-			result[key] = expandSpecification(workflowParameters, workflowRunParameters, val)
-		}
-		return result
-	default:
-		return v
-	}
-
-}
-
-func extractName(typeName string, obj map[string]interface{}) *string {
-	if len(obj) != 2 {
-		return nil
-	}
-	if ty, ok := obj["$type"].(string); !ok || typeName != ty {
-		return nil
-	}
-	name, ok := obj["name"].(string)
-	if !ok || name == "" {
-		return nil
-	}
-	return &name
-}
-
 func getConfigMapData(workflowParameters nebulav1.WorkflowParameters, workflowRunParameters nebulav1.WorkflowRunParameters, step *nebulav1.WorkflowStep) (map[string]string, errors.Error) {
 	configMapData := make(map[string]string)
 
 	if len(step.Spec) > 0 {
-		spec := make(map[string]interface{})
-		for key, val := range step.Spec {
-			spec[key] = expandSpecification(workflowParameters, workflowRunParameters, val)
-		}
+		// Inject parameters.
+		ev := evaluate.NewEvaluator(
+			evaluate.WithResultMapper(evaluate.NewJSONResultMapper()),
+			evaluate.WithParameterTypeResolver(resolve.ParameterTypeResolverFunc(func(ctx context.Context, name string) (interface{}, error) {
+				if p, ok := workflowRunParameters[name]; ok {
+					return p, nil
+				} else if p, ok := workflowParameters[name]; ok {
+					return p, nil
+				}
 
-		byteStep, err := json.Marshal(spec)
+				return nil, &resolve.ParameterNotFoundError{Name: name}
+			})),
+		)
+		r, err := ev.EvaluateAll(context.TODO(), parse.Tree(step.Spec))
 		if err != nil {
-			return nil, errors.NewServerJSONEncodingError().WithCause(err)
+			return nil, errors.NewTaskSpecEvaluationError().WithCause(err)
 		}
 
-		configMapData[NebulaSpecFile] = string(byteStep)
+		configMapData[NebulaSpecFile] = string(r.Value.([]byte))
 	}
 
 	if len(step.Input) > 0 {
