@@ -24,6 +24,9 @@ sections:
         arguments:
           key:
             description: the key that is missing
+        metadata:
+          http:
+            status: 404
       value_encoding_error:
         title: Value encoding error
         description: encoding the secret value failed
@@ -143,6 +146,9 @@ sections:
       invalid_hash_error:
         title: Invalid hash
         description: the task does not have a valid hash associated with it
+      spec_evaluation_error:
+        title: Evaluation error
+        description: failed to evaluate the step specification
 
   kubernetes:
     title: Kubernetes errors

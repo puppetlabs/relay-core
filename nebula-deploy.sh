@@ -5,3 +5,4 @@
 # NEBULA_WORKFLOWS[features/iteration-3-rbac]=nebula-deploy-tr-i3-rbac-1
 NEBULA_WORKFLOWS[improvements/workflows]=nebula
 NEBULA_WORKFLOWS[improvements/cluster-security]=nebula-system-deploy-tr-security
+NEBULA_WORKFLOWS[features/PN-151-prometheus-instrumentation]=features-tr-metrics
