@@ -2,7 +2,6 @@ package v1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 )
 
 // +genclient
@@ -50,8 +49,6 @@ type WorkflowRunStep struct {
 }
 
 type WorkflowRunStatus struct {
-	Lifecycle duckv1beta1.Status `json:"lifecycle"`
-
 	Status         string                     `json:"status"`
 	StartTime      *metav1.Time               `json:"startTime"`
 	CompletionTime *metav1.Time               `json:"completionTime"`
