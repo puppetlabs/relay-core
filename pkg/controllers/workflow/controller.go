@@ -1162,6 +1162,16 @@ func getVolumes(volumeMounts []corev1.VolumeMount) []corev1.Volume {
 func getVolumeMounts(name string, step *nebulav1.WorkflowStep) []corev1.VolumeMount {
 	volumeMounts := make([]corev1.VolumeMount, 0)
 
+	if len(step.Spec) > 0 {
+		thisContainerMount := corev1.VolumeMount{
+			Name:      name,
+			MountPath: NebulaMountPath + "/" + NebulaSpecFile,
+			SubPath:   NebulaSpecFile,
+		}
+
+		volumeMounts = append(volumeMounts, thisContainerMount)
+	}
+
 	if len(step.Input) > 0 {
 		thisContainerMount := corev1.VolumeMount{
 			Name:      name,
