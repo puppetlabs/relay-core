@@ -10,6 +10,7 @@ import (
 
 var (
 	ErrFunctionNotFound          = errors.New("fn: function not found")
+	ErrArgNotFound               = errors.New("fn: arg not found")
 	ErrPositionalArgsNotAccepted = errors.New("fn: positional arguments cannot be used")
 	ErrKeywordArgsNotAccepted    = errors.New("fn: keyword arguments cannot be used")
 )
