@@ -14,6 +14,7 @@ type WorkflowRun struct {
 	Spec              WorkflowRunSpec `json:"spec"`
 
 	// +optional
+	State  WorkflowRunState  `json:"state,omitempty"`
 	Status WorkflowRunStatus `json:"status,omitempty"`
 }
 
@@ -31,7 +32,8 @@ type Workflow struct {
 
 type WorkflowStep struct {
 	Name      string           `json:"name"`
-	Image     string           `json:"image"`
+	Type      string           `json:"type,omitempty"`
+	Image     string           `json:"image,omitempty"`
 	Spec      WorkflowStepSpec `json:"spec,omitempty"`
 	Input     []string         `json:"input,omitempty"`
 	Command   string           `json:"command,omitempty"`
@@ -53,6 +55,11 @@ type WorkflowRunStatus struct {
 	Steps          map[string]WorkflowRunStep `json:"steps"`
 }
 
+type WorkflowRunState struct {
+	Workflow WorkflowState            `json:"workflow"`
+	Steps    map[string]WorkflowState `json:"steps"`
+}
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type WorkflowRunList struct {
@@ -60,6 +67,8 @@ type WorkflowRunList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []WorkflowRun `json:"items"`
 }
+
+type WorkflowState map[string]interface{}
 
 type WorkflowParameters map[string]interface{}
 
@@ -99,6 +108,19 @@ func (in *WorkflowStepSpec) DeepCopy() *WorkflowStepSpec {
 	}
 
 	out := make(WorkflowStepSpec)
+	for key, value := range *in {
+		out[key] = value
+	}
+
+	return &out
+}
+
+func (in *WorkflowState) DeepCopy() *WorkflowState {
+	if in == nil {
+		return nil
+	}
+
+	out := make(WorkflowState)
 	for key, value := range *in {
 		out[key] = value
 	}
