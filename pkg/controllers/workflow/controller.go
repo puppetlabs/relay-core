@@ -16,7 +16,6 @@ import (
 	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/evaluate"
 	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/parse"
 	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/resolve"
-	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
 	tekv1alpha1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
 	tekclientset "github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
 	teklisters "github.com/tektoncd/pipeline/pkg/client/listers/pipeline/v1alpha1"
@@ -94,6 +93,14 @@ type podAndTaskName struct {
 	PodName  string
 	TaskName string
 }
+
+type StepTask struct {
+	stepName  string
+	taskName  string
+	dependsOn []string
+}
+
+type StepTasks map[string]StepTask
 
 // Controller watches for nebulav1.WorkflowRun resource changes.
 // If a WorkflowRun resource is created, the controller will create a service acccount + rbac
@@ -225,9 +232,9 @@ func (c *Controller) waitForSuccessfulServiceResponse(service *corev1.Service) e
 	})
 }
 
-func (c *Controller) processPipelineRunChange(ctx context.Context, key string) error {
-	klog.Infof("syncing PipelineRun change %s", key)
-	defer klog.Infof("done syncing PipelineRun change %s", key)
+func (c *Controller) processPipelineRun(ctx context.Context, key string) error {
+	klog.Infof("syncing PipelineRun %s", key)
+	defer klog.Infof("done syncing PipelineRun %s", key)
 
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
@@ -346,8 +353,8 @@ func (c *Controller) uploadLog(ctx context.Context, namespace string, podName st
 }
 
 func (c *Controller) processWorkflowRun(ctx context.Context, key string) error {
-	klog.Infof("syncing WorkflowRun change %s", key)
-	defer klog.Infof("done syncing WorkflowRun change %s", key)
+	klog.Infof("syncing WorkflowRun %s", key)
+	defer klog.Infof("done syncing WorkflowRun %s", key)
 
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
@@ -364,10 +371,56 @@ func (c *Controller) processWorkflowRun(ctx context.Context, key string) error {
 		return err
 	}
 
+	err = c.handleWorkflowRun(ctx, wr)
+
+	return err
+}
+
+func (c *Controller) handleWorkflowRun(ctx context.Context, wr *nebulav1.WorkflowRun) error {
+	err := c.initializeWorkflowRun(ctx, wr)
+	if err != nil {
+		return err
+	}
+
+	if wr.ObjectMeta.DeletionTimestamp.IsZero() {
+		if _, ok := wr.GetAnnotations()[pipelineRunAnnotation]; !ok {
+			plr, err := c.createPipelineRun(wr)
+			if err != nil {
+				return err
+			}
+
+			pipelineId := wr.Spec.Name
+			if wr.Labels == nil {
+				wr.Labels = make(map[string]string, 0)
+			}
+			wr.Labels[pipelineRunAnnotation] = pipelineId
+
+			metav1.SetMetaDataAnnotation(&wr.ObjectMeta, pipelineRunAnnotation, plr.Name)
+
+			wr, err = c.nebclient.NebulaV1().WorkflowRuns(wr.GetNamespace()).Update(wr)
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		if containsString(wr.ObjectMeta.Finalizers, workflowRunAnnotation) {
+			wr.ObjectMeta.Finalizers = removeString(wr.ObjectMeta.Finalizers, workflowRunAnnotation)
+
+			wr, err = c.nebclient.NebulaV1().WorkflowRuns(wr.GetNamespace()).Update(wr)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (c *Controller) initializeWorkflowRun(ctx context.Context, wr *nebulav1.WorkflowRun) error {
 	// If we haven't set the state of the run yet, then we need to ensure all the secret access
 	// and rbac is setup.
 	if wr.Status.Status == "" {
-		klog.Infof("unreconciled %s %s", wr.Kind, key)
+		klog.Infof("unreconciled %s %s", wr.Kind, wr.GetName())
 
 		err := c.metrics.trackDurationWithOutcome(metricWorkflowRunStartUpDuration, func() error {
 			service, err := c.createAccessResources(ctx, wr)
@@ -387,42 +440,19 @@ func (c *Controller) processWorkflowRun(ctx context.Context, key string) error {
 		}
 	}
 
-	if wr.ObjectMeta.DeletionTimestamp.IsZero() {
-		if _, ok := wr.GetAnnotations()[pipelineRunAnnotation]; !ok {
-			plr, err := c.createPipelineRun(wr)
-			if err != nil {
-				return err
-			}
+	return nil
+}
 
-			pipelineId := wr.Spec.Name
-			if wr.Labels == nil {
-				wr.Labels = make(map[string]string, 0)
-			}
-			wr.Labels[pipelineRunAnnotation] = pipelineId
+func (c *Controller) createOrUpdateConfigMap(namespace string, cm *corev1.ConfigMap) error {
+	if string(cm.GetUID()) == "" {
+		_, err := c.kubeclient.CoreV1().ConfigMaps(namespace).Create(cm)
 
-			metav1.SetMetaDataAnnotation(&wr.ObjectMeta, pipelineRunAnnotation, plr.Name)
-
-			if !containsString(wr.ObjectMeta.Finalizers, workflowRunAnnotation) {
-				wr.ObjectMeta.Finalizers = append(wr.ObjectMeta.Finalizers, workflowRunAnnotation)
-			}
-
-			wr, err = c.nebclient.NebulaV1().WorkflowRuns(namespace).Update(wr)
-			if err != nil {
-				return err
-			}
-		}
-	} else {
-		if containsString(wr.ObjectMeta.Finalizers, workflowRunAnnotation) {
-			wr.ObjectMeta.Finalizers = removeString(wr.ObjectMeta.Finalizers, workflowRunAnnotation)
-
-			wr, err = c.nebclient.NebulaV1().WorkflowRuns(namespace).Update(wr)
-			if err != nil {
-				return err
-			}
-		}
+		return err
 	}
 
-	return nil
+	_, err := c.kubeclient.CoreV1().ConfigMaps(namespace).Update(cm)
+
+	return err
 }
 
 func (c *Controller) createAccessResources(ctx context.Context, wr *nebulav1.WorkflowRun) (*corev1.Service, error) {
@@ -545,17 +575,12 @@ func (c *Controller) createPipelineRun(wr *nebulav1.WorkflowRun) (*tekv1alpha1.P
 
 	namespace := wr.GetNamespace()
 
-	plr, err := c.tekclient.TektonV1alpha1().PipelineRuns(namespace).Get(wr.Spec.Name, metav1.GetOptions{})
+	plr, err := c.tekclient.TektonV1alpha1().PipelineRuns(namespace).Get(wr.GetName(), metav1.GetOptions{})
 	if plr != nil && plr != (&tekv1alpha1.PipelineRun{}) && plr.Name != "" {
 		return plr, nil
 	}
 
 	runID := wr.Spec.Name
-
-	serviceAccount, err := c.createServiceAccount(wr)
-	if err != nil {
-		return nil, err
-	}
 
 	pipelineRun := &tekv1alpha1.PipelineRun{
 		ObjectMeta: metav1.ObjectMeta{
@@ -565,7 +590,7 @@ func (c *Controller) createPipelineRun(wr *nebulav1.WorkflowRun) (*tekv1alpha1.P
 			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(wr, controllerKind)},
 		},
 		Spec: tekv1alpha1.PipelineRunSpec{
-			ServiceAccount: serviceAccount.Name,
+			ServiceAccount: getName(wr, ""),
 			PipelineRef: tekv1alpha1.PipelineRef{
 				Name: runID,
 			},
@@ -592,34 +617,15 @@ func (c *Controller) createPipelineRun(wr *nebulav1.WorkflowRun) (*tekv1alpha1.P
 	return createdPipelineRun, nil
 }
 
-func (c *Controller) createServiceAccount(wr *nebulav1.WorkflowRun) (*corev1.ServiceAccount, error) {
-	namespace := wr.GetNamespace()
-
-	serviceAccount, _ := c.kubeclient.CoreV1().ServiceAccounts(namespace).Get(wr.Spec.Name, metav1.GetOptions{})
-	if serviceAccount != nil {
-		return serviceAccount, nil
-	}
-
-	serviceAccount = &corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            wr.Spec.Name,
-			Namespace:       namespace,
-			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(wr, controllerKind)},
-		},
-	}
-
-	return c.kubeclient.CoreV1().ServiceAccounts(namespace).Create(serviceAccount)
-}
-
 func (c *Controller) updateWorkflowRunStatus(plr *tekv1alpha1.PipelineRun) (*nebulav1.WorkflowRunStatus, error) {
 	workflowRunSteps := make(map[string]nebulav1.WorkflowRunStep)
 
 	for _, taskRun := range plr.Status.TaskRuns {
-		if nil == taskRun.Status {
+		if taskRun.Status == nil {
 			continue
 		}
+
 		step := nebulav1.WorkflowRunStep{
-			Name:   taskRun.PipelineTaskName,
 			Status: string(mapStatus(taskRun.Status.Status)),
 		}
 
@@ -649,8 +655,8 @@ func (c *Controller) updateWorkflowRunStatus(plr *tekv1alpha1.PipelineRun) (*neb
 }
 
 func (c *Controller) initializePipeline(wr *nebulav1.WorkflowRun, service *corev1.Service) errors.Error {
-	klog.Infof("creating WorkflowRun %s", wr.GetName())
-	defer klog.Infof("done creating WorkflowRun %s", wr.GetName())
+	klog.Infof("initializing Pipeline %s", wr.GetName())
+	defer klog.Infof("done initializing Pipeline %s", wr.GetName())
 
 	if len(wr.Spec.Workflow.Steps) == 0 {
 		return nil
@@ -666,11 +672,11 @@ func (c *Controller) initializePipeline(wr *nebulav1.WorkflowRun, service *corev
 	}
 
 	if _, err := c.createNetworkPolicies(wr.GetNamespace()); err != nil {
-		return err
+		return errors.NewWorkflowExecutionError().WithCause(err)
 	}
 
 	if _, err := c.createLimitRange(wr.GetNamespace()); err != nil {
-		return err
+		return errors.NewWorkflowExecutionError().WithCause(err)
 	}
 
 	tasks, err := c.createTasks(wr, service)
@@ -678,7 +684,7 @@ func (c *Controller) initializePipeline(wr *nebulav1.WorkflowRun, service *corev
 		return errors.NewWorkflowExecutionError().WithCause(err)
 	}
 
-	pipelineTasks, err := c.createPipelineTasks(tasks, wr.Spec.Workflow.Steps)
+	pipelineTasks, err := c.createPipelineTasks(tasks)
 	if err != nil {
 		return errors.NewWorkflowExecutionError().WithCause(err)
 	}
@@ -877,8 +883,8 @@ func (c *Controller) createLimitRange(namespace string) (*corev1.LimitRange, err
 	return lr, nil
 }
 
-func (c *Controller) createTasks(wr *nebulav1.WorkflowRun, service *corev1.Service) (map[string]nebulav1.WorkflowRunStep, errors.Error) {
-	sts := make(map[string]nebulav1.WorkflowRunStep)
+func (c *Controller) createTasks(wr *nebulav1.WorkflowRun, service *corev1.Service) (StepTasks, errors.Error) {
+	stepTasks := make(StepTasks)
 
 	metadataAPIURL := fmt.Sprintf("http://%s.%s.svc.cluster.local", service.GetName(), wr.GetNamespace())
 
@@ -889,39 +895,47 @@ func (c *Controller) createTasks(wr *nebulav1.WorkflowRun, service *corev1.Servi
 	for index := range steps {
 		step := steps[index]
 
-		task, err := c.createTaskFromStep(wr.GetNamespace(), metadataAPIURL, wr.Spec.Workflow.Parameters, wr.Spec.Parameters, index, step, ownerReference)
+		if step == nil {
+			continue
+		}
+
+		taskName := util.Slug(fmt.Sprintf("task-%d-%s", index, step.Name))
+
+		err := c.createTaskConfigMap(taskName, wr.GetNamespace(), wr.Spec.Workflow.Parameters, wr.Spec.Parameters, step, ownerReference)
 		if err != nil {
 			return nil, errors.NewWorkflowExecutionError().WithCause(err)
 		}
 
-		sts[step.Name] = nebulav1.WorkflowRunStep{
-			Name:   task.Name,
-			Status: string(WorkflowRunStatusPending),
+		_, err = c.createTaskFromStep(taskName, wr.GetNamespace(), metadataAPIURL, step)
+		if err != nil {
+			return nil, errors.NewWorkflowExecutionError().WithCause(err)
+		}
+
+		stepTasks[step.Name] = StepTask{
+			stepName:  step.Name,
+			taskName:  taskName,
+			dependsOn: step.DependsOn,
 		}
 	}
 
-	return sts, nil
+	return stepTasks, nil
 }
 
-func (c *Controller) createPipelineTasks(sts map[string]nebulav1.WorkflowRunStep, ws []*nebulav1.WorkflowStep) ([]v1alpha1.PipelineTask, errors.Error) {
+func (c *Controller) createPipelineTasks(stepTasks StepTasks) ([]tekv1alpha1.PipelineTask, errors.Error) {
 
-	pipelineTasks := make([]v1alpha1.PipelineTask, 0)
+	pipelineTasks := make([]tekv1alpha1.PipelineTask, 0)
 
-	for index := range ws {
-		step := ws[index]
-
-		taskName := sts[step.Name].Name
-
-		pipelineTask := v1alpha1.PipelineTask{
-			Name: taskName,
-			TaskRef: v1alpha1.TaskRef{
-				Name: taskName,
+	for _, stepTask := range stepTasks {
+		pipelineTask := tekv1alpha1.PipelineTask{
+			Name: stepTask.taskName,
+			TaskRef: tekv1alpha1.TaskRef{
+				Name: stepTask.taskName,
 			},
 		}
 
-		for _, dependsOn := range step.DependsOn {
-			if taskDependency, ok := sts[dependsOn]; ok {
-				pipelineTask.RunAfter = append(pipelineTask.RunAfter, taskDependency.Name)
+		for _, dependsOn := range stepTask.dependsOn {
+			if taskDependency, ok := stepTasks[dependsOn]; ok {
+				pipelineTask.RunAfter = append(pipelineTask.RunAfter, taskDependency.taskName)
 			} else {
 				return nil, errors.NewWorkflowInvalidStepDependencyError(dependsOn)
 			}
@@ -933,19 +947,25 @@ func (c *Controller) createPipelineTasks(sts map[string]nebulav1.WorkflowRunStep
 	return pipelineTasks, nil
 }
 
-func (c *Controller) createTaskFromStep(namespace string, metadataAPIURL string, workflowParameters nebulav1.WorkflowParameters, workflowRunParameters nebulav1.WorkflowRunParameters, index int, step *nebulav1.WorkflowStep, ownerReference *metav1.OwnerReference) (*v1alpha1.Task, errors.Error) {
-	taskName := util.Slug(fmt.Sprintf("task-%d-%s", index, step.Name))
-	taskHash := sha1.Sum([]byte(step.Name))
-
+func (c *Controller) createTaskConfigMap(name string, namespace string, workflowParameters nebulav1.WorkflowParameters, workflowRunParameters nebulav1.WorkflowRunParameters, step *nebulav1.WorkflowStep, ownerReference *metav1.OwnerReference) errors.Error {
 	configMapData, _ := getConfigMapData(workflowParameters, workflowRunParameters, step)
-	_, err := c.createConfigMap(taskName, configMapData, namespace, ownerReference)
+	_, err := c.createConfigMap(name, configMapData, namespace, ownerReference)
 	if err != nil {
-		return nil, errors.NewWorkflowExecutionError().WithCause(err)
+		return errors.NewWorkflowExecutionError().WithCause(err)
 	}
 
-	container, volumes := getContainer(metadataAPIURL, taskName, step)
+	return nil
+}
 
-	task := &v1alpha1.Task{
+func (c *Controller) createTaskFromStep(name string, namespace string, metadataAPIURL string, step *nebulav1.WorkflowStep) (*tekv1alpha1.Task, errors.Error) {
+	container, volumes := getTaskContainer(metadataAPIURL, name, step)
+	return c.createTask(name, step.Name, namespace, container, volumes)
+}
+
+func (c *Controller) createTask(taskName string, stepName string, namespace string, container *corev1.Container, volumes []corev1.Volume) (*tekv1alpha1.Task, errors.Error) {
+	taskHash := sha1.Sum([]byte(stepName))
+
+	task := &tekv1alpha1.Task{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      taskName,
 			Namespace: namespace,
@@ -953,13 +973,13 @@ func (c *Controller) createTaskFromStep(namespace string, metadataAPIURL string,
 				"nebula.puppet.com/task.hash": hex.EncodeToString(taskHash[:]),
 			},
 		},
-		Spec: v1alpha1.TaskSpec{
-			Steps:   []v1alpha1.Step{{*container}},
+		Spec: tekv1alpha1.TaskSpec{
+			Steps:   []tekv1alpha1.Step{{*container}},
 			Volumes: volumes,
 		},
 	}
 
-	task, err = c.tekclient.TektonV1alpha1().Tasks(namespace).Create(task)
+	task, err := c.tekclient.TektonV1alpha1().Tasks(namespace).Create(task)
 	if k8serrors.IsAlreadyExists(err) {
 		task, err = c.tekclient.TektonV1alpha1().Tasks(namespace).Get(taskName, metav1.GetOptions{})
 	}
@@ -970,15 +990,15 @@ func (c *Controller) createTaskFromStep(namespace string, metadataAPIURL string,
 	return task, nil
 }
 
-func (c *Controller) createPipeline(namespace string, pipelineId string, pipelineTasks []v1alpha1.PipelineTask) (*v1alpha1.Pipeline, errors.Error) {
+func (c *Controller) createPipeline(namespace string, pipelineId string, pipelineTasks []tekv1alpha1.PipelineTask) (*tekv1alpha1.Pipeline, errors.Error) {
 	pipelineName := util.Slug(pipelineId)
 
-	pipeline := &v1alpha1.Pipeline{
+	pipeline := &tekv1alpha1.Pipeline{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pipelineName,
 			Namespace: namespace,
 		},
-		Spec: v1alpha1.PipelineSpec{
+		Spec: tekv1alpha1.PipelineSpec{
 			Tasks: pipelineTasks,
 		},
 	}
@@ -1004,7 +1024,15 @@ func (c *Controller) createConfigMap(name string, data map[string]string, namesp
 		Data: data,
 	}
 
-	return c.kubeclient.CoreV1().ConfigMaps(namespace).Create(configMap)
+	configMap, err := c.kubeclient.CoreV1().ConfigMaps(namespace).Create(configMap)
+	if k8serrors.IsAlreadyExists(err) {
+		configMap, err = c.kubeclient.CoreV1().ConfigMaps(namespace).Get(name, metav1.GetOptions{})
+	}
+	if err != nil {
+		return nil, errors.NewWorkflowExecutionError().WithCause(err)
+	}
+
+	return configMap, nil
 }
 
 func NewController(manager *DependencyManager, cfg *config.WorkflowControllerConfig, vc *vault.VaultAuth, bs storage.BlobStore, namespace string, mets *metrics.Metrics) *Controller {
@@ -1028,7 +1056,7 @@ func NewController(manager *DependencyManager, cfg *config.WorkflowControllerCon
 	}
 
 	c.wfrworker = newWorker("WorkflowRuns", (*c).processWorkflowRun, defaultMaxRetries)
-	c.plrworker = newWorker("PipelineRuns", (*c).processPipelineRunChange, defaultMaxRetries)
+	c.plrworker = newWorker("PipelineRuns", (*c).processPipelineRun, defaultMaxRetries)
 
 	wfrInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.enqueueWorkflowRun,
@@ -1043,24 +1071,11 @@ func NewController(manager *DependencyManager, cfg *config.WorkflowControllerCon
 	return c
 }
 
-func getContainer(metadataAPIURL string, name string, step *nebulav1.WorkflowStep) (*corev1.Container, []corev1.Volume) {
+func getTaskContainer(metadataAPIURL string, name string, step *nebulav1.WorkflowStep) (*corev1.Container, []corev1.Volume) {
 	volumeMounts := getVolumeMounts(name, step)
 	volumes := getVolumes(volumeMounts)
 	environmentVariables := buildEnvironmentVariables(metadataAPIURL, name)
-
-	container := &corev1.Container{
-		Name:            name,
-		Image:           step.Image,
-		ImagePullPolicy: corev1.PullAlways,
-		VolumeMounts:    volumeMounts,
-		Env:             environmentVariables,
-		SecurityContext: &corev1.SecurityContext{
-			// We can't use RunAsUser et al. here because they don't allow write
-			// access to the container filesystem. Eventually, we'll use gVisor
-			// to protect us here.
-			AllowPrivilegeEscalation: func(b bool) *bool { return &b }(false),
-		},
-	}
+	container := getContainer(name, step.Image, volumeMounts, environmentVariables)
 
 	if len(step.Input) > 0 {
 		container.Command = []string{NebulaMountPath + "/" + NebulaEntrypointFile}
@@ -1074,6 +1089,24 @@ func getContainer(metadataAPIURL string, name string, step *nebulav1.WorkflowSte
 	}
 
 	return container, volumes
+}
+
+func getContainer(name string, image string, volumeMounts []corev1.VolumeMount, environmentVariables []corev1.EnvVar) *corev1.Container {
+	container := &corev1.Container{
+		Name:            name,
+		Image:           image,
+		ImagePullPolicy: corev1.PullAlways,
+		VolumeMounts:    volumeMounts,
+		Env:             environmentVariables,
+		SecurityContext: &corev1.SecurityContext{
+			// We can't use RunAsUser et al. here because they don't allow write
+			// access to the container filesystem. Eventually, we'll use gVisor
+			// to protect us here.
+			AllowPrivilegeEscalation: func(b bool) *bool { return &b }(false),
+		},
+	}
+
+	return container
 }
 
 func buildEnvironmentVariables(metadataAPIURL string, name string) []corev1.EnvVar {
@@ -1254,7 +1287,7 @@ func copyImagePullSecret(workingNamespace string, kc kubernetes.Interface, wfr *
 
 	secret, err = kc.CoreV1().Secrets(wfr.GetNamespace()).Create(secret)
 	if k8serrors.IsAlreadyExists(err) {
-		secret, err = kc.CoreV1().Secrets(wfr.GetNamespace()).Get(secret.GetName(), metav1.GetOptions{})
+		secret, err = kc.CoreV1().Secrets(wfr.GetNamespace()).Get(metadataImagePullSecretName, metav1.GetOptions{})
 	} else if err != nil {
 		return nil, err
 	}
