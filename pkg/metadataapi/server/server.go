@@ -33,6 +33,10 @@ type Server struct {
 	// on the /outputs/* path
 	outputsHandler http.Handler
 
+	// stateHandler handles requests for setting and getting task state
+	// on the /state/* path
+	stateHandler http.Handler
+
 	// healthCheckHandler handles requests to check the readiness and health of
 	// the metadata server
 	healthCheckHandler http.Handler
@@ -50,6 +54,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.specsHandler.ServeHTTP(w, r)
 	case "outputs":
 		s.outputsHandler.ServeHTTP(w, r)
+	case "state":
+		s.stateHandler.ServeHTTP(w, r)
 	case "healthz":
 		s.healthCheckHandler.ServeHTTP(w, r)
 	default:
@@ -94,6 +100,11 @@ func New(cfg *config.MetadataServerConfig, managers op.ManagerFactory) *Server {
 			logger: cfg.Logger,
 		}))
 
+	state := middleware.ManagerFactoryMiddleware(managers)(
+		middleware.TaskMetadataMiddleware(&stateHandler{
+			logger: cfg.Logger,
+		}))
+
 	return &Server{
 		bindAddr:           cfg.BindAddr,
 		logger:             cfg.Logger,
@@ -101,6 +112,7 @@ func New(cfg *config.MetadataServerConfig, managers op.ManagerFactory) *Server {
 		secretsHandler:     secrets,
 		specsHandler:       specs,
 		outputsHandler:     outputs,
+		stateHandler:       state,
 		healthCheckHandler: &healthCheckHandler{},
 	}
 }
