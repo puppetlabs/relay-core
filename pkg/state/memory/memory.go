@@ -1,13 +1,16 @@
 package memory
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha1"
 	"encoding/hex"
+	"fmt"
+	"io"
 	"sync"
 
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
-	"github.com/puppetlabs/nebula-tasks/pkg/outputs"
+	"github.com/puppetlabs/nebula-tasks/pkg/state"
 )
 
 type StateManager struct {
@@ -16,30 +19,58 @@ type StateManager struct {
 	sync.Mutex
 }
 
-func (sm *StateManager) Get(ctx context.Context, stepName, key string) (*outputs.Output, errors.Error) {
+func (sm *StateManager) Get(ctx context.Context, taskHash [sha1.Size]byte, key string) (*state.State, errors.Error) {
 	sm.Lock()
 	defer sm.Unlock()
 
-	stepHash := sha1.Sum([]byte(stepName))
-	stepHashKey := hex.EncodeToString(stepHash[:])
+	name := fmt.Sprintf("task-%x-state", taskHash)
+	taskHashKey := hex.EncodeToString(taskHash[:])
 
 	if sm.data == nil {
-		return nil, errors.NewOutputsTaskNotFound(stepName)
+		return nil, errors.NewStateTaskNotFound(name)
 	}
 
-	if sm.data[stepHashKey] == nil {
-		return nil, errors.NewOutputsTaskNotFound(stepName)
+	if sm.data[taskHashKey] == nil {
+		return nil, errors.NewStateTaskNotFound(name)
 	}
 
-	if sm.data[stepHashKey][key] == nil {
-		return nil, errors.NewOutputsKeyNotFound(key)
+	if sm.data[taskHashKey][key] == nil {
+		return nil, errors.NewStateKeyNotFound(key)
 	}
 
-	return &outputs.Output{
-		TaskName: stepName,
-		Key:      key,
-		Value:    string(sm.data[stepHashKey][key]),
+	return &state.State{
+		Key:   key,
+		Value: string(sm.data[taskHashKey][key]),
 	}, nil
+}
+
+func (sm *StateManager) Set(ctx context.Context, taskHash [sha1.Size]byte, key string, value io.Reader) errors.Error {
+	sm.Lock()
+	defer sm.Unlock()
+
+	taskHashKey := hex.EncodeToString(taskHash[:])
+
+	if key == "" {
+		return errors.NewStateKeyEmptyError()
+	}
+
+	if sm.data == nil {
+		sm.data = make(map[string]map[string][]byte)
+	}
+
+	if sm.data[taskHashKey] == nil {
+		sm.data[taskHashKey] = make(map[string][]byte)
+	}
+
+	buf := &bytes.Buffer{}
+	_, err := buf.ReadFrom(value)
+	if err != nil {
+		return errors.NewStateValueReadError().WithCause(err)
+	}
+
+	sm.data[taskHashKey][key] = buf.Bytes()
+
+	return nil
 }
 
 func New() *StateManager {

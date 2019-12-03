@@ -100,9 +100,10 @@ func New(cfg *config.MetadataServerConfig, managers op.ManagerFactory) *Server {
 			logger: cfg.Logger,
 		}))
 
-	state := middleware.ManagerFactoryMiddleware(managers)(&stateHandler{
-		logger: cfg.Logger,
-	})
+	state := middleware.ManagerFactoryMiddleware(managers)(
+		middleware.TaskMetadataMiddleware(&stateHandler{
+			logger: cfg.Logger,
+		}))
 
 	return &Server{
 		bindAddr:           cfg.BindAddr,

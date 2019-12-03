@@ -13,7 +13,6 @@ import (
 	stconfigmap "github.com/puppetlabs/nebula-tasks/pkg/state/configmap"
 	stmemory "github.com/puppetlabs/nebula-tasks/pkg/state/memory"
 	"github.com/puppetlabs/nebula-tasks/pkg/task"
-
 	"gopkg.in/yaml.v2"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
