@@ -1,9 +1,11 @@
 package workflow
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha1"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -43,6 +45,7 @@ import (
 	clientset "github.com/puppetlabs/nebula-tasks/pkg/generated/clientset/versioned"
 	neblisters "github.com/puppetlabs/nebula-tasks/pkg/generated/listers/nebula.puppet.com/v1"
 	"github.com/puppetlabs/nebula-tasks/pkg/secrets/vault"
+	stconfigmap "github.com/puppetlabs/nebula-tasks/pkg/state/configmap"
 	"github.com/puppetlabs/nebula-tasks/pkg/util"
 )
 
@@ -65,6 +68,12 @@ const (
 	WorkflowRunStatusFailure    WorkflowRunStatus = "failure"
 )
 
+type WorkflowStepType string
+
+const (
+	WorkflowStepTypeApproval WorkflowStepType = "approval"
+)
+
 const (
 	// default name for the workflow metadata api pod and service
 	metadataServiceName = "metadata-api"
@@ -85,10 +94,6 @@ const (
 	NebulaSpecFile       = "spec.json"
 )
 
-const (
-	ParameterTypeName = "Parameter"
-)
-
 type podAndTaskName struct {
 	PodName  string
 	TaskName string
@@ -96,6 +101,7 @@ type podAndTaskName struct {
 
 type StepTask struct {
 	stepName  string
+	stepType  string
 	taskName  string
 	dependsOn []string
 }
@@ -376,6 +382,25 @@ func (c *Controller) processWorkflowRun(ctx context.Context, key string) error {
 	return err
 }
 
+func (c *Controller) writeWorkflowState(wr *nebulav1.WorkflowRun, taskHash [sha1.Size]byte, state nebulav1.WorkflowState) errors.Error {
+	stm := stconfigmap.New(c.kubeclient, wr.GetNamespace())
+	ctx := context.Background()
+
+	data, err := json.Marshal(state)
+	if err != nil {
+		return errors.NewServerJSONEncodingError().WithCause(err)
+	}
+
+	buf := &bytes.Buffer{}
+	buf.Write(data)
+	err = stm.Set(ctx, taskHash, "state", buf)
+	if err != nil {
+		return errors.NewWorkflowExecutionError().WithCause(err)
+	}
+
+	return nil
+}
+
 func (c *Controller) handleWorkflowRun(ctx context.Context, wr *nebulav1.WorkflowRun) error {
 	err := c.initializeWorkflowRun(ctx, wr)
 	if err != nil {
@@ -417,6 +442,14 @@ func (c *Controller) handleWorkflowRun(ctx context.Context, wr *nebulav1.Workflo
 }
 
 func (c *Controller) initializeWorkflowRun(ctx context.Context, wr *nebulav1.WorkflowRun) error {
+	for name, value := range wr.State.Steps {
+		hash := sha1.Sum([]byte(name))
+		err := c.writeWorkflowState(wr, hash, value)
+		if err != nil {
+			return err
+		}
+	}
+
 	// If we haven't set the state of the run yet, then we need to ensure all the secret access
 	// and rbac is setup.
 	if wr.Status.Status == "" {
@@ -441,18 +474,6 @@ func (c *Controller) initializeWorkflowRun(ctx context.Context, wr *nebulav1.Wor
 	}
 
 	return nil
-}
-
-func (c *Controller) createOrUpdateConfigMap(namespace string, cm *corev1.ConfigMap) error {
-	if string(cm.GetUID()) == "" {
-		_, err := c.kubeclient.CoreV1().ConfigMaps(namespace).Create(cm)
-
-		return err
-	}
-
-	_, err := c.kubeclient.CoreV1().ConfigMaps(namespace).Update(cm)
-
-	return err
 }
 
 func (c *Controller) createAccessResources(ctx context.Context, wr *nebulav1.WorkflowRun) (*corev1.Service, error) {
@@ -913,6 +934,7 @@ func (c *Controller) createTasks(wr *nebulav1.WorkflowRun, service *corev1.Servi
 
 		stepTasks[step.Name] = StepTask{
 			stepName:  step.Name,
+			stepType:  step.Type,
 			taskName:  taskName,
 			dependsOn: step.DependsOn,
 		}
@@ -958,7 +980,18 @@ func (c *Controller) createTaskConfigMap(name string, namespace string, workflow
 }
 
 func (c *Controller) createTaskFromStep(name string, namespace string, metadataAPIURL string, step *nebulav1.WorkflowStep) (*tekv1alpha1.Task, errors.Error) {
-	container, volumes := getTaskContainer(metadataAPIURL, name, step)
+	variantStep := step
+	switch step.Type {
+	case string(WorkflowStepTypeApproval):
+		variantStep = &nebulav1.WorkflowStep{
+			Name:  step.Name,
+			Type:  step.Type,
+			Image: c.cfg.ApprovalTypeImage,
+			Spec:  step.Spec,
+		}
+	}
+
+	container, volumes := getTaskContainer(metadataAPIURL, name, variantStep)
 	return c.createTask(name, step.Name, namespace, container, volumes)
 }
 

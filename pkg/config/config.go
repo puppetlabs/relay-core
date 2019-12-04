@@ -54,6 +54,7 @@ type WorkflowControllerConfig struct {
 	MetadataServiceImagePullSecret string
 	MetadataServiceVaultAddr       string
 	MetadataServiceCheckEnabled    bool
+	ApprovalTypeImage              string
 }
 
 // K8sClusterProvisionerConfig is the configuration object to used
