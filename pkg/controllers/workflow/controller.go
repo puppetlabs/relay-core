@@ -493,7 +493,17 @@ func (c *Controller) createAccessResources(ctx context.Context, wr *nebulav1.Wor
 		}
 	}
 
-	saccount, err = createServiceAccount(c.kubeclient, wr, ips)
+	_, err = createServiceAccount(c.kubeclient, wr, "core", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = createServiceAccount(c.kubeclient, wr, "system", ips)
+	if err != nil {
+		return nil, err
+	}
+
+	saccount, err = createServiceAccount(c.kubeclient, wr, "metadata", ips)
 	if err != nil {
 		return nil, err
 	}
@@ -504,7 +514,7 @@ func (c *Controller) createAccessResources(ctx context.Context, wr *nebulav1.Wor
 		return nil, err
 	}
 
-	_, _, err = createRBAC(c.kubeclient, wr)
+	_, _, err = createRBAC(c.kubeclient, wr, saccount)
 	if err != nil {
 		return nil, err
 	}
@@ -603,6 +613,19 @@ func (c *Controller) createPipelineRun(wr *nebulav1.WorkflowRun) (*tekv1alpha1.P
 
 	runID := wr.Spec.Name
 
+	serviceAccounts := make([]tekv1alpha1.PipelineRunSpecServiceAccount, 0)
+	for index, step := range wr.Spec.Workflow.Steps {
+		switch step.Type {
+		case string(WorkflowStepTypeApproval):
+			taskName := util.Slug(fmt.Sprintf("task-%d-%s", index, step.Name))
+			psa := tekv1alpha1.PipelineRunSpecServiceAccount{
+				TaskName:       taskName,
+				ServiceAccount: getName(wr, "system"),
+			}
+			serviceAccounts = append(serviceAccounts, psa)
+		}
+	}
+
 	pipelineRun := &tekv1alpha1.PipelineRun{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            runID,
@@ -611,7 +634,8 @@ func (c *Controller) createPipelineRun(wr *nebulav1.WorkflowRun) (*tekv1alpha1.P
 			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(wr, controllerKind)},
 		},
 		Spec: tekv1alpha1.PipelineRunSpec{
-			ServiceAccount: getName(wr, ""),
+			ServiceAccount:  getName(wr, "core"),
+			ServiceAccounts: serviceAccounts,
 			PipelineRef: tekv1alpha1.PipelineRef{
 				Name: runID,
 			},
@@ -1328,14 +1352,16 @@ func copyImagePullSecret(workingNamespace string, kc kubernetes.Interface, wfr *
 	return secret, nil
 }
 
-func createServiceAccount(kc kubernetes.Interface, wfr *nebulav1.WorkflowRun, imagePullSecret *corev1.Secret) (*corev1.ServiceAccount, error) {
+func createServiceAccount(kc kubernetes.Interface, wfr *nebulav1.WorkflowRun, identifier string, imagePullSecret *corev1.Secret) (*corev1.ServiceAccount, error) {
+	name := getName(wfr, identifier)
+
 	saccount := &corev1.ServiceAccount{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
 			Kind:       "ServiceAccount",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            getName(wfr, ""),
+			Name:            name,
 			Namespace:       wfr.GetNamespace(),
 			Labels:          getLabels(wfr, nil),
 			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(wfr, controllerKind)},
@@ -1348,10 +1374,10 @@ func createServiceAccount(kc kubernetes.Interface, wfr *nebulav1.WorkflowRun, im
 		}
 	}
 
-	klog.Infof("creating service account %s", wfr.GetName())
+	klog.Infof("creating service account %s", name)
 	saccount, err := kc.CoreV1().ServiceAccounts(wfr.GetNamespace()).Create(saccount)
 	if k8serrors.IsAlreadyExists(err) {
-		saccount, err = kc.CoreV1().ServiceAccounts(wfr.GetNamespace()).Get(getName(wfr, ""), metav1.GetOptions{})
+		saccount, err = kc.CoreV1().ServiceAccounts(wfr.GetNamespace()).Get(name, metav1.GetOptions{})
 	}
 	if err != nil {
 		return nil, err
@@ -1360,7 +1386,7 @@ func createServiceAccount(kc kubernetes.Interface, wfr *nebulav1.WorkflowRun, im
 	return saccount, nil
 }
 
-func createRBAC(kc kubernetes.Interface, wfr *nebulav1.WorkflowRun) (*rbacv1.Role, *rbacv1.RoleBinding, error) {
+func createRBAC(kc kubernetes.Interface, wfr *nebulav1.WorkflowRun, sa *corev1.ServiceAccount) (*rbacv1.Role, *rbacv1.RoleBinding, error) {
 	var err error
 
 	role := &rbacv1.Role{
@@ -1406,7 +1432,7 @@ func createRBAC(kc kubernetes.Interface, wfr *nebulav1.WorkflowRun) (*rbacv1.Rol
 		},
 		Subjects: []rbacv1.Subject{
 			{
-				Name:      getName(wfr, ""),
+				Name:      sa.GetName(),
 				Kind:      "ServiceAccount",
 				Namespace: wfr.GetNamespace(),
 			},
@@ -1564,7 +1590,7 @@ func getName(wfr *nebulav1.WorkflowRun, name string) string {
 		return fmt.Sprintf("%s-%s", prefix, wfr.Spec.Name)
 	}
 
-	return fmt.Sprintf("%s-%s-%s", prefix, wfr.Spec.Name, name)
+	return fmt.Sprintf("%s-%s-%s", prefix, wfr.GetName(), name)
 }
 
 func getLabels(wfr *nebulav1.WorkflowRun, additional map[string]string) map[string]string {
