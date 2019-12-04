@@ -1146,13 +1146,7 @@ func buildEnvironmentVariables(metadataAPIURL string, name string) []corev1.EnvV
 	// this sets the endpoint to the metadata service for accessing the spec
 	specPath := path.Join("/", "specs", name)
 
-	statePath := path.Join("/", "state")
-
 	containerVars := []corev1.EnvVar{
-		{
-			Name:  "STATE_URL",
-			Value: metadataAPIURL + statePath,
-		},
 		{
 			// TODO SPEC_URL will change to something else at a later date.
 			// This will more than likely become a constant in the nebula-tasks package.

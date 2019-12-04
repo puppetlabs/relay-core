@@ -10,6 +10,7 @@ JQ="${JQ:-jq}"
 # Variables
 #
 
+STATE_URL_PATH="${STATE_URL_PATH:-state}"
 STATE_KEY_NAME="${STATE_KEY_NAME:-state}"
 VALUE_KEY_NAME="${VALUE_KEY_NAME:-value}"
 APPROVAL_KEY_NAME="${APPROVAL_KEY_NAME:-approved}"
@@ -23,7 +24,7 @@ POLLING_ITERATIONS="${POLLING_ITERATIONS:-720}"
 #
 
 for i in $(seq ${POLLING_ITERATIONS}); do
-  STATE=$(curl "$STATE_URL/${STATE_KEY_NAME}")
+  STATE=$(curl "$METADATA_API_URL/$STATE_URL_PATH/$STATE_KEY_NAME")
   VALUE=$(echo $STATE | $JQ --arg value "$VALUE_KEY_NAME" -r '.[$value]')
   APPROVAL=$(echo $VALUE | $JQ --arg approval "$APPROVAL_KEY_NAME" -r '.[$approval]')
   if [ "$APPROVAL" = ${APPROVED_FLAG} ]; then
