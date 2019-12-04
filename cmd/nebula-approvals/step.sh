@@ -24,7 +24,7 @@ POLLING_ITERATIONS="${POLLING_ITERATIONS:-720}"
 #
 
 for i in $(seq ${POLLING_ITERATIONS}); do
-  STATE=$(curl "$METADATA_API_URL/$STATE_URL_PATH/$STATE_KEY_NAME")
+  STATE=$(curl "$METADATA_API_URL/${STATE_URL_PATH}/${STATE_KEY_NAME}")
   VALUE=$(echo $STATE | $JQ --arg value "$VALUE_KEY_NAME" -r '.[$value]')
   APPROVAL=$(echo $VALUE | $JQ --arg approval "$APPROVAL_KEY_NAME" -r '.[$approval]')
   if [ "$APPROVAL" = ${APPROVED_FLAG} ]; then
