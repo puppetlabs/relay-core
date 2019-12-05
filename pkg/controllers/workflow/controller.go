@@ -94,6 +94,12 @@ const (
 	NebulaSpecFile       = "spec.json"
 )
 
+const (
+	ServiceAccountIdentifierCustomer = "customer"
+	ServiceAccountIdentifierSystem   = "system"
+	ServiceAccountIdentifierMetadata = "metadata"
+)
+
 type podAndTaskName struct {
 	PodName  string
 	TaskName string
@@ -493,17 +499,17 @@ func (c *Controller) createAccessResources(ctx context.Context, wr *nebulav1.Wor
 		}
 	}
 
-	_, err = createServiceAccount(c.kubeclient, wr, "core", nil)
+	_, err = createServiceAccount(c.kubeclient, wr, ServiceAccountIdentifierCustomer, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = createServiceAccount(c.kubeclient, wr, "system", ips)
+	_, err = createServiceAccount(c.kubeclient, wr, ServiceAccountIdentifierSystem, ips)
 	if err != nil {
 		return nil, err
 	}
 
-	saccount, err = createServiceAccount(c.kubeclient, wr, "metadata", ips)
+	saccount, err = createServiceAccount(c.kubeclient, wr, ServiceAccountIdentifierMetadata, ips)
 	if err != nil {
 		return nil, err
 	}
@@ -620,7 +626,7 @@ func (c *Controller) createPipelineRun(wr *nebulav1.WorkflowRun) (*tekv1alpha1.P
 			taskName := util.Slug(fmt.Sprintf("task-%d-%s", index, step.Name))
 			psa := tekv1alpha1.PipelineRunSpecServiceAccount{
 				TaskName:       taskName,
-				ServiceAccount: getName(wr, "system"),
+				ServiceAccount: getName(wr, ServiceAccountIdentifierSystem),
 			}
 			serviceAccounts = append(serviceAccounts, psa)
 		}
@@ -634,7 +640,7 @@ func (c *Controller) createPipelineRun(wr *nebulav1.WorkflowRun) (*tekv1alpha1.P
 			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(wr, controllerKind)},
 		},
 		Spec: tekv1alpha1.PipelineRunSpec{
-			ServiceAccount:  getName(wr, "core"),
+			ServiceAccount:  getName(wr, ServiceAccountIdentifierCustomer),
 			ServiceAccounts: serviceAccounts,
 			PipelineRef: tekv1alpha1.PipelineRef{
 				Name: runID,
