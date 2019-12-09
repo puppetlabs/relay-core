@@ -2,7 +2,7 @@
 set -euo pipefail
 
 NEBULA_TASKS_REPO_BASE="${NEBULA_TASKS_REPO_BASE:-gcr.io/nebula-235818}"
-NEBULA_TASKS_RELEASE_REPOS=( "${NEBULA_TASKS_REPO_BASE}/nebula-workflow-controller" "${NEBULA_TASKS_REPO_BASE}/nebula-metadata-api" )
+NEBULA_TASKS_RELEASE_REPOS=( "${NEBULA_TASKS_REPO_BASE}/nebula-workflow-controller" "${NEBULA_TASKS_REPO_BASE}/nebula-metadata-api" "${NEBULA_TASKS_REPO_BASE}/nebula-approvals" )
 
 release_docker_images() {
     if [ "${NO_DOCKER_PUSH}" != "yes" ]; then

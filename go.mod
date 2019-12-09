@@ -22,7 +22,7 @@ require (
 	github.com/puppetlabs/horsehead/v2 v2.4.0
 	github.com/puppetlabs/nebula-libs/storage/file/v2 v2.0.0
 	github.com/puppetlabs/nebula-libs/storage/gcs/v2 v2.0.0
-	github.com/puppetlabs/nebula-sdk v1.4.0
+	github.com/puppetlabs/nebula-sdk v1.5.0
 	github.com/stretchr/testify v1.4.0
 	github.com/tektoncd/pipeline v0.7.0
 	go.uber.org/atomic v1.4.0 // indirect

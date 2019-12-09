@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/fn"
+	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/fnlib"
 )
 
 type MemorySecretTypeResolver struct {
@@ -127,5 +128,5 @@ func NewMemoryInvocationResolver(m fn.Map) *MemoryInvocationResolver {
 }
 
 func NewDefaultMemoryInvocationResolver() *MemoryInvocationResolver {
-	return NewMemoryInvocationResolver(fn.Library)
+	return NewMemoryInvocationResolver(fnlib.Library())
 }

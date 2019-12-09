@@ -26,8 +26,8 @@ declare -A NEBULA_WORKFLOWS
 
 [ -r "nebula-deploy.sh" ] && source "nebula-deploy.sh"
 
-NEBULA_WORKFLOWS[master]=nebula-system-deploy-prod-1
-NEBULA_WORKFLOWS[development]=nebula-system-deploy-stage-1
+NEBULA_WORKFLOWS[master]=nebula-prod-1
+NEBULA_WORKFLOWS[development]=nebula-stage-1
 
 NEBULA_WORKFLOW=${NEBULA_WORKFLOWS["$TRAVIS_BRANCH"]:-}
 if [ -z "${NEBULA_WORKFLOW}" ]; then
