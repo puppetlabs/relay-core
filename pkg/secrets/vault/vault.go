@@ -93,7 +93,7 @@ func (v *vaultLoggedInClient) login(ctx context.Context) errors.Error {
 			"role": v.cfg.Role,
 		}
 
-		mountPath := "auth/kubernetes"
+		mountPath := defaultAuthMountPath
 		if v.cfg.K8sAuthMountPath != "" {
 			mountPath = v.cfg.K8sAuthMountPath
 		}

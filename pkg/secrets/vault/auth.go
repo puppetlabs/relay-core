@@ -10,13 +10,17 @@ import (
 	"github.com/puppetlabs/nebula-tasks/pkg/secrets"
 )
 
-const defaultEngineMount = "nebula"
+const (
+	defaultEngineMount   = "nebula"
+	defaultAuthMountPath = "auth/kubernetes"
+)
 
 // VaultAuth is a vault client that creates roles tied to kubernetes service accounts
 // and attaches policies to those roles.
 type VaultAuth struct {
-	client      *vaultapi.Client
-	engineMount string
+	client        *vaultapi.Client
+	authMountPath string
+	engineMount   string
 }
 
 // GrantScopedAccess grants pods in namespace with serviceAccount attached access to secrets scoped under
@@ -132,7 +136,7 @@ func (v *VaultAuth) buildMountPath(workflowID string) string {
 // roleMountPath takes a namespace and returns a role path using the vault
 // k8s auth path prefix
 func (v *VaultAuth) roleMountPath(namespace string) string {
-	return path.Join("auth/kubernetes/role", namespace)
+	return path.Join(fmt.Sprintf("%s/role", v.authMountPath), namespace)
 }
 
 // NewVaultAuth takes a vault Config and returns a new VaultAuth instance.
@@ -150,8 +154,14 @@ func NewVaultAuth(cfg *Config) (*VaultAuth, error) {
 		engineMount = defaultEngineMount
 	}
 
+	authMountPath := cfg.K8sAuthMountPath
+	if authMountPath == "" {
+		authMountPath = defaultAuthMountPath
+	}
+
 	return &VaultAuth{
-		client:      v,
-		engineMount: engineMount,
+		client:        v,
+		authMountPath: authMountPath,
+		engineMount:   engineMount,
 	}, nil
 }
