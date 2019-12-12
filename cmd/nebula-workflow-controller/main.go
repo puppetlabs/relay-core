@@ -64,9 +64,10 @@ func main() {
 	}
 
 	vc, err := vault.NewVaultAuth(&vault.Config{
-		Addr:        *vaultAddr,
-		Token:       *vaultToken,
-		EngineMount: *vaultEngineMount,
+		Addr:             *vaultAddr,
+		K8sAuthMountPath: *metadataServiceVaultAuthMountPath,
+		Token:            *vaultToken,
+		EngineMount:      *vaultEngineMount,
 	})
 	if err != nil {
 		log.Fatal("Error initializing the vault client from the -vault-addr -vault-token and -vault-engine-mount", err)
