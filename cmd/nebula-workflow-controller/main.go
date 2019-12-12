@@ -42,6 +42,7 @@ func main() {
 	metadataServiceImage := fs.String("metadata-service-image", "gcr.io/nebula-235818/nebula-metadata-api:latest", "the image and tag to use for the metadata service api")
 	metadataServiceImagePullSecret := fs.String("metadata-service-image-pull-secret", "", "the optionally namespaced name of the image pull secret to use for the metadata service")
 	metadataServiceVaultAddr := fs.String("metadata-service-vault-addr", "", "the address to use when authenticating the metadata service to Vault")
+	metadataServiceVaultAuthMountPath := fs.String("metadata-service-vault-auth-mount-path", "", "the mount path to use when authenticating the metadata service to Vault")
 	metadataServiceCheckEnabled := fs.Bool("metadata-service-check-enabled", true, "whether to enable checking the metadata service over HTTP")
 	numWorkers := fs.Int("num-workers", 2, "the number of worker threads to spawn that process Workflow resources")
 	metricsEnabled := fs.Bool("metrics-enabled", false, "enables the metrics collection and server")
@@ -54,11 +55,12 @@ func main() {
 	klog.InitFlags(klogFlags)
 
 	cfg := &config.WorkflowControllerConfig{
-		MetadataServiceImage:           *metadataServiceImage,
-		MetadataServiceImagePullSecret: *metadataServiceImagePullSecret,
-		MetadataServiceVaultAddr:       *metadataServiceVaultAddr,
-		MetadataServiceCheckEnabled:    *metadataServiceCheckEnabled,
-		ApprovalTypeImage:              *approvalTypeImage,
+		MetadataServiceImage:              *metadataServiceImage,
+		MetadataServiceImagePullSecret:    *metadataServiceImagePullSecret,
+		MetadataServiceVaultAddr:          *metadataServiceVaultAddr,
+		MetadataServiceVaultAuthMountPath: *metadataServiceVaultAuthMountPath,
+		MetadataServiceCheckEnabled:       *metadataServiceCheckEnabled,
+		ApprovalTypeImage:                 *approvalTypeImage,
 	}
 
 	vc, err := vault.NewVaultAuth(&vault.Config{

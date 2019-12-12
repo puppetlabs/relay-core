@@ -533,12 +533,18 @@ func (c *Controller) createAccessResources(ctx context.Context, wr *nebulav1.Wor
 		podVaultAddr = grant.BackendAddr
 	}
 
+	podVaultAuthMountPath := c.cfg.MetadataServiceVaultAuthMountPath
+	if podVaultAuthMountPath == "" {
+		podVaultAuthMountPath = "auth/kubernetes"
+	}
+
 	_, err = createMetadataAPIPod(
 		c.kubeclient,
 		c.cfg.MetadataServiceImage,
 		saccount,
 		wr,
 		podVaultAddr,
+		podVaultAuthMountPath,
 		grant.ScopedPath,
 	)
 	if err != nil {
@@ -1467,7 +1473,7 @@ func createRBAC(kc kubernetes.Interface, wfr *nebulav1.WorkflowRun, sa *corev1.S
 }
 
 func createMetadataAPIPod(kc kubernetes.Interface, image string, saccount *corev1.ServiceAccount,
-	wfr *nebulav1.WorkflowRun, secretsAddr, scopedSecretsPath string) (*corev1.Pod, error) {
+	wfr *nebulav1.WorkflowRun, secretsAddr, secretsAuthMountPath, scopedSecretsPath string) (*corev1.Pod, error) {
 
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1491,6 +1497,8 @@ func createMetadataAPIPod(kc kubernetes.Interface, image string, saccount *corev
 						":7000",
 						"-vault-addr",
 						secretsAddr,
+						"-vault-auth-mount-path",
+						secretsAuthMountPath,
 						"-vault-role",
 						wfr.GetNamespace(),
 						"-scoped-secrets-path",

@@ -22,6 +22,7 @@ func main() {
 	debug := flag.Bool("debug", false, "Enable debug output")
 	vaultAddr := flag.String("vault-addr", "http://localhost:8200", "Address to the vault server")
 	vaultToken := flag.String("vault-token", "", "Specify in place of -vault-role and -service-account-token-path for using a basic vault token auth")
+	vaultAuthMountPath := flag.String("vault-auth-mount-path", "auth/kubernetes", "The mount path to use when logging in to the Vault server")
 	vaultRole := flag.String("vault-role", "", "The role to use when logging into the vault server")
 	serviceAccountTokenPath := flag.String("service-account-token-path",
 		defaultServiceAccountTokenPath, "The path to k8s pod service account token")
@@ -41,6 +42,7 @@ func main() {
 		VaultAddr:                  *vaultAddr,
 		VaultRole:                  *vaultRole,
 		VaultToken:                 *vaultToken,
+		VaultAuthMountPath:         *vaultAuthMountPath,
 		ScopedSecretsPath:          *scopedSecretsPath,
 		K8sServiceAccountTokenPath: *serviceAccountTokenPath,
 		Namespace:                  *namespace,
