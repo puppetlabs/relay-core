@@ -4,6 +4,7 @@ package vault
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"path"
 	"time"
@@ -92,7 +93,12 @@ func (v *vaultLoggedInClient) login(ctx context.Context) errors.Error {
 			"role": v.cfg.Role,
 		}
 
-		secret, err := v.client.Logical().Write("auth/kubernetes/login", data)
+		mountPath := defaultAuthMountPath
+		if v.cfg.K8sAuthMountPath != "" {
+			mountPath = v.cfg.K8sAuthMountPath
+		}
+
+		secret, err := v.client.Logical().Write(fmt.Sprintf("%s/login", mountPath), data)
 		if err != nil {
 			return errors.NewSecretsVaultLoginError().WithCause(err)
 		}

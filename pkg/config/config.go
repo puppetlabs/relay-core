@@ -18,6 +18,9 @@ type MetadataServerConfig struct {
 	// VaultToken is an optional token to use for authenticating with the
 	// vaule server or agent.
 	VaultToken string
+	// VaultAuthMountPath is the path to use when authentication to Vault using
+	// the service token. Defaults to "auth/kubernetes" if empty.
+	VaultAuthMountPath string
 	// ScopedSecretsPath is the store to use inside secrets backends. Added to the path
 	// segment when crafting the path to a secret.
 	ScopedSecretsPath string
@@ -46,15 +49,16 @@ type MetadataServerConfig struct {
 // WorkflowControllerConfig is the configuration object used to
 // configure the Workflow controller.
 type WorkflowControllerConfig struct {
-	Kubeconfig                     string
-	KubeMasterURL                  string
-	VaultAddr                      string
-	VaultToken                     string
-	MetadataServiceImage           string
-	MetadataServiceImagePullSecret string
-	MetadataServiceVaultAddr       string
-	MetadataServiceCheckEnabled    bool
-	ApprovalTypeImage              string
+	Kubeconfig                        string
+	KubeMasterURL                     string
+	VaultAddr                         string
+	VaultToken                        string
+	MetadataServiceImage              string
+	MetadataServiceImagePullSecret    string
+	MetadataServiceVaultAddr          string
+	MetadataServiceVaultAuthMountPath string
+	MetadataServiceCheckEnabled       bool
+	ApprovalTypeImage                 string
 }
 
 // K8sClusterProvisionerConfig is the configuration object to used

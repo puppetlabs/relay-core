@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"path"
 	"strings"
@@ -533,12 +534,18 @@ func (c *Controller) createAccessResources(ctx context.Context, wr *nebulav1.Wor
 		podVaultAddr = grant.BackendAddr
 	}
 
+	podVaultAuthMountPath := c.cfg.MetadataServiceVaultAuthMountPath
+	if podVaultAuthMountPath == "" {
+		podVaultAuthMountPath = "auth/kubernetes"
+	}
+
 	_, err = createMetadataAPIPod(
 		c.kubeclient,
 		c.cfg.MetadataServiceImage,
 		saccount,
 		wr,
 		podVaultAddr,
+		podVaultAuthMountPath,
 		grant.ScopedPath,
 	)
 	if err != nil {
@@ -815,6 +822,66 @@ func (c *Controller) createNetworkPolicies(namespace string) ([]*networkingv1.Ne
 		},
 	})
 
+	// We need to let the metadata API talk to the Kubernetes master in private
+	// clusters, which use RFC 1918 space. The master is not addressable using a
+	// label selector, sadly.
+	//
+	// Per https://github.com/kubernetes/kubernetes/issues/49978, the additive
+	// nature of network policy peers should let us include 0.0.0.0/0, exclude
+	// 10.0.0.0/8, and then include 10.X.Y.Z/32 (since policies are supposed to
+	// be additive). However, as of 2019-12-12, this does not appear to work
+	// with GKE's Project Calico networking implementation, so we'll instead
+	// filter the master out of our deny list.
+	initialDeny := []string{
+		"0.0.0.0/8",       // "This host on this network"
+		"10.0.0.0/8",      // Private-Use
+		"100.64.0.0/10",   // Shared Address Space
+		"169.254.0.0/16",  // Link Local
+		"172.16.0.0/12",   // Private-Use
+		"192.0.0.0/24",    // IETF Protocol Assignments
+		"192.0.2.0/24",    // Documentation (TEST-NET-1)
+		"192.31.196.0/24", // AS112-v4
+		"192.52.193.0/24", // AMT
+		"192.168.0.0/16",  // Private-Use
+		"192.175.48.0/24", // Direct Delegation AS112 Service
+		"198.18.0.0/15",   // Benchmarking
+		"198.51.100.0/24", // Documentation (TEST-NET-2)
+		"203.0.113.0/24",  // Documentation (TEST-NET-3)
+		"240.0.0.0/4",     // Reserved (multicast)
+	}
+
+	// Get the cluster master endpoints.
+	master, err := c.kubeclient.CoreV1().Endpoints("default").Get("kubernetes", metav1.GetOptions{}) // kubernetes.default.svc
+	if err != nil {
+		return nil, errors.NewWorkflowExecutionError().WithCause(err)
+	}
+
+	var masterIPs []net.IP
+	for _, subset := range master.Subsets {
+		for _, addr := range subset.Addresses {
+			ip := net.ParseIP(addr.IP)
+			if ip != nil {
+				masterIPs = append(masterIPs, ip)
+			}
+		}
+	}
+
+	var filteredDeny []string
+	for _, cidr := range initialDeny {
+		_, network, err := net.ParseCIDR(cidr)
+		if err != nil {
+			// This shouldn't happen, but it will get caught by the admission
+			// controller anyway.
+			filteredDeny = append(filteredDeny, cidr)
+			continue
+		}
+
+		filtered := ipNetExclude(network, masterIPs)
+		for _, filteredNetwork := range filtered {
+			filteredDeny = append(filteredDeny, filteredNetwork.String())
+		}
+	}
+
 	pols = append(pols, &networkingv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "default",
@@ -837,24 +904,8 @@ func (c *Controller) createNetworkPolicies(namespace string) ([]*networkingv1.Ne
 							// Allow all external traffic except RFC 1918 space
 							// and IANA special-purpose address registry.
 							IPBlock: &networkingv1.IPBlock{
-								CIDR: "0.0.0.0/0",
-								Except: []string{
-									"0.0.0.0/8",       // "This host on this network"
-									"10.0.0.0/8",      // Private-Use
-									"100.64.0.0/10",   // Shared Address Space
-									"169.254.0.0/16",  // Link Local
-									"172.16.0.0/12",   // Private-Use
-									"192.0.0.0/24",    // IETF Protocol Assignments
-									"192.0.2.0/24",    // Documentation (TEST-NET-1)
-									"192.31.196.0/24", // AS112-v4
-									"192.52.193.0/24", // AMT
-									"192.168.0.0/16",  // Private-Use
-									"192.175.48.0/24", // Direct Delegation AS112 Service
-									"198.18.0.0/15",   // Benchmarking
-									"198.51.100.0/24", // Documentation (TEST-NET-2)
-									"203.0.113.0/24",  // Documentation (TEST-NET-3)
-									"240.0.0.0/4",     // Reserved (multicast)
-								},
+								CIDR:   "0.0.0.0/0",
+								Except: filteredDeny,
 							},
 						},
 						{
@@ -1467,7 +1518,7 @@ func createRBAC(kc kubernetes.Interface, wfr *nebulav1.WorkflowRun, sa *corev1.S
 }
 
 func createMetadataAPIPod(kc kubernetes.Interface, image string, saccount *corev1.ServiceAccount,
-	wfr *nebulav1.WorkflowRun, secretsAddr, scopedSecretsPath string) (*corev1.Pod, error) {
+	wfr *nebulav1.WorkflowRun, secretsAddr, secretsAuthMountPath, scopedSecretsPath string) (*corev1.Pod, error) {
 
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1491,6 +1542,8 @@ func createMetadataAPIPod(kc kubernetes.Interface, image string, saccount *corev
 						":7000",
 						"-vault-addr",
 						secretsAddr,
+						"-vault-auth-mount-path",
+						secretsAuthMountPath,
 						"-vault-role",
 						wfr.GetNamespace(),
 						"-scoped-secrets-path",

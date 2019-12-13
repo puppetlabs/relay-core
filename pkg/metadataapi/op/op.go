@@ -78,6 +78,7 @@ func NewForKubernetes(ctx context.Context, cfg *config.MetadataServerConfig) (*D
 
 	sm, err := vault.NewVaultWithKubernetesAuth(ctx, &vault.Config{
 		Addr:                       cfg.VaultAddr,
+		K8sAuthMountPath:           cfg.VaultAuthMountPath,
 		K8sServiceAccountTokenPath: cfg.K8sServiceAccountTokenPath,
 		Token:                      cfg.VaultToken,
 		Role:                       cfg.VaultRole,

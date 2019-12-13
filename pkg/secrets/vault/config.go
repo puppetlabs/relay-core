@@ -8,6 +8,8 @@ type Config struct {
 	Addr string
 	// The path to the service account token file
 	K8sServiceAccountTokenPath string
+	// The mount path to use when logging in using Kubernetes
+	K8sAuthMountPath string
 	// Optional token if not using kubernetes auth
 	Token string
 	// The role we should use when logging in
