@@ -426,6 +426,18 @@ func (c *Controller) handleWorkflowRun(ctx context.Context, wr *nebulav1.Workflo
 			cancelled = cancel.(bool)
 		}
 
+		if cancelled {
+			if wr.Status.Status != string(WorkflowRunStatusCancelled) {
+				wfrCopy := wr.DeepCopy()
+				wfrCopy.Status.Status = string(WorkflowRunStatusCancelled)
+
+				_, err = c.nebclient.NebulaV1().WorkflowRuns(wr.GetNamespace()).Update(wfrCopy)
+				if err != nil {
+					return err
+				}
+			}
+		}
+
 		if annotation, ok := wr.GetAnnotations()[pipelineRunAnnotation]; !ok && !cancelled {
 			plr, err := c.createPipelineRun(wr)
 			if err != nil {
