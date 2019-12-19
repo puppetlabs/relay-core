@@ -659,14 +659,14 @@ func (c *Controller) createPipelineRun(wr *nebulav1.WorkflowRun) (*tekv1alpha1.P
 
 	runID := wr.Spec.Name
 
-	serviceAccounts := make([]tekv1alpha1.PipelineRunSpecServiceAccount, 0)
+	serviceAccounts := make([]tekv1alpha1.PipelineRunSpecServiceAccountName, 0)
 	for index, step := range wr.Spec.Workflow.Steps {
 		switch step.Type {
 		case string(WorkflowStepTypeApproval):
 			taskName := util.Slug(fmt.Sprintf("task-%d-%s", index, step.Name))
-			psa := tekv1alpha1.PipelineRunSpecServiceAccount{
-				TaskName:       taskName,
-				ServiceAccount: getName(wr, ServiceAccountIdentifierSystem),
+			psa := tekv1alpha1.PipelineRunSpecServiceAccountName{
+				TaskName:           taskName,
+				ServiceAccountName: getName(wr, ServiceAccountIdentifierSystem),
 			}
 			serviceAccounts = append(serviceAccounts, psa)
 		}
@@ -680,9 +680,9 @@ func (c *Controller) createPipelineRun(wr *nebulav1.WorkflowRun) (*tekv1alpha1.P
 			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(wr, controllerKind)},
 		},
 		Spec: tekv1alpha1.PipelineRunSpec{
-			ServiceAccount:  getName(wr, ServiceAccountIdentifierCustomer),
-			ServiceAccounts: serviceAccounts,
-			PipelineRef: tekv1alpha1.PipelineRef{
+			ServiceAccountName:  getName(wr, ServiceAccountIdentifierCustomer),
+			ServiceAccountNames: serviceAccounts,
+			PipelineRef: &tekv1alpha1.PipelineRef{
 				Name: runID,
 			},
 			PodTemplate: tekv1alpha1.PodTemplate{
@@ -1128,7 +1128,11 @@ func (c *Controller) createTask(taskName string, stepName string, namespace stri
 			},
 		},
 		Spec: tekv1alpha1.TaskSpec{
-			Steps:   []tekv1alpha1.Step{{*container}},
+			Steps: []tekv1alpha1.Step{
+				{
+					Container: *container,
+				},
+			},
 			Volumes: volumes,
 		},
 	}
