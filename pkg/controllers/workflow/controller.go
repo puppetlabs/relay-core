@@ -420,11 +420,7 @@ func (c *Controller) handleWorkflowRun(ctx context.Context, wr *nebulav1.Workflo
 	}
 
 	if wr.ObjectMeta.DeletionTimestamp.IsZero() {
-		cancelled := false
-		workflowState := wr.State.Workflow
-		if cancel, ok := workflowState[WorkflowRunStateCancel]; ok {
-			cancelled = cancel.(bool)
-		}
+		cancelled := isCancelled(wr)
 
 		if cancelled {
 			if wr.Status.Status != string(WorkflowRunStatusCancelled) {
@@ -718,11 +714,8 @@ func (c *Controller) updateWorkflowRunStatus(plr *tekv1alpha1.PipelineRun, wr *n
 	status := string(mapStatus(plr.Status.Status))
 
 	// FIXME Not necessarily true (needs to differentiate between actual failures and cancellations)
-	workflowState := wr.State.Workflow
-	if cancel, ok := workflowState[WorkflowRunStateCancel]; ok {
-		if cancel.(bool) {
-			status = string(WorkflowRunStatusCancelled)
-		}
+	if isCancelled(wr) {
+		status = string(WorkflowRunStatusCancelled)
 	}
 
 	for _, taskRun := range plr.Status.TaskRuns {
@@ -1687,6 +1680,16 @@ func areWeDoneYet(plr *tekv1alpha1.PipelineRun) bool {
 	}
 
 	return true
+}
+
+func isCancelled(wr *nebulav1.WorkflowRun) bool {
+	cancelled := false
+	workflowState := wr.State.Workflow
+	if cancelState, ok := workflowState[WorkflowRunStateCancel]; ok {
+		cancelled, ok = cancelState.(bool)
+	}
+
+	return cancelled
 }
 
 func getName(wfr *nebulav1.WorkflowRun, name string) string {
