@@ -67,6 +67,7 @@ const (
 	WorkflowRunStatusInProgress WorkflowRunStatus = "in-progress"
 	WorkflowRunStatusSuccess    WorkflowRunStatus = "success"
 	WorkflowRunStatusFailure    WorkflowRunStatus = "failure"
+	WorkflowRunStatusCancelled  WorkflowRunStatus = "cancelled"
 )
 
 type WorkflowStepType string
@@ -99,6 +100,10 @@ const (
 	ServiceAccountIdentifierCustomer = "customer"
 	ServiceAccountIdentifierSystem   = "system"
 	ServiceAccountIdentifierMetadata = "metadata"
+)
+
+const (
+	WorkflowRunStateCancel = "cancel"
 )
 
 type podAndTaskName struct {
@@ -294,7 +299,7 @@ func (c *Controller) processPipelineRun(ctx context.Context, key string) error {
 			}
 		}
 
-		status, _ := c.updateWorkflowRunStatus(plr)
+		status, _ := c.updateWorkflowRunStatus(plr, workflow)
 
 		wfrCopy := workflow.DeepCopy()
 		wfrCopy.Status = *status
@@ -415,7 +420,21 @@ func (c *Controller) handleWorkflowRun(ctx context.Context, wr *nebulav1.Workflo
 	}
 
 	if wr.ObjectMeta.DeletionTimestamp.IsZero() {
-		if _, ok := wr.GetAnnotations()[pipelineRunAnnotation]; !ok {
+		cancelled := isCancelled(wr)
+
+		if cancelled {
+			if wr.Status.Status != string(WorkflowRunStatusCancelled) {
+				wfrCopy := wr.DeepCopy()
+				wfrCopy.Status.Status = string(WorkflowRunStatusCancelled)
+
+				_, err = c.nebclient.NebulaV1().WorkflowRuns(wr.GetNamespace()).Update(wfrCopy)
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		if annotation, ok := wr.GetAnnotations()[pipelineRunAnnotation]; !ok && !cancelled {
 			plr, err := c.createPipelineRun(wr)
 			if err != nil {
 				return err
@@ -430,6 +449,20 @@ func (c *Controller) handleWorkflowRun(ctx context.Context, wr *nebulav1.Workflo
 			metav1.SetMetaDataAnnotation(&wr.ObjectMeta, pipelineRunAnnotation, plr.Name)
 
 			wr, err = c.nebclient.NebulaV1().WorkflowRuns(wr.GetNamespace()).Update(wr)
+			if err != nil {
+				return err
+			}
+		} else if ok && cancelled {
+			plr, err := c.tekclient.TektonV1alpha1().PipelineRuns(wr.GetNamespace()).Get(annotation, metav1.GetOptions{})
+			if k8serrors.IsNotFound(err) {
+				return nil
+			}
+			if err != nil {
+				return err
+			}
+
+			plr.Spec.Status = tekv1alpha1.PipelineRunSpecStatusCancelled
+			_, err = c.tekclient.TektonV1alpha1().PipelineRuns(wr.GetNamespace()).Update(plr)
 			if err != nil {
 				return err
 			}
@@ -626,14 +659,14 @@ func (c *Controller) createPipelineRun(wr *nebulav1.WorkflowRun) (*tekv1alpha1.P
 
 	runID := wr.Spec.Name
 
-	serviceAccounts := make([]tekv1alpha1.PipelineRunSpecServiceAccount, 0)
+	serviceAccounts := make([]tekv1alpha1.PipelineRunSpecServiceAccountName, 0)
 	for index, step := range wr.Spec.Workflow.Steps {
 		switch step.Type {
 		case string(WorkflowStepTypeApproval):
 			taskName := util.Slug(fmt.Sprintf("task-%d-%s", index, step.Name))
-			psa := tekv1alpha1.PipelineRunSpecServiceAccount{
-				TaskName:       taskName,
-				ServiceAccount: getName(wr, ServiceAccountIdentifierSystem),
+			psa := tekv1alpha1.PipelineRunSpecServiceAccountName{
+				TaskName:           taskName,
+				ServiceAccountName: getName(wr, ServiceAccountIdentifierSystem),
 			}
 			serviceAccounts = append(serviceAccounts, psa)
 		}
@@ -647,9 +680,9 @@ func (c *Controller) createPipelineRun(wr *nebulav1.WorkflowRun) (*tekv1alpha1.P
 			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(wr, controllerKind)},
 		},
 		Spec: tekv1alpha1.PipelineRunSpec{
-			ServiceAccount:  getName(wr, ServiceAccountIdentifierCustomer),
-			ServiceAccounts: serviceAccounts,
-			PipelineRef: tekv1alpha1.PipelineRef{
+			ServiceAccountName:  getName(wr, ServiceAccountIdentifierCustomer),
+			ServiceAccountNames: serviceAccounts,
+			PipelineRef: &tekv1alpha1.PipelineRef{
 				Name: runID,
 			},
 			PodTemplate: tekv1alpha1.PodTemplate{
@@ -675,8 +708,15 @@ func (c *Controller) createPipelineRun(wr *nebulav1.WorkflowRun) (*tekv1alpha1.P
 	return createdPipelineRun, nil
 }
 
-func (c *Controller) updateWorkflowRunStatus(plr *tekv1alpha1.PipelineRun) (*nebulav1.WorkflowRunStatus, error) {
+func (c *Controller) updateWorkflowRunStatus(plr *tekv1alpha1.PipelineRun, wr *nebulav1.WorkflowRun) (*nebulav1.WorkflowRunStatus, error) {
 	workflowRunSteps := make(map[string]nebulav1.WorkflowRunStep)
+
+	status := string(mapStatus(plr.Status.Status))
+
+	// FIXME Not necessarily true (needs to differentiate between actual failures and cancellations)
+	if isCancelled(wr) {
+		status = string(WorkflowRunStatusCancelled)
+	}
 
 	for _, taskRun := range plr.Status.TaskRuns {
 		if taskRun.Status == nil {
@@ -698,7 +738,7 @@ func (c *Controller) updateWorkflowRunStatus(plr *tekv1alpha1.PipelineRun) (*neb
 	}
 
 	workflowRunStatus := &nebulav1.WorkflowRunStatus{
-		Status: string(mapStatus(plr.Status.Status)),
+		Status: status,
 		Steps:  workflowRunSteps,
 	}
 
@@ -1088,7 +1128,11 @@ func (c *Controller) createTask(taskName string, stepName string, namespace stri
 			},
 		},
 		Spec: tekv1alpha1.TaskSpec{
-			Steps:   []tekv1alpha1.Step{{*container}},
+			Steps: []tekv1alpha1.Step{
+				{
+					Container: *container,
+				},
+			},
 			Volumes: volumes,
 		},
 	}
@@ -1640,6 +1684,16 @@ func areWeDoneYet(plr *tekv1alpha1.PipelineRun) bool {
 	}
 
 	return true
+}
+
+func isCancelled(wr *nebulav1.WorkflowRun) bool {
+	cancelled := false
+	workflowState := wr.State.Workflow
+	if cancelState, ok := workflowState[WorkflowRunStateCancel]; ok {
+		cancelled, ok = cancelState.(bool)
+	}
+
+	return cancelled
 }
 
 func getName(wfr *nebulav1.WorkflowRun, name string) string {
