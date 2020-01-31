@@ -76,9 +76,3 @@ func (u *URL) String() string {
 	uu := url.URL(*u)
 	return uu.String()
 }
-
-// URL returns the URL as a url.URL.
-func (u *URL) URL() *url.URL {
-	url := url.URL(*u)
-	return &url
-}

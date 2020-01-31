@@ -685,7 +685,7 @@ func (c *Controller) createPipelineRun(wr *nebulav1.WorkflowRun) (*tekv1alpha1.P
 			PipelineRef: &tekv1alpha1.PipelineRef{
 				Name: runID,
 			},
-			PodTemplate: tekv1alpha1.PodTemplate{
+			PodTemplate: &tekv1alpha1.PodTemplate{
 				NodeSelector: map[string]string{
 					"nebula.puppet.com/scheduling.customer-ready": "true",
 				},
@@ -1071,7 +1071,7 @@ func (c *Controller) createPipelineTasks(stepTasks StepTasks) ([]tekv1alpha1.Pip
 	for _, stepTask := range stepTasks {
 		pipelineTask := tekv1alpha1.PipelineTask{
 			Name: stepTask.taskName,
-			TaskRef: tekv1alpha1.TaskRef{
+			TaskRef: &tekv1alpha1.TaskRef{
 				Name: stepTask.taskName,
 			},
 		}
