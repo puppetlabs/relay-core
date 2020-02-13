@@ -68,12 +68,14 @@ const (
 	WorkflowRunStatusSuccess    WorkflowRunStatus = "success"
 	WorkflowRunStatusFailure    WorkflowRunStatus = "failure"
 	WorkflowRunStatusCancelled  WorkflowRunStatus = "cancelled"
+	WorkflowRunStatusSkipped    WorkflowRunStatus = "skipped"
+	WorkflowRunStatusTimedOut   WorkflowRunStatus = "timed-out"
 )
 
-type WorkflowStepType string
+type WorkflowConditionType string
 
 const (
-	WorkflowStepTypeApproval WorkflowStepType = "approval"
+	WorkflowConditionTypeApproval WorkflowConditionType = "approval"
 )
 
 const (
@@ -106,16 +108,25 @@ const (
 	WorkflowRunStateCancel = "cancel"
 )
 
+// TODO This needs to be exposed by Tekton in some manner
+const (
+	// ReasonTimedOut indicates that the PipelineRun has taken longer than its configured
+	// timeout
+	ReasonTimedOut = "PipelineRunTimeout"
+
+	// ReasonConditionCheckFailed indicates that the reason for the failure status is that the
+	// condition check associated to the pipeline task evaluated to false
+	ReasonConditionCheckFailed = "ConditionCheckFailed"
+)
+
 type podAndTaskName struct {
 	PodName  string
 	TaskName string
 }
 
 type StepTask struct {
-	stepName  string
-	stepType  string
-	taskName  string
-	dependsOn []string
+	dependsOn  []string
+	conditions []string
 }
 
 type StepTasks map[string]StepTask
@@ -389,6 +400,12 @@ func (c *Controller) processWorkflowRun(ctx context.Context, key string) error {
 		return err
 	}
 
+	// FIXME Debugging purposes only...
+	klog.Info(wr)
+	for index, value := range wr.Spec.Workflow.Steps {
+		klog.Info(index, value)
+	}
+
 	err = c.handleWorkflowRun(ctx, wr)
 
 	return err
@@ -660,16 +677,17 @@ func (c *Controller) createPipelineRun(wr *nebulav1.WorkflowRun) (*tekv1alpha1.P
 	runID := wr.Spec.Name
 
 	serviceAccounts := make([]tekv1alpha1.PipelineRunSpecServiceAccountName, 0)
-	for index, step := range wr.Spec.Workflow.Steps {
-		switch step.Type {
-		case string(WorkflowStepTypeApproval):
-			taskName := util.Slug(fmt.Sprintf("task-%d-%s", index, step.Name))
-			psa := tekv1alpha1.PipelineRunSpecServiceAccountName{
-				TaskName:           taskName,
-				ServiceAccountName: getName(wr, ServiceAccountIdentifierSystem),
-			}
-			serviceAccounts = append(serviceAccounts, psa)
+	for _, step := range wr.Spec.Workflow.Steps {
+		if step == nil {
+			continue
 		}
+		taskHash := sha1.Sum([]byte(step.Name))
+		taskId := hex.EncodeToString(taskHash[:])
+		psa := tekv1alpha1.PipelineRunSpecServiceAccountName{
+			TaskName:           taskId,
+			ServiceAccountName: getName(wr, ServiceAccountIdentifierSystem),
+		}
+		serviceAccounts = append(serviceAccounts, psa)
 	}
 
 	pipelineRun := &tekv1alpha1.PipelineRun{
@@ -680,7 +698,7 @@ func (c *Controller) createPipelineRun(wr *nebulav1.WorkflowRun) (*tekv1alpha1.P
 			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(wr, controllerKind)},
 		},
 		Spec: tekv1alpha1.PipelineRunSpec{
-			ServiceAccountName:  getName(wr, ServiceAccountIdentifierCustomer),
+			ServiceAccountName:  getName(wr, ServiceAccountIdentifierSystem),
 			ServiceAccountNames: serviceAccounts,
 			PipelineRef: &tekv1alpha1.PipelineRef{
 				Name: runID,
@@ -709,7 +727,8 @@ func (c *Controller) createPipelineRun(wr *nebulav1.WorkflowRun) (*tekv1alpha1.P
 }
 
 func (c *Controller) updateWorkflowRunStatus(plr *tekv1alpha1.PipelineRun, wr *nebulav1.WorkflowRun) (*nebulav1.WorkflowRunStatus, error) {
-	workflowRunSteps := make(map[string]nebulav1.WorkflowRunStep)
+	workflowRunSteps := make(map[string]nebulav1.WorkflowRunStatusSummary)
+	workflowRunConditions := make(map[string]nebulav1.WorkflowRunStatusSummary)
 
 	status := string(mapStatus(plr.Status.Status))
 
@@ -723,7 +742,7 @@ func (c *Controller) updateWorkflowRunStatus(plr *tekv1alpha1.PipelineRun, wr *n
 			if condition.Status == nil {
 				continue
 			}
-			conditionStep := nebulav1.WorkflowRunStep{
+			conditionStep := nebulav1.WorkflowRunStatusSummary{
 				Status: string(mapStatus(condition.Status.Status)),
 			}
 
@@ -734,14 +753,14 @@ func (c *Controller) updateWorkflowRunStatus(plr *tekv1alpha1.PipelineRun, wr *n
 				conditionStep.CompletionTime = condition.Status.CompletionTime
 			}
 
-			workflowRunSteps[condition.ConditionName] = conditionStep
+			workflowRunConditions[condition.ConditionName] = conditionStep
 		}
 
 		if taskRun.Status == nil {
 			continue
 		}
 
-		step := nebulav1.WorkflowRunStep{
+		step := nebulav1.WorkflowRunStatusSummary{
 			Status: string(mapStatus(taskRun.Status.Status)),
 		}
 
@@ -756,8 +775,9 @@ func (c *Controller) updateWorkflowRunStatus(plr *tekv1alpha1.PipelineRun, wr *n
 	}
 
 	workflowRunStatus := &nebulav1.WorkflowRunStatus{
-		Status: status,
-		Steps:  workflowRunSteps,
+		Status:     status,
+		Steps:      workflowRunSteps,
+		Conditions: workflowRunConditions,
 	}
 
 	if plr.Status.StartTime != nil {
@@ -1050,37 +1070,49 @@ func (c *Controller) createTasks(wr *nebulav1.WorkflowRun, service *corev1.Servi
 
 	ownerReference := metav1.NewControllerRef(wr, controllerKind)
 
-	steps := wr.Spec.Workflow.Steps
-
-	for index := range steps {
-		step := steps[index]
-
+	for _, step := range wr.Spec.Workflow.Steps {
 		if step == nil {
 			continue
 		}
 
-		taskName := util.Slug(fmt.Sprintf("task-%d-%s", index, step.Name))
+		taskHash := sha1.Sum([]byte(step.Name))
+		taskId := hex.EncodeToString(taskHash[:])
 
-		switch step.Type {
-		case string(WorkflowStepTypeApproval):
-			continue
-		default:
-			err := c.createTaskConfigMap(taskName, wr.GetNamespace(), wr.Spec.Workflow.Parameters, wr.Spec.Parameters, step, ownerReference)
-			if err != nil {
-				return nil, errors.NewWorkflowExecutionError().WithCause(err)
-			}
+		err := c.createTaskConfigMap(taskId, wr.GetNamespace(), wr.Spec.Workflow.Parameters, wr.Spec.Parameters, step, ownerReference)
+		if err != nil {
+			return nil, errors.NewWorkflowExecutionError().WithCause(err)
+		}
 
-			_, err = c.createTaskFromStep(taskName, wr.GetNamespace(), metadataAPIURL, step)
-			if err != nil {
-				return nil, errors.NewWorkflowExecutionError().WithCause(err)
+		_, err = c.createTaskFromStep(taskId, wr.GetNamespace(), metadataAPIURL, step)
+		if err != nil {
+			return nil, errors.NewWorkflowExecutionError().WithCause(err)
+		}
+
+		dependsOn := make([]string, 0)
+		conditions := make([]string, 0)
+
+		for _, dependency := range step.DependsOn {
+			dependencyHash := sha1.Sum([]byte(dependency))
+			dependencyId := hex.EncodeToString(dependencyHash[:])
+			dependsOn = append(dependsOn, dependencyId)
+		}
+
+		for _, condition := range step.Conditions {
+			if condition.Type == string(WorkflowConditionTypeApproval) {
+				conditionHash := sha1.Sum([]byte(condition.Name))
+				conditionId := hex.EncodeToString(conditionHash[:])
+				err := c.createCondition(wr.GetNamespace(), conditionId, c.cfg.ApprovalTypeImage, metadataAPIURL, ownerReference)
+				if err != nil {
+					return nil, errors.NewWorkflowExecutionError().WithCause(err)
+				}
+
+				conditions = append(conditions, conditionId)
 			}
 		}
 
-		stepTasks[step.Name] = StepTask{
-			stepName:  step.Name,
-			stepType:  step.Type,
-			taskName:  taskName,
-			dependsOn: step.DependsOn,
+		stepTasks[taskId] = StepTask{
+			dependsOn:  dependsOn,
+			conditions: conditions,
 		}
 	}
 
@@ -1091,16 +1123,16 @@ func (c *Controller) createPipelineTasks(stepTasks StepTasks) ([]tekv1alpha1.Pip
 
 	pipelineTasks := make([]tekv1alpha1.PipelineTask, 0)
 
-	for _, stepTask := range stepTasks {
+	for taskId, stepTask := range stepTasks {
 		dependencies, conditions, err := c.getTaskDependencies(stepTask, stepTasks)
 		if err != nil {
 			return nil, errors.NewWorkflowExecutionError().WithCause(err)
 		}
 
 		pipelineTask := tekv1alpha1.PipelineTask{
-			Name: stepTask.taskName,
+			Name: taskId,
 			TaskRef: &tekv1alpha1.TaskRef{
-				Name: stepTask.taskName,
+				Name: taskId,
 			},
 			RunAfter:   dependencies,
 			Conditions: conditions,
@@ -1117,42 +1149,39 @@ func (c *Controller) getTaskDependencies(stepTask StepTask, stepTasks StepTasks)
 	conditions := make([]tekv1alpha1.PipelineTaskCondition, 0)
 
 	for _, dependsOn := range stepTask.dependsOn {
-		if dependency, ok := stepTasks[dependsOn]; ok {
-			switch dependency.stepType {
-			case string(WorkflowStepTypeApproval):
-				pipelineTaskCondition := tekv1alpha1.PipelineTaskCondition{
-					ConditionRef: dependency.taskName,
-				}
-				conditions = append(conditions, pipelineTaskCondition)
-			default:
-				dependencies = append(dependencies, dependency.taskName)
-			}
-		} else {
-			return nil, nil, errors.NewWorkflowInvalidStepDependencyError(dependsOn)
+		dependencies = append(dependencies, dependsOn)
+	}
+
+	for _, condition := range stepTask.conditions {
+		pipelineTaskCondition := tekv1alpha1.PipelineTaskCondition{
+			ConditionRef: condition,
 		}
+		conditions = append(conditions, pipelineTaskCondition)
 	}
 
 	return dependencies, conditions, nil
 }
 
-func (c *Controller) createCondition(namespace string, taskName string, stepName string, image string, metadataAPIURL string, ownerReference *metav1.OwnerReference) errors.Error {
-	taskHash := sha1.Sum([]byte(stepName))
+func (c *Controller) createCondition(namespace string, conditionName string, image string, metadataAPIURL string, ownerReference *metav1.OwnerReference) errors.Error {
+
+	evs := buildEnvironmentVariables(metadataAPIURL, conditionName)
+	evs = append(evs, buildEnvironmentVariablesForCondition()...)
 
 	condition := tekv1alpha1.Condition{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            taskName,
+			Name:            conditionName,
 			Namespace:       namespace,
 			OwnerReferences: []metav1.OwnerReference{*ownerReference},
 			Labels: map[string]string{
-				"nebula.puppet.com/task.hash": hex.EncodeToString(taskHash[:]),
+				"nebula.puppet.com/task.hash": conditionName,
 			},
 		},
 		Spec: tekv1alpha1.ConditionSpec{
 			Check: tekv1alpha1.Step{
 				Container: corev1.Container{
 					Image: image,
-					Name:  taskName,
-					Env:   buildEnvironmentVariables(metadataAPIURL, taskName),
+					Name:  conditionName,
+					Env:   evs,
 				},
 			},
 		},
@@ -1179,18 +1208,16 @@ func (c *Controller) createTaskConfigMap(name string, namespace string, workflow
 func (c *Controller) createTaskFromStep(name string, namespace string, metadataAPIURL string, step *nebulav1.WorkflowStep) (*tekv1alpha1.Task, errors.Error) {
 	variantStep := step
 	container, volumes := getTaskContainer(metadataAPIURL, name, variantStep)
-	return c.createTask(name, step.Name, namespace, container, volumes)
+	return c.createTask(name, namespace, container, volumes)
 }
 
-func (c *Controller) createTask(taskName string, stepName string, namespace string, container *corev1.Container, volumes []corev1.Volume) (*tekv1alpha1.Task, errors.Error) {
-	taskHash := sha1.Sum([]byte(stepName))
-
+func (c *Controller) createTask(taskName string, namespace string, container *corev1.Container, volumes []corev1.Volume) (*tekv1alpha1.Task, errors.Error) {
 	task := &tekv1alpha1.Task{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      taskName,
 			Namespace: namespace,
 			Labels: map[string]string{
-				"nebula.puppet.com/task.hash": hex.EncodeToString(taskHash[:]),
+				"nebula.puppet.com/task.hash": taskName,
 			},
 		},
 		Spec: tekv1alpha1.TaskSpec{
@@ -1331,6 +1358,25 @@ func getContainer(name string, image string, volumeMounts []corev1.VolumeMount, 
 	}
 
 	return container
+}
+
+func buildEnvironmentVariablesForCondition() []corev1.EnvVar {
+	containerVars := []corev1.EnvVar{
+		{
+			Name:  "CONDITION_FLAG_KEY_NAME",
+			Value: "approval",
+		},
+		{
+			Name:  "CONDITION_FLAG",
+			Value: "true",
+		},
+		{
+			Name:  "WAIT",
+			Value: "true",
+		},
+	}
+
+	return containerVars
 }
 
 func buildEnvironmentVariables(metadataAPIURL string, name string) []corev1.EnvVar {
@@ -1797,6 +1843,12 @@ func mapStatus(status duckv1beta1.Status) WorkflowRunStatus {
 			case corev1.ConditionTrue:
 				return WorkflowRunStatusSuccess
 			case corev1.ConditionFalse:
+				if cs.Reason == ReasonConditionCheckFailed {
+					return WorkflowRunStatusSkipped
+				}
+				if cs.Reason == ReasonTimedOut {
+					return WorkflowRunStatusTimedOut
+				}
 				return WorkflowRunStatusFailure
 			}
 		}
