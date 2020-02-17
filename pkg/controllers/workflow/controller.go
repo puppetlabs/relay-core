@@ -119,6 +119,36 @@ const (
 	ReasonConditionCheckFailed = "ConditionCheckFailed"
 )
 
+const (
+	conditionScript = `#!/bin/bash
+JQ="${JQ:-jq}"
+
+STATE_URL_PATH="${STATE_URL_PATH:-state}"
+STATE_KEY_NAME="${STATE_KEY_NAME:-state}"
+VALUE_KEY_NAME="${VALUE_KEY_NAME:-value}"
+CONDITION="${CONDITION:-condition}"
+POLLING_INTERVAL="${POLLING_INTERVAL:-5s}"
+POLLING_ITERATIONS="${POLLING_ITERATIONS:-1080}"
+
+for i in $(seq ${POLLING_ITERATIONS}); do
+  STATE=$(curl "$METADATA_API_URL/${STATE_URL_PATH}/${STATE_KEY_NAME}")
+  VALUE=$(echo $STATE | $JQ --arg value "$VALUE_KEY_NAME" -r '.[$value]')
+  CONDITION_VALUE=$(echo $VALUE | $JQ --arg condition "$CONDITION" -r '.[$condition]')
+  if [ -n "${CONDITION_VALUE}" ]; then
+    if [ "$CONDITION_VALUE" = "true" ]; then
+      exit 0
+    fi
+    if [ "$CONDITION_VALUE" = "false" ]; then
+      exit 1
+    fi
+  fi
+  sleep ${POLLING_INTERVAL}
+done
+
+exit 1
+`
+)
+
 type podAndTaskName struct {
 	PodName  string
 	TaskName string
@@ -685,7 +715,7 @@ func (c *Controller) createPipelineRun(wr *nebulav1.WorkflowRun) (*tekv1alpha1.P
 		taskId := hex.EncodeToString(taskHash[:])
 		psa := tekv1alpha1.PipelineRunSpecServiceAccountName{
 			TaskName:           taskId,
-			ServiceAccountName: getName(wr, ServiceAccountIdentifierSystem),
+			ServiceAccountName: getName(wr, ServiceAccountIdentifierCustomer),
 		}
 		serviceAccounts = append(serviceAccounts, psa)
 	}
@@ -1124,7 +1154,7 @@ func (c *Controller) createPipelineTasks(stepTasks StepTasks) ([]tekv1alpha1.Pip
 	pipelineTasks := make([]tekv1alpha1.PipelineTask, 0)
 
 	for taskId, stepTask := range stepTasks {
-		dependencies, conditions, err := c.getTaskDependencies(stepTask, stepTasks)
+		dependencies, conditions, err := c.getTaskDependencies(stepTask)
 		if err != nil {
 			return nil, errors.NewWorkflowExecutionError().WithCause(err)
 		}
@@ -1144,7 +1174,7 @@ func (c *Controller) createPipelineTasks(stepTasks StepTasks) ([]tekv1alpha1.Pip
 	return pipelineTasks, nil
 }
 
-func (c *Controller) getTaskDependencies(stepTask StepTask, stepTasks StepTasks) ([]string, []tekv1alpha1.PipelineTaskCondition, errors.Error) {
+func (c *Controller) getTaskDependencies(stepTask StepTask) ([]string, []tekv1alpha1.PipelineTaskCondition, errors.Error) {
 	dependencies := make([]string, 0)
 	conditions := make([]tekv1alpha1.PipelineTaskCondition, 0)
 
@@ -1179,10 +1209,11 @@ func (c *Controller) createCondition(namespace string, conditionName string, ima
 		Spec: tekv1alpha1.ConditionSpec{
 			Check: tekv1alpha1.Step{
 				Container: corev1.Container{
-					Image: image,
+					Image: "projectnebula/core",
 					Name:  conditionName,
 					Env:   evs,
 				},
+				Script: conditionScript,
 			},
 		},
 	}
@@ -1363,16 +1394,8 @@ func getContainer(name string, image string, volumeMounts []corev1.VolumeMount, 
 func buildEnvironmentVariablesForCondition() []corev1.EnvVar {
 	containerVars := []corev1.EnvVar{
 		{
-			Name:  "CONDITION_FLAG_KEY_NAME",
-			Value: "approval",
-		},
-		{
-			Name:  "CONDITION_FLAG",
-			Value: "true",
-		},
-		{
-			Name:  "WAIT",
-			Value: "true",
+			Name:  "CONDITION",
+			Value: "approved",
 		},
 	}
 
@@ -1846,9 +1869,10 @@ func mapStatus(status duckv1beta1.Status) WorkflowRunStatus {
 				if cs.Reason == ReasonConditionCheckFailed {
 					return WorkflowRunStatusSkipped
 				}
-				if cs.Reason == ReasonTimedOut {
-					return WorkflowRunStatusTimedOut
-				}
+				// TODO Ignore until this is recognized as a valid status
+				//if cs.Reason == ReasonTimedOut {
+				//	return WorkflowRunStatusTimedOut
+				//}
 				return WorkflowRunStatusFailure
 			}
 		}
