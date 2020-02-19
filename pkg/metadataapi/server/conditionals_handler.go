@@ -3,7 +3,11 @@ package server
 import (
 	"net/http"
 
+	"github.com/kr/pretty"
+	utilapi "github.com/puppetlabs/horsehead/v2/httputil/api"
 	"github.com/puppetlabs/horsehead/v2/logging"
+	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/parse"
+	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"
 )
 
@@ -27,5 +31,21 @@ func (h *conditionalsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 
 	h.logger.Info("handling condition request", "key", key)
 
-	cm, err := managers.ConditionalsManager()
+	cm := managers.ConditionalsManager()
+
+	conditionalsData, err := cm.GetByTaskID(ctx, key)
+	if err != nil {
+		utilapi.WriteError(ctx, w, err)
+
+		return
+	}
+
+	tree, perr := parse.ParseJSONString(conditionalsData)
+	if perr != nil {
+		utilapi.WriteError(ctx, w, errors.NewTaskConditionalsDecodingError().WithCause(err))
+
+		return
+	}
+
+	pretty.Println(tree)
 }

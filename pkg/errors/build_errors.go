@@ -2299,6 +2299,57 @@ var TaskSection = &impl.ErrorSection{
 	Title: "Task errors",
 }
 
+// TaskConditionalsDecodingErrorCode is the code for an instance of "conditionals_decoding_error".
+const TaskConditionalsDecodingErrorCode = "nt_task_conditionals_decoding_error"
+
+// IsTaskConditionalsDecodingError tests whether a given error is an instance of "conditionals_decoding_error".
+func IsTaskConditionalsDecodingError(err errawr.Error) bool {
+	return err != nil && err.Is(TaskConditionalsDecodingErrorCode)
+}
+
+// IsTaskConditionalsDecodingError tests whether a given error is an instance of "conditionals_decoding_error".
+func (External) IsTaskConditionalsDecodingError(err errawr.Error) bool {
+	return IsTaskConditionalsDecodingError(err)
+}
+
+// TaskConditionalsDecodingErrorBuilder is a builder for "conditionals_decoding_error" errors.
+type TaskConditionalsDecodingErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "conditionals_decoding_error" from this builder.
+func (b *TaskConditionalsDecodingErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "failed to decode conditionals data",
+		Technical: "failed to decode conditionals data",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "conditionals_decoding_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata: &impl.ErrorMetadata{HTTPErrorMetadata: &impl.HTTPErrorMetadata{
+			ErrorHeaders: impl.HTTPErrorMetadataHeaders{},
+			ErrorStatus:  500,
+		}},
+		ErrorSection:     TaskSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Conditionals decoding error",
+		Version:          1,
+	}
+}
+
+// NewTaskConditionalsDecodingErrorBuilder creates a new error builder for the code "conditionals_decoding_error".
+func NewTaskConditionalsDecodingErrorBuilder() *TaskConditionalsDecodingErrorBuilder {
+	return &TaskConditionalsDecodingErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewTaskConditionalsDecodingError creates a new error with the code "conditionals_decoding_error".
+func NewTaskConditionalsDecodingError() Error {
+	return NewTaskConditionalsDecodingErrorBuilder().Build()
+}
+
 // TaskConditionalsLookupErrorCode is the code for an instance of "conditionals_lookup_error".
 const TaskConditionalsLookupErrorCode = "nt_task_conditionals_lookup_error"
 
