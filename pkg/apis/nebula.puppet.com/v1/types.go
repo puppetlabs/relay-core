@@ -83,7 +83,7 @@ type WorkflowRunParameters map[string]interface{}
 
 type WorkflowStepSpec map[string]interface{}
 
-type WorkflowWhen []interface{}
+type WorkflowWhen map[string]interface{}
 
 func (in *WorkflowParameters) DeepCopy() *WorkflowParameters {
 	if in == nil {
@@ -142,9 +142,9 @@ func (in *WorkflowWhen) DeepCopy() *WorkflowWhen {
 		return nil
 	}
 
-	out := make(WorkflowWhen, len(*in))
-	for index, value := range *in {
-		out[index] = value
+	out := make(WorkflowWhen)
+	for key, value := range *in {
+		out[key] = value
 	}
 
 	return &out
