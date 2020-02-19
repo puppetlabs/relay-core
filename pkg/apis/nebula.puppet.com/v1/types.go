@@ -32,16 +32,16 @@ type Workflow struct {
 
 type WorkflowStep struct {
 	Name      string           `json:"name"`
-	Type      string           `json:"type,omitempty"`
 	Image     string           `json:"image,omitempty"`
 	Spec      WorkflowStepSpec `json:"spec,omitempty"`
 	Input     []string         `json:"input,omitempty"`
 	Command   string           `json:"command,omitempty"`
 	Args      []string         `json:"args,omitempty"`
+	When      WorkflowWhen     `json:"when,omitempty"`
 	DependsOn []string         `json:"depends_on,omitempty"`
 }
 
-type WorkflowRunStep struct {
+type WorkflowRunStatusSummary struct {
 	Name           string       `json:"name"`
 	Status         string       `json:"status"`
 	StartTime      *metav1.Time `json:"startTime"`
@@ -49,10 +49,11 @@ type WorkflowRunStep struct {
 }
 
 type WorkflowRunStatus struct {
-	Status         string                     `json:"status"`
-	StartTime      *metav1.Time               `json:"startTime"`
-	CompletionTime *metav1.Time               `json:"completionTime"`
-	Steps          map[string]WorkflowRunStep `json:"steps"`
+	Status         string                              `json:"status"`
+	StartTime      *metav1.Time                        `json:"startTime"`
+	CompletionTime *metav1.Time                        `json:"completionTime"`
+	Steps          map[string]WorkflowRunStatusSummary `json:"steps"`
+	Conditions     map[string]WorkflowRunStatusSummary `json:"conditions"`
 }
 
 type WorkflowRunState struct {
@@ -75,6 +76,8 @@ type WorkflowParameters map[string]interface{}
 type WorkflowRunParameters map[string]interface{}
 
 type WorkflowStepSpec map[string]interface{}
+
+type WorkflowWhen map[string]interface{}
 
 func (in *WorkflowParameters) DeepCopy() *WorkflowParameters {
 	if in == nil {
@@ -121,6 +124,19 @@ func (in *WorkflowState) DeepCopy() *WorkflowState {
 	}
 
 	out := make(WorkflowState)
+	for key, value := range *in {
+		out[key] = value
+	}
+
+	return &out
+}
+
+func (in *WorkflowWhen) DeepCopy() *WorkflowWhen {
+	if in == nil {
+		return nil
+	}
+
+	out := make(WorkflowWhen)
 	for key, value := range *in {
 		out[key] = value
 	}
