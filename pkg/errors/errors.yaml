@@ -186,6 +186,12 @@ sections:
         metadata:
           http:
             status: 500
+      conditionals_decoding_error:
+        title: Conditionals decoding error
+        description: failed to decode conditionals data
+        metadata:
+          http:
+            status: 500
       invalid_hash_error:
         title: Invalid hash
         description: the task does not have a valid hash associated with it
