@@ -2299,6 +2299,108 @@ var TaskSection = &impl.ErrorSection{
 	Title: "Task errors",
 }
 
+// TaskConditionalsLookupErrorCode is the code for an instance of "conditionals_lookup_error".
+const TaskConditionalsLookupErrorCode = "nt_task_conditionals_lookup_error"
+
+// IsTaskConditionalsLookupError tests whether a given error is an instance of "conditionals_lookup_error".
+func IsTaskConditionalsLookupError(err errawr.Error) bool {
+	return err != nil && err.Is(TaskConditionalsLookupErrorCode)
+}
+
+// IsTaskConditionalsLookupError tests whether a given error is an instance of "conditionals_lookup_error".
+func (External) IsTaskConditionalsLookupError(err errawr.Error) bool {
+	return IsTaskConditionalsLookupError(err)
+}
+
+// TaskConditionalsLookupErrorBuilder is a builder for "conditionals_lookup_error" errors.
+type TaskConditionalsLookupErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "conditionals_lookup_error" from this builder.
+func (b *TaskConditionalsLookupErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "failed to lookup task conditionals",
+		Technical: "failed to lookup task conditionals",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "conditionals_lookup_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata: &impl.ErrorMetadata{HTTPErrorMetadata: &impl.HTTPErrorMetadata{
+			ErrorHeaders: impl.HTTPErrorMetadataHeaders{},
+			ErrorStatus:  500,
+		}},
+		ErrorSection:     TaskSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Conditionals lookup error",
+		Version:          1,
+	}
+}
+
+// NewTaskConditionalsLookupErrorBuilder creates a new error builder for the code "conditionals_lookup_error".
+func NewTaskConditionalsLookupErrorBuilder() *TaskConditionalsLookupErrorBuilder {
+	return &TaskConditionalsLookupErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewTaskConditionalsLookupError creates a new error with the code "conditionals_lookup_error".
+func NewTaskConditionalsLookupError() Error {
+	return NewTaskConditionalsLookupErrorBuilder().Build()
+}
+
+// TaskConditionalsNotFoundForIDCode is the code for an instance of "conditionals_not_found_for_id".
+const TaskConditionalsNotFoundForIDCode = "nt_task_conditionals_not_found_for_id"
+
+// IsTaskConditionalsNotFoundForID tests whether a given error is an instance of "conditionals_not_found_for_id".
+func IsTaskConditionalsNotFoundForID(err errawr.Error) bool {
+	return err != nil && err.Is(TaskConditionalsNotFoundForIDCode)
+}
+
+// IsTaskConditionalsNotFoundForID tests whether a given error is an instance of "conditionals_not_found_for_id".
+func (External) IsTaskConditionalsNotFoundForID(err errawr.Error) bool {
+	return IsTaskConditionalsNotFoundForID(err)
+}
+
+// TaskConditionalsNotFoundForIDBuilder is a builder for "conditionals_not_found_for_id" errors.
+type TaskConditionalsNotFoundForIDBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "conditionals_not_found_for_id" from this builder.
+func (b *TaskConditionalsNotFoundForIDBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "no task conditionals was found for ID {{id}}",
+		Technical: "no task conditionals was found for ID {{id}}",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "conditionals_not_found_for_id",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata: &impl.ErrorMetadata{HTTPErrorMetadata: &impl.HTTPErrorMetadata{
+			ErrorHeaders: impl.HTTPErrorMetadataHeaders{},
+			ErrorStatus:  404,
+		}},
+		ErrorSection:     TaskSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Conditionals not found for ID",
+		Version:          1,
+	}
+}
+
+// NewTaskConditionalsNotFoundForIDBuilder creates a new error builder for the code "conditionals_not_found_for_id".
+func NewTaskConditionalsNotFoundForIDBuilder(id string) *TaskConditionalsNotFoundForIDBuilder {
+	return &TaskConditionalsNotFoundForIDBuilder{arguments: impl.ErrorArguments{"id": impl.NewErrorArgument(id, "the id of the task")}}
+}
+
+// NewTaskConditionalsNotFoundForID creates a new error with the code "conditionals_not_found_for_id".
+func NewTaskConditionalsNotFoundForID(id string) Error {
+	return NewTaskConditionalsNotFoundForIDBuilder(id).Build()
+}
+
 // TaskInvalidHashErrorCode is the code for an instance of "invalid_hash_error".
 const TaskInvalidHashErrorCode = "nt_task_invalid_hash_error"
 

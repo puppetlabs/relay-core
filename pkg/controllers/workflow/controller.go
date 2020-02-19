@@ -93,9 +93,10 @@ const (
 	InterpreterDirective = "#!"
 	InterpreterDefault   = InterpreterDirective + "/bin/sh"
 
-	NebulaMountPath      = "/nebula"
-	NebulaEntrypointFile = "entrypoint.sh"
-	NebulaSpecFile       = "spec.json"
+	NebulaMountPath       = "/nebula"
+	NebulaEntrypointFile  = "entrypoint.sh"
+	NebulaSpecFile        = "spec.json"
+	NebulaConditionalsKey = "conditionals"
 )
 
 const (
@@ -1515,6 +1516,18 @@ func getConfigMapData(workflowParameters nebulav1.WorkflowParameters, workflowRu
 		}
 
 		configMapData[NebulaEntrypointFile] = entrypoint
+	}
+
+	if len(step.When) > 0 {
+		ev := evaluate.NewEvaluator(
+			evaluate.WithResultMapper(evaluate.NewJSONResultMapper()),
+		)
+		r, err := ev.EvaluateAll(context.TODO(), parse.Tree(step.When))
+		if err != nil {
+			return nil, errors.NewTaskSpecEvaluationError().WithCause(err)
+		}
+
+		configMapData[NebulaConditionalsKey] = string(r.Value.([]byte))
 	}
 
 	return configMapData, nil
