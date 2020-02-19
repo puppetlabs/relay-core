@@ -28,6 +28,7 @@ type ManagerFactory interface {
 	StateManager() StateManager
 	MetadataManager() MetadataManager
 	SpecsManager() SpecsManager
+	ConditionalsManager() ConditionalsManager
 }
 
 // DefaultManagerFactory is the default ManagerFactory implementation. It is very opinionated
