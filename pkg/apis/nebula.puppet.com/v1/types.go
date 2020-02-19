@@ -30,21 +30,15 @@ type Workflow struct {
 	Steps      []*WorkflowStep    `json:"steps"`
 }
 
-type WorkflowCondition struct {
-	Name string
-	Type string
-}
-
 type WorkflowStep struct {
-	Name       string              `json:"name"`
-	Image      string              `json:"image,omitempty"`
-	Spec       WorkflowStepSpec    `json:"spec,omitempty"`
-	Input      []string            `json:"input,omitempty"`
-	Command    string              `json:"command,omitempty"`
-	Args       []string            `json:"args,omitempty"`
-	When       WorkflowWhen        `json:"when,omitempty"`
-	Conditions []WorkflowCondition `json:"conditions,omitempty"`
-	DependsOn  []string            `json:"depends_on,omitempty"`
+	Name      string           `json:"name"`
+	Image     string           `json:"image,omitempty"`
+	Spec      WorkflowStepSpec `json:"spec,omitempty"`
+	Input     []string         `json:"input,omitempty"`
+	Command   string           `json:"command,omitempty"`
+	Args      []string         `json:"args,omitempty"`
+	When      WorkflowWhen     `json:"when,omitempty"`
+	DependsOn []string         `json:"depends_on,omitempty"`
 }
 
 type WorkflowRunStatusSummary struct {

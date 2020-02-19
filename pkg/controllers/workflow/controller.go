@@ -1127,16 +1127,15 @@ func (c *Controller) createTasks(wr *nebulav1.WorkflowRun, service *corev1.Servi
 			dependsOn = append(dependsOn, dependencyId)
 		}
 
-		for _, condition := range step.Conditions {
-			if condition.Type == string(WorkflowConditionTypeApproval) {
-				conditionHash := sha1.Sum([]byte(condition.Name))
-				conditionId := hex.EncodeToString(conditionHash[:])
-				err := c.createCondition(wr.GetNamespace(), conditionId, c.cfg.ApprovalTypeImage, metadataAPIURL, ownerReference)
+		if step.When != nil {
+			if _, ok := step.When["conditions"]; ok {
+				// FIXME Assume approvals for now...
+				err := c.createCondition(wr.GetNamespace(), taskId, c.cfg.ApprovalTypeImage, metadataAPIURL, ownerReference)
 				if err != nil {
 					return nil, errors.NewWorkflowExecutionError().WithCause(err)
 				}
 
-				conditions = append(conditions, conditionId)
+				conditions = append(conditions, taskId)
 			}
 		}
 
@@ -1357,7 +1356,12 @@ func getTaskContainer(metadataAPIURL string, name string, step *nebulav1.Workflo
 	volumeMounts := getVolumeMounts(name, step)
 	volumes := getVolumes(volumeMounts)
 	environmentVariables := buildEnvironmentVariables(metadataAPIURL, name)
-	container := getContainer(name, step.Image, volumeMounts, environmentVariables)
+
+	image := step.Image
+	if image == "" {
+		image = "alpine:latest"
+	}
+	container := getContainer(name, image, volumeMounts, environmentVariables)
 
 	if len(step.Input) > 0 {
 		container.Command = []string{NebulaMountPath + "/" + NebulaEntrypointFile}
