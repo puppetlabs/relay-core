@@ -5,6 +5,7 @@ go 1.12
 require (
 	cloud.google.com/go/storage v1.1.2 // indirect
 	github.com/emicklei/go-restful v2.11.1+incompatible // indirect
+	github.com/frankban/quicktest v1.7.2 // indirect
 	github.com/go-openapi/spec v0.19.5 // indirect
 	github.com/go-openapi/swag v0.19.7 // indirect
 	github.com/golang/groupcache v0.0.0-20191002201903-404acd9df4cc // indirect
