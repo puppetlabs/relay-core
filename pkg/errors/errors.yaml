@@ -150,6 +150,21 @@ sections:
         metadata:
           http:
             status: 404
+      conditionals_not_found_for_id:
+        title: Conditionals not found for ID
+        description: no task conditionals was found for ID {{id}}
+        arguments:
+          id:
+            description: the id of the task
+        metadata:
+          http:
+            status: 404
+      conditionals_lookup_error:
+        title: Conditionals lookup error
+        description: failed to lookup task conditionals
+        metadata:
+          http:
+            status: 500
       spec_not_found_for_id:
         title: Spec not found for ID
         description: no task spec was found for ID {{id}}

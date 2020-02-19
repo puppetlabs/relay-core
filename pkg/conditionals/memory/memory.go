@@ -10,6 +10,14 @@ type ConditionalsManager struct {
 	data map[string]string
 }
 
-func (m *ConditionalsManager) GetByTaskID(ctx context.Context, taskID string) (string, errors.Error) {
-	return "", nil
+func (cm *ConditionalsManager) GetByTaskID(ctx context.Context, taskID string) (string, errors.Error) {
+	if _, ok := cm.data[taskID]; !ok {
+		return "", errors.NewTaskConditionalsNotFoundForID(taskID)
+	}
+
+	return cm.data[taskID], nil
+}
+
+func New(conditionals map[string]string) *ConditionalsManager {
+	return &ConditionalsManager{data: conditionals}
 }
