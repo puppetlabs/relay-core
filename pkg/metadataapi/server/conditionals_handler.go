@@ -1,12 +1,15 @@
 package server
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/kr/pretty"
 	utilapi "github.com/puppetlabs/horsehead/v2/httputil/api"
 	"github.com/puppetlabs/horsehead/v2/logging"
+	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/evaluate"
 	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/parse"
+	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/resolve"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"
 )
@@ -47,5 +50,26 @@ func (h *conditionalsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	pretty.Println(tree)
+	ev := evaluate.NewEvaluator(
+		evaluate.WithOutputTypeResolver(resolve.OutputTypeResolverFunc(func(ctx context.Context, from, name string) (string, error) {
+			o, err := managers.OutputsManager().Get(ctx, from, name)
+			if errors.IsOutputsTaskNotFound(err) || errors.IsOutputsKeyNotFound(err) {
+				// TODO: Similarly, this would typically return an instance of
+				// *resolve.OutputNotFoundError.
+				return "", nil
+			} else if err != nil {
+				return "", err
+			}
+			return o.Value, nil
+		})),
+		evaluate.WithResultMapper(evaluate.NewUTF8SafeResultMapper()),
+	)
+
+	rv, rerr := ev.EvaluateAll(ctx, tree)
+	if rerr != nil {
+		utilapi.WriteError(ctx, w, errors.NewTaskSpecEvaluationError().WithCause(rerr))
+		return
+	}
+
+	pretty.Println(rv)
 }
