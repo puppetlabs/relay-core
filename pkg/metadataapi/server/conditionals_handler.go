@@ -23,7 +23,7 @@ func (h *conditionalsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	var key string
 
 	key, r.URL.Path = shiftPath(r.URL.Path)
-	if key == "" || "" != r.URL.Path {
+	if key == "" || r.URL.Path != "" {
 		http.NotFound(w, r)
 
 		return
