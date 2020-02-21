@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	cconfigmap "github.com/puppetlabs/nebula-tasks/pkg/conditionals/configmap"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/op"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"
 	"github.com/puppetlabs/nebula-tasks/pkg/outputs/configmap"
@@ -33,11 +34,15 @@ type MockTaskConfig struct {
 	Name      string
 	Namespace string
 	PodIP     string
+	When      map[string]interface{}
 	SpecData  map[string]interface{}
 }
 
 func MockTask(t *testing.T, cfg MockTaskConfig) []runtime.Object {
 	specData, err := json.Marshal(cfg.SpecData)
+	require.NoError(t, err)
+
+	conditionalsData, err := json.Marshal(cfg.When)
 	require.NoError(t, err)
 
 	taskHash := sha1.Sum([]byte(cfg.Name))
@@ -64,16 +69,18 @@ func MockTask(t *testing.T, cfg MockTaskConfig) []runtime.Object {
 				Labels:    labels,
 			},
 			Data: map[string]string{
-				"spec.json": string(specData),
+				"spec.json":    string(specData),
+				"conditionals": string(conditionalsData),
 			},
 		},
 	}
 }
 
 type MockManagerFactoryConfig struct {
-	SecretData   map[string]string
-	Namespace    string
-	K8sResources []runtime.Object
+	SecretData       map[string]string
+	ConditionalsData map[string]string
+	Namespace        string
+	K8sResources     []runtime.Object
 }
 
 type MockManagerFactory struct {
@@ -82,6 +89,7 @@ type MockManagerFactory struct {
 	stm op.StateManager
 	mm  op.MetadataManager
 	spm op.SpecsManager
+	cm  op.ConditionalsManager
 }
 
 func (m MockManagerFactory) SecretsManager() op.SecretsManager {
@@ -104,6 +112,10 @@ func (m MockManagerFactory) SpecsManager() op.SpecsManager {
 	return m.spm
 }
 
+func (m MockManagerFactory) ConditionalsManager() op.ConditionalsManager {
+	return m.cm
+}
+
 func NewMockManagerFactory(t *testing.T, cfg MockManagerFactoryConfig) MockManagerFactory {
 	kc := fake.NewSimpleClientset(cfg.K8sResources...)
 	kc.PrependReactor("create", "*", setObjectUID)
@@ -113,11 +125,13 @@ func NewMockManagerFactory(t *testing.T, cfg MockManagerFactoryConfig) MockManag
 	mm := task.NewKubernetesMetadataManager(kc, cfg.Namespace)
 	sm := smemory.New(cfg.SecretData)
 	spm := task.NewKubernetesSpecManager(kc, cfg.Namespace)
+	cm := cconfigmap.New(kc, cfg.Namespace)
 
 	return MockManagerFactory{
 		sm:  op.NewEncodingSecretManager(sm),
 		om:  op.NewEncodeDecodingOutputsManager(om),
 		stm: op.NewEncodeDecodingStateManager(stm),
+		cm:  cm,
 		mm:  mm,
 		spm: spm,
 	}

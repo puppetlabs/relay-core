@@ -4,6 +4,8 @@ import (
 	"context"
 	"os"
 
+	cconfigmap "github.com/puppetlabs/nebula-tasks/pkg/conditionals/configmap"
+	cmemory "github.com/puppetlabs/nebula-tasks/pkg/conditionals/memory"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/outputs/configmap"
@@ -38,6 +40,7 @@ type DefaultManagerFactory struct {
 	stm StateManager
 	mm  MetadataManager
 	spm SpecsManager
+	cm  ConditionalsManager
 }
 
 // SecretsManager returns a configured SecretsManager implementation.
@@ -70,6 +73,12 @@ func (m DefaultManagerFactory) SpecsManager() SpecsManager {
 	return m.spm
 }
 
+// ConditionalsManager returns a configured ConditionalsManager.
+// See pkg/metadataapi/op/conditionalsmanager.go
+func (m DefaultManagerFactory) ConditionalsManager() ConditionalsManager {
+	return m.cm
+}
+
 // NewDefaultManagerFactory creates and returns a new DefaultManagerFactory
 func NewForKubernetes(ctx context.Context, cfg *config.MetadataServerConfig) (*DefaultManagerFactory, errors.Error) {
 	kc, err := NewKubeclientFromConfig(cfg)
@@ -94,6 +103,7 @@ func NewForKubernetes(ctx context.Context, cfg *config.MetadataServerConfig) (*D
 	stm := stconfigmap.New(kc, cfg.Namespace)
 	mm := task.NewKubernetesMetadataManager(kc, cfg.Namespace)
 	spm := task.NewKubernetesSpecManager(kc, cfg.Namespace)
+	cm := cconfigmap.New(kc, cfg.Namespace)
 
 	return &DefaultManagerFactory{
 		sm:  NewEncodingSecretManager(sm),
@@ -101,13 +111,15 @@ func NewForKubernetes(ctx context.Context, cfg *config.MetadataServerConfig) (*D
 		stm: NewEncodeDecodingStateManager(stm),
 		mm:  mm,
 		spm: spm,
+		cm:  cm,
 	}, nil
 }
 
 type developmentPreConfig struct {
-	Secrets      map[string]string         `yaml:"secrets"`
-	TaskMetadata map[string]*task.Metadata `yaml:"taskMetadata"`
-	TaskSpecs    map[string]string         `yaml:"taskSpecs"`
+	Secrets          map[string]string         `yaml:"secrets"`
+	TaskMetadata     map[string]*task.Metadata `yaml:"taskMetadata"`
+	TaskSpecs        map[string]string         `yaml:"taskSpecs"`
+	TaskConditionals map[string]string         `yaml:"taskConditionals"`
 }
 
 // NewForDev returns a new DefaultManagerFactory useful for development and running the metadata api server
@@ -130,6 +142,7 @@ func NewForDev(ctx context.Context, cfg *config.MetadataServerConfig) (*DefaultM
 	stm := stmemory.New()
 	mm := task.NewPreconfiguredMetadataManager(preCfg.TaskMetadata)
 	spm := task.NewPreconfiguredSpecManager(preCfg.TaskSpecs)
+	cm := cmemory.New(preCfg.TaskConditionals)
 
 	return &DefaultManagerFactory{
 		sm:  NewEncodingSecretManager(sm),
@@ -137,6 +150,7 @@ func NewForDev(ctx context.Context, cfg *config.MetadataServerConfig) (*DefaultM
 		stm: NewEncodeDecodingStateManager(stm),
 		mm:  mm,
 		spm: spm,
+		cm:  cm,
 	}, nil
 }
 
