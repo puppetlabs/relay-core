@@ -11,7 +11,6 @@ require (
 	github.com/inconshreveable/log15 v0.0.0-20180818164646-67afb5ed74ec
 	github.com/json-iterator/go v1.1.9 // indirect
 	github.com/jstemmer/go-junit-report v0.9.1 // indirect
-	github.com/kr/pretty v0.1.0
 	github.com/puppetlabs/errawr-gen v1.0.1
 	github.com/puppetlabs/errawr-go/v2 v2.2.0
 	github.com/puppetlabs/horsehead/v2 v2.7.0
