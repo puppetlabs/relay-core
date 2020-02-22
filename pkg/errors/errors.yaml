@@ -196,8 +196,23 @@ sections:
         title: Invalid hash
         description: the task does not have a valid hash associated with it
       spec_evaluation_error:
-        title: Evaluation error
+        title: Spec evaluation error
         description: failed to evaluate the step specification
+      condition_evaluation_error:
+        title: Condition evaluation error
+        description: failed to evaluate the step condition
+      condition_unresolved_error:
+        title: Condition unresolved error
+        description: one or more expressions were unresolvable
+        metadata:
+          http:
+            status: 500
+      condition_structure_malformed_error:
+        title: Condition structure malformed error
+        description: unexpected result type found found or the tree was malformed
+        metadata:
+          http:
+            status: 500
 
   kubernetes:
     title: Kubernetes errors
