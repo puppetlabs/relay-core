@@ -19,14 +19,14 @@ func (f SecretTypeResolverFunc) ResolveSecret(ctx context.Context, name string) 
 }
 
 type OutputTypeResolver interface {
-	ResolveOutput(ctx context.Context, from, name string) (string, error)
+	ResolveOutput(ctx context.Context, from, name string) (interface{}, error)
 }
 
-type OutputTypeResolverFunc func(ctx context.Context, from, name string) (string, error)
+type OutputTypeResolverFunc func(ctx context.Context, from, name string) (interface{}, error)
 
 var _ OutputTypeResolver = OutputTypeResolverFunc(nil)
 
-func (f OutputTypeResolverFunc) ResolveOutput(ctx context.Context, from, name string) (string, error) {
+func (f OutputTypeResolverFunc) ResolveOutput(ctx context.Context, from, name string) (interface{}, error) {
 	return f(ctx, from, name)
 }
 

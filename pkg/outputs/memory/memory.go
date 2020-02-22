@@ -1,19 +1,18 @@
 package memory
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha1"
 	"encoding/hex"
-	"io"
 	"sync"
 
+	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/outputs"
 )
 
 type OutputsManager struct {
-	data map[string]map[string][]byte
+	data map[string]map[string]transfer.JSONInterface
 
 	sync.Mutex
 }
@@ -33,18 +32,19 @@ func (om *OutputsManager) Get(ctx context.Context, taskName, key string) (*outpu
 		return nil, errors.NewOutputsTaskNotFound(taskName)
 	}
 
-	if om.data[taskHashKey][key] == nil {
+	value, ok := om.data[taskHashKey][key]
+	if !ok {
 		return nil, errors.NewOutputsKeyNotFound(key)
 	}
 
 	return &outputs.Output{
 		TaskName: taskName,
 		Key:      key,
-		Value:    string(om.data[taskHashKey][key]),
+		Value:    value,
 	}, nil
 }
 
-func (om *OutputsManager) Put(ctx context.Context, taskHash [sha1.Size]byte, key string, value io.Reader) errors.Error {
+func (om *OutputsManager) Put(ctx context.Context, taskHash [sha1.Size]byte, key string, value transfer.JSONInterface) errors.Error {
 	om.Lock()
 	defer om.Unlock()
 
@@ -55,20 +55,14 @@ func (om *OutputsManager) Put(ctx context.Context, taskHash [sha1.Size]byte, key
 	}
 
 	if om.data == nil {
-		om.data = make(map[string]map[string][]byte)
+		om.data = make(map[string]map[string]transfer.JSONInterface)
 	}
 
 	if om.data[taskHashKey] == nil {
-		om.data[taskHashKey] = make(map[string][]byte)
+		om.data[taskHashKey] = make(map[string]transfer.JSONInterface)
 	}
 
-	buf := &bytes.Buffer{}
-	_, err := buf.ReadFrom(value)
-	if err != nil {
-		return errors.NewOutputsValueReadError().WithCause(err)
-	}
-
-	om.data[taskHashKey][key] = buf.Bytes()
+	om.data[taskHashKey][key] = value
 
 	return nil
 }

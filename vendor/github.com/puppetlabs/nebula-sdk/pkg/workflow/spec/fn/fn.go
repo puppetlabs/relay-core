@@ -1,11 +1,22 @@
 package fn
 
+// Descriptor is a type that describes how a function can be invoked by a caller
 type Descriptor interface {
+	// Description returns a string that describes what the function does
 	Description() string
+	// PositionalInvoker takes a slice of values that act like positional arguments
+	// to the function. Enforcing order and length constraints is up to the author
+	// of the function.
 	PositionalInvoker(args []interface{}) (Invoker, error)
+	// KeywordInvoker takes its arguments as a map. This acts like labeled or named argments
+	// to the function. Enforcing name and length constraints is up to the author
+	// of the function.
 	KeywordInvoker(args map[string]interface{}) (Invoker, error)
 }
 
+// DescriptorFuncs is an adapter that takes anonymous functions that handle methods defined
+// in the Descriptor interface. This is a convenience type that allows simple wrapping of
+// one-off functions.
 type DescriptorFuncs struct {
 	DescriptionFunc       func() string
 	PositionalInvokerFunc func(args []interface{}) (Invoker, error)

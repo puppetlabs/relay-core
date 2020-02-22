@@ -37,7 +37,7 @@ type MetadataAPIOutputTypeResolver struct {
 
 var _ OutputTypeResolver = &MetadataAPIOutputTypeResolver{}
 
-func (sr *MetadataAPIOutputTypeResolver) ResolveOutput(ctx context.Context, from, name string) (string, error) {
+func (sr *MetadataAPIOutputTypeResolver) ResolveOutput(ctx context.Context, from, name string) (interface{}, error) {
 	v, err := sr.client.GetOutput(ctx, from, name)
 	if err == outputs.ErrOutputsClientNotFound {
 		return "", &OutputNotFoundError{From: from, Name: name}

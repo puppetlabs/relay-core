@@ -1,12 +1,12 @@
 package configmap
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha1"
+	"encoding/json"
 	"fmt"
-	"io"
 
+	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/outputs"
 	corev1 "k8s.io/api/core/v1"
@@ -37,9 +37,14 @@ func (om OutputsManager) Get(ctx context.Context, taskName, key string) (*output
 		return nil, errors.NewOutputsGetError().WithCause(err)
 	}
 
-	val, ok := cm.Data[key]
+	s, ok := cm.Data[key]
 	if !ok {
 		return nil, errors.NewOutputsKeyNotFound(key)
+	}
+
+	var val transfer.JSONInterface
+	if err := json.Unmarshal([]byte(s), &val); err != nil {
+		return nil, errors.NewOutputsValueDecodingError().WithCause(err).Bug()
 	}
 
 	return &outputs.Output{
@@ -49,7 +54,7 @@ func (om OutputsManager) Get(ctx context.Context, taskName, key string) (*output
 	}, nil
 }
 
-func (om OutputsManager) Put(ctx context.Context, taskHash [sha1.Size]byte, key string, value io.Reader) errors.Error {
+func (om OutputsManager) Put(ctx context.Context, taskHash [sha1.Size]byte, key string, value transfer.JSONInterface) errors.Error {
 	name := fmt.Sprintf("task-%x-outputs", taskHash)
 
 	cm, err := om.kubeclient.CoreV1().ConfigMaps(om.namespace).Get(name, metav1.GetOptions{})
@@ -67,12 +72,12 @@ func (om OutputsManager) Put(ctx context.Context, taskHash [sha1.Size]byte, key 
 		}
 	}
 
-	buf := &bytes.Buffer{}
-	if _, err := buf.ReadFrom(value); err != nil {
-		return errors.NewOutputsValueReadError().WithCause(err)
+	b, err := json.Marshal(value)
+	if err != nil {
+		return errors.NewOutputsValueEncodingError().WithCause(err).Bug()
 	}
 
-	cm.Data[key] = buf.String()
+	cm.Data[key] = string(b)
 
 	if err := om.createOrUpdateConfigMap(cm); err != nil {
 		return errors.NewOutputsPutError().WithCause(err)
