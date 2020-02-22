@@ -181,7 +181,7 @@ github.com/puppetlabs/horsehead/v2/storage
 github.com/puppetlabs/nebula-libs/storage/file/v2
 # github.com/puppetlabs/nebula-libs/storage/gcs/v2 v2.0.0
 github.com/puppetlabs/nebula-libs/storage/gcs/v2
-# github.com/puppetlabs/nebula-sdk v1.5.0
+# github.com/puppetlabs/nebula-sdk v1.5.2-0.20200221214314-99adb80c5bc8
 github.com/puppetlabs/nebula-sdk/pkg/outputs
 github.com/puppetlabs/nebula-sdk/pkg/secrets
 github.com/puppetlabs/nebula-sdk/pkg/util/jsonpath
@@ -190,6 +190,7 @@ github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/fn
 github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/fnlib
 github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/parse
 github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/resolve
+github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/testutil
 # github.com/puppetlabs/paesslerag-gval v1.0.2-0.20191119012647-d2c694821b5b
 github.com/puppetlabs/paesslerag-gval
 # github.com/puppetlabs/paesslerag-jsonpath v0.1.2-0.20191119013138-25b86105f641
