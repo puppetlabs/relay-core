@@ -2299,6 +2299,156 @@ var TaskSection = &impl.ErrorSection{
 	Title: "Task errors",
 }
 
+// TaskConditionEvaluationErrorCode is the code for an instance of "condition_evaluation_error".
+const TaskConditionEvaluationErrorCode = "nt_task_condition_evaluation_error"
+
+// IsTaskConditionEvaluationError tests whether a given error is an instance of "condition_evaluation_error".
+func IsTaskConditionEvaluationError(err errawr.Error) bool {
+	return err != nil && err.Is(TaskConditionEvaluationErrorCode)
+}
+
+// IsTaskConditionEvaluationError tests whether a given error is an instance of "condition_evaluation_error".
+func (External) IsTaskConditionEvaluationError(err errawr.Error) bool {
+	return IsTaskConditionEvaluationError(err)
+}
+
+// TaskConditionEvaluationErrorBuilder is a builder for "condition_evaluation_error" errors.
+type TaskConditionEvaluationErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "condition_evaluation_error" from this builder.
+func (b *TaskConditionEvaluationErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "failed to evaluate the step condition",
+		Technical: "failed to evaluate the step condition",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "condition_evaluation_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     TaskSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Condition evaluation error",
+		Version:          1,
+	}
+}
+
+// NewTaskConditionEvaluationErrorBuilder creates a new error builder for the code "condition_evaluation_error".
+func NewTaskConditionEvaluationErrorBuilder() *TaskConditionEvaluationErrorBuilder {
+	return &TaskConditionEvaluationErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewTaskConditionEvaluationError creates a new error with the code "condition_evaluation_error".
+func NewTaskConditionEvaluationError() Error {
+	return NewTaskConditionEvaluationErrorBuilder().Build()
+}
+
+// TaskConditionStructureMalformedErrorCode is the code for an instance of "condition_structure_malformed_error".
+const TaskConditionStructureMalformedErrorCode = "nt_task_condition_structure_malformed_error"
+
+// IsTaskConditionStructureMalformedError tests whether a given error is an instance of "condition_structure_malformed_error".
+func IsTaskConditionStructureMalformedError(err errawr.Error) bool {
+	return err != nil && err.Is(TaskConditionStructureMalformedErrorCode)
+}
+
+// IsTaskConditionStructureMalformedError tests whether a given error is an instance of "condition_structure_malformed_error".
+func (External) IsTaskConditionStructureMalformedError(err errawr.Error) bool {
+	return IsTaskConditionStructureMalformedError(err)
+}
+
+// TaskConditionStructureMalformedErrorBuilder is a builder for "condition_structure_malformed_error" errors.
+type TaskConditionStructureMalformedErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "condition_structure_malformed_error" from this builder.
+func (b *TaskConditionStructureMalformedErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "unexpected result type found found or the tree was malformed",
+		Technical: "unexpected result type found found or the tree was malformed",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "condition_structure_malformed_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata: &impl.ErrorMetadata{HTTPErrorMetadata: &impl.HTTPErrorMetadata{
+			ErrorHeaders: impl.HTTPErrorMetadataHeaders{},
+			ErrorStatus:  500,
+		}},
+		ErrorSection:     TaskSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Condition structure malformed error",
+		Version:          1,
+	}
+}
+
+// NewTaskConditionStructureMalformedErrorBuilder creates a new error builder for the code "condition_structure_malformed_error".
+func NewTaskConditionStructureMalformedErrorBuilder() *TaskConditionStructureMalformedErrorBuilder {
+	return &TaskConditionStructureMalformedErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewTaskConditionStructureMalformedError creates a new error with the code "condition_structure_malformed_error".
+func NewTaskConditionStructureMalformedError() Error {
+	return NewTaskConditionStructureMalformedErrorBuilder().Build()
+}
+
+// TaskConditionUnresolvedErrorCode is the code for an instance of "condition_unresolved_error".
+const TaskConditionUnresolvedErrorCode = "nt_task_condition_unresolved_error"
+
+// IsTaskConditionUnresolvedError tests whether a given error is an instance of "condition_unresolved_error".
+func IsTaskConditionUnresolvedError(err errawr.Error) bool {
+	return err != nil && err.Is(TaskConditionUnresolvedErrorCode)
+}
+
+// IsTaskConditionUnresolvedError tests whether a given error is an instance of "condition_unresolved_error".
+func (External) IsTaskConditionUnresolvedError(err errawr.Error) bool {
+	return IsTaskConditionUnresolvedError(err)
+}
+
+// TaskConditionUnresolvedErrorBuilder is a builder for "condition_unresolved_error" errors.
+type TaskConditionUnresolvedErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "condition_unresolved_error" from this builder.
+func (b *TaskConditionUnresolvedErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "one or more expressions were unresolvable",
+		Technical: "one or more expressions were unresolvable",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "condition_unresolved_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata: &impl.ErrorMetadata{HTTPErrorMetadata: &impl.HTTPErrorMetadata{
+			ErrorHeaders: impl.HTTPErrorMetadataHeaders{},
+			ErrorStatus:  500,
+		}},
+		ErrorSection:     TaskSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Condition unresolved error",
+		Version:          1,
+	}
+}
+
+// NewTaskConditionUnresolvedErrorBuilder creates a new error builder for the code "condition_unresolved_error".
+func NewTaskConditionUnresolvedErrorBuilder() *TaskConditionUnresolvedErrorBuilder {
+	return &TaskConditionUnresolvedErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewTaskConditionUnresolvedError creates a new error with the code "condition_unresolved_error".
+func NewTaskConditionUnresolvedError() Error {
+	return NewTaskConditionUnresolvedErrorBuilder().Build()
+}
+
 // TaskConditionalsDecodingErrorCode is the code for an instance of "conditionals_decoding_error".
 const TaskConditionalsDecodingErrorCode = "nt_task_conditionals_decoding_error"
 
@@ -2635,7 +2785,7 @@ func (b *TaskSpecEvaluationErrorBuilder) Build() Error {
 		ErrorMetadata:    &impl.ErrorMetadata{},
 		ErrorSection:     TaskSection,
 		ErrorSensitivity: errawr.ErrorSensitivityNone,
-		ErrorTitle:       "Evaluation error",
+		ErrorTitle:       "Spec evaluation error",
 		Version:          1,
 	}
 }
