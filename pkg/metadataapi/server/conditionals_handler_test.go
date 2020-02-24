@@ -18,7 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-func TestConditionalsHandler(t *testing.T) {
+func TestConditionalsHandlerSuccess(t *testing.T) {
 	const namespace = "workflow-run-ns"
 
 	var (
@@ -87,5 +87,77 @@ func TestConditionalsHandler(t *testing.T) {
 		env := conditionals.ResponseEnvelope{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(&env))
 		require.Equal(t, true, env.Success)
+	})
+}
+
+func TestConditionalsHandlerFailure(t *testing.T) {
+	const namespace = "workflow-run-ns"
+
+	var (
+		previousTask = testutil.MockTaskConfig{
+			ID:        uuid.New().String(),
+			Name:      "previous-task",
+			Namespace: namespace,
+			PodIP:     "10.3.3.4",
+		}
+		task = testutil.MockTaskConfig{
+			ID:        uuid.New().String(),
+			Name:      "current-task",
+			Namespace: namespace,
+			PodIP:     "10.3.3.3",
+			When: map[string]interface{}{
+				"conditions": []interface{}{
+					sdktestutil.JSONInvocation("equals", []interface{}{
+						sdktestutil.JSONOutput(previousTask.Name, "output1"),
+						"foobar",
+					}),
+					sdktestutil.JSONInvocation("notEquals", []interface{}{
+						sdktestutil.JSONOutput(previousTask.Name, "output1"),
+						"foobar",
+					}),
+				},
+			},
+			SpecData: map[string]interface{}{
+				"super-normal": "test-normal-value",
+			},
+		}
+	)
+
+	resources := []runtime.Object{}
+	resources = append(resources, testutil.MockTask(t, previousTask)...)
+	resources = append(resources, testutil.MockTask(t, task)...)
+
+	managers := testutil.NewMockManagerFactory(t, testutil.MockManagerFactoryConfig{
+		Namespace:    namespace,
+		K8sResources: resources,
+	})
+
+	logger := logging.Builder().At("server-test").Build()
+	srv := New(&config.MetadataServerConfig{Logger: logger}, managers)
+
+	mw := []middleware.MiddlewareFunc{testutil.WithRemoteAddress(previousTask.PodIP)}
+
+	testutil.WithTestMetadataAPIServer(srv, mw, func(ts *httptest.Server) {
+		client := ts.Client()
+
+		req, err := http.NewRequest(http.MethodPut, ts.URL+"/outputs/output1", strings.NewReader("foobar"))
+		require.NoError(t, err)
+
+		resp, err := client.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusCreated, resp.StatusCode)
+
+		defer resp.Body.Close()
+
+		resp, err = client.Get(ts.URL + "/conditionals/" + task.ID)
+		require.NoError(t, err)
+
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+
+		env := conditionals.ResponseEnvelope{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(&env))
+		require.Equal(t, false, env.Success)
 	})
 }
