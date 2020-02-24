@@ -19,6 +19,16 @@ type conditionalsHandler struct {
 }
 
 func (h *conditionalsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.NotFound(w, r)
+
+		return
+	}
+
+	h.get(w, r)
+}
+
+func (h *conditionalsHandler) get(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	managers := middleware.Managers(r)
