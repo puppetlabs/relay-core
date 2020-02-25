@@ -213,6 +213,16 @@ sections:
         metadata:
           http:
             status: 500
+      unsupported_conditional_expressions:
+        title: Unsupported conditional expressions
+        description: "one or more expressions are not a supported: {{#join expressions}}{{this}}{{/join}}"
+        arguments:
+          expressions:
+            type: list<string>
+            description: the expression kind that is not supported
+        metadata:
+          http:
+            status: 500
 
   kubernetes:
     title: Kubernetes errors

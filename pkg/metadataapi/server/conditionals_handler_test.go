@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	utilapi "github.com/puppetlabs/horsehead/v2/httputil/api"
 	"github.com/puppetlabs/horsehead/v2/logging"
 	sdktestutil "github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/testutil"
 	"github.com/puppetlabs/nebula-tasks/pkg/conditionals"
@@ -159,5 +160,69 @@ func TestConditionalsHandlerFailure(t *testing.T) {
 		env := conditionals.ResponseEnvelope{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(&env))
 		require.Equal(t, false, env.Success)
+	})
+}
+
+func TestConditionalsHandlerUnsupportedExpressions(t *testing.T) {
+	const namespace = "workflow-run-ns"
+
+	var (
+		previousTask = testutil.MockTaskConfig{
+			ID:        uuid.New().String(),
+			Name:      "previous-task",
+			Namespace: namespace,
+			PodIP:     "10.3.3.4",
+		}
+		task = testutil.MockTaskConfig{
+			ID:        uuid.New().String(),
+			Name:      "current-task",
+			Namespace: namespace,
+			PodIP:     "10.3.3.3",
+			When: map[string]interface{}{
+				"conditions": []interface{}{
+					sdktestutil.JSONInvocation("equals", []interface{}{
+						sdktestutil.JSONSecret("secret1"),
+						"foobar",
+					}),
+					sdktestutil.JSONInvocation("notEquals", []interface{}{
+						sdktestutil.JSONSecret("secret2"),
+						"foobar",
+					}),
+				},
+			},
+			SpecData: map[string]interface{}{
+				"super-normal": "test-normal-value",
+			},
+		}
+	)
+
+	resources := []runtime.Object{}
+	resources = append(resources, testutil.MockTask(t, previousTask)...)
+	resources = append(resources, testutil.MockTask(t, task)...)
+
+	managers := testutil.NewMockManagerFactory(t, testutil.MockManagerFactoryConfig{
+		Namespace:    namespace,
+		K8sResources: resources,
+	})
+
+	logger := logging.Builder().At("server-test").Build()
+	srv := New(&config.MetadataServerConfig{Logger: logger}, managers)
+
+	mw := []middleware.MiddlewareFunc{testutil.WithRemoteAddress(previousTask.PodIP)}
+
+	testutil.WithTestMetadataAPIServer(srv, mw, func(ts *httptest.Server) {
+		client := ts.Client()
+
+		resp, err := client.Get(ts.URL + "/conditionals/" + task.ID)
+		require.NoError(t, err)
+
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+
+		var env utilapi.ErrorEnvelope
+
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(&env))
+		require.Equal(t, "unsupported_conditional_expressions: one or more expressions are not a supported: !Secret secret1 and !Secret secret2", env.Error.AsError().Error())
 	})
 }
