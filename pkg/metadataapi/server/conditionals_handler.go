@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	utilapi "github.com/puppetlabs/horsehead/v2/httputil/api"
@@ -80,19 +81,42 @@ func (h *conditionalsHandler) get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Not being complete means there are unresolved "expressions" for this tree. These can include
+	// parameters, outputs and secrets. If there are unresolved secrets, then an UnsupportedConditionalExpressions
+	// error is returned instead of an UnresolvedConditionalExpressions. This is because secrets are not supported
+	// by the conditionals feature.
 	if !rv.Complete() {
-		var err errors.Error
+		var (
+			err         errors.Error
+			expressions []string
+		)
 
 		if len(rv.Unresolvable.Secrets) > 0 {
-			expressions := []string{}
-
 			for _, sec := range rv.Unresolvable.Secrets {
 				expressions = append(expressions, "!Secret "+sec.Name)
 			}
 
 			err = errors.NewTaskUnsupportedConditionalExpressions(expressions)
 		} else {
-			err = errors.NewTaskConditionUnresolvedError()
+			if len(rv.Unresolvable.Outputs) > 0 {
+				for _, o := range rv.Unresolvable.Outputs {
+					expressions = append(expressions, fmt.Sprintf("!Output %s %s", o.Name, o.From))
+				}
+			}
+
+			if len(rv.Unresolvable.Parameters) > 0 {
+				for _, p := range rv.Unresolvable.Parameters {
+					expressions = append(expressions, fmt.Sprintf("!Parameter %s", p.Name))
+				}
+			}
+
+			if len(rv.Unresolvable.Invocations) > 0 {
+				for _, i := range rv.Unresolvable.Invocations {
+					expressions = append(expressions, fmt.Sprintf("!Fn.%s (%s)", i.Name, i.Cause.Error()))
+				}
+			}
+
+			err = errors.NewTaskUnresolvedConditionalExpressions(expressions)
 		}
 
 		utilapi.WriteError(ctx, w, err)

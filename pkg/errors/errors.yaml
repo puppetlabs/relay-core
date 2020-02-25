@@ -201,12 +201,6 @@ sections:
       condition_evaluation_error:
         title: Condition evaluation error
         description: failed to evaluate the step condition
-      condition_unresolved_error:
-        title: Condition unresolved error
-        description: one or more expressions were unresolvable
-        metadata:
-          http:
-            status: 500
       condition_structure_malformed_error:
         title: Condition structure malformed error
         description: unexpected result type found found or the tree was malformed
@@ -219,7 +213,17 @@ sections:
         arguments:
           expressions:
             type: list<string>
-            description: the expression kind that is not supported
+            description: the expressions that are not supported
+        metadata:
+          http:
+            status: 500
+      unresolved_conditional_expressions:
+        title: Unresolved conditional expressions
+        description: "one or more expressions were unresolvable: {{#join expressions}}{{this}}{{/join}}"
+        arguments:
+          expressions:
+            type: list<string>
+            description: the expressions that are unresolved
         metadata:
           http:
             status: 500
