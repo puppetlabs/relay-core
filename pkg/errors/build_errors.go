@@ -2398,57 +2398,6 @@ func NewTaskConditionStructureMalformedError() Error {
 	return NewTaskConditionStructureMalformedErrorBuilder().Build()
 }
 
-// TaskConditionUnresolvedErrorCode is the code for an instance of "condition_unresolved_error".
-const TaskConditionUnresolvedErrorCode = "nt_task_condition_unresolved_error"
-
-// IsTaskConditionUnresolvedError tests whether a given error is an instance of "condition_unresolved_error".
-func IsTaskConditionUnresolvedError(err errawr.Error) bool {
-	return err != nil && err.Is(TaskConditionUnresolvedErrorCode)
-}
-
-// IsTaskConditionUnresolvedError tests whether a given error is an instance of "condition_unresolved_error".
-func (External) IsTaskConditionUnresolvedError(err errawr.Error) bool {
-	return IsTaskConditionUnresolvedError(err)
-}
-
-// TaskConditionUnresolvedErrorBuilder is a builder for "condition_unresolved_error" errors.
-type TaskConditionUnresolvedErrorBuilder struct {
-	arguments impl.ErrorArguments
-}
-
-// Build creates the error for the code "condition_unresolved_error" from this builder.
-func (b *TaskConditionUnresolvedErrorBuilder) Build() Error {
-	description := &impl.ErrorDescription{
-		Friendly:  "one or more expressions were unresolvable",
-		Technical: "one or more expressions were unresolvable",
-	}
-
-	return &impl.Error{
-		ErrorArguments:   b.arguments,
-		ErrorCode:        "condition_unresolved_error",
-		ErrorDescription: description,
-		ErrorDomain:      Domain,
-		ErrorMetadata: &impl.ErrorMetadata{HTTPErrorMetadata: &impl.HTTPErrorMetadata{
-			ErrorHeaders: impl.HTTPErrorMetadataHeaders{},
-			ErrorStatus:  500,
-		}},
-		ErrorSection:     TaskSection,
-		ErrorSensitivity: errawr.ErrorSensitivityNone,
-		ErrorTitle:       "Condition unresolved error",
-		Version:          1,
-	}
-}
-
-// NewTaskConditionUnresolvedErrorBuilder creates a new error builder for the code "condition_unresolved_error".
-func NewTaskConditionUnresolvedErrorBuilder() *TaskConditionUnresolvedErrorBuilder {
-	return &TaskConditionUnresolvedErrorBuilder{arguments: impl.ErrorArguments{}}
-}
-
-// NewTaskConditionUnresolvedError creates a new error with the code "condition_unresolved_error".
-func NewTaskConditionUnresolvedError() Error {
-	return NewTaskConditionUnresolvedErrorBuilder().Build()
-}
-
 // TaskConditionalsDecodingErrorCode is the code for an instance of "conditionals_decoding_error".
 const TaskConditionalsDecodingErrorCode = "nt_task_conditionals_decoding_error"
 
@@ -2902,6 +2851,57 @@ func NewTaskSpecNotFoundForID(id string) Error {
 	return NewTaskSpecNotFoundForIDBuilder(id).Build()
 }
 
+// TaskUnresolvedConditionalExpressionsCode is the code for an instance of "unresolved_conditional_expressions".
+const TaskUnresolvedConditionalExpressionsCode = "nt_task_unresolved_conditional_expressions"
+
+// IsTaskUnresolvedConditionalExpressions tests whether a given error is an instance of "unresolved_conditional_expressions".
+func IsTaskUnresolvedConditionalExpressions(err errawr.Error) bool {
+	return err != nil && err.Is(TaskUnresolvedConditionalExpressionsCode)
+}
+
+// IsTaskUnresolvedConditionalExpressions tests whether a given error is an instance of "unresolved_conditional_expressions".
+func (External) IsTaskUnresolvedConditionalExpressions(err errawr.Error) bool {
+	return IsTaskUnresolvedConditionalExpressions(err)
+}
+
+// TaskUnresolvedConditionalExpressionsBuilder is a builder for "unresolved_conditional_expressions" errors.
+type TaskUnresolvedConditionalExpressionsBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "unresolved_conditional_expressions" from this builder.
+func (b *TaskUnresolvedConditionalExpressionsBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "one or more expressions were unresolvable: {{#join expressions}}{{this}}{{/join}}",
+		Technical: "one or more expressions were unresolvable: {{#join expressions}}{{this}}{{/join}}",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "unresolved_conditional_expressions",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata: &impl.ErrorMetadata{HTTPErrorMetadata: &impl.HTTPErrorMetadata{
+			ErrorHeaders: impl.HTTPErrorMetadataHeaders{},
+			ErrorStatus:  500,
+		}},
+		ErrorSection:     TaskSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Unresolved conditional expressions",
+		Version:          1,
+	}
+}
+
+// NewTaskUnresolvedConditionalExpressionsBuilder creates a new error builder for the code "unresolved_conditional_expressions".
+func NewTaskUnresolvedConditionalExpressionsBuilder(expressions []string) *TaskUnresolvedConditionalExpressionsBuilder {
+	return &TaskUnresolvedConditionalExpressionsBuilder{arguments: impl.ErrorArguments{"expressions": impl.NewErrorArgument(expressions, "the expressions that are unresolved")}}
+}
+
+// NewTaskUnresolvedConditionalExpressions creates a new error with the code "unresolved_conditional_expressions".
+func NewTaskUnresolvedConditionalExpressions(expressions []string) Error {
+	return NewTaskUnresolvedConditionalExpressionsBuilder(expressions).Build()
+}
+
 // TaskUnsupportedConditionalExpressionsCode is the code for an instance of "unsupported_conditional_expressions".
 const TaskUnsupportedConditionalExpressionsCode = "nt_task_unsupported_conditional_expressions"
 
@@ -2945,7 +2945,7 @@ func (b *TaskUnsupportedConditionalExpressionsBuilder) Build() Error {
 
 // NewTaskUnsupportedConditionalExpressionsBuilder creates a new error builder for the code "unsupported_conditional_expressions".
 func NewTaskUnsupportedConditionalExpressionsBuilder(expressions []string) *TaskUnsupportedConditionalExpressionsBuilder {
-	return &TaskUnsupportedConditionalExpressionsBuilder{arguments: impl.ErrorArguments{"expressions": impl.NewErrorArgument(expressions, "the expression kind that is not supported")}}
+	return &TaskUnsupportedConditionalExpressionsBuilder{arguments: impl.ErrorArguments{"expressions": impl.NewErrorArgument(expressions, "the expressions that are not supported")}}
 }
 
 // NewTaskUnsupportedConditionalExpressions creates a new error with the code "unsupported_conditional_expressions".
