@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/puppetlabs/horsehead/v2/instrumentation/metrics/collectors"
+	"github.com/puppetlabs/horsehead/v2/instrumentation/metrics/internal/noop"
 	"github.com/puppetlabs/horsehead/v2/instrumentation/metrics/internal/prometheus"
 )
 
@@ -22,6 +23,7 @@ type DelegateType string
 const (
 	// PrometheusDelegate is a const that represents the prometheus backend
 	PrometheusDelegate DelegateType = "prometheus"
+	NoopDelegate       DelegateType = "noop"
 )
 
 // New looks up t and returns a new Delegate matching that type
@@ -29,6 +31,8 @@ func New(namespace string, t DelegateType) (Delegate, error) {
 	switch t {
 	case PrometheusDelegate:
 		return prometheus.New(namespace), nil
+	case NoopDelegate:
+		return noop.New(), nil
 	}
 
 	return nil, errors.New("no delegate found")

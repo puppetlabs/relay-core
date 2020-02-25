@@ -1,7 +1,9 @@
 package outputs
 
+import "github.com/puppetlabs/horsehead/v2/encoding/transfer"
+
 type Output struct {
 	TaskName string
 	Key      string
-	Value    string
+	Value    transfer.JSONInterface
 }

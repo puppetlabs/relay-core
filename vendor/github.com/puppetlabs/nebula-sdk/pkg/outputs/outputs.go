@@ -10,6 +10,8 @@ import (
 	"net/url"
 	"os"
 	"path"
+
+	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
 )
 
 var (
@@ -23,8 +25,8 @@ var (
 // OutputsClient is a client for storing task outputs in
 // the nebula outputs storage.
 type OutputsClient interface {
-	SetOutput(ctx context.Context, key, value string) error
-	GetOutput(ctx context.Context, taskName, key string) (string, error)
+	SetOutput(ctx context.Context, key string, value interface{}) error
+	GetOutput(ctx context.Context, taskName, key string) (interface{}, error)
 }
 
 // DefaultOutputsClient uses the default net/http.Client to
@@ -33,7 +35,7 @@ type DefaultOutputsClient struct {
 	apiURL *url.URL
 }
 
-func (c DefaultOutputsClient) SetOutput(ctx context.Context, key, value string) error {
+func (c DefaultOutputsClient) SetOutput(ctx context.Context, key string, value interface{}) error {
 	if key == "" {
 		return ErrOutputsClientKeyEmpty
 	}
@@ -45,13 +47,17 @@ func (c DefaultOutputsClient) SetOutput(ctx context.Context, key, value string) 
 	loc := *c.apiURL
 	loc.Path = path.Join(loc.Path, key)
 
-	buf := bytes.NewBufferString(value)
-
-	req, err := http.NewRequest("PUT", loc.String(), buf)
+	encoded, err := json.Marshal(transfer.JSONInterface{Data: value})
 	if err != nil {
 		return err
 	}
 
+	req, err := http.NewRequest("PUT", loc.String(), bytes.NewBuffer(encoded))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
 	req = req.WithContext(ctx)
 
 	resp, err := http.DefaultClient.Do(req)
@@ -68,7 +74,7 @@ func (c DefaultOutputsClient) SetOutput(ctx context.Context, key, value string) 
 	return nil
 }
 
-func (c DefaultOutputsClient) GetOutput(ctx context.Context, taskName, key string) (string, error) {
+func (c DefaultOutputsClient) GetOutput(ctx context.Context, taskName, key string) (interface{}, error) {
 	if key == "" {
 		return "", ErrOutputsClientKeyEmpty
 	}
@@ -108,12 +114,7 @@ func (c DefaultOutputsClient) GetOutput(ctx context.Context, taskName, key strin
 		return "", err
 	}
 
-	v, err := output.Value.Decode()
-	if err != nil {
-		return "", err
-	}
-
-	return string(v), nil
+	return output.Value.Data, nil
 }
 
 func NewDefaultOutputsClient(location *url.URL) OutputsClient {
