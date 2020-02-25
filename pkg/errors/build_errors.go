@@ -2902,6 +2902,57 @@ func NewTaskSpecNotFoundForID(id string) Error {
 	return NewTaskSpecNotFoundForIDBuilder(id).Build()
 }
 
+// TaskUnsupportedConditionalExpressionsCode is the code for an instance of "unsupported_conditional_expressions".
+const TaskUnsupportedConditionalExpressionsCode = "nt_task_unsupported_conditional_expressions"
+
+// IsTaskUnsupportedConditionalExpressions tests whether a given error is an instance of "unsupported_conditional_expressions".
+func IsTaskUnsupportedConditionalExpressions(err errawr.Error) bool {
+	return err != nil && err.Is(TaskUnsupportedConditionalExpressionsCode)
+}
+
+// IsTaskUnsupportedConditionalExpressions tests whether a given error is an instance of "unsupported_conditional_expressions".
+func (External) IsTaskUnsupportedConditionalExpressions(err errawr.Error) bool {
+	return IsTaskUnsupportedConditionalExpressions(err)
+}
+
+// TaskUnsupportedConditionalExpressionsBuilder is a builder for "unsupported_conditional_expressions" errors.
+type TaskUnsupportedConditionalExpressionsBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "unsupported_conditional_expressions" from this builder.
+func (b *TaskUnsupportedConditionalExpressionsBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "one or more expressions are not a supported: {{#join expressions}}{{this}}{{/join}}",
+		Technical: "one or more expressions are not a supported: {{#join expressions}}{{this}}{{/join}}",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "unsupported_conditional_expressions",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata: &impl.ErrorMetadata{HTTPErrorMetadata: &impl.HTTPErrorMetadata{
+			ErrorHeaders: impl.HTTPErrorMetadataHeaders{},
+			ErrorStatus:  500,
+		}},
+		ErrorSection:     TaskSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Unsupported conditional expressions",
+		Version:          1,
+	}
+}
+
+// NewTaskUnsupportedConditionalExpressionsBuilder creates a new error builder for the code "unsupported_conditional_expressions".
+func NewTaskUnsupportedConditionalExpressionsBuilder(expressions []string) *TaskUnsupportedConditionalExpressionsBuilder {
+	return &TaskUnsupportedConditionalExpressionsBuilder{arguments: impl.ErrorArguments{"expressions": impl.NewErrorArgument(expressions, "the expression kind that is not supported")}}
+}
+
+// NewTaskUnsupportedConditionalExpressions creates a new error with the code "unsupported_conditional_expressions".
+func NewTaskUnsupportedConditionalExpressions(expressions []string) Error {
+	return NewTaskUnsupportedConditionalExpressionsBuilder(expressions).Build()
+}
+
 // WorkflowSection defines a section of errors with the following scope:
 // Workflow errors
 var WorkflowSection = &impl.ErrorSection{

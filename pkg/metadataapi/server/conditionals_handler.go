@@ -81,9 +81,23 @@ func (h *conditionalsHandler) get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !rv.Complete() {
-		err := errors.NewTaskConditionUnresolvedError()
+		var err errors.Error
+
+		if len(rv.Unresolvable.Secrets) > 0 {
+			expressions := []string{}
+
+			for _, sec := range rv.Unresolvable.Secrets {
+				expressions = append(expressions, "!Secret "+sec.Name)
+			}
+
+			err = errors.NewTaskUnsupportedConditionalExpressions(expressions)
+		} else {
+			err = errors.NewTaskConditionUnresolvedError()
+		}
 
 		utilapi.WriteError(ctx, w, err)
+
+		return
 	}
 
 	conditions, ok := rv.Value.(map[string]interface{})["conditions"].([]interface{})
