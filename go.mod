@@ -4,7 +4,7 @@ go 1.13
 
 require (
 	cloud.google.com/go/storage v1.1.2 // indirect
-	github.com/frankban/quicktest v1.7.2 // indirect
+	github.com/frankban/quicktest v1.7.3 // indirect
 	github.com/golang/groupcache v0.0.0-20191002201903-404acd9df4cc // indirect
 	github.com/google/uuid v1.1.1
 	github.com/hashicorp/vault/api v1.0.4
@@ -17,7 +17,6 @@ require (
 	github.com/puppetlabs/nebula-libs/storage/file/v2 v2.0.0
 	github.com/puppetlabs/nebula-libs/storage/gcs/v2 v2.0.0
 	github.com/puppetlabs/nebula-sdk v1.6.0
-	//github.com/puppetlabs/nebula-sdk v1.5.0
 	github.com/stretchr/testify v1.4.0
 	github.com/tektoncd/pipeline v0.10.1
 	go.uber.org/multierr v1.2.0 // indirect

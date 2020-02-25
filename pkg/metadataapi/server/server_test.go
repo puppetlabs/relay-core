@@ -101,9 +101,8 @@ func TestServerOutputsHandler(t *testing.T) {
 		require.Equal(t, "foo", out.Key)
 		require.Equal(t, "test-task", out.TaskName)
 
-		v, err := out.Value.Decode()
 		require.NoError(t, err)
-		require.Equal(t, "bar\x90", string(v))
+		require.Equal(t, "bar\x90", out.Value.Data)
 	})
 }
 
@@ -123,9 +122,10 @@ func TestServerSpecsHandler(t *testing.T) {
 			Namespace: namespace,
 			PodIP:     "10.3.3.3",
 			SpecData: map[string]interface{}{
-				"super-secret": map[string]string{"$type": "Secret", "name": "test-secret-key"},
-				"super-output": map[string]string{"$type": "Output", "name": "test-output-key", "taskName": previousTask.Name},
-				"super-normal": "test-normal-value",
+				"super-secret":      map[string]string{"$type": "Secret", "name": "test-secret-key"},
+				"super-output":      map[string]string{"$type": "Output", "name": "test-output-key", "taskName": previousTask.Name},
+				"structured-output": map[string]string{"$type": "Output", "name": "test-structured-output-key", "taskName": previousTask.Name},
+				"super-normal":      "test-normal-value",
 			},
 		}
 	)
@@ -156,22 +156,29 @@ func TestServerSpecsHandler(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 
-		defer resp.Body.Close()
+		req, err = http.NewRequest(http.MethodPut, ts.URL+"/outputs/test-structured-output-key", strings.NewReader(`{"a":"value","another":"thing"}`))
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err = client.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusCreated, resp.StatusCode)
 
 		resp, err = client.Get(ts.URL + "/specs/" + currentTask.ID)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 
-		defer resp.Body.Close()
-
-		// the test spec, after interpolation from the api, should be a more flat map[string]string,
-		// so we will try to unmarshal the response into something like that to see if
-		// that's what we got.
-		spec := make(map[string]string)
+		spec := make(map[string]interface{})
 
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(&spec))
-		require.Equal(t, "test-secret-value", spec["super-secret"])
-		require.Equal(t, "test-output-value", spec["super-output"])
-		require.Equal(t, "test-normal-value", spec["super-normal"])
+		require.Equal(t, map[string]interface{}{
+			"super-secret": "test-secret-value",
+			"super-output": "test-output-value",
+			"structured-output": map[string]interface{}{
+				"a":       "value",
+				"another": "thing",
+			},
+			"super-normal": "test-normal-value",
+		}, spec)
 	})
 }

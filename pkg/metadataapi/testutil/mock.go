@@ -129,7 +129,7 @@ func NewMockManagerFactory(t *testing.T, cfg MockManagerFactoryConfig) MockManag
 
 	return MockManagerFactory{
 		sm:  op.NewEncodingSecretManager(sm),
-		om:  op.NewEncodeDecodingOutputsManager(om),
+		om:  om,
 		stm: op.NewEncodeDecodingStateManager(stm),
 		cm:  cm,
 		mm:  mm,

@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"encoding/json"
 	"net/http"
 
 	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
@@ -37,11 +38,28 @@ func (o outputsHandler) put(w http.ResponseWriter, r *http.Request) {
 
 	key, _ := shiftPath(r.URL.Path)
 
-	buf := &bytes.Buffer{}
-	buf.ReadFrom(r.Body)
-	defer r.Body.Close()
+	var value transfer.JSONInterface
 
-	if err := om.Put(ctx, md.Hash, key, buf); err != nil {
+	switch r.Header.Get("Content-Type") {
+	case "application/json":
+		if err := json.NewDecoder(r.Body).Decode(&value.Data); err != nil {
+			utilapi.WriteError(ctx, w, errors.NewOutputsValueDecodingError().WithCause(err))
+			return
+		}
+	case "text/plain", "application/octet-stream", "":
+		buf := &bytes.Buffer{}
+		if _, err := buf.ReadFrom(r.Body); err != nil {
+			utilapi.WriteError(ctx, w, errors.NewOutputsValueDecodingError().WithCause(err))
+			return
+		}
+
+		value.Data = buf.String()
+	default:
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	if err := om.Put(ctx, md.Hash, key, value); err != nil {
 		utilapi.WriteError(ctx, w, err)
 
 		return
@@ -68,16 +86,10 @@ func (o outputsHandler) get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ev, verr := transfer.EncodeJSON([]byte(response.Value))
-	if verr != nil {
-		utilapi.WriteError(ctx, w, errors.NewOutputsValueEncodingError().WithCause(verr).Bug())
-		return
-	}
-
 	env := &outputs.Output{
 		TaskName: response.TaskName,
 		Key:      response.Key,
-		Value:    ev,
+		Value:    response.Value,
 	}
 
 	utilapi.WriteObjectOK(ctx, w, env)

@@ -107,7 +107,7 @@ func NewForKubernetes(ctx context.Context, cfg *config.MetadataServerConfig) (*D
 
 	return &DefaultManagerFactory{
 		sm:  NewEncodingSecretManager(sm),
-		om:  NewEncodeDecodingOutputsManager(om),
+		om:  om,
 		stm: NewEncodeDecodingStateManager(stm),
 		mm:  mm,
 		spm: spm,
@@ -146,7 +146,7 @@ func NewForDev(ctx context.Context, cfg *config.MetadataServerConfig) (*DefaultM
 
 	return &DefaultManagerFactory{
 		sm:  NewEncodingSecretManager(sm),
-		om:  NewEncodeDecodingOutputsManager(om),
+		om:  om,
 		stm: NewEncodeDecodingStateManager(stm),
 		mm:  mm,
 		spm: spm,

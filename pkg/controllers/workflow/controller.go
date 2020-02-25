@@ -105,6 +105,14 @@ const (
 	ServiceAccountIdentifierMetadata = "metadata"
 )
 
+var (
+	defaultCustomerNameservers = []string{
+		"1.1.1.1",
+		"1.0.0.1",
+		"8.8.8.8",
+	}
+)
+
 const (
 	WorkflowRunStateCancel = "cancel"
 )
@@ -745,6 +753,10 @@ func (c *Controller) createPipelineRun(wr *nebulav1.WorkflowRun) (*tekv1alpha1.P
 						Effect: corev1.TaintEffectNoSchedule,
 					},
 				},
+				DNSPolicy: func(p corev1.DNSPolicy) *corev1.DNSPolicy { return &p }(corev1.DNSNone),
+				DNSConfig: &corev1.PodDNSConfig{
+					Nameservers: defaultCustomerNameservers,
+				},
 			},
 		},
 	}
@@ -1097,7 +1109,8 @@ func (c *Controller) createLimitRange(namespace string) (*corev1.LimitRange, err
 func (c *Controller) createTasks(wr *nebulav1.WorkflowRun, service *corev1.Service) (StepTasks, errors.Error) {
 	stepTasks := make(StepTasks)
 
-	metadataAPIURL := fmt.Sprintf("http://%s.%s.svc.cluster.local", service.GetName(), wr.GetNamespace())
+	// TODO: Configure CoreDNS and a real DNS name here.
+	metadataAPIURL := fmt.Sprintf("http://%s", service.Spec.ClusterIP)
 
 	ownerReference := metav1.NewControllerRef(wr, controllerKind)
 
