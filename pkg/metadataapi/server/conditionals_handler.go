@@ -62,7 +62,7 @@ func (h *conditionalsHandler) get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ev := evaluate.NewEvaluator(
-		evaluate.WithOutputTypeResolver(resolve.OutputTypeResolverFunc(func(ctx context.Context, from, name string) (string, error) {
+		evaluate.WithOutputTypeResolver(resolve.OutputTypeResolverFunc(func(ctx context.Context, from, name string) (interface{}, error) {
 			o, err := managers.OutputsManager().Get(ctx, from, name)
 			if errors.IsOutputsTaskNotFound(err) || errors.IsOutputsKeyNotFound(err) {
 				return "", nil
@@ -70,7 +70,7 @@ func (h *conditionalsHandler) get(w http.ResponseWriter, r *http.Request) {
 				return "", err
 			}
 
-			return o.Value, nil
+			return o.Value.Data, nil
 		})),
 	)
 
