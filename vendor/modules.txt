@@ -155,7 +155,7 @@ github.com/puppetlabs/errawr-go/v2/pkg/encoding
 github.com/puppetlabs/errawr-go/v2/pkg/errawr
 github.com/puppetlabs/errawr-go/v2/pkg/golang
 github.com/puppetlabs/errawr-go/v2/pkg/impl
-# github.com/puppetlabs/horsehead/v2 v2.4.0
+# github.com/puppetlabs/horsehead/v2 v2.7.0
 github.com/puppetlabs/horsehead/v2/datastructure
 github.com/puppetlabs/horsehead/v2/encoding/transfer
 github.com/puppetlabs/horsehead/v2/httputil/api
@@ -181,7 +181,7 @@ github.com/puppetlabs/horsehead/v2/storage
 github.com/puppetlabs/nebula-libs/storage/file/v2
 # github.com/puppetlabs/nebula-libs/storage/gcs/v2 v2.0.0
 github.com/puppetlabs/nebula-libs/storage/gcs/v2
-# github.com/puppetlabs/nebula-sdk v1.5.2-0.20200221214314-99adb80c5bc8
+# github.com/puppetlabs/nebula-sdk v1.6.0
 github.com/puppetlabs/nebula-sdk/pkg/outputs
 github.com/puppetlabs/nebula-sdk/pkg/secrets
 github.com/puppetlabs/nebula-sdk/pkg/util/jsonpath

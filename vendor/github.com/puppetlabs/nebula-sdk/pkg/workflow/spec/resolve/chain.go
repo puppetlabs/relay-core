@@ -29,7 +29,7 @@ type chainOutputTypeResolvers struct {
 	resolvers []OutputTypeResolver
 }
 
-func (cr *chainOutputTypeResolvers) ResolveOutput(ctx context.Context, from, name string) (string, error) {
+func (cr *chainOutputTypeResolvers) ResolveOutput(ctx context.Context, from, name string) (interface{}, error) {
 	for _, r := range cr.resolvers {
 		o, err := r.ResolveOutput(ctx, from, name)
 		if _, ok := err.(*OutputNotFoundError); ok {

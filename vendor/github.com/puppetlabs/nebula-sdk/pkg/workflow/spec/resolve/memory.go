@@ -32,12 +32,12 @@ type MemoryOutputKey struct {
 }
 
 type MemoryOutputTypeResolver struct {
-	m map[MemoryOutputKey]string
+	m map[MemoryOutputKey]interface{}
 }
 
 var _ OutputTypeResolver = &MemoryOutputTypeResolver{}
 
-func (mr *MemoryOutputTypeResolver) ResolveOutput(ctx context.Context, from, name string) (string, error) {
+func (mr *MemoryOutputTypeResolver) ResolveOutput(ctx context.Context, from, name string) (interface{}, error) {
 	o, ok := mr.m[MemoryOutputKey{From: from, Name: name}]
 	if !ok {
 		return "", &OutputNotFoundError{From: from, Name: name}
@@ -46,7 +46,7 @@ func (mr *MemoryOutputTypeResolver) ResolveOutput(ctx context.Context, from, nam
 	return o, nil
 }
 
-func NewMemoryOutputTypeResolver(m map[MemoryOutputKey]string) *MemoryOutputTypeResolver {
+func NewMemoryOutputTypeResolver(m map[MemoryOutputKey]interface{}) *MemoryOutputTypeResolver {
 	return &MemoryOutputTypeResolver{m: m}
 }
 
