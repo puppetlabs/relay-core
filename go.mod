@@ -13,10 +13,10 @@ require (
 	github.com/jstemmer/go-junit-report v0.9.1 // indirect
 	github.com/puppetlabs/errawr-gen v1.0.1
 	github.com/puppetlabs/errawr-go/v2 v2.2.0
-	github.com/puppetlabs/horsehead/v2 v2.6.1-0.20200222032856-6b2565e44cb7
+	github.com/puppetlabs/horsehead/v2 v2.7.0
 	github.com/puppetlabs/nebula-libs/storage/file/v2 v2.0.0
 	github.com/puppetlabs/nebula-libs/storage/gcs/v2 v2.0.0
-	github.com/puppetlabs/nebula-sdk v1.5.2-0.20200222042241-26c7776edad1
+	github.com/puppetlabs/nebula-sdk v1.6.0
 	github.com/stretchr/testify v1.4.0
 	github.com/tektoncd/pipeline v0.10.1
 	go.uber.org/multierr v1.2.0 // indirect
