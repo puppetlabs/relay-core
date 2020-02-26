@@ -70,7 +70,7 @@ func (mm *KubernetesMetadataManager) GetByIP(ctx context.Context, ip string) (*M
 	}
 
 	md := &Metadata{
-		Name: pod.GetName(),
+		Name: pod.GetLabels()["tekton.dev/task"],
 	}
 	copy(md.Hash[:], taskHash)
 

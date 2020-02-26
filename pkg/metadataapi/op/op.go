@@ -2,6 +2,7 @@ package op
 
 import (
 	"context"
+	"crypto/sha1"
 	"os"
 
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
@@ -122,6 +123,10 @@ func NewForDev(ctx context.Context, cfg *config.MetadataServerConfig) (*DefaultM
 
 	if err := yaml.NewDecoder(f).Decode(&preCfg); err != nil {
 		return nil, errors.NewServerPreConfigDecodingError().WithCause(err)
+	}
+
+	for _, md := range preCfg.TaskMetadata {
+		md.Hash = sha1.Sum([]byte(md.Name))
 	}
 
 	sm := smemory.New(preCfg.Secrets)
