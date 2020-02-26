@@ -158,6 +158,8 @@ github.com/puppetlabs/errawr-go/v2/pkg/impl
 # github.com/puppetlabs/horsehead/v2 v2.7.0
 github.com/puppetlabs/horsehead/v2/datastructure
 github.com/puppetlabs/horsehead/v2/encoding/transfer
+github.com/puppetlabs/horsehead/v2/graph
+github.com/puppetlabs/horsehead/v2/graph/traverse
 github.com/puppetlabs/horsehead/v2/httputil/api
 github.com/puppetlabs/horsehead/v2/httputil/errors
 github.com/puppetlabs/horsehead/v2/instrumentation/alerts/trackers
@@ -181,7 +183,7 @@ github.com/puppetlabs/horsehead/v2/storage
 github.com/puppetlabs/nebula-libs/storage/file/v2
 # github.com/puppetlabs/nebula-libs/storage/gcs/v2 v2.0.0
 github.com/puppetlabs/nebula-libs/storage/gcs/v2
-# github.com/puppetlabs/nebula-sdk v1.6.0
+# github.com/puppetlabs/nebula-sdk v1.8.2-0.20200227011152-8e6dca4ff00d
 github.com/puppetlabs/nebula-sdk/pkg/outputs
 github.com/puppetlabs/nebula-sdk/pkg/secrets
 github.com/puppetlabs/nebula-sdk/pkg/util/jsonpath
@@ -190,6 +192,7 @@ github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/fn
 github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/fnlib
 github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/parse
 github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/resolve
+github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/testutil
 # github.com/puppetlabs/paesslerag-gval v1.0.2-0.20191119012647-d2c694821b5b
 github.com/puppetlabs/paesslerag-gval
 # github.com/puppetlabs/paesslerag-jsonpath v0.1.2-0.20191119013138-25b86105f641

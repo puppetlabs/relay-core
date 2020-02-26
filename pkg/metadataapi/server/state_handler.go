@@ -65,13 +65,11 @@ func (st stateHandler) put(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
-	key, _ := shiftPath(r.URL.Path)
-
 	buf := &bytes.Buffer{}
 	buf.ReadFrom(r.Body)
 	defer r.Body.Close()
 
-	if err := stm.Set(ctx, md.Hash, key, buf); err != nil {
+	if err := stm.Set(ctx, md.Hash, buf); err != nil {
 		utilapi.WriteError(ctx, w, err)
 
 		return

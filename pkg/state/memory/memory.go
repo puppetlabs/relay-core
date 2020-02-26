@@ -9,12 +9,13 @@ import (
 	"io"
 	"sync"
 
+	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/parse"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/state"
 )
 
 type StateManager struct {
-	data map[string]map[string][]byte
+	data map[string]string
 
 	sync.Mutex
 }
@@ -30,36 +31,34 @@ func (sm *StateManager) Get(ctx context.Context, taskHash [sha1.Size]byte, key s
 		return nil, errors.NewStateTaskNotFound(name)
 	}
 
-	if sm.data[taskHashKey] == nil {
+	if _, ok := sm.data[taskHashKey]; !ok {
 		return nil, errors.NewStateTaskNotFound(name)
 	}
 
-	if sm.data[taskHashKey][key] == nil {
+	tree, err := parse.ParseJSONString(sm.data[taskHashKey])
+	if err != nil {
+		return nil, errors.NewStateValueDecodingError().WithCause(err)
+	}
+
+	if _, ok := tree[key]; !ok {
 		return nil, errors.NewStateKeyNotFound(key)
 	}
 
+	val := tree[key]
 	return &state.State{
 		Key:   key,
-		Value: string(sm.data[taskHashKey][key]),
+		Value: val.(string),
 	}, nil
 }
 
-func (sm *StateManager) Set(ctx context.Context, taskHash [sha1.Size]byte, key string, value io.Reader) errors.Error {
+func (sm *StateManager) Set(ctx context.Context, taskHash [sha1.Size]byte, value io.Reader) errors.Error {
 	sm.Lock()
 	defer sm.Unlock()
 
 	taskHashKey := hex.EncodeToString(taskHash[:])
 
-	if key == "" {
-		return errors.NewStateKeyEmptyError()
-	}
-
 	if sm.data == nil {
-		sm.data = make(map[string]map[string][]byte)
-	}
-
-	if sm.data[taskHashKey] == nil {
-		sm.data[taskHashKey] = make(map[string][]byte)
+		sm.data = make(map[string]string)
 	}
 
 	buf := &bytes.Buffer{}
@@ -68,7 +67,7 @@ func (sm *StateManager) Set(ctx context.Context, taskHash [sha1.Size]byte, key s
 		return errors.NewStateValueReadError().WithCause(err)
 	}
 
-	sm.data[taskHashKey][key] = buf.Bytes()
+	sm.data[taskHashKey] = buf.String()
 
 	return nil
 }

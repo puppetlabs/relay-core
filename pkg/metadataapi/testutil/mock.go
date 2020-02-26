@@ -46,10 +46,17 @@ func MockTask(t *testing.T, cfg MockTaskConfig) []runtime.Object {
 	require.NoError(t, err)
 
 	taskHash := sha1.Sum([]byte(cfg.Name))
+	taskId := hex.EncodeToString(taskHash[:])
 
 	labels := map[string]string{
-		"nebula.puppet.com/task.hash": hex.EncodeToString(taskHash[:]),
+		"nebula.puppet.com/task.hash": taskId,
 		"tekton.dev/task":             cfg.Name,
+	}
+
+	// TODO Remove this inconsistency/discrepancy
+	configMapName := cfg.Name
+	if cfg.When != nil && len(cfg.When) > 0 {
+		configMapName = taskId
 	}
 
 	return []runtime.Object{
@@ -65,7 +72,7 @@ func MockTask(t *testing.T, cfg MockTaskConfig) []runtime.Object {
 		},
 		&corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      cfg.Name,
+				Name:      configMapName,
 				Namespace: cfg.Namespace,
 				Labels:    labels,
 			},

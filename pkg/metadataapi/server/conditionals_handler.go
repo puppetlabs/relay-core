@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"net/http"
 
@@ -33,21 +34,14 @@ func (h *conditionalsHandler) get(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	managers := middleware.Managers(r)
+	md := middleware.TaskMetadata(r)
 
-	var key string
-
-	key, r.URL.Path = shiftPath(r.URL.Path)
-	if key == "" || r.URL.Path != "" {
-		http.NotFound(w, r)
-
-		return
-	}
-
-	h.logger.Info("handling condition request", "key", key)
+	taskId := hex.EncodeToString(md.Hash[:])
+	h.logger.Info("handling condition request", "task-id", taskId)
 
 	cm := managers.ConditionalsManager()
 
-	conditionalsData, err := cm.GetByTaskID(ctx, key)
+	conditionalsData, err := cm.GetByTaskID(ctx, taskId)
 	if err != nil {
 		utilapi.WriteError(ctx, w, err)
 
@@ -71,6 +65,13 @@ func (h *conditionalsHandler) get(w http.ResponseWriter, r *http.Request) {
 			}
 
 			return o.Value.Data, nil
+		})),
+		evaluate.WithAnswerTypeResolver(resolve.AnswerTypeResolverFunc(func(ctx context.Context, askRef, name string) (interface{}, error) {
+			st, err := managers.StateManager().Get(ctx, md.Hash, name)
+			if err != nil {
+				return "", err
+			}
+			return st.Value, nil
 		})),
 	)
 
@@ -107,6 +108,12 @@ func (h *conditionalsHandler) get(w http.ResponseWriter, r *http.Request) {
 			if len(rv.Unresolvable.Parameters) > 0 {
 				for _, p := range rv.Unresolvable.Parameters {
 					expressions = append(expressions, fmt.Sprintf("!Parameter %s", p.Name))
+				}
+			}
+
+			if len(rv.Unresolvable.Answers) > 0 {
+				for _, p := range rv.Unresolvable.Answers {
+					expressions = append(expressions, fmt.Sprintf("!Answer %s %s", p.Name, p.AskRef))
 				}
 			}
 

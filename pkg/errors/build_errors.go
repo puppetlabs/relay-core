@@ -2049,6 +2049,57 @@ func NewStateKeyNotFound(key string) Error {
 	return NewStateKeyNotFoundBuilder(key).Build()
 }
 
+// StateNotFoundForIDCode is the code for an instance of "not_found_for_id".
+const StateNotFoundForIDCode = "nt_state_not_found_for_id"
+
+// IsStateNotFoundForID tests whether a given error is an instance of "not_found_for_id".
+func IsStateNotFoundForID(err errawr.Error) bool {
+	return err != nil && err.Is(StateNotFoundForIDCode)
+}
+
+// IsStateNotFoundForID tests whether a given error is an instance of "not_found_for_id".
+func (External) IsStateNotFoundForID(err errawr.Error) bool {
+	return IsStateNotFoundForID(err)
+}
+
+// StateNotFoundForIDBuilder is a builder for "not_found_for_id" errors.
+type StateNotFoundForIDBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "not_found_for_id" from this builder.
+func (b *StateNotFoundForIDBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "no state was found for ID {{id}}",
+		Technical: "no state was found for ID {{id}}",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "not_found_for_id",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata: &impl.ErrorMetadata{HTTPErrorMetadata: &impl.HTTPErrorMetadata{
+			ErrorHeaders: impl.HTTPErrorMetadataHeaders{},
+			ErrorStatus:  404,
+		}},
+		ErrorSection:     StateSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "State not found for ID",
+		Version:          1,
+	}
+}
+
+// NewStateNotFoundForIDBuilder creates a new error builder for the code "not_found_for_id".
+func NewStateNotFoundForIDBuilder(id string) *StateNotFoundForIDBuilder {
+	return &StateNotFoundForIDBuilder{arguments: impl.ErrorArguments{"id": impl.NewErrorArgument(id, "the id of the task")}}
+}
+
+// NewStateNotFoundForID creates a new error with the code "not_found_for_id".
+func NewStateNotFoundForID(id string) Error {
+	return NewStateNotFoundForIDBuilder(id).Build()
+}
+
 // StatePutErrorCode is the code for an instance of "put_error".
 const StatePutErrorCode = "nt_state_put_error"
 
@@ -2368,8 +2419,8 @@ type TaskConditionStructureMalformedErrorBuilder struct {
 // Build creates the error for the code "condition_structure_malformed_error" from this builder.
 func (b *TaskConditionStructureMalformedErrorBuilder) Build() Error {
 	description := &impl.ErrorDescription{
-		Friendly:  "unexpected result type found found or the tree was malformed",
-		Technical: "unexpected result type found found or the tree was malformed",
+		Friendly:  "unexpected result type found or the tree was malformed",
+		Technical: "unexpected result type found or the tree was malformed",
 	}
 
 	return &impl.Error{

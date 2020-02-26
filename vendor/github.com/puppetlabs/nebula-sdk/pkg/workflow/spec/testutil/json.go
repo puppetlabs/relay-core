@@ -18,6 +18,10 @@ func JSONParameter(name string) map[string]interface{} {
 	return map[string]interface{}{"$type": "Parameter", "name": name}
 }
 
+func JSONAnswer(askRef, name string) map[string]interface{} {
+	return map[string]interface{}{"$type": "Answer", "askRef": askRef, "name": name}
+}
+
 func JSONInvocation(name string, args interface{}) map[string]interface{} {
 	return map[string]interface{}{fmt.Sprintf("$fn.%s", name): args}
 }

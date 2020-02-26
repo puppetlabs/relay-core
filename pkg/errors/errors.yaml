@@ -119,6 +119,15 @@ sections:
         metadata:
           http:
             status: 404
+      not_found_for_id:
+        title: State not found for ID
+        description: no state was found for ID {{id}}
+        arguments:
+          id:
+            description: the id of the task
+        metadata:
+          http:
+            status: 404
       key_empty_error:
         title: Key empty error
         description: the output key was empty
@@ -203,7 +212,7 @@ sections:
         description: failed to evaluate the step condition
       condition_structure_malformed_error:
         title: Condition structure malformed error
-        description: unexpected result type found found or the tree was malformed
+        description: unexpected result type found or the tree was malformed
         metadata:
           http:
             status: 500

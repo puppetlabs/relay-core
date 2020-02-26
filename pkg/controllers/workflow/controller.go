@@ -7,6 +7,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/puppetlabs/horsehead/v2/graph"
+	"github.com/puppetlabs/horsehead/v2/graph/traverse"
 	"io"
 	"net"
 	"net/http"
@@ -72,12 +74,6 @@ const (
 	WorkflowRunStatusTimedOut   WorkflowRunStatus = "timed-out"
 )
 
-type WorkflowConditionType string
-
-const (
-	WorkflowConditionTypeApproval WorkflowConditionType = "approval"
-)
-
 const (
 	// default name for the workflow metadata api pod and service
 	metadataServiceName = "metadata-api"
@@ -132,22 +128,19 @@ const (
 	conditionScript = `#!/bin/bash
 JQ="${JQ:-jq}"
 
-STATE_URL_PATH="${STATE_URL_PATH:-state}"
-STATE_KEY_NAME="${STATE_KEY_NAME:-state}"
-VALUE_KEY_NAME="${VALUE_KEY_NAME:-value}"
-CONDITION="${CONDITION:-condition}"
+CONDITIONS_URL="${CONDITIONS_URL:-conditions}"
+VALUE_NAME="${VALUE_NAME:-success}"
 POLLING_INTERVAL="${POLLING_INTERVAL:-5s}"
 POLLING_ITERATIONS="${POLLING_ITERATIONS:-1080}"
 
 for i in $(seq ${POLLING_ITERATIONS}); do
-  STATE=$(curl "$METADATA_API_URL/${STATE_URL_PATH}/${STATE_KEY_NAME}")
-  VALUE=$(echo $STATE | $JQ --arg value "$VALUE_KEY_NAME" -r '.[$value]')
-  CONDITION_VALUE=$(echo $VALUE | $JQ --arg condition "$CONDITION" -r '.[$condition]')
-  if [ -n "${CONDITION_VALUE}" ]; then
-    if [ "$CONDITION_VALUE" = "true" ]; then
+  CONDITIONS=$(curl "$METADATA_API_URL/${CONDITIONS_URL}")
+  VALUE=$(echo $CONDITIONS | $JQ --arg value "$VALUE_NAME" -r '.[$value]')
+  if [ -n "${VALUE}" ]; then
+    if [ "$VALUE" = "true" ]; then
       exit 0
     fi
-    if [ "$CONDITION_VALUE" = "false" ]; then
+    if [ "$VALUE" = "false" ]; then
       exit 1
     fi
   fi
@@ -439,12 +432,6 @@ func (c *Controller) processWorkflowRun(ctx context.Context, key string) error {
 		return err
 	}
 
-	// FIXME Debugging purposes only...
-	klog.Info(wr)
-	for index, value := range wr.Spec.Workflow.Steps {
-		klog.Info(index, value)
-	}
-
 	err = c.handleWorkflowRun(ctx, wr)
 
 	return err
@@ -461,7 +448,7 @@ func (c *Controller) writeWorkflowState(wr *nebulav1.WorkflowRun, taskHash [sha1
 
 	buf := &bytes.Buffer{}
 	buf.Write(data)
-	err = stm.Set(ctx, taskHash, "state", buf)
+	err = stm.Set(ctx, taskHash, buf)
 	if err != nil {
 		return errors.NewWorkflowExecutionError().WithCause(err)
 	}
@@ -780,12 +767,26 @@ func (c *Controller) updateWorkflowRunStatus(plr *tekv1alpha1.PipelineRun, wr *n
 		status = string(WorkflowRunStatusCancelled)
 	}
 
-	for _, taskRun := range plr.Status.TaskRuns {
+	workflowRunStatus := &nebulav1.WorkflowRunStatus{
+		Status:     status,
+		Steps:      make(map[string]nebulav1.WorkflowRunStatusSummary),
+		Conditions: make(map[string]nebulav1.WorkflowRunStatusSummary),
+	}
+
+	if plr.Status.StartTime != nil {
+		workflowRunStatus.StartTime = plr.Status.StartTime
+	}
+	if plr.Status.CompletionTime != nil {
+		workflowRunStatus.CompletionTime = plr.Status.CompletionTime
+	}
+
+	for name, taskRun := range plr.Status.TaskRuns {
 		for _, condition := range taskRun.ConditionChecks {
 			if condition.Status == nil {
 				continue
 			}
 			conditionStep := nebulav1.WorkflowRunStatusSummary{
+				Name:   name,
 				Status: string(mapStatus(condition.Status.Status)),
 			}
 
@@ -804,6 +805,7 @@ func (c *Controller) updateWorkflowRunStatus(plr *tekv1alpha1.PipelineRun, wr *n
 		}
 
 		step := nebulav1.WorkflowRunStatusSummary{
+			Name:   name,
 			Status: string(mapStatus(taskRun.Status.Status)),
 		}
 
@@ -817,20 +819,63 @@ func (c *Controller) updateWorkflowRunStatus(plr *tekv1alpha1.PipelineRun, wr *n
 		workflowRunSteps[taskRun.PipelineTaskName] = step
 	}
 
-	workflowRunStatus := &nebulav1.WorkflowRunStatus{
-		Status:     status,
-		Steps:      workflowRunSteps,
-		Conditions: workflowRunConditions,
+	steps := graph.NewSimpleDirectedGraphWithFeatures(graph.DeterministicIteration)
+	for _, step := range wr.Spec.Workflow.Steps {
+		if step == nil {
+			continue
+		}
+
+		steps.AddVertex(step.Name)
+		for _, dep := range step.DependsOn {
+			steps.AddVertex(dep)
+			steps.Connect(dep, step.Name)
+		}
+
+		taskHash := sha1.Sum([]byte(step.Name))
+		taskId := hex.EncodeToString(taskHash[:])
+
+		if runStep, ok := workflowRunSteps[taskId]; ok {
+			workflowRunStatus.Steps[step.Name] = runStep
+		} else {
+			workflowRunStatus.Steps[step.Name] = nebulav1.WorkflowRunStatusSummary{
+				Status: string(WorkflowRunStatusPending),
+			}
+		}
+
+		if runCondition, ok := workflowRunConditions[taskId]; ok {
+			workflowRunStatus.Conditions[step.Name] = runCondition
+		}
 	}
 
-	if plr.Status.StartTime != nil {
-		workflowRunStatus.StartTime = plr.Status.StartTime
-	}
-	if plr.Status.CompletionTime != nil {
-		workflowRunStatus.CompletionTime = plr.Status.CompletionTime
-	}
+	return c.enrichResults(workflowRunStatus, steps)
+}
 
-	return workflowRunStatus, nil
+func (c *Controller) enrichResults(sts *nebulav1.WorkflowRunStatus, steps *graph.SimpleDirectedGraph) (*nebulav1.WorkflowRunStatus, errors.Error) {
+	traverse.NewTopologicalOrderTraverser(steps).ForEach(func(next graph.Vertex) error {
+		if step, ok := sts.Steps[next.(string)]; ok {
+			incoming, _ := steps.IncomingEdgesOf(next)
+			incoming.ForEach(func(edge graph.Edge) error {
+				source, _ := steps.SourceVertexOf(edge)
+
+				sourceStep := sts.Steps[source.(string)]
+
+				if step.Status == string(WorkflowRunStatusPending) {
+					switch sourceStep.Status {
+					case string(WorkflowRunStatusSkipped), string(WorkflowRunStatusFailure):
+						step.Status = string(WorkflowRunStatusSkipped)
+					}
+				}
+
+				return nil
+			})
+
+			sts.Steps[next.(string)] = step
+		}
+
+		return nil
+	})
+
+	return sts, nil
 }
 
 func (c *Controller) initializePipeline(wr *nebulav1.WorkflowRun, service *corev1.Service) errors.Error {
@@ -1143,8 +1188,7 @@ func (c *Controller) createTasks(wr *nebulav1.WorkflowRun, service *corev1.Servi
 
 		if step.When != nil {
 			if _, ok := step.When["conditions"]; ok {
-				// FIXME Assume approvals for now...
-				err := c.createCondition(wr.GetNamespace(), taskId, c.cfg.ApprovalTypeImage, metadataAPIURL, ownerReference)
+				err := c.createCondition(wr.GetNamespace(), taskId, metadataAPIURL, ownerReference)
 				if err != nil {
 					return nil, errors.NewWorkflowExecutionError().WithCause(err)
 				}
@@ -1205,11 +1249,7 @@ func (c *Controller) getTaskDependencies(stepTask StepTask) ([]string, []tekv1al
 	return dependencies, conditions, nil
 }
 
-func (c *Controller) createCondition(namespace string, conditionName string, image string, metadataAPIURL string, ownerReference *metav1.OwnerReference) errors.Error {
-
-	evs := buildEnvironmentVariables(metadataAPIURL, conditionName)
-	evs = append(evs, buildEnvironmentVariablesForCondition()...)
-
+func (c *Controller) createCondition(namespace string, conditionName string, metadataAPIURL string, ownerReference *metav1.OwnerReference) errors.Error {
 	condition := tekv1alpha1.Condition{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            conditionName,
@@ -1224,7 +1264,7 @@ func (c *Controller) createCondition(namespace string, conditionName string, ima
 				Container: corev1.Container{
 					Image: "projectnebula/core",
 					Name:  conditionName,
-					Env:   evs,
+					Env:   buildEnvironmentVariables(metadataAPIURL, conditionName),
 				},
 				Script: conditionScript,
 			},
@@ -1409,17 +1449,6 @@ func getContainer(name string, image string, volumeMounts []corev1.VolumeMount, 
 	return container
 }
 
-func buildEnvironmentVariablesForCondition() []corev1.EnvVar {
-	containerVars := []corev1.EnvVar{
-		{
-			Name:  "CONDITION",
-			Value: "approved",
-		},
-	}
-
-	return containerVars
-}
-
 func buildEnvironmentVariables(metadataAPIURL string, name string) []corev1.EnvVar {
 	// this sets the endpoint to the metadata service for accessing the spec
 	specPath := path.Join("/", "specs", name)
@@ -1532,8 +1561,18 @@ func getConfigMapData(workflowParameters nebulav1.WorkflowParameters, workflowRu
 	}
 
 	if len(step.When) > 0 {
+		// Inject parameters.
 		ev := evaluate.NewEvaluator(
 			evaluate.WithResultMapper(evaluate.NewJSONResultMapper()),
+			evaluate.WithParameterTypeResolver(resolve.ParameterTypeResolverFunc(func(ctx context.Context, name string) (interface{}, error) {
+				if p, ok := workflowRunParameters[name]; ok {
+					return p, nil
+				} else if p, ok := workflowParameters[name]; ok {
+					return p, nil
+				}
+
+				return nil, &resolve.ParameterNotFoundError{Name: name}
+			})),
 		)
 		r, err := ev.EvaluateAll(context.TODO(), parse.Tree(step.When))
 		if err != nil {

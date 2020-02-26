@@ -39,6 +39,19 @@ func (s unresolvableParameterSort) Len() int           { return len(s) }
 func (s unresolvableParameterSort) Less(i, j int) bool { return s[i].Name < s[j].Name }
 func (s unresolvableParameterSort) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
+type UnresolvableAnswer struct {
+	AskRef string
+	Name   string
+}
+
+type unresolvableAnswerSort []UnresolvableAnswer
+
+func (s unresolvableAnswerSort) Len() int { return len(s) }
+func (s unresolvableAnswerSort) Less(i, j int) bool {
+	return s[i].AskRef < s[j].AskRef || (s[i].Name == s[j].Name && s[i].Name < s[j].Name)
+}
+func (s unresolvableAnswerSort) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+
 type UnresolvableInvocation struct {
 	Name  string
 	Cause error
@@ -56,6 +69,7 @@ type Unresolvable struct {
 	Secrets     []UnresolvableSecret
 	Outputs     []UnresolvableOutput
 	Parameters  []UnresolvableParameter
+	Answers     []UnresolvableAnswer
 	Invocations []UnresolvableInvocation
 }
 
@@ -68,6 +82,7 @@ func (r *Result) Complete() bool {
 	return len(r.Unresolvable.Secrets) == 0 &&
 		len(r.Unresolvable.Outputs) == 0 &&
 		len(r.Unresolvable.Parameters) == 0 &&
+		len(r.Unresolvable.Answers) == 0 &&
 		len(r.Unresolvable.Invocations) == 0
 }
 
@@ -126,6 +141,22 @@ func (u *Unresolvable) extends(other Unresolvable) {
 		u.Parameters = nil
 		set.ValuesInto(&u.Parameters)
 		sort.Sort(unresolvableParameterSort(u.Parameters))
+	}
+
+	// Answers
+	if len(u.Answers) == 0 {
+		u.Answers = append(u.Answers, other.Answers...)
+	} else if len(other.Answers) != 0 {
+		set := datastructure.NewHashSet()
+		for _, o := range u.Answers {
+			set.Add(o)
+		}
+		for _, o := range other.Answers {
+			set.Add(o)
+		}
+		u.Answers = nil
+		set.ValuesInto(&u.Answers)
+		sort.Sort(unresolvableAnswerSort(u.Answers))
 	}
 
 	// Invocations

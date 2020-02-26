@@ -69,7 +69,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.outputsHandler.ServeHTTP(w, r)
 	case "state":
 		s.stateHandler.ServeHTTP(w, r)
-	case "conditionals":
+	case "conditions":
 		s.conditionalsHandler.ServeHTTP(w, r)
 	case "healthz":
 		s.healthCheckHandler.ServeHTTP(w, r)
@@ -117,9 +117,9 @@ func New(cfg *config.MetadataServerConfig, managers op.ManagerFactory) *Server {
 		logger: cfg.Logger,
 	})
 
-	conditionals := middleware.ManagerFactoryMiddleware(managers)(&conditionalsHandler{
+	conditionals := withManagers(withTask(&conditionalsHandler{
 		logger: cfg.Logger,
-	})
+	}))
 
 	outputs := withManagers(withTask(&outputsHandler{
 		logger: cfg.Logger,

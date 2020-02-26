@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha1"
+	"encoding/hex"
 	"fmt"
 	"io"
 
@@ -12,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/parse"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/state"
 )
@@ -23,6 +25,7 @@ type StateManager struct {
 
 func (sm StateManager) Get(ctx context.Context, taskHash [sha1.Size]byte, key string) (*state.State, errors.Error) {
 	name := fmt.Sprintf("task-%x-state", taskHash)
+	taskId := hex.EncodeToString(taskHash[:])
 
 	cm, err := sm.kubeclient.CoreV1().ConfigMaps(sm.namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
@@ -33,18 +36,29 @@ func (sm StateManager) Get(ctx context.Context, taskHash [sha1.Size]byte, key st
 		return nil, errors.NewStateGetError().WithCause(err)
 	}
 
-	val, ok := cm.Data[key]
-	if !ok {
+	if _, ok := cm.Data["state"]; !ok {
+		return nil, errors.NewStateNotFoundForID(taskId)
+	}
+
+	st := cm.Data["state"]
+
+	tree, err := parse.ParseJSONString(st)
+	if err != nil {
+		return nil, errors.NewStateValueDecodingError().WithCause(err)
+	}
+
+	if _, ok := tree[key]; !ok {
 		return nil, errors.NewStateKeyNotFound(key)
 	}
 
+	val := tree[key]
 	return &state.State{
 		Key:   key,
-		Value: val,
+		Value: val.(string),
 	}, nil
 }
 
-func (sm StateManager) Set(ctx context.Context, taskHash [sha1.Size]byte, key string, value io.Reader) errors.Error {
+func (sm StateManager) Set(ctx context.Context, taskHash [sha1.Size]byte, value io.Reader) errors.Error {
 	name := fmt.Sprintf("task-%x-state", taskHash)
 
 	cm, err := sm.kubeclient.CoreV1().ConfigMaps(sm.namespace).Get(name, metav1.GetOptions{})
@@ -67,7 +81,7 @@ func (sm StateManager) Set(ctx context.Context, taskHash [sha1.Size]byte, key st
 		return errors.NewStateValueReadError().WithCause(err)
 	}
 
-	cm.Data[key] = buf.String()
+	cm.Data["state"] = buf.String()
 
 	if err := sm.createOrUpdateConfigMap(cm); err != nil {
 		return errors.NewStatePutError().WithCause(err)

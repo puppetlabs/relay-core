@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/google/uuid"
 	utilapi "github.com/puppetlabs/horsehead/v2/httputil/api"
 	"github.com/puppetlabs/horsehead/v2/logging"
 	sdktestutil "github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/testutil"
@@ -24,13 +23,11 @@ func TestConditionalsHandlerSuccess(t *testing.T) {
 
 	var (
 		previousTask = testutil.MockTaskConfig{
-			ID:        uuid.New().String(),
 			Name:      "previous-task",
 			Namespace: namespace,
 			PodIP:     "10.3.3.4",
 		}
 		task = testutil.MockTaskConfig{
-			ID:        uuid.New().String(),
 			Name:      "current-task",
 			Namespace: namespace,
 			PodIP:     "10.3.3.3",
@@ -64,13 +61,14 @@ func TestConditionalsHandlerSuccess(t *testing.T) {
 	logger := logging.Builder().At("server-test").Build()
 	srv := New(&config.MetadataServerConfig{Logger: logger}, managers)
 
-	mw := []middleware.MiddlewareFunc{testutil.WithRemoteAddress(previousTask.PodIP)}
+	mw := []middleware.MiddlewareFunc{testutil.WithRemoteAddressFromHeader("Nebula-Unit-Test-Address")}
 
 	testutil.WithTestMetadataAPIServer(srv, mw, func(ts *httptest.Server) {
 		client := ts.Client()
 
 		req, err := http.NewRequest(http.MethodPut, ts.URL+"/outputs/output1", strings.NewReader("foobar"))
 		require.NoError(t, err)
+		req.Header.Set("Nebula-Unit-Test-Address", previousTask.PodIP)
 
 		resp, err := client.Do(req)
 		require.NoError(t, err)
@@ -78,11 +76,15 @@ func TestConditionalsHandlerSuccess(t *testing.T) {
 
 		defer resp.Body.Close()
 
-		resp, err = client.Get(ts.URL + "/conditionals/" + task.ID)
+		req, err = http.NewRequest(http.MethodGet, ts.URL+"/conditions", nil)
 		require.NoError(t, err)
+		req.Header.Set("Nebula-Unit-Test-Address", task.PodIP)
+
+		resp, err = client.Do(req)
 
 		defer resp.Body.Close()
 
+		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 
 		env := conditionals.ResponseEnvelope{}
@@ -96,13 +98,11 @@ func TestConditionalsHandlerFailure(t *testing.T) {
 
 	var (
 		previousTask = testutil.MockTaskConfig{
-			ID:        uuid.New().String(),
 			Name:      "previous-task",
 			Namespace: namespace,
 			PodIP:     "10.3.3.4",
 		}
 		task = testutil.MockTaskConfig{
-			ID:        uuid.New().String(),
 			Name:      "current-task",
 			Namespace: namespace,
 			PodIP:     "10.3.3.3",
@@ -136,13 +136,14 @@ func TestConditionalsHandlerFailure(t *testing.T) {
 	logger := logging.Builder().At("server-test").Build()
 	srv := New(&config.MetadataServerConfig{Logger: logger}, managers)
 
-	mw := []middleware.MiddlewareFunc{testutil.WithRemoteAddress(previousTask.PodIP)}
+	mw := []middleware.MiddlewareFunc{testutil.WithRemoteAddressFromHeader("Nebula-Unit-Test-Address")}
 
 	testutil.WithTestMetadataAPIServer(srv, mw, func(ts *httptest.Server) {
 		client := ts.Client()
 
 		req, err := http.NewRequest(http.MethodPut, ts.URL+"/outputs/output1", strings.NewReader("foobar"))
 		require.NoError(t, err)
+		req.Header.Set("Nebula-Unit-Test-Address", previousTask.PodIP)
 
 		resp, err := client.Do(req)
 		require.NoError(t, err)
@@ -150,11 +151,15 @@ func TestConditionalsHandlerFailure(t *testing.T) {
 
 		defer resp.Body.Close()
 
-		resp, err = client.Get(ts.URL + "/conditionals/" + task.ID)
+		req, err = http.NewRequest(http.MethodGet, ts.URL+"/conditions", nil)
 		require.NoError(t, err)
+		req.Header.Set("Nebula-Unit-Test-Address", task.PodIP)
+
+		resp, err = client.Do(req)
 
 		defer resp.Body.Close()
 
+		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 
 		env := conditionals.ResponseEnvelope{}
@@ -168,7 +173,6 @@ func TestConditionalsHandlerUnsupportedExpressions(t *testing.T) {
 
 	var (
 		task = testutil.MockTaskConfig{
-			ID:        uuid.New().String(),
 			Name:      "current-task",
 			Namespace: namespace,
 			PodIP:     "10.3.3.3",
@@ -201,14 +205,20 @@ func TestConditionalsHandlerUnsupportedExpressions(t *testing.T) {
 	logger := logging.Builder().At("server-test").Build()
 	srv := New(&config.MetadataServerConfig{Logger: logger}, managers)
 
-	testutil.WithTestMetadataAPIServer(srv, []middleware.MiddlewareFunc{}, func(ts *httptest.Server) {
+	mw := []middleware.MiddlewareFunc{testutil.WithRemoteAddressFromHeader("Nebula-Unit-Test-Address")}
+
+	testutil.WithTestMetadataAPIServer(srv, mw, func(ts *httptest.Server) {
 		client := ts.Client()
 
-		resp, err := client.Get(ts.URL + "/conditionals/" + task.ID)
+		req, err := http.NewRequest(http.MethodGet, ts.URL+"/conditions", nil)
 		require.NoError(t, err)
+		req.Header.Set("Nebula-Unit-Test-Address", task.PodIP)
+
+		resp, err := client.Do(req)
 
 		defer resp.Body.Close()
 
+		require.NoError(t, err)
 		require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 
 		var env utilapi.ErrorEnvelope
@@ -223,7 +233,6 @@ func TestConditionalsHandlerUnresolvedExpressions(t *testing.T) {
 
 	var (
 		task = testutil.MockTaskConfig{
-			ID:        uuid.New().String(),
 			Name:      "current-task",
 			Namespace: namespace,
 			PodIP:     "10.3.3.3",
@@ -252,14 +261,20 @@ func TestConditionalsHandlerUnresolvedExpressions(t *testing.T) {
 	logger := logging.Builder().At("server-test").Build()
 	srv := New(&config.MetadataServerConfig{Logger: logger}, managers)
 
-	testutil.WithTestMetadataAPIServer(srv, []middleware.MiddlewareFunc{}, func(ts *httptest.Server) {
+	mw := []middleware.MiddlewareFunc{testutil.WithRemoteAddressFromHeader("Nebula-Unit-Test-Address")}
+
+	testutil.WithTestMetadataAPIServer(srv, mw, func(ts *httptest.Server) {
 		client := ts.Client()
 
-		resp, err := client.Get(ts.URL + "/conditionals/" + task.ID)
+		req, err := http.NewRequest(http.MethodGet, ts.URL+"/conditions", nil)
 		require.NoError(t, err)
+		req.Header.Set("Nebula-Unit-Test-Address", task.PodIP)
+
+		resp, err := client.Do(req)
 
 		defer resp.Body.Close()
 
+		require.NoError(t, err)
 		require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 
 		var env utilapi.ErrorEnvelope

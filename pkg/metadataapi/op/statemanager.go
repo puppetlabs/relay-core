@@ -13,7 +13,7 @@ import (
 
 type StateManager interface {
 	Get(ctx context.Context, taskHash [sha1.Size]byte, key string) (*state.State, errors.Error)
-	Set(ctx context.Context, taskHash [sha1.Size]byte, key string, value io.Reader) errors.Error
+	Set(ctx context.Context, taskHash [sha1.Size]byte, value io.Reader) errors.Error
 }
 
 type EncodeDecodingStateManager struct {
@@ -36,7 +36,7 @@ func (m EncodeDecodingStateManager) Get(ctx context.Context, taskHash [sha1.Size
 	return out, nil
 }
 
-func (m EncodeDecodingStateManager) Set(ctx context.Context, taskHash [sha1.Size]byte, key string, value io.Reader) errors.Error {
+func (m EncodeDecodingStateManager) Set(ctx context.Context, taskHash [sha1.Size]byte, value io.Reader) errors.Error {
 	buf := &bytes.Buffer{}
 
 	_, err := buf.ReadFrom(value)
@@ -51,7 +51,7 @@ func (m EncodeDecodingStateManager) Set(ctx context.Context, taskHash [sha1.Size
 
 	buf = bytes.NewBufferString(encoded)
 
-	return m.delegate.Set(ctx, taskHash, key, buf)
+	return m.delegate.Set(ctx, taskHash, buf)
 }
 
 func NewEncodeDecodingStateManager(sm StateManager) *EncodeDecodingStateManager {

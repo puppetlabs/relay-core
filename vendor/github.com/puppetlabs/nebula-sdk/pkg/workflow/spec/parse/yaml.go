@@ -144,6 +144,56 @@ func (YAMLParameterTransformer) Transform(node *yaml.Node) (bool, error) {
 	return true, nil
 }
 
+type YAMLAnswerTransformer struct{}
+
+func (YAMLAnswerTransformer) Transform(node *yaml.Node) (bool, error) {
+	if node.ShortTag() != "!Answer" {
+		return false, nil
+	}
+
+	var askRef, name *yaml.Node
+	switch node.Kind {
+	case yaml.MappingNode:
+		if len(node.Content) != 4 {
+			return false, fmt.Errorf(`expected mapping-style !Answer to have exactly two keys, "askRef" and "name"`)
+		}
+
+		for i := 0; i < len(node.Content); i += 2 {
+			switch node.Content[i].Value {
+			case "askRef":
+				askRef = node.Content[i+1]
+			case "name":
+				name = node.Content[i+1]
+			default:
+				return false, fmt.Errorf(`expected mapping-style !Answer to have exactly two keys, "askRef" and "name"`)
+			}
+		}
+	case yaml.SequenceNode:
+		if len(node.Content) != 2 {
+			return false, fmt.Errorf(`expected mapping-style !Answer to have exactly two items`)
+		}
+
+		askRef = node.Content[0]
+		name = node.Content[1]
+	default:
+		return false, fmt.Errorf(`unexpected scalar value for !Answer, must be a mapping or sequence`)
+	}
+
+	// {$type: Answer, askRef: <askRef>, name: <name>}
+	*node = yaml.Node{
+		Kind: yaml.MappingNode,
+		Content: []*yaml.Node{
+			{Kind: yaml.ScalarNode, Value: "$type"},
+			{Kind: yaml.ScalarNode, Value: "Answer"},
+			{Kind: yaml.ScalarNode, Value: "askRef"},
+			askRef,
+			{Kind: yaml.ScalarNode, Value: "name"},
+			name,
+		},
+	}
+	return true, nil
+}
+
 type YAMLInvocationTransformer struct{}
 
 func (YAMLInvocationTransformer) Transform(node *yaml.Node) (bool, error) {
@@ -220,6 +270,7 @@ var YAMLTransformers = []YAMLTransformer{
 	YAMLSecretTransformer{},
 	YAMLOutputTransformer{},
 	YAMLParameterTransformer{},
+	YAMLAnswerTransformer{},
 	YAMLInvocationTransformer{},
 	YAMLBinaryToEncodingTransformer{},
 	YAMLUnknownTagTransformer{},
