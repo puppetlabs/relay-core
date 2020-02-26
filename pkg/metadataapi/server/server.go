@@ -26,6 +26,9 @@ type Server struct {
 	// secretsHander handles requests to secrets on the /secrets/* path
 	secretsHandler http.Handler
 
+	// specHandler handles requests to the given task spec on /spec/* path
+	specHandler http.Handler
+
 	// specsHandler handles requests to specs on the /specs/* path
 	specsHandler http.Handler
 
@@ -50,7 +53,13 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch head {
 	case "secrets":
 		s.secretsHandler.ServeHTTP(w, r)
+	case "spec":
+		// New specs handler, uses the spec of the request IP for lookup.
+		s.specHandler.ServeHTTP(w, r)
 	case "specs":
+		// Old specs handler, requires a unique task ID for lookup.
+		//
+		// TODO: Deprecate.
 		s.specsHandler.ServeHTTP(w, r)
 	case "outputs":
 		s.outputsHandler.ServeHTTP(w, r)
@@ -87,29 +96,35 @@ func (s *Server) Run(ctx context.Context) error {
 // New returns a new Server that routes requests to sub-routers. It is also responsible
 // for binding to a listener and is the first point of entry for http requests.
 func New(cfg *config.MetadataServerConfig, managers op.ManagerFactory) *Server {
-	secrets := middleware.ManagerFactoryMiddleware(managers)(&secretsHandler{
+	withManagers := middleware.ManagerFactoryMiddleware(managers)
+	withTask := middleware.TaskMetadataMiddleware
+
+	secrets := withManagers(&secretsHandler{
 		logger: cfg.Logger,
 	})
 
-	specs := middleware.ManagerFactoryMiddleware(managers)(&specsHandler{
+	spec := withManagers(withTask(&specHandler{
+		logger: cfg.Logger,
+	}))
+
+	specs := withManagers(&specsHandler{
 		logger: cfg.Logger,
 	})
 
-	outputs := middleware.ManagerFactoryMiddleware(managers)(
-		middleware.TaskMetadataMiddleware(&outputsHandler{
-			logger: cfg.Logger,
-		}))
+	outputs := withManagers(withTask(&outputsHandler{
+		logger: cfg.Logger,
+	}))
 
-	state := middleware.ManagerFactoryMiddleware(managers)(
-		middleware.TaskMetadataMiddleware(&stateHandler{
-			logger: cfg.Logger,
-		}))
+	state := withManagers(withTask(&stateHandler{
+		logger: cfg.Logger,
+	}))
 
 	return &Server{
 		bindAddr:           cfg.BindAddr,
 		logger:             cfg.Logger,
 		managers:           managers,
 		secretsHandler:     secrets,
+		specHandler:        spec,
 		specsHandler:       specs,
 		outputsHandler:     outputs,
 		stateHandler:       state,

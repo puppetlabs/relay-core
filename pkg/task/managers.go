@@ -69,7 +69,9 @@ func (mm *KubernetesMetadataManager) GetByIP(ctx context.Context, ip string) (*M
 		return nil, errors.NewTaskInvalidHashError().Bug()
 	}
 
-	md := &Metadata{}
+	md := &Metadata{
+		Name: pod.GetName(),
+	}
 	copy(md.Hash[:], taskHash)
 
 	return md, nil

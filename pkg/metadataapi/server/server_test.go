@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
 	"github.com/puppetlabs/horsehead/v2/logging"
 	"github.com/puppetlabs/nebula-sdk/pkg/outputs"
@@ -62,7 +62,6 @@ func TestServerSecretsHandler(t *testing.T) {
 
 func TestServerOutputsHandler(t *testing.T) {
 	taskConfig := testutil.MockTaskConfig{
-		ID:        uuid.New().String(),
 		Name:      "test-task",
 		Namespace: "test-task",
 		PodIP:     "10.3.3.3",
@@ -106,18 +105,112 @@ func TestServerOutputsHandler(t *testing.T) {
 	})
 }
 
-func TestServerSpecsHandler(t *testing.T) {
+func TestServerSpecHandler(t *testing.T) {
 	const namespace = "workflow-run-ns"
 
 	var (
 		previousTask = testutil.MockTaskConfig{
-			ID:        uuid.New().String(),
 			Name:      "previous-task",
 			Namespace: namespace,
 			PodIP:     "10.3.3.4",
 		}
 		currentTask = testutil.MockTaskConfig{
-			ID:        uuid.New().String(),
+			Name:      "current-task",
+			Namespace: namespace,
+			PodIP:     "10.3.3.3",
+			SpecData: map[string]interface{}{
+				"superSecret":      map[string]string{"$type": "Secret", "name": "test-secret-key"},
+				"superOutput":      map[string]string{"$type": "Output", "name": "test-output-key", "taskName": previousTask.Name},
+				"structuredOutput": map[string]string{"$type": "Output", "name": "test-structured-output-key", "taskName": previousTask.Name},
+				"superNormal":      "test-normal-value",
+			},
+		}
+	)
+
+	resources := []runtime.Object{}
+	resources = append(resources, testutil.MockTask(t, previousTask)...)
+	resources = append(resources, testutil.MockTask(t, currentTask)...)
+
+	managers := testutil.NewMockManagerFactory(t, testutil.MockManagerFactoryConfig{
+		SecretData: map[string]string{
+			"test-secret-key": "test-secret-value",
+		},
+		Namespace:    namespace,
+		K8sResources: resources,
+	})
+	logger := logging.Builder().At("server-test").Build()
+	srv := New(&config.MetadataServerConfig{Logger: logger}, managers)
+
+	mw := []middleware.MiddlewareFunc{testutil.WithRemoteAddressFromHeader("Nebula-Unit-Test-Address")}
+
+	testutil.WithTestMetadataAPIServer(srv, mw, func(ts *httptest.Server) {
+		client := ts.Client()
+
+		req, err := http.NewRequest(http.MethodPut, ts.URL+"/outputs/test-output-key", strings.NewReader("test-output-value"))
+		require.NoError(t, err)
+		req.Header.Set("Nebula-Unit-Test-Address", previousTask.PodIP)
+
+		resp, err := client.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusCreated, resp.StatusCode)
+
+		req, err = http.NewRequest(http.MethodPut, ts.URL+"/outputs/test-structured-output-key", strings.NewReader(`{"a":"value","another":"thing"}`))
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Nebula-Unit-Test-Address", previousTask.PodIP)
+
+		resp, err = client.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusCreated, resp.StatusCode)
+
+		// Request the whole spec
+		req, err = http.NewRequest(http.MethodGet, ts.URL+"/spec", nil)
+		require.NoError(t, err)
+		req.Header.Set("Nebula-Unit-Test-Address", currentTask.PodIP)
+
+		resp, err = client.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+
+		var r ResultEnvelope
+
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(&r))
+		require.Equal(t, map[string]interface{}{
+			"superSecret": "test-secret-value",
+			"superOutput": "test-output-value",
+			"structuredOutput": map[string]interface{}{
+				"a":       "value",
+				"another": "thing",
+			},
+			"superNormal": "test-normal-value",
+		}, r.Value)
+		require.True(t, r.Complete)
+
+		// Request a specific expression from the spec
+		req.URL.RawQuery = url.Values{"q": []string{"structuredOutput.a"}}.Encode()
+
+		resp, err = client.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+
+		r = ResultEnvelope{}
+
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(&r))
+		require.Equal(t, "value", r.Value)
+		require.True(t, r.Complete)
+	})
+}
+
+func TestServerSpecsHandler(t *testing.T) {
+	const namespace = "workflow-run-ns"
+
+	var (
+		previousTask = testutil.MockTaskConfig{
+			Name:      "previous-task",
+			Namespace: namespace,
+			PodIP:     "10.3.3.4",
+		}
+		currentTask = testutil.MockTaskConfig{
 			Name:      "current-task",
 			Namespace: namespace,
 			PodIP:     "10.3.3.3",
@@ -164,7 +257,7 @@ func TestServerSpecsHandler(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 
-		resp, err = client.Get(ts.URL + "/specs/" + currentTask.ID)
+		resp, err = client.Get(ts.URL + "/specs/" + currentTask.Name)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 
