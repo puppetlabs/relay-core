@@ -44,12 +44,13 @@ func MockTask(t *testing.T, cfg MockTaskConfig) []runtime.Object {
 
 	labels := map[string]string{
 		"nebula.puppet.com/task.hash": hex.EncodeToString(taskHash[:]),
+		"tekton.dev/task":             cfg.Name,
 	}
 
 	return []runtime.Object{
 		&corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      cfg.Name,
+				Name:      uuid.New().String(),
 				Namespace: cfg.Namespace,
 				Labels:    labels,
 			},
