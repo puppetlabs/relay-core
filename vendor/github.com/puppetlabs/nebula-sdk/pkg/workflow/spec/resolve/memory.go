@@ -69,6 +69,30 @@ func NewMemoryParameterTypeResolver(m map[string]interface{}) *MemoryParameterTy
 	return &MemoryParameterTypeResolver{m: m}
 }
 
+type MemoryAnswerKey struct {
+	AskRef string
+	Name   string
+}
+
+type MemoryAnswerTypeResolver struct {
+	m map[MemoryAnswerKey]interface{}
+}
+
+var _ AnswerTypeResolver = &MemoryAnswerTypeResolver{}
+
+func (mr *MemoryAnswerTypeResolver) ResolveAnswer(ctx context.Context, askRef, name string) (interface{}, error) {
+	o, ok := mr.m[MemoryAnswerKey{AskRef: askRef, Name: name}]
+	if !ok {
+		return "", &AnswerNotFoundError{AskRef: askRef, Name: name}
+	}
+
+	return o, nil
+}
+
+func NewMemoryAnswerTypeResolver(m map[MemoryAnswerKey]interface{}) *MemoryAnswerTypeResolver {
+	return &MemoryAnswerTypeResolver{m: m}
+}
+
 type MemoryInvocationResolver struct {
 	m fn.Map
 }

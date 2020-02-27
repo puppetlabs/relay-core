@@ -15,6 +15,11 @@ type JSONUnresolvableParameterEnvelope struct {
 	Name string `json:"name"`
 }
 
+type JSONUnresolvableAnswerEnvelope struct {
+	AskRef string `json:"askRef"`
+	Name   string `json:"name"`
+}
+
 type JSONUnresolvableInvocationEnvelope struct {
 	Name string `json:"name"`
 }
@@ -23,6 +28,7 @@ type JSONUnresolvableEnvelope struct {
 	Secrets     []*JSONUnresolvableSecretEnvelope     `json:"secrets,omitempty"`
 	Outputs     []*JSONUnresolvableOutputEnvelope     `json:"outputs,omitempty"`
 	Parameters  []*JSONUnresolvableParameterEnvelope  `json:"parameters,omitempty"`
+	Answers     []*JSONUnresolvableAnswerEnvelope     `json:"answers,omitempty"`
 	Invocations []*JSONUnresolvableInvocationEnvelope `json:"invocations,omitempty"`
 }
 
@@ -53,6 +59,16 @@ func NewJSONUnresolvableEnvelope(ur Unresolvable) *JSONUnresolvableEnvelope {
 		for i, p := range ur.Parameters {
 			env.Parameters[i] = &JSONUnresolvableParameterEnvelope{
 				Name: p.Name,
+			}
+		}
+	}
+
+	if len(ur.Answers) > 0 {
+		env.Answers = make([]*JSONUnresolvableAnswerEnvelope, len(ur.Answers))
+		for i, o := range ur.Answers {
+			env.Answers[i] = &JSONUnresolvableAnswerEnvelope{
+				AskRef: o.AskRef,
+				Name:   o.Name,
 			}
 		}
 	}
