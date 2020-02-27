@@ -2,13 +2,13 @@ package configmap
 
 import (
 	"context"
-	"crypto/sha1"
 	"encoding/json"
 	"fmt"
 
 	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/outputs"
+	"github.com/puppetlabs/nebula-tasks/pkg/task"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,8 +25,7 @@ type OutputsManager struct {
 }
 
 func (om OutputsManager) Get(ctx context.Context, taskName, key string) (*outputs.Output, errors.Error) {
-	taskHash := sha1.Sum([]byte(taskName))
-	name := fmt.Sprintf("task-%x-outputs", taskHash)
+	name := fmt.Sprintf("task-%s-outputs", task.HashFromName(taskName).HexEncoding())
 
 	cm, err := om.kubeclient.CoreV1().ConfigMaps(om.namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
@@ -54,8 +53,8 @@ func (om OutputsManager) Get(ctx context.Context, taskName, key string) (*output
 	}, nil
 }
 
-func (om OutputsManager) Put(ctx context.Context, taskHash [sha1.Size]byte, key string, value transfer.JSONInterface) errors.Error {
-	name := fmt.Sprintf("task-%x-outputs", taskHash)
+func (om OutputsManager) Put(ctx context.Context, taskHash task.Hash, key string, value transfer.JSONInterface) errors.Error {
+	name := fmt.Sprintf("task-%s-outputs", taskHash.HexEncoding())
 
 	cm, err := om.kubeclient.CoreV1().ConfigMaps(om.namespace).Get(name, metav1.GetOptions{})
 	if err != nil {

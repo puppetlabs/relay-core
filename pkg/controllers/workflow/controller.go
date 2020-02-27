@@ -7,14 +7,15 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/puppetlabs/horsehead/v2/graph"
-	"github.com/puppetlabs/horsehead/v2/graph/traverse"
 	"io"
 	"net"
 	"net/http"
 	"path"
 	"strings"
 	"time"
+
+	"github.com/puppetlabs/horsehead/v2/graph"
+	"github.com/puppetlabs/horsehead/v2/graph/traverse"
 
 	"github.com/puppetlabs/horsehead/v2/instrumentation/metrics"
 	"github.com/puppetlabs/horsehead/v2/storage"
@@ -49,6 +50,7 @@ import (
 	neblisters "github.com/puppetlabs/nebula-tasks/pkg/generated/listers/nebula.puppet.com/v1"
 	"github.com/puppetlabs/nebula-tasks/pkg/secrets/vault"
 	stconfigmap "github.com/puppetlabs/nebula-tasks/pkg/state/configmap"
+	"github.com/puppetlabs/nebula-tasks/pkg/task"
 	"github.com/puppetlabs/nebula-tasks/pkg/util"
 )
 
@@ -158,7 +160,7 @@ type podAndTaskName struct {
 
 type StepTask struct {
 	dependsOn  []string
-	conditions []string
+	conditions []task.Hash
 }
 
 type StepTasks map[string]StepTask
@@ -707,10 +709,9 @@ func (c *Controller) createPipelineRun(wr *nebulav1.WorkflowRun) (*tekv1alpha1.P
 		if step == nil {
 			continue
 		}
-		taskHash := sha1.Sum([]byte(step.Name))
-		taskId := hex.EncodeToString(taskHash[:])
+
 		psa := tekv1alpha1.PipelineRunSpecServiceAccountName{
-			TaskName:           taskId,
+			TaskName:           task.HashFromName(step.Name).HexEncoding(),
 			ServiceAccountName: getName(wr, ServiceAccountIdentifierCustomer),
 		}
 		serviceAccounts = append(serviceAccounts, psa)
@@ -831,10 +832,9 @@ func (c *Controller) updateWorkflowRunStatus(plr *tekv1alpha1.PipelineRun, wr *n
 			steps.Connect(dep, step.Name)
 		}
 
-		taskHash := sha1.Sum([]byte(step.Name))
-		taskId := hex.EncodeToString(taskHash[:])
+		taskHashKey := task.HashFromName(step.Name).HexEncoding()
 
-		if runStep, ok := workflowRunSteps[taskId]; ok {
+		if runStep, ok := workflowRunSteps[taskHashKey]; ok {
 			workflowRunStatus.Steps[step.Name] = runStep
 		} else {
 			workflowRunStatus.Steps[step.Name] = nebulav1.WorkflowRunStatusSummary{
@@ -842,7 +842,7 @@ func (c *Controller) updateWorkflowRunStatus(plr *tekv1alpha1.PipelineRun, wr *n
 			}
 		}
 
-		if runCondition, ok := workflowRunConditions[taskId]; ok {
+		if runCondition, ok := workflowRunConditions[taskHashKey]; ok {
 			workflowRunStatus.Conditions[step.Name] = runCondition
 		}
 	}
@@ -1164,21 +1164,20 @@ func (c *Controller) createTasks(wr *nebulav1.WorkflowRun, service *corev1.Servi
 			continue
 		}
 
-		taskHash := sha1.Sum([]byte(step.Name))
-		taskId := hex.EncodeToString(taskHash[:])
+		taskHash := task.HashFromName(step.Name)
 
-		err := c.createTaskConfigMap(taskId, wr.GetNamespace(), wr.Spec.Workflow.Parameters, wr.Spec.Parameters, step, ownerReference)
+		err := c.createTaskConfigMap(taskHash, wr.GetNamespace(), wr.Spec.Workflow.Parameters, wr.Spec.Parameters, step, ownerReference)
 		if err != nil {
 			return nil, errors.NewWorkflowExecutionError().WithCause(err)
 		}
 
-		_, err = c.createTaskFromStep(taskId, wr.GetNamespace(), metadataAPIURL, step)
+		_, err = c.createTaskFromStep(taskHash, wr.GetNamespace(), metadataAPIURL, step)
 		if err != nil {
 			return nil, errors.NewWorkflowExecutionError().WithCause(err)
 		}
 
 		dependsOn := make([]string, 0)
-		conditions := make([]string, 0)
+		conditions := make([]task.Hash, 0)
 
 		for _, dependency := range step.DependsOn {
 			dependencyHash := sha1.Sum([]byte(dependency))
@@ -1187,17 +1186,15 @@ func (c *Controller) createTasks(wr *nebulav1.WorkflowRun, service *corev1.Servi
 		}
 
 		if step.When != nil {
-			if _, ok := step.When["conditions"]; ok {
-				err := c.createCondition(wr.GetNamespace(), taskId, metadataAPIURL, ownerReference)
-				if err != nil {
-					return nil, errors.NewWorkflowExecutionError().WithCause(err)
-				}
-
-				conditions = append(conditions, taskId)
+			err := c.createCondition(wr.GetNamespace(), taskHash, metadataAPIURL, ownerReference)
+			if err != nil {
+				return nil, errors.NewWorkflowExecutionError().WithCause(err)
 			}
+
+			conditions = append(conditions, taskHash)
 		}
 
-		stepTasks[taskId] = StepTask{
+		stepTasks[taskHash.HexEncoding()] = StepTask{
 			dependsOn:  dependsOn,
 			conditions: conditions,
 		}
@@ -1241,7 +1238,7 @@ func (c *Controller) getTaskDependencies(stepTask StepTask) ([]string, []tekv1al
 
 	for _, condition := range stepTask.conditions {
 		pipelineTaskCondition := tekv1alpha1.PipelineTaskCondition{
-			ConditionRef: condition,
+			ConditionRef: condition.HexEncoding(),
 		}
 		conditions = append(conditions, pipelineTaskCondition)
 	}
@@ -1249,22 +1246,24 @@ func (c *Controller) getTaskDependencies(stepTask StepTask) ([]string, []tekv1al
 	return dependencies, conditions, nil
 }
 
-func (c *Controller) createCondition(namespace string, conditionName string, metadataAPIURL string, ownerReference *metav1.OwnerReference) errors.Error {
+func (c *Controller) createCondition(namespace string, taskHash task.Hash, metadataAPIURL string, ownerReference *metav1.OwnerReference) errors.Error {
+	taskHashKey := taskHash.HexEncoding()
+
 	condition := tekv1alpha1.Condition{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            conditionName,
+			Name:            taskHashKey,
 			Namespace:       namespace,
 			OwnerReferences: []metav1.OwnerReference{*ownerReference},
 			Labels: map[string]string{
-				"nebula.puppet.com/task.hash": conditionName,
+				"nebula.puppet.com/task.hash": taskHashKey,
 			},
 		},
 		Spec: tekv1alpha1.ConditionSpec{
 			Check: tekv1alpha1.Step{
 				Container: corev1.Container{
 					Image: "projectnebula/core",
-					Name:  conditionName,
-					Env:   buildEnvironmentVariables(metadataAPIURL, conditionName),
+					Name:  taskHashKey,
+					Env:   buildEnvironmentVariables(metadataAPIURL, taskHash),
 				},
 				Script: conditionScript,
 			},
@@ -1279,9 +1278,9 @@ func (c *Controller) createCondition(namespace string, conditionName string, met
 	return nil
 }
 
-func (c *Controller) createTaskConfigMap(name string, namespace string, workflowParameters nebulav1.WorkflowParameters, workflowRunParameters nebulav1.WorkflowRunParameters, step *nebulav1.WorkflowStep, ownerReference *metav1.OwnerReference) errors.Error {
+func (c *Controller) createTaskConfigMap(taskHash task.Hash, namespace string, workflowParameters nebulav1.WorkflowParameters, workflowRunParameters nebulav1.WorkflowRunParameters, step *nebulav1.WorkflowStep, ownerReference *metav1.OwnerReference) errors.Error {
 	configMapData, _ := getConfigMapData(workflowParameters, workflowRunParameters, step)
-	_, err := c.createConfigMap(name, configMapData, namespace, ownerReference)
+	_, err := c.createConfigMap(taskHash, configMapData, namespace, ownerReference)
 	if err != nil {
 		return errors.NewWorkflowExecutionError().WithCause(err)
 	}
@@ -1289,19 +1288,21 @@ func (c *Controller) createTaskConfigMap(name string, namespace string, workflow
 	return nil
 }
 
-func (c *Controller) createTaskFromStep(name string, namespace string, metadataAPIURL string, step *nebulav1.WorkflowStep) (*tekv1alpha1.Task, errors.Error) {
+func (c *Controller) createTaskFromStep(taskHash task.Hash, namespace string, metadataAPIURL string, step *nebulav1.WorkflowStep) (*tekv1alpha1.Task, errors.Error) {
 	variantStep := step
-	container, volumes := getTaskContainer(metadataAPIURL, name, variantStep)
-	return c.createTask(name, namespace, container, volumes)
+	container, volumes := getTaskContainer(metadataAPIURL, taskHash, variantStep)
+	return c.createTask(taskHash, namespace, container, volumes)
 }
 
-func (c *Controller) createTask(taskName string, namespace string, container *corev1.Container, volumes []corev1.Volume) (*tekv1alpha1.Task, errors.Error) {
+func (c *Controller) createTask(taskHash task.Hash, namespace string, container *corev1.Container, volumes []corev1.Volume) (*tekv1alpha1.Task, errors.Error) {
+	taskHashKey := taskHash.HexEncoding()
+
 	task := &tekv1alpha1.Task{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      taskName,
+			Name:      taskHashKey,
 			Namespace: namespace,
 			Labels: map[string]string{
-				"nebula.puppet.com/task.hash": taskName,
+				"nebula.puppet.com/task.hash": taskHashKey,
 			},
 		},
 		Spec: tekv1alpha1.TaskSpec{
@@ -1316,7 +1317,7 @@ func (c *Controller) createTask(taskName string, namespace string, container *co
 
 	task, err := c.tekclient.TektonV1alpha1().Tasks(namespace).Create(task)
 	if k8serrors.IsAlreadyExists(err) {
-		task, err = c.tekclient.TektonV1alpha1().Tasks(namespace).Get(taskName, metav1.GetOptions{})
+		task, err = c.tekclient.TektonV1alpha1().Tasks(namespace).Get(taskHashKey, metav1.GetOptions{})
 	}
 	if err != nil {
 		return nil, errors.NewWorkflowExecutionError().WithCause(err)
@@ -1349,10 +1350,12 @@ func (c *Controller) createPipeline(namespace string, pipelineId string, pipelin
 	return pipeline, nil
 }
 
-func (c *Controller) createConfigMap(name string, data map[string]string, namespace string, ownerReference *metav1.OwnerReference) (*corev1.ConfigMap, error) {
+func (c *Controller) createConfigMap(taskHash task.Hash, data map[string]string, namespace string, ownerReference *metav1.OwnerReference) (*corev1.ConfigMap, error) {
+	taskHashKey := taskHash.HexEncoding()
+
 	configMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            name,
+			Name:            taskHashKey,
 			Namespace:       namespace,
 			OwnerReferences: []metav1.OwnerReference{*ownerReference},
 		},
@@ -1361,7 +1364,7 @@ func (c *Controller) createConfigMap(name string, data map[string]string, namesp
 
 	configMap, err := c.kubeclient.CoreV1().ConfigMaps(namespace).Create(configMap)
 	if k8serrors.IsAlreadyExists(err) {
-		configMap, err = c.kubeclient.CoreV1().ConfigMaps(namespace).Get(name, metav1.GetOptions{})
+		configMap, err = c.kubeclient.CoreV1().ConfigMaps(namespace).Get(taskHashKey, metav1.GetOptions{})
 	}
 	if err != nil {
 		return nil, errors.NewWorkflowExecutionError().WithCause(err)
@@ -1406,16 +1409,16 @@ func NewController(manager *DependencyManager, cfg *config.WorkflowControllerCon
 	return c
 }
 
-func getTaskContainer(metadataAPIURL string, name string, step *nebulav1.WorkflowStep) (*corev1.Container, []corev1.Volume) {
-	volumeMounts := getVolumeMounts(name, step)
+func getTaskContainer(metadataAPIURL string, taskHash task.Hash, step *nebulav1.WorkflowStep) (*corev1.Container, []corev1.Volume) {
+	volumeMounts := getVolumeMounts(taskHash, step)
 	volumes := getVolumes(volumeMounts)
-	environmentVariables := buildEnvironmentVariables(metadataAPIURL, name)
+	environmentVariables := buildEnvironmentVariables(metadataAPIURL, taskHash)
 
 	image := step.Image
 	if image == "" {
 		image = "alpine:latest"
 	}
-	container := getContainer(name, image, volumeMounts, environmentVariables)
+	container := getContainer(taskHash, image, volumeMounts, environmentVariables)
 
 	if len(step.Input) > 0 {
 		container.Command = []string{NebulaMountPath + "/" + NebulaEntrypointFile}
@@ -1431,9 +1434,9 @@ func getTaskContainer(metadataAPIURL string, name string, step *nebulav1.Workflo
 	return container, volumes
 }
 
-func getContainer(name string, image string, volumeMounts []corev1.VolumeMount, environmentVariables []corev1.EnvVar) *corev1.Container {
+func getContainer(taskHash task.Hash, image string, volumeMounts []corev1.VolumeMount, environmentVariables []corev1.EnvVar) *corev1.Container {
 	container := &corev1.Container{
-		Name:            name,
+		Name:            taskHash.HexEncoding(),
 		Image:           image,
 		ImagePullPolicy: corev1.PullAlways,
 		VolumeMounts:    volumeMounts,
@@ -1449,9 +1452,9 @@ func getContainer(name string, image string, volumeMounts []corev1.VolumeMount, 
 	return container
 }
 
-func buildEnvironmentVariables(metadataAPIURL string, name string) []corev1.EnvVar {
+func buildEnvironmentVariables(metadataAPIURL string, taskHash task.Hash) []corev1.EnvVar {
 	// this sets the endpoint to the metadata service for accessing the spec
-	specPath := path.Join("/", "specs", name)
+	specPath := path.Join("/", "specs", taskHash.HexEncoding())
 
 	containerVars := []corev1.EnvVar{
 		{
@@ -1499,12 +1502,14 @@ func getVolumes(volumeMounts []corev1.VolumeMount) []corev1.Volume {
 	return volumes
 }
 
-func getVolumeMounts(name string, step *nebulav1.WorkflowStep) []corev1.VolumeMount {
+func getVolumeMounts(taskHash task.Hash, step *nebulav1.WorkflowStep) []corev1.VolumeMount {
 	volumeMounts := make([]corev1.VolumeMount, 0)
+
+	taskHashKey := taskHash.HexEncoding()
 
 	if len(step.Spec) > 0 {
 		thisContainerMount := corev1.VolumeMount{
-			Name:      name,
+			Name:      taskHashKey,
 			MountPath: NebulaMountPath + "/" + NebulaSpecFile,
 			SubPath:   NebulaSpecFile,
 		}
@@ -1514,7 +1519,7 @@ func getVolumeMounts(name string, step *nebulav1.WorkflowStep) []corev1.VolumeMo
 
 	if len(step.Input) > 0 {
 		thisContainerMount := corev1.VolumeMount{
-			Name:      name,
+			Name:      taskHashKey,
 			MountPath: NebulaMountPath + "/" + NebulaEntrypointFile,
 			SubPath:   NebulaEntrypointFile,
 		}

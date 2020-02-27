@@ -23,9 +23,9 @@ func (h *specHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	m := middleware.Managers(r)
 	md := middleware.TaskMetadata(r)
 
-	h.logger.Info("handling spec request", "task-name", md.Name)
+	h.logger.Info("handling spec request", "task-id", md.Hash.HexEncoding())
 
-	spec, err := m.SpecsManager().GetByTaskID(ctx, md.Name)
+	spec, err := m.SpecsManager().Get(ctx, md.Hash)
 	if err != nil {
 		utilapi.WriteError(ctx, w, err)
 		return

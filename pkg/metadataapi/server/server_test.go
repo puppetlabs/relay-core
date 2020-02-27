@@ -258,7 +258,7 @@ func TestServerSpecsHandler(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 
-		resp, err = client.Get(ts.URL + "/specs/" + currentTask.Name)
+		resp, err = client.Get(ts.URL + "/specs/" + currentTask.TaskHash().HexEncoding())
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 

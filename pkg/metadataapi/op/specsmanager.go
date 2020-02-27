@@ -4,8 +4,9 @@ import (
 	"context"
 
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
+	"github.com/puppetlabs/nebula-tasks/pkg/task"
 )
 
 type SpecsManager interface {
-	GetByTaskID(ctx context.Context, taskID string) (string, errors.Error)
+	Get(ctx context.Context, taskID task.Hash) (string, errors.Error)
 }

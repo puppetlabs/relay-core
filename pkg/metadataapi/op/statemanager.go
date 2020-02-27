@@ -3,24 +3,24 @@ package op
 import (
 	"bytes"
 	"context"
-	"crypto/sha1"
 	"io"
 
 	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/state"
+	"github.com/puppetlabs/nebula-tasks/pkg/task"
 )
 
 type StateManager interface {
-	Get(ctx context.Context, taskHash [sha1.Size]byte, key string) (*state.State, errors.Error)
-	Set(ctx context.Context, taskHash [sha1.Size]byte, value io.Reader) errors.Error
+	Get(ctx context.Context, taskHash task.Hash, key string) (*state.State, errors.Error)
+	Set(ctx context.Context, taskHash task.Hash, value io.Reader) errors.Error
 }
 
 type EncodeDecodingStateManager struct {
 	delegate StateManager
 }
 
-func (m EncodeDecodingStateManager) Get(ctx context.Context, taskHash [sha1.Size]byte, key string) (*state.State, errors.Error) {
+func (m EncodeDecodingStateManager) Get(ctx context.Context, taskHash task.Hash, key string) (*state.State, errors.Error) {
 	out, err := m.delegate.Get(ctx, taskHash, key)
 	if err != nil {
 		return nil, err
@@ -36,7 +36,7 @@ func (m EncodeDecodingStateManager) Get(ctx context.Context, taskHash [sha1.Size
 	return out, nil
 }
 
-func (m EncodeDecodingStateManager) Set(ctx context.Context, taskHash [sha1.Size]byte, value io.Reader) errors.Error {
+func (m EncodeDecodingStateManager) Set(ctx context.Context, taskHash task.Hash, value io.Reader) errors.Error {
 	buf := &bytes.Buffer{}
 
 	_, err := buf.ReadFrom(value)

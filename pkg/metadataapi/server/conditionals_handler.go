@@ -7,7 +7,6 @@ import (
 	utilapi "github.com/puppetlabs/horsehead/v2/httputil/api"
 	"github.com/puppetlabs/horsehead/v2/logging"
 	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/evaluate"
-	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/parse"
 	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/resolve"
 	"github.com/puppetlabs/nebula-tasks/pkg/conditionals"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
@@ -34,21 +33,13 @@ func (h *conditionalsHandler) get(w http.ResponseWriter, r *http.Request) {
 	managers := middleware.Managers(r)
 	md := middleware.TaskMetadata(r)
 
-	h.logger.Info("handling condition request", "task-id", md.Name)
+	h.logger.Info("handling condition request", "task-id", md.Hash.HexEncoding())
 
 	cm := managers.ConditionalsManager()
 
-	conditionalsData, err := cm.GetByTaskID(ctx, md.Name)
+	tree, err := cm.Get(ctx, md.Hash)
 	if err != nil {
 		utilapi.WriteError(ctx, w, err)
-
-		return
-	}
-
-	tree, perr := parse.ParseJSONString(conditionalsData)
-	if perr != nil {
-		utilapi.WriteError(ctx, w, errors.NewTaskConditionalsDecodingError().WithCause(err))
-
 		return
 	}
 
@@ -63,19 +54,19 @@ func (h *conditionalsHandler) get(w http.ResponseWriter, r *http.Request) {
 
 			return o.Value.Data, nil
 		})),
-		evaluate.WithAnswerTypeResolver(resolve.AnswerTypeResolverFunc(func(ctx context.Context, askRef, name string) (interface{}, error) {
-			if askRef != "" {
-				return nil, &resolve.AnswerNotFoundError{AskRef: askRef, Name: name}
-			}
+		// evaluate.WithAnswerTypeResolver(resolve.AnswerTypeResolverFunc(func(ctx context.Context, askRef, name string) (interface{}, error) {
+		// 	if askRef != "" {
+		// 		return nil, &resolve.AnswerNotFoundError{AskRef: askRef, Name: name}
+		// 	}
 
-			st, err := managers.StateManager().Get(ctx, md.Hash, name)
-			if errors.IsStateTaskNotFound(err) || errors.IsStateNotFoundForID(err) || errors.IsStateKeyNotFound(err) {
-				return nil, &resolve.AnswerNotFoundError{AskRef: askRef, Name: name}
-			} else if err != nil {
-				return nil, err
-			}
-			return st.Value, nil
-		})),
+		// 	st, err := managers.StateManager().Get(ctx, md.Hash, name)
+		// 	if errors.IsStateTaskNotFound(err) || errors.IsStateNotFoundForID(err) || errors.IsStateKeyNotFound(err) {
+		// 		return nil, &resolve.AnswerNotFoundError{AskRef: askRef, Name: name}
+		// 	} else if err != nil {
+		// 		return nil, err
+		// 	}
+		// 	return st.Value, nil
+		// })),
 	)
 
 	rv, rerr := ev.EvaluateAll(ctx, tree)

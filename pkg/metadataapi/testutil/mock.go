@@ -1,8 +1,6 @@
 package testutil
 
 import (
-	"crypto/sha1"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -39,6 +37,10 @@ type MockTaskConfig struct {
 	SpecData  map[string]interface{}
 }
 
+func (cfg *MockTaskConfig) TaskHash() task.Hash {
+	return task.HashFromName(cfg.Name)
+}
+
 func MockTask(t *testing.T, cfg MockTaskConfig) []runtime.Object {
 	specData, err := json.Marshal(cfg.SpecData)
 	require.NoError(t, err)
@@ -46,11 +48,10 @@ func MockTask(t *testing.T, cfg MockTaskConfig) []runtime.Object {
 	conditionalsData, err := json.Marshal(cfg.When)
 	require.NoError(t, err)
 
-	taskHash := sha1.Sum([]byte(cfg.Name))
+	taskHashKey := cfg.TaskHash().HexEncoding()
 
 	labels := map[string]string{
-		"nebula.puppet.com/task.hash": hex.EncodeToString(taskHash[:]),
-		"tekton.dev/task":             cfg.Name,
+		"nebula.puppet.com/task.hash": taskHashKey,
 	}
 
 	return []runtime.Object{
@@ -66,7 +67,7 @@ func MockTask(t *testing.T, cfg MockTaskConfig) []runtime.Object {
 		},
 		&corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      cfg.Name,
+				Name:      taskHashKey,
 				Namespace: cfg.Namespace,
 				Labels:    labels,
 			},

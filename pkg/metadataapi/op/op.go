@@ -117,10 +117,12 @@ func NewForKubernetes(ctx context.Context, cfg *config.MetadataServerConfig) (*D
 }
 
 type developmentPreConfig struct {
-	Secrets          map[string]string         `yaml:"secrets"`
-	TaskMetadata     map[string]*task.Metadata `yaml:"taskMetadata"`
-	TaskSpecs        map[string]string         `yaml:"taskSpecs"`
-	TaskConditionals map[string]string         `yaml:"taskConditionals"`
+	Secrets      map[string]string `yaml:"secrets"`
+	TaskMetadata map[string]struct {
+		Name string `yaml:"name"`
+	} `yaml:"taskMetadata"`
+	TaskSpecs        map[string]string `yaml:"taskSpecs"`
+	TaskConditionals map[string]string `yaml:"taskConditionals"`
 }
 
 // NewForDev returns a new DefaultManagerFactory useful for development and running the metadata api server
@@ -138,14 +140,17 @@ func NewForDev(ctx context.Context, cfg *config.MetadataServerConfig) (*DefaultM
 		return nil, errors.NewServerPreConfigDecodingError().WithCause(err)
 	}
 
-	for _, md := range preCfg.TaskMetadata {
-		md.Hash = sha1.Sum([]byte(md.Name))
+	mds := make(map[string]*task.Metadata, len(preCfg.TaskMetadata))
+	for name, md := range preCfg.TaskMetadata {
+		mds[name] = &task.Metadata{
+			Hash: sha1.Sum([]byte(md.Name)),
+		}
 	}
 
 	sm := smemory.New(preCfg.Secrets)
 	om := omemory.New()
 	stm := stmemory.New()
-	mm := task.NewPreconfiguredMetadataManager(preCfg.TaskMetadata)
+	mm := task.NewPreconfiguredMetadataManager(mds)
 	spm := task.NewPreconfiguredSpecManager(preCfg.TaskSpecs)
 	cm := cmemory.New(preCfg.TaskConditionals)
 

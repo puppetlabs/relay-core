@@ -3,15 +3,13 @@ package memory
 import (
 	"bytes"
 	"context"
-	"crypto/sha1"
-	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"io"
 	"sync"
 
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/state"
+	"github.com/puppetlabs/nebula-tasks/pkg/task"
 )
 
 type StateManager struct {
@@ -20,19 +18,18 @@ type StateManager struct {
 	sync.Mutex
 }
 
-func (sm *StateManager) Get(ctx context.Context, taskHash [sha1.Size]byte, key string) (*state.State, errors.Error) {
+func (sm *StateManager) Get(ctx context.Context, taskHash task.Hash, key string) (*state.State, errors.Error) {
 	sm.Lock()
 	defer sm.Unlock()
 
-	name := fmt.Sprintf("task-%x-state", taskHash)
-	taskHashKey := hex.EncodeToString(taskHash[:])
+	taskHashKey := taskHash.HexEncoding()
 
 	if sm.data == nil {
-		return nil, errors.NewStateTaskNotFound(name)
+		return nil, errors.NewStateTaskNotFound(taskHashKey)
 	}
 
 	if _, ok := sm.data[taskHashKey]; !ok {
-		return nil, errors.NewStateTaskNotFound(name)
+		return nil, errors.NewStateTaskNotFound(taskHashKey)
 	}
 
 	var data map[string]interface{}
@@ -51,11 +48,11 @@ func (sm *StateManager) Get(ctx context.Context, taskHash [sha1.Size]byte, key s
 	}, nil
 }
 
-func (sm *StateManager) Set(ctx context.Context, taskHash [sha1.Size]byte, value io.Reader) errors.Error {
+func (sm *StateManager) Set(ctx context.Context, taskHash task.Hash, value io.Reader) errors.Error {
 	sm.Lock()
 	defer sm.Unlock()
 
-	taskHashKey := hex.EncodeToString(taskHash[:])
+	taskHashKey := taskHash.HexEncoding()
 
 	if sm.data == nil {
 		sm.data = make(map[string]string)
