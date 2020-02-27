@@ -5,11 +5,11 @@ import (
 	"context"
 	"crypto/sha1"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"sync"
 
-	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/parse"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/state"
 )
@@ -35,16 +35,16 @@ func (sm *StateManager) Get(ctx context.Context, taskHash [sha1.Size]byte, key s
 		return nil, errors.NewStateTaskNotFound(name)
 	}
 
-	tree, err := parse.ParseJSONString(sm.data[taskHashKey])
-	if err != nil {
+	var data map[string]interface{}
+	if err := json.Unmarshal([]byte(sm.data[taskHashKey]), &data); err != nil {
 		return nil, errors.NewStateValueDecodingError().WithCause(err)
 	}
 
-	if _, ok := tree[key]; !ok {
+	val, ok := data[key]
+	if !ok {
 		return nil, errors.NewStateKeyNotFound(key)
 	}
 
-	val := tree[key]
 	return &state.State{
 		Key:   key,
 		Value: val.(string),

@@ -2430,7 +2430,7 @@ func (b *TaskConditionStructureMalformedErrorBuilder) Build() Error {
 		ErrorDomain:      Domain,
 		ErrorMetadata: &impl.ErrorMetadata{HTTPErrorMetadata: &impl.HTTPErrorMetadata{
 			ErrorHeaders: impl.HTTPErrorMetadataHeaders{},
-			ErrorStatus:  500,
+			ErrorStatus:  422,
 		}},
 		ErrorSection:     TaskSection,
 		ErrorSensitivity: errawr.ErrorSensitivityNone,
@@ -2923,8 +2923,8 @@ type TaskUnresolvedConditionalExpressionsBuilder struct {
 // Build creates the error for the code "unresolved_conditional_expressions" from this builder.
 func (b *TaskUnresolvedConditionalExpressionsBuilder) Build() Error {
 	description := &impl.ErrorDescription{
-		Friendly:  "one or more expressions were unresolvable: {{#join expressions}}{{this}}{{/join}}",
-		Technical: "one or more expressions were unresolvable: {{#join expressions}}{{this}}{{/join}}",
+		Friendly:  "One or more expressions were unresolvable:\n{{#enum expressions}}{{this}}{{/enum}}",
+		Technical: "One or more expressions were unresolvable:\n{{#enum expressions}}{{this}}{{/enum}}",
 	}
 
 	return &impl.Error{
@@ -2934,7 +2934,7 @@ func (b *TaskUnresolvedConditionalExpressionsBuilder) Build() Error {
 		ErrorDomain:      Domain,
 		ErrorMetadata: &impl.ErrorMetadata{HTTPErrorMetadata: &impl.HTTPErrorMetadata{
 			ErrorHeaders: impl.HTTPErrorMetadataHeaders{},
-			ErrorStatus:  500,
+			ErrorStatus:  422,
 		}},
 		ErrorSection:     TaskSection,
 		ErrorSensitivity: errawr.ErrorSensitivityNone,
@@ -2974,8 +2974,8 @@ type TaskUnsupportedConditionalExpressionsBuilder struct {
 // Build creates the error for the code "unsupported_conditional_expressions" from this builder.
 func (b *TaskUnsupportedConditionalExpressionsBuilder) Build() Error {
 	description := &impl.ErrorDescription{
-		Friendly:  "one or more expressions are not a supported: {{#join expressions}}{{this}}{{/join}}",
-		Technical: "one or more expressions are not a supported: {{#join expressions}}{{this}}{{/join}}",
+		Friendly:  "One or more expressions are not supported:\n{{#enum expressions}}{{this}}{{/enum}}",
+		Technical: "One or more expressions are not supported:\n{{#enum expressions}}{{this}}{{/enum}}",
 	}
 
 	return &impl.Error{
@@ -2985,7 +2985,7 @@ func (b *TaskUnsupportedConditionalExpressionsBuilder) Build() Error {
 		ErrorDomain:      Domain,
 		ErrorMetadata: &impl.ErrorMetadata{HTTPErrorMetadata: &impl.HTTPErrorMetadata{
 			ErrorHeaders: impl.HTTPErrorMetadataHeaders{},
-			ErrorStatus:  500,
+			ErrorStatus:  422,
 		}},
 		ErrorSection:     TaskSection,
 		ErrorSensitivity: errawr.ErrorSensitivityNone,

@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha1"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -13,7 +14,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/parse"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/state"
 )
@@ -42,16 +42,16 @@ func (sm StateManager) Get(ctx context.Context, taskHash [sha1.Size]byte, key st
 
 	st := cm.Data["state"]
 
-	tree, err := parse.ParseJSONString(st)
-	if err != nil {
+	var data map[string]interface{}
+	if err := json.Unmarshal([]byte(st), &data); err != nil {
 		return nil, errors.NewStateValueDecodingError().WithCause(err)
 	}
 
-	if _, ok := tree[key]; !ok {
+	val, ok := data[key]
+	if !ok {
 		return nil, errors.NewStateKeyNotFound(key)
 	}
 
-	val := tree[key]
 	return &state.State{
 		Key:   key,
 		Value: val.(string),

@@ -31,17 +31,15 @@ func TestConditionalsHandlerSuccess(t *testing.T) {
 			Name:      "current-task",
 			Namespace: namespace,
 			PodIP:     "10.3.3.3",
-			When: map[string]interface{}{
-				"conditions": []interface{}{
-					sdktestutil.JSONInvocation("equals", []interface{}{
-						sdktestutil.JSONOutput(previousTask.Name, "output1"),
-						"foobar",
-					}),
-					sdktestutil.JSONInvocation("notEquals", []interface{}{
-						sdktestutil.JSONOutput(previousTask.Name, "output1"),
-						"barfoo",
-					}),
-				},
+			When: []interface{}{
+				sdktestutil.JSONInvocation("equals", []interface{}{
+					sdktestutil.JSONOutput(previousTask.Name, "output1"),
+					"foobar",
+				}),
+				sdktestutil.JSONInvocation("notEquals", []interface{}{
+					sdktestutil.JSONOutput(previousTask.Name, "output1"),
+					"barfoo",
+				}),
 			},
 			SpecData: map[string]interface{}{
 				"super-normal": "test-normal-value",
@@ -106,17 +104,15 @@ func TestConditionalsHandlerFailure(t *testing.T) {
 			Name:      "current-task",
 			Namespace: namespace,
 			PodIP:     "10.3.3.3",
-			When: map[string]interface{}{
-				"conditions": []interface{}{
-					sdktestutil.JSONInvocation("equals", []interface{}{
-						sdktestutil.JSONOutput(previousTask.Name, "output1"),
-						"foobar",
-					}),
-					sdktestutil.JSONInvocation("notEquals", []interface{}{
-						sdktestutil.JSONOutput(previousTask.Name, "output1"),
-						"foobar",
-					}),
-				},
+			When: []interface{}{
+				sdktestutil.JSONInvocation("equals", []interface{}{
+					sdktestutil.JSONOutput(previousTask.Name, "output1"),
+					"foobar",
+				}),
+				sdktestutil.JSONInvocation("notEquals", []interface{}{
+					sdktestutil.JSONOutput(previousTask.Name, "output1"),
+					"foobar",
+				}),
 			},
 			SpecData: map[string]interface{}{
 				"super-normal": "test-normal-value",
@@ -176,17 +172,15 @@ func TestConditionalsHandlerUnsupportedExpressions(t *testing.T) {
 			Name:      "current-task",
 			Namespace: namespace,
 			PodIP:     "10.3.3.3",
-			When: map[string]interface{}{
-				"conditions": []interface{}{
-					sdktestutil.JSONInvocation("equals", []interface{}{
-						sdktestutil.JSONSecret("secret1"),
-						"foobar",
-					}),
-					sdktestutil.JSONInvocation("notEquals", []interface{}{
-						sdktestutil.JSONSecret("secret2"),
-						"foobar",
-					}),
-				},
+			When: []interface{}{
+				sdktestutil.JSONInvocation("equals", []interface{}{
+					sdktestutil.JSONSecret("secret1"),
+					"foobar",
+				}),
+				sdktestutil.JSONInvocation("notEquals", []interface{}{
+					sdktestutil.JSONSecret("secret2"),
+					"foobar",
+				}),
 			},
 			SpecData: map[string]interface{}{
 				"super-normal": "test-normal-value",
@@ -219,12 +213,14 @@ func TestConditionalsHandlerUnsupportedExpressions(t *testing.T) {
 		defer resp.Body.Close()
 
 		require.NoError(t, err)
-		require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+		require.Equal(t, http.StatusUnprocessableEntity, resp.StatusCode)
 
 		var env utilapi.ErrorEnvelope
 
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(&env))
-		require.Equal(t, "unsupported_conditional_expressions: one or more expressions are not a supported: !Secret secret1 and !Secret secret2", env.Error.AsError().Error())
+		require.Equal(t, `unsupported_conditional_expressions: One or more expressions are not supported:
+* !Secret secret1
+* !Secret secret2`, env.Error.AsError().Error())
 	})
 }
 
@@ -236,14 +232,10 @@ func TestConditionalsHandlerUnresolvedExpressions(t *testing.T) {
 			Name:      "current-task",
 			Namespace: namespace,
 			PodIP:     "10.3.3.3",
-			When: map[string]interface{}{
-				"conditions": []interface{}{
-					sdktestutil.JSONInvocation("equals", []interface{}{
-						sdktestutil.JSONParameter("param1"),
-						"foobar",
-					}),
-				},
-			},
+			When: sdktestutil.JSONInvocation("equals", []interface{}{
+				sdktestutil.JSONParameter("param1"),
+				"foobar",
+			}),
 			SpecData: map[string]interface{}{
 				"super-normal": "test-normal-value",
 			},
@@ -275,11 +267,12 @@ func TestConditionalsHandlerUnresolvedExpressions(t *testing.T) {
 		defer resp.Body.Close()
 
 		require.NoError(t, err)
-		require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+		require.Equal(t, http.StatusUnprocessableEntity, resp.StatusCode)
 
 		var env utilapi.ErrorEnvelope
 
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(&env))
-		require.Equal(t, "unresolved_conditional_expressions: one or more expressions were unresolvable: !Parameter param1", env.Error.AsError().Error())
+		require.Equal(t, `unresolved_conditional_expressions: One or more expressions were unresolvable:
+* resolve: parameter "param1" could not be found`, env.Error.AsError().Error())
 	})
 }

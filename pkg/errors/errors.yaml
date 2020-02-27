@@ -215,27 +215,33 @@ sections:
         description: unexpected result type found or the tree was malformed
         metadata:
           http:
-            status: 500
+            status: 422
       unsupported_conditional_expressions:
         title: Unsupported conditional expressions
-        description: "one or more expressions are not a supported: {{#join expressions}}{{this}}{{/join}}"
+        description: >
+          One or more expressions are not supported:
+
+          {{#enum expressions}}{{this}}{{/enum}}
         arguments:
           expressions:
             type: list<string>
             description: the expressions that are not supported
         metadata:
           http:
-            status: 500
+            status: 422
       unresolved_conditional_expressions:
         title: Unresolved conditional expressions
-        description: "one or more expressions were unresolvable: {{#join expressions}}{{this}}{{/join}}"
+        description: >
+          One or more expressions were unresolvable:
+
+          {{#enum expressions}}{{this}}{{/enum}}
         arguments:
           expressions:
             type: list<string>
             description: the expressions that are unresolved
         metadata:
           http:
-            status: 500
+            status: 422
 
   kubernetes:
     title: Kubernetes errors

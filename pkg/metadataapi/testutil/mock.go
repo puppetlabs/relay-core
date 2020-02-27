@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/parse"
 	cconfigmap "github.com/puppetlabs/nebula-tasks/pkg/conditionals/configmap"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/op"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"
@@ -34,7 +35,7 @@ type MockTaskConfig struct {
 	Name      string
 	Namespace string
 	PodIP     string
-	When      map[string]interface{}
+	When      parse.Tree
 	SpecData  map[string]interface{}
 }
 
@@ -46,17 +47,10 @@ func MockTask(t *testing.T, cfg MockTaskConfig) []runtime.Object {
 	require.NoError(t, err)
 
 	taskHash := sha1.Sum([]byte(cfg.Name))
-	taskId := hex.EncodeToString(taskHash[:])
 
 	labels := map[string]string{
-		"nebula.puppet.com/task.hash": taskId,
+		"nebula.puppet.com/task.hash": hex.EncodeToString(taskHash[:]),
 		"tekton.dev/task":             cfg.Name,
-	}
-
-	// TODO Remove this inconsistency/discrepancy
-	configMapName := cfg.Name
-	if cfg.When != nil && len(cfg.When) > 0 {
-		configMapName = taskId
 	}
 
 	return []runtime.Object{
@@ -72,7 +66,7 @@ func MockTask(t *testing.T, cfg MockTaskConfig) []runtime.Object {
 		},
 		&corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      configMapName,
+				Name:      cfg.Name,
 				Namespace: cfg.Namespace,
 				Labels:    labels,
 			},

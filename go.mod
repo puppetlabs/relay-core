@@ -16,7 +16,7 @@ require (
 	github.com/puppetlabs/horsehead/v2 v2.7.0
 	github.com/puppetlabs/nebula-libs/storage/file/v2 v2.0.0
 	github.com/puppetlabs/nebula-libs/storage/gcs/v2 v2.0.0
-	github.com/puppetlabs/nebula-sdk v1.8.2-0.20200227011152-8e6dca4ff00d
+	github.com/puppetlabs/nebula-sdk v1.8.2-0.20200227184753-50397083e92c
 	github.com/stretchr/testify v1.4.0
 	github.com/tektoncd/pipeline v0.10.1
 	go.uber.org/multierr v1.2.0 // indirect
