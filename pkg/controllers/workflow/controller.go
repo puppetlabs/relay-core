@@ -1533,21 +1533,22 @@ func getVolumeMounts(taskHash task.Hash, step *nebulav1.WorkflowStep) []corev1.V
 func getConfigMapData(workflowParameters nebulav1.WorkflowParameters, workflowRunParameters nebulav1.WorkflowRunParameters, step *nebulav1.WorkflowStep) (map[string]string, errors.Error) {
 	configMapData := make(map[string]string)
 
+	ev := evaluate.NewEvaluator(
+		evaluate.WithResultMapper(evaluate.NewJSONResultMapper()),
+		evaluate.WithParameterTypeResolver(resolve.ParameterTypeResolverFunc(func(ctx context.Context, name string) (interface{}, error) {
+			if p, ok := workflowRunParameters[name]; ok {
+				return p.Value(), nil
+			} else if p, ok := workflowParameters[name]; ok {
+				return p.Value(), nil
+			}
+
+			return nil, &resolve.ParameterNotFoundError{Name: name}
+		})),
+	)
+
 	if len(step.Spec) > 0 {
 		// Inject parameters.
-		ev := evaluate.NewEvaluator(
-			evaluate.WithResultMapper(evaluate.NewJSONResultMapper()),
-			evaluate.WithParameterTypeResolver(resolve.ParameterTypeResolverFunc(func(ctx context.Context, name string) (interface{}, error) {
-				if p, ok := workflowRunParameters[name]; ok {
-					return p, nil
-				} else if p, ok := workflowParameters[name]; ok {
-					return p, nil
-				}
-
-				return nil, &resolve.ParameterNotFoundError{Name: name}
-			})),
-		)
-		r, err := ev.EvaluateAll(context.TODO(), parse.Tree(step.Spec))
+		r, err := ev.EvaluateAll(context.TODO(), parse.Tree(step.Spec.Value()))
 		if err != nil {
 			return nil, errors.NewTaskSpecEvaluationError().WithCause(err)
 		}
@@ -1565,21 +1566,8 @@ func getConfigMapData(workflowParameters nebulav1.WorkflowParameters, workflowRu
 		configMapData[NebulaEntrypointFile] = entrypoint
 	}
 
-	if len(step.When) > 0 {
-		// Inject parameters.
-		ev := evaluate.NewEvaluator(
-			evaluate.WithResultMapper(evaluate.NewJSONResultMapper()),
-			evaluate.WithParameterTypeResolver(resolve.ParameterTypeResolverFunc(func(ctx context.Context, name string) (interface{}, error) {
-				if p, ok := workflowRunParameters[name]; ok {
-					return p, nil
-				} else if p, ok := workflowParameters[name]; ok {
-					return p, nil
-				}
-
-				return nil, &resolve.ParameterNotFoundError{Name: name}
-			})),
-		)
-		r, err := ev.EvaluateAll(context.TODO(), parse.Tree(step.When))
+	if when := step.When.Value(); when != nil {
+		r, err := ev.EvaluateAll(context.TODO(), parse.Tree(when))
 		if err != nil {
 			return nil, errors.NewTaskSpecEvaluationError().WithCause(err)
 		}
@@ -1899,7 +1887,7 @@ func isCancelled(wr *nebulav1.WorkflowRun) bool {
 	cancelled := false
 	workflowState := wr.State.Workflow
 	if cancelState, ok := workflowState[WorkflowRunStateCancel]; ok {
-		cancelled, ok = cancelState.(bool)
+		cancelled, ok = cancelState.Value().(bool)
 	}
 
 	return cancelled

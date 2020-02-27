@@ -1,13 +1,17 @@
 package v1
 
 import (
+	"encoding/json"
+
+	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // +genclient
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +groupName=nebula.puppet.com
 
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type WorkflowRun struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -18,11 +22,15 @@ type WorkflowRun struct {
 	Status WorkflowRunStatus `json:"status,omitempty"`
 }
 
+type WorkflowRunParameters UnstructuredObject
+
 type WorkflowRunSpec struct {
 	Name       string                `json:"name"`
 	Parameters WorkflowRunParameters `json:"parameters,omitempty"`
 	Workflow   Workflow              `json:"workflow,omitempty"`
 }
+
+type WorkflowParameters UnstructuredObject
 
 type Workflow struct {
 	Name       string             `json:"name"`
@@ -31,14 +39,14 @@ type Workflow struct {
 }
 
 type WorkflowStep struct {
-	Name      string           `json:"name"`
-	Image     string           `json:"image,omitempty"`
-	Spec      WorkflowStepSpec `json:"spec,omitempty"`
-	Input     []string         `json:"input,omitempty"`
-	Command   string           `json:"command,omitempty"`
-	Args      []string         `json:"args,omitempty"`
-	When      WorkflowWhen     `json:"when,omitempty"`
-	DependsOn []string         `json:"depends_on,omitempty"`
+	Name      string             `json:"name"`
+	Image     string             `json:"image,omitempty"`
+	Spec      UnstructuredObject `json:"spec,omitempty"`
+	Input     []string           `json:"input,omitempty"`
+	Command   string             `json:"command,omitempty"`
+	Args      []string           `json:"args,omitempty"`
+	When      *Unstructured      `json:"when,omitempty"`
+	DependsOn []string           `json:"depends_on,omitempty"`
 }
 
 type WorkflowRunStatusSummary struct {
@@ -56,90 +64,73 @@ type WorkflowRunStatus struct {
 	Conditions     map[string]WorkflowRunStatusSummary `json:"conditions"`
 }
 
+type WorkflowState UnstructuredObject
+
 type WorkflowRunState struct {
 	Workflow WorkflowState            `json:"workflow"`
 	Steps    map[string]WorkflowState `json:"steps"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
 type WorkflowRunList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []WorkflowRun `json:"items"`
 }
 
-type WorkflowState map[string]interface{}
-
-type WorkflowParameters map[string]interface{}
-
-type WorkflowRunParameters map[string]interface{}
-
-type WorkflowStepSpec map[string]interface{}
-
-type WorkflowWhen map[string]interface{}
-
-func (in *WorkflowParameters) DeepCopy() *WorkflowParameters {
-	if in == nil {
-		return nil
-	}
-
-	out := make(WorkflowParameters)
-	for key, value := range *in {
-		out[key] = value
-	}
-
-	return &out
+type Unstructured struct {
+	value transfer.JSONInterface
 }
 
-func (in *WorkflowRunParameters) DeepCopy() *WorkflowRunParameters {
-	if in == nil {
+func (u *Unstructured) Value() interface{} {
+	if u == nil {
 		return nil
 	}
 
-	out := make(WorkflowRunParameters)
-	for key, value := range *in {
-		out[key] = value
-	}
-
-	return &out
+	return u.value.Data
 }
 
-func (in *WorkflowStepSpec) DeepCopy() *WorkflowStepSpec {
-	if in == nil {
-		return nil
-	}
-
-	out := make(WorkflowStepSpec)
-	for key, value := range *in {
-		out[key] = value
-	}
-
-	return &out
+func (u Unstructured) MarshalJSON() ([]byte, error) {
+	return u.value.MarshalJSON()
 }
 
-func (in *WorkflowState) DeepCopy() *WorkflowState {
-	if in == nil {
-		return nil
-	}
-
-	out := make(WorkflowState)
-	for key, value := range *in {
-		out[key] = value
-	}
-
-	return &out
+func (u *Unstructured) UnmarshalJSON(data []byte) error {
+	return json.Unmarshal(data, &u.value)
 }
 
-func (in *WorkflowWhen) DeepCopy() *WorkflowWhen {
+func (in *Unstructured) DeepCopy() *Unstructured {
 	if in == nil {
 		return nil
 	}
 
-	out := make(WorkflowWhen)
-	for key, value := range *in {
-		out[key] = value
+	out := &Unstructured{}
+	*out = *in
+	out.value = transfer.JSONInterface{
+		Data: runtime.DeepCopyJSONValue(in.value.Data),
 	}
+	return out
+}
 
-	return &out
+func NewUnstructured(value interface{}) *Unstructured {
+	return &Unstructured{
+		value: transfer.JSONInterface{Data: value},
+	}
+}
+
+type UnstructuredObject map[string]*Unstructured
+
+func (uo UnstructuredObject) Value() map[string]interface{} {
+	out := make(map[string]interface{}, len(uo))
+	for k, v := range uo {
+		out[k] = v.Value()
+	}
+	return out
+}
+
+func NewUnstructuredObject(value map[string]interface{}) UnstructuredObject {
+	out := make(map[string]*Unstructured, len(value))
+	for k, v := range value {
+		out[k] = NewUnstructured(v)
+	}
+	return out
 }
