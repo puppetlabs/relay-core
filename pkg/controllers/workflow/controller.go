@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha1"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -159,7 +158,7 @@ type podAndTaskName struct {
 }
 
 type StepTask struct {
-	dependsOn  []string
+	dependsOn  []task.Hash
 	conditions []task.Hash
 }
 
@@ -1176,16 +1175,14 @@ func (c *Controller) createTasks(wr *nebulav1.WorkflowRun, service *corev1.Servi
 			return nil, errors.NewWorkflowExecutionError().WithCause(err)
 		}
 
-		dependsOn := make([]string, 0)
+		dependsOn := make([]task.Hash, 0)
 		conditions := make([]task.Hash, 0)
 
 		for _, dependency := range step.DependsOn {
-			dependencyHash := sha1.Sum([]byte(dependency))
-			dependencyId := hex.EncodeToString(dependencyHash[:])
-			dependsOn = append(dependsOn, dependencyId)
+			dependsOn = append(dependsOn, task.HashFromName(dependency))
 		}
 
-		if step.When != nil {
+		if step.When.Value() != nil {
 			err := c.createCondition(wr.GetNamespace(), taskHash, metadataAPIURL, ownerReference)
 			if err != nil {
 				return nil, errors.NewWorkflowExecutionError().WithCause(err)
@@ -1233,7 +1230,7 @@ func (c *Controller) getTaskDependencies(stepTask StepTask) ([]string, []tekv1al
 	conditions := make([]tekv1alpha1.PipelineTaskCondition, 0)
 
 	for _, dependsOn := range stepTask.dependsOn {
-		dependencies = append(dependencies, dependsOn)
+		dependencies = append(dependencies, dependsOn.HexEncoding())
 	}
 
 	for _, condition := range stepTask.conditions {
