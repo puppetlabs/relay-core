@@ -49,3 +49,93 @@ func (tos *JSONOrStr) UnmarshalJSON(data []byte) error {
 
 	return json.Unmarshal(data, &tos.JSON)
 }
+
+// JSONInterface allows arbitrary embedding of encoded data within any JSON
+// type. The accepted interface values for the data correspond to those listed
+// in the Go documentation for encoding/json.Unmarshal.
+type JSONInterface struct {
+	Data interface{}
+}
+
+func (ji JSONInterface) MarshalJSON() ([]byte, error) {
+	switch dt := ji.Data.(type) {
+	case map[string]interface{}:
+		m := make(map[string]interface{}, len(dt))
+		for k, v := range dt {
+			m[k] = JSONInterface{Data: v}
+		}
+
+		return json.Marshal(m)
+	case []interface{}:
+		s := make([]interface{}, len(dt))
+		for i, v := range dt {
+			s[i] = JSONInterface{Data: v}
+		}
+
+		return json.Marshal(s)
+	case string:
+		jos, err := EncodeJSON([]byte(dt))
+		if err != nil {
+			return nil, err
+		}
+
+		return json.Marshal(jos)
+	default:
+		return json.Marshal(dt)
+	}
+}
+
+func (ji *JSONInterface) UnmarshalJSON(data []byte) error {
+	var v interface{}
+	if err := json.Unmarshal(data, &v); err != nil {
+		return err
+	}
+
+	var decode func(v interface{}) (interface{}, error)
+	decode = func(v interface{}) (interface{}, error) {
+		switch vt := v.(type) {
+		case map[string]interface{}:
+			ty, ok := vt["$encoding"].(string)
+			if ok {
+				d, _ := vt["data"].(string)
+
+				b, err := JSON{EncodingType: EncodingType(ty), Data: d}.Decode()
+				if err != nil {
+					return nil, err
+				}
+
+				// Plop this back into one of the interface types supported by
+				// json.Marshal and json.Unmarshal (string).
+				v = string(b)
+			}
+
+			for k, v := range vt {
+				v, err := decode(v)
+				if err != nil {
+					return nil, err
+				}
+
+				vt[k] = v
+			}
+		case []interface{}:
+			for i, v := range vt {
+				v, err := decode(v)
+				if err != nil {
+					return nil, err
+				}
+
+				vt[i] = v
+			}
+		}
+
+		return v, nil
+	}
+
+	v, err := decode(v)
+	if err != nil {
+		return err
+	}
+
+	ji.Data = v
+	return nil
+}

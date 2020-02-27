@@ -22,6 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/fake"
@@ -29,7 +30,6 @@ import (
 )
 
 type MockTaskConfig struct {
-	ID        string
 	Name      string
 	Namespace string
 	PodIP     string
@@ -44,12 +44,13 @@ func MockTask(t *testing.T, cfg MockTaskConfig) []runtime.Object {
 
 	labels := map[string]string{
 		"nebula.puppet.com/task.hash": hex.EncodeToString(taskHash[:]),
+		"tekton.dev/task":             cfg.Name,
 	}
 
 	return []runtime.Object{
 		&corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      cfg.Name,
+				Name:      uuid.New().String(),
 				Namespace: cfg.Namespace,
 				Labels:    labels,
 			},
@@ -59,7 +60,7 @@ func MockTask(t *testing.T, cfg MockTaskConfig) []runtime.Object {
 		},
 		&corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      cfg.ID,
+				Name:      cfg.Name,
 				Namespace: cfg.Namespace,
 				Labels:    labels,
 			},
@@ -107,6 +108,7 @@ func (m MockManagerFactory) SpecsManager() op.SpecsManager {
 func NewMockManagerFactory(t *testing.T, cfg MockManagerFactoryConfig) MockManagerFactory {
 	kc := fake.NewSimpleClientset(cfg.K8sResources...)
 	kc.PrependReactor("create", "*", setObjectUID)
+	kc.PrependReactor("list", "pods", filterListPods(kc.Tracker()))
 
 	om := configmap.New(kc, cfg.Namespace)
 	stm := stconfigmap.New(kc, cfg.Namespace)
@@ -116,7 +118,7 @@ func NewMockManagerFactory(t *testing.T, cfg MockManagerFactoryConfig) MockManag
 
 	return MockManagerFactory{
 		sm:  op.NewEncodingSecretManager(sm),
-		om:  op.NewEncodeDecodingOutputsManager(om),
+		om:  om,
 		stm: op.NewEncodeDecodingStateManager(stm),
 		mm:  mm,
 		spm: spm,
@@ -126,10 +128,23 @@ func NewMockManagerFactory(t *testing.T, cfg MockManagerFactoryConfig) MockManag
 func WithRemoteAddress(ip string) middleware.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			host, port, _ := net.SplitHostPort(r.RemoteAddr)
-			r.RemoteAddr = strings.Join([]string{host, port}, ":")
+			_, port, _ := net.SplitHostPort(r.RemoteAddr)
+			r.RemoteAddr = strings.Join([]string{ip, port}, ":")
 
 			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+func WithRemoteAddressFromHeader(hdr string) middleware.MiddlewareFunc {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ip := r.Header.Get(hdr)
+			if ip != "" {
+				WithRemoteAddress(ip)(next).ServeHTTP(w, r)
+			} else {
+				next.ServeHTTP(w, r)
+			}
 		})
 	}
 }
@@ -160,5 +175,33 @@ func setObjectUID(action kubetesting.Action) (bool, runtime.Object, error) {
 		return false, obj, nil
 	default:
 		return false, nil, fmt.Errorf("no reaction implemented for %s", action)
+	}
+}
+
+func filterListPods(tracker kubetesting.ObjectTracker) kubetesting.ReactionFunc {
+	delegate := kubetesting.ObjectReaction(tracker)
+
+	return func(action kubetesting.Action) (bool, runtime.Object, error) {
+		la := action.(kubetesting.ListAction)
+
+		found, obj, err := delegate(action)
+		if err != nil || !found {
+			return found, obj, err
+		}
+
+		pods := obj.(*corev1.PodList)
+
+		keep := 0
+		for _, pod := range pods.Items {
+			if !la.GetListRestrictions().Fields.Matches(fields.Set{"status.podIP": pod.Status.PodIP}) {
+				continue
+			}
+
+			pods.Items[keep] = pod
+			keep++
+		}
+
+		pods.Items = pods.Items[:keep]
+		return true, pods, nil
 	}
 }

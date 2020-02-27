@@ -4,11 +4,8 @@ go 1.12
 
 require (
 	cloud.google.com/go/storage v1.1.2 // indirect
-	github.com/emicklei/go-restful v2.11.1+incompatible // indirect
-	github.com/go-openapi/spec v0.19.5 // indirect
-	github.com/go-openapi/swag v0.19.7 // indirect
+	github.com/frankban/quicktest v1.7.3 // indirect
 	github.com/golang/groupcache v0.0.0-20191002201903-404acd9df4cc // indirect
-	github.com/google/addlicense v0.0.0-20190510175307-22550fa7c1b0 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/hashicorp/vault/api v1.0.4
 	github.com/inconshreveable/log15 v0.0.0-20180818164646-67afb5ed74ec
@@ -16,10 +13,10 @@ require (
 	github.com/jstemmer/go-junit-report v0.9.1 // indirect
 	github.com/puppetlabs/errawr-gen v1.0.1
 	github.com/puppetlabs/errawr-go/v2 v2.2.0
-	github.com/puppetlabs/horsehead/v2 v2.4.0
+	github.com/puppetlabs/horsehead/v2 v2.7.0
 	github.com/puppetlabs/nebula-libs/storage/file/v2 v2.0.0
 	github.com/puppetlabs/nebula-libs/storage/gcs/v2 v2.0.0
-	github.com/puppetlabs/nebula-sdk v1.5.0
+	github.com/puppetlabs/nebula-sdk v1.6.0
 	github.com/stretchr/testify v1.4.0
 	github.com/tektoncd/pipeline v0.10.1
 	go.uber.org/multierr v1.2.0 // indirect
