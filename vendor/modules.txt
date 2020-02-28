@@ -183,7 +183,7 @@ github.com/puppetlabs/horsehead/v2/storage
 github.com/puppetlabs/nebula-libs/storage/file/v2
 # github.com/puppetlabs/nebula-libs/storage/gcs/v2 v2.0.0
 github.com/puppetlabs/nebula-libs/storage/gcs/v2
-# github.com/puppetlabs/nebula-sdk v1.9.0
+# github.com/puppetlabs/nebula-sdk v1.9.2
 github.com/puppetlabs/nebula-sdk/pkg/outputs
 github.com/puppetlabs/nebula-sdk/pkg/secrets
 github.com/puppetlabs/nebula-sdk/pkg/util/jsonpath

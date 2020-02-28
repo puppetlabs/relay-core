@@ -310,7 +310,7 @@ func ParseYAMLNode(node *yaml.Node) (Tree, error) {
 		stack = append(stack[1:], node.Content...)
 	}
 
-	tree := make(map[string]interface{})
+	var tree interface{}
 	if err := node.Decode(&tree); err != nil {
 		return nil, err
 	}

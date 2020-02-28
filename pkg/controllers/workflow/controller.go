@@ -15,7 +15,6 @@ import (
 
 	"github.com/puppetlabs/horsehead/v2/graph"
 	"github.com/puppetlabs/horsehead/v2/graph/traverse"
-
 	"github.com/puppetlabs/horsehead/v2/instrumentation/metrics"
 	"github.com/puppetlabs/horsehead/v2/storage"
 	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/evaluate"

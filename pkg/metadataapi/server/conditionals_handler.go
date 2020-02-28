@@ -55,10 +55,6 @@ func (h *conditionalsHandler) get(w http.ResponseWriter, r *http.Request) {
 			return o.Value.Data, nil
 		})),
 		evaluate.WithAnswerTypeResolver(resolve.AnswerTypeResolverFunc(func(ctx context.Context, askRef, name string) (interface{}, error) {
-			if askRef != "" {
-				return nil, &resolve.AnswerNotFoundError{AskRef: askRef, Name: name}
-			}
-
 			st, err := managers.StateManager().Get(ctx, md.Hash, name)
 			if errors.IsStateTaskNotFound(err) || errors.IsStateNotFoundForID(err) || errors.IsStateKeyNotFound(err) {
 				return nil, &resolve.AnswerNotFoundError{AskRef: askRef, Name: name}
