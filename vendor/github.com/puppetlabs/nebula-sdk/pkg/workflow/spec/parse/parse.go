@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-type Tree map[string]interface{}
+type Tree interface{}
 
 func ParseFile(name string) (Tree, error) {
 	f, err := os.Open(name)

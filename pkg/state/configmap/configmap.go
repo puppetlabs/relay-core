@@ -3,7 +3,7 @@ package configmap
 import (
 	"bytes"
 	"context"
-	"crypto/sha1"
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -14,6 +14,7 @@ import (
 
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/state"
+	"github.com/puppetlabs/nebula-tasks/pkg/task"
 )
 
 type StateManager struct {
@@ -21,8 +22,8 @@ type StateManager struct {
 	kubeclient kubernetes.Interface
 }
 
-func (sm StateManager) Get(ctx context.Context, taskHash [sha1.Size]byte, key string) (*state.State, errors.Error) {
-	name := fmt.Sprintf("task-%x-state", taskHash)
+func (sm StateManager) Get(ctx context.Context, taskHash task.Hash, key string) (*state.State, errors.Error) {
+	name := fmt.Sprintf("task-%s-state", taskHash.HexEncoding())
 
 	cm, err := sm.kubeclient.CoreV1().ConfigMaps(sm.namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
@@ -33,19 +34,30 @@ func (sm StateManager) Get(ctx context.Context, taskHash [sha1.Size]byte, key st
 		return nil, errors.NewStateGetError().WithCause(err)
 	}
 
-	val, ok := cm.Data[key]
+	if _, ok := cm.Data["state"]; !ok {
+		return nil, errors.NewStateNotFoundForID(taskHash.HexEncoding())
+	}
+
+	st := cm.Data["state"]
+
+	var data map[string]interface{}
+	if err := json.Unmarshal([]byte(st), &data); err != nil {
+		return nil, errors.NewStateValueDecodingError().WithCause(err)
+	}
+
+	val, ok := data[key]
 	if !ok {
 		return nil, errors.NewStateKeyNotFound(key)
 	}
 
 	return &state.State{
 		Key:   key,
-		Value: val,
+		Value: val.(string),
 	}, nil
 }
 
-func (sm StateManager) Set(ctx context.Context, taskHash [sha1.Size]byte, key string, value io.Reader) errors.Error {
-	name := fmt.Sprintf("task-%x-state", taskHash)
+func (sm StateManager) Set(ctx context.Context, taskHash task.Hash, value io.Reader) errors.Error {
+	name := fmt.Sprintf("task-%s-state", taskHash.HexEncoding())
 
 	cm, err := sm.kubeclient.CoreV1().ConfigMaps(sm.namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
@@ -67,7 +79,7 @@ func (sm StateManager) Set(ctx context.Context, taskHash [sha1.Size]byte, key st
 		return errors.NewStateValueReadError().WithCause(err)
 	}
 
-	cm.Data[key] = buf.String()
+	cm.Data["state"] = buf.String()
 
 	if err := sm.createOrUpdateConfigMap(cm); err != nil {
 		return errors.NewStatePutError().WithCause(err)

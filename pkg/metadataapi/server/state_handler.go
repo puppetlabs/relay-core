@@ -31,13 +31,15 @@ func (st stateHandler) get(w http.ResponseWriter, r *http.Request) {
 	key, _ := shiftPath(r.URL.Path)
 
 	managers := middleware.Managers(r)
+	md := middleware.TaskMetadata(r)
 
-	taskHash := middleware.TaskMetadata(r).Hash
+	st.logger.Info("handling state request", "task-id", md.Hash.HexEncoding())
+
 	stm := managers.StateManager()
 
 	ctx := r.Context()
 
-	response, err := stm.Get(ctx, taskHash, key)
+	response, err := stm.Get(ctx, md.Hash, key)
 	if err != nil {
 		utilapi.WriteError(ctx, w, err)
 		return
@@ -65,13 +67,11 @@ func (st stateHandler) put(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
-	key, _ := shiftPath(r.URL.Path)
-
 	buf := &bytes.Buffer{}
 	buf.ReadFrom(r.Body)
 	defer r.Body.Close()
 
-	if err := stm.Set(ctx, md.Hash, key, buf); err != nil {
+	if err := stm.Set(ctx, md.Hash, buf); err != nil {
 		utilapi.WriteError(ctx, w, err)
 
 		return

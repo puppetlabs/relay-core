@@ -64,3 +64,16 @@ func (e *PathEvaluationError) Error() string {
 	path, err := e.trace()
 	return fmt.Sprintf("path %q: %+v", strings.Join(path, "."), err)
 }
+
+type UnresolvableError struct {
+	Causes []error
+}
+
+func (e *UnresolvableError) Error() string {
+	var causes []string
+	for _, err := range e.Causes {
+		causes = append(causes, fmt.Sprintf("* %s", err.Error()))
+	}
+
+	return fmt.Sprintf("unresolvable:\n%s", strings.Join(causes, "\n"))
+}

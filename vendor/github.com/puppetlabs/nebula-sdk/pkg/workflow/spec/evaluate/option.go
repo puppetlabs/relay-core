@@ -22,6 +22,12 @@ func WithParameterTypeResolver(resolver resolve.ParameterTypeResolver) Option {
 	}
 }
 
+func WithAnswerTypeResolver(resolver resolve.AnswerTypeResolver) Option {
+	return func(e *Evaluator) {
+		e.answerTypeResolver = resolver
+	}
+}
+
 func WithInvocationResolver(resolver resolve.InvocationResolver) Option {
 	return func(e *Evaluator) {
 		e.invocationResolver = resolver

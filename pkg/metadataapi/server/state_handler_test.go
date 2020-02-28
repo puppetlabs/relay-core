@@ -1,7 +1,9 @@
 package server
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"net/http/httptest"
 	"net/url"
 	"testing"
@@ -51,15 +53,7 @@ func TestStateManager(t *testing.T) {
 			key:         "",
 			value:       "test-value",
 			taskName:    taskConfig.Name,
-			setErr:      state.ErrStateClientKeyEmpty,
 			getErr:      state.ErrStateClientKeyEmpty,
-		},
-		{
-			description: "missing value raises an error",
-			key:         "foo",
-			value:       "",
-			taskName:    taskConfig.Name,
-			setErr:      state.ErrStateClientValueEmpty,
 		},
 	}
 
@@ -72,7 +66,15 @@ func TestStateManager(t *testing.T) {
 				client := state.NewDefaultStateClient(apiEndpoint)
 				ctx := context.Background()
 
-				err = client.SetState(ctx, c.key, c.value)
+				data := make(map[string]interface{})
+				data[c.key] = c.value
+				raw, err := json.Marshal(data)
+				require.NoError(t, err)
+
+				buf := &bytes.Buffer{}
+				buf.Write(raw)
+
+				err = client.SetState(ctx, buf.String())
 				if c.setErr != nil {
 					require.Error(t, err)
 					require.Equal(t, c.setErr, err)

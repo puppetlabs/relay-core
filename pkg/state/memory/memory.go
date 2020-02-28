@@ -3,63 +3,59 @@ package memory
 import (
 	"bytes"
 	"context"
-	"crypto/sha1"
-	"encoding/hex"
-	"fmt"
+	"encoding/json"
 	"io"
 	"sync"
 
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/state"
+	"github.com/puppetlabs/nebula-tasks/pkg/task"
 )
 
 type StateManager struct {
-	data map[string]map[string][]byte
+	data map[string]string
 
 	sync.Mutex
 }
 
-func (sm *StateManager) Get(ctx context.Context, taskHash [sha1.Size]byte, key string) (*state.State, errors.Error) {
+func (sm *StateManager) Get(ctx context.Context, taskHash task.Hash, key string) (*state.State, errors.Error) {
 	sm.Lock()
 	defer sm.Unlock()
 
-	name := fmt.Sprintf("task-%x-state", taskHash)
-	taskHashKey := hex.EncodeToString(taskHash[:])
+	taskHashKey := taskHash.HexEncoding()
 
 	if sm.data == nil {
-		return nil, errors.NewStateTaskNotFound(name)
+		return nil, errors.NewStateTaskNotFound(taskHashKey)
 	}
 
-	if sm.data[taskHashKey] == nil {
-		return nil, errors.NewStateTaskNotFound(name)
+	if _, ok := sm.data[taskHashKey]; !ok {
+		return nil, errors.NewStateTaskNotFound(taskHashKey)
 	}
 
-	if sm.data[taskHashKey][key] == nil {
+	var data map[string]interface{}
+	if err := json.Unmarshal([]byte(sm.data[taskHashKey]), &data); err != nil {
+		return nil, errors.NewStateValueDecodingError().WithCause(err)
+	}
+
+	val, ok := data[key]
+	if !ok {
 		return nil, errors.NewStateKeyNotFound(key)
 	}
 
 	return &state.State{
 		Key:   key,
-		Value: string(sm.data[taskHashKey][key]),
+		Value: val.(string),
 	}, nil
 }
 
-func (sm *StateManager) Set(ctx context.Context, taskHash [sha1.Size]byte, key string, value io.Reader) errors.Error {
+func (sm *StateManager) Set(ctx context.Context, taskHash task.Hash, value io.Reader) errors.Error {
 	sm.Lock()
 	defer sm.Unlock()
 
-	taskHashKey := hex.EncodeToString(taskHash[:])
-
-	if key == "" {
-		return errors.NewStateKeyEmptyError()
-	}
+	taskHashKey := taskHash.HexEncoding()
 
 	if sm.data == nil {
-		sm.data = make(map[string]map[string][]byte)
-	}
-
-	if sm.data[taskHashKey] == nil {
-		sm.data[taskHashKey] = make(map[string][]byte)
+		sm.data = make(map[string]string)
 	}
 
 	buf := &bytes.Buffer{}
@@ -68,7 +64,7 @@ func (sm *StateManager) Set(ctx context.Context, taskHash [sha1.Size]byte, key s
 		return errors.NewStateValueReadError().WithCause(err)
 	}
 
-	sm.data[taskHashKey][key] = buf.Bytes()
+	sm.data[taskHashKey] = buf.String()
 
 	return nil
 }
