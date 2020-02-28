@@ -1,6 +1,6 @@
 FROM alpine:3
 RUN apk --no-cache add bash ca-certificates curl git jq openssh && update-ca-certificates
 
-COPY "./cmd/nebula-approvals/step.sh" "/nebula/step-approvals.sh"
+COPY "./cmd/nebula-conditions/when.sh" "/nebula/when-conditions.sh"
 ENTRYPOINT []
-CMD ["/bin/bash", "/nebula/step-approvals.sh"]
+CMD ["/bin/bash", "/nebula/when-conditions.sh"]
