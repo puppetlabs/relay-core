@@ -2,13 +2,12 @@ package memory
 
 import (
 	"context"
-	"crypto/sha1"
-	"encoding/hex"
 	"sync"
 
 	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/outputs"
+	"github.com/puppetlabs/nebula-tasks/pkg/task"
 )
 
 type OutputsManager struct {
@@ -21,8 +20,7 @@ func (om *OutputsManager) Get(ctx context.Context, taskName, key string) (*outpu
 	om.Lock()
 	defer om.Unlock()
 
-	taskHash := sha1.Sum([]byte(taskName))
-	taskHashKey := hex.EncodeToString(taskHash[:])
+	taskHashKey := task.HashFromName(taskName).HexEncoding()
 
 	if om.data == nil {
 		return nil, errors.NewOutputsTaskNotFound(taskName)
@@ -44,11 +42,11 @@ func (om *OutputsManager) Get(ctx context.Context, taskName, key string) (*outpu
 	}, nil
 }
 
-func (om *OutputsManager) Put(ctx context.Context, taskHash [sha1.Size]byte, key string, value transfer.JSONInterface) errors.Error {
+func (om *OutputsManager) Put(ctx context.Context, taskHash task.Hash, key string, value transfer.JSONInterface) errors.Error {
 	om.Lock()
 	defer om.Unlock()
 
-	taskHashKey := hex.EncodeToString(taskHash[:])
+	taskHashKey := taskHash.HexEncoding()
 
 	if key == "" {
 		return errors.NewOutputsKeyEmptyError()

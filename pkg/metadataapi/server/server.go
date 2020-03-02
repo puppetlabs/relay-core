@@ -40,6 +40,10 @@ type Server struct {
 	// on the /state/* path
 	stateHandler http.Handler
 
+	// conditionalsHandler handles requests for evaluating whether or not a step
+	// condition is true
+	conditionalsHandler http.Handler
+
 	// healthCheckHandler handles requests to check the readiness and health of
 	// the metadata server
 	healthCheckHandler http.Handler
@@ -65,6 +69,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.outputsHandler.ServeHTTP(w, r)
 	case "state":
 		s.stateHandler.ServeHTTP(w, r)
+	case "conditions":
+		s.conditionalsHandler.ServeHTTP(w, r)
 	case "healthz":
 		s.healthCheckHandler.ServeHTTP(w, r)
 	default:
@@ -111,6 +117,10 @@ func New(cfg *config.MetadataServerConfig, managers op.ManagerFactory) *Server {
 		logger: cfg.Logger,
 	})
 
+	conditionals := withManagers(withTask(&conditionalsHandler{
+		logger: cfg.Logger,
+	}))
+
 	outputs := withManagers(withTask(&outputsHandler{
 		logger: cfg.Logger,
 	}))
@@ -120,15 +130,16 @@ func New(cfg *config.MetadataServerConfig, managers op.ManagerFactory) *Server {
 	}))
 
 	return &Server{
-		bindAddr:           cfg.BindAddr,
-		logger:             cfg.Logger,
-		managers:           managers,
-		secretsHandler:     secrets,
-		specHandler:        spec,
-		specsHandler:       specs,
-		outputsHandler:     outputs,
-		stateHandler:       state,
-		healthCheckHandler: &healthCheckHandler{},
+		bindAddr:            cfg.BindAddr,
+		logger:              cfg.Logger,
+		managers:            managers,
+		secretsHandler:      secrets,
+		specHandler:         spec,
+		specsHandler:        specs,
+		outputsHandler:      outputs,
+		stateHandler:        state,
+		conditionalsHandler: conditionals,
+		healthCheckHandler:  &healthCheckHandler{},
 	}
 }
 

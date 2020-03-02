@@ -13,6 +13,7 @@ import (
 	"github.com/puppetlabs/horsehead/v2/logging"
 	"github.com/puppetlabs/nebula-sdk/pkg/outputs"
 	"github.com/puppetlabs/nebula-sdk/pkg/secrets"
+	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/evaluate"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/testutil"
@@ -172,7 +173,7 @@ func TestServerSpecHandler(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 
-		var r ResultEnvelope
+		var r evaluate.JSONResultEnvelope
 
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(&r))
 		require.Equal(t, map[string]interface{}{
@@ -183,7 +184,7 @@ func TestServerSpecHandler(t *testing.T) {
 				"another": "thing",
 			},
 			"superNormal": "test-normal-value",
-		}, r.Value)
+		}, r.Value.Data)
 		require.True(t, r.Complete)
 
 		// Request a specific expression from the spec
@@ -193,10 +194,10 @@ func TestServerSpecHandler(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 
-		r = ResultEnvelope{}
+		r = evaluate.JSONResultEnvelope{}
 
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(&r))
-		require.Equal(t, "value", r.Value)
+		require.Equal(t, "value", r.Value.Data)
 		require.True(t, r.Complete)
 	})
 }
@@ -257,7 +258,7 @@ func TestServerSpecsHandler(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 
-		resp, err = client.Get(ts.URL + "/specs/" + currentTask.Name)
+		resp, err = client.Get(ts.URL + "/specs/" + currentTask.TaskHash().HexEncoding())
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 

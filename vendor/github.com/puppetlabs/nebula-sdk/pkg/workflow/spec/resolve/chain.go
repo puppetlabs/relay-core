@@ -70,3 +70,26 @@ func (cr *chainParameterTypeResolvers) ResolveParameter(ctx context.Context, nam
 func ChainParameterTypeResolvers(resolvers ...ParameterTypeResolver) ParameterTypeResolver {
 	return &chainParameterTypeResolvers{resolvers: resolvers}
 }
+
+type chainAnswerTypeResolvers struct {
+	resolvers []AnswerTypeResolver
+}
+
+func (cr *chainAnswerTypeResolvers) ResolveAnswer(ctx context.Context, askRef, name string) (interface{}, error) {
+	for _, r := range cr.resolvers {
+		p, err := r.ResolveAnswer(ctx, askRef, name)
+		if _, ok := err.(*AnswerNotFoundError); ok {
+			continue
+		} else if err != nil {
+			return nil, err
+		}
+
+		return p, nil
+	}
+
+	return nil, &AnswerNotFoundError{AskRef: askRef, Name: name}
+}
+
+func ChainAnswerTypeResolvers(resolvers ...AnswerTypeResolver) AnswerTypeResolver {
+	return &chainAnswerTypeResolvers{resolvers: resolvers}
+}

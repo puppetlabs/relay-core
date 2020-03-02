@@ -69,9 +69,7 @@ func (mm *KubernetesMetadataManager) GetByIP(ctx context.Context, ip string) (*M
 		return nil, errors.NewTaskInvalidHashError().Bug()
 	}
 
-	md := &Metadata{
-		Name: pod.GetLabels()["tekton.dev/task"],
-	}
+	md := &Metadata{}
 	copy(md.Hash[:], taskHash)
 
 	return md, nil
@@ -88,16 +86,18 @@ type PreconfiguredSpecManager struct {
 	specs map[string]string
 }
 
-func (sm PreconfiguredSpecManager) GetByTaskID(ctx context.Context, taskID string) (string, errors.Error) {
+func (sm PreconfiguredSpecManager) Get(ctx context.Context, taskHash Hash) (string, errors.Error) {
+	taskHashKey := taskHash.HexEncoding()
+
 	if sm.specs == nil {
-		return "", errors.NewTaskSpecNotFoundForID(taskID)
+		return "", errors.NewTaskSpecNotFoundForID(taskHashKey)
 	}
 
-	if _, ok := sm.specs[taskID]; !ok {
-		return "", errors.NewTaskSpecNotFoundForID(taskID)
+	if _, ok := sm.specs[taskHashKey]; !ok {
+		return "", errors.NewTaskSpecNotFoundForID(taskHashKey)
 	}
 
-	return sm.specs[taskID], nil
+	return sm.specs[taskHashKey], nil
 }
 
 func NewPreconfiguredSpecManager(specs map[string]string) *PreconfiguredSpecManager {
@@ -109,18 +109,18 @@ type KubernetesSpecManager struct {
 	namespace  string
 }
 
-func (sm KubernetesSpecManager) GetByTaskID(ctx context.Context, taskID string) (string, errors.Error) {
-	configMap, err := sm.kubeclient.CoreV1().ConfigMaps(sm.namespace).Get(taskID, metav1.GetOptions{})
+func (sm KubernetesSpecManager) Get(ctx context.Context, taskHash Hash) (string, errors.Error) {
+	configMap, err := sm.kubeclient.CoreV1().ConfigMaps(sm.namespace).Get(taskHash.HexEncoding(), metav1.GetOptions{})
 	if nil != err {
 		if kerrors.IsNotFound(err) {
-			return "", errors.NewTaskSpecNotFoundForID(taskID).WithCause(err)
+			return "", errors.NewTaskSpecNotFoundForID(taskHash.HexEncoding()).WithCause(err)
 		}
 
 		return "", errors.NewTaskSpecLookupError().WithCause(err)
 	}
 
 	if _, ok := configMap.Data["spec.json"]; !ok {
-		return "", errors.NewTaskSpecNotFoundForID(taskID)
+		return "", errors.NewTaskSpecNotFoundForID(taskHash.HexEncoding())
 	}
 
 	return configMap.Data["spec.json"], nil

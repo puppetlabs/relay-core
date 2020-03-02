@@ -42,6 +42,18 @@ func (f ParameterTypeResolverFunc) ResolveParameter(ctx context.Context, name st
 	return f(ctx, name)
 }
 
+type AnswerTypeResolver interface {
+	ResolveAnswer(ctx context.Context, askRef, name string) (interface{}, error)
+}
+
+type AnswerTypeResolverFunc func(ctx context.Context, askRef, name string) (interface{}, error)
+
+var _ AnswerTypeResolver = AnswerTypeResolverFunc(nil)
+
+func (f AnswerTypeResolverFunc) ResolveAnswer(ctx context.Context, askRef, name string) (interface{}, error) {
+	return f(ctx, askRef, name)
+}
+
 type InvocationResolver interface {
 	ResolveInvocationPositional(ctx context.Context, name string, args []interface{}) (fn.Invoker, error)
 	ResolveInvocation(ctx context.Context, name string, args map[string]interface{}) (fn.Invoker, error)

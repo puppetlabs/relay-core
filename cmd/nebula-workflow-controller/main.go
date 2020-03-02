@@ -47,7 +47,7 @@ func main() {
 	numWorkers := fs.Int("num-workers", 2, "the number of worker threads to spawn that process Workflow resources")
 	metricsEnabled := fs.Bool("metrics-enabled", false, "enables the metrics collection and server")
 	metricsServerBindAddr := fs.String("metrics-server-bind-addr", "localhost:3050", "the host:port to bind the metrics server to")
-	approvalTypeImage := fs.String("approval-type-image", "gcr.io/nebula-235818/nebula-approvals:latest", "the image and tag to use when waiting for approvals")
+	whenConditionsImage := fs.String("when-conditions-image", "gcr.io/nebula-235818/nebula-conditions:latest", "the image and tag to use for evaluating when conditions")
 
 	fs.Parse(os.Args[1:])
 
@@ -60,7 +60,7 @@ func main() {
 		MetadataServiceVaultAddr:          *metadataServiceVaultAddr,
 		MetadataServiceVaultAuthMountPath: *metadataServiceVaultAuthMountPath,
 		MetadataServiceCheckEnabled:       *metadataServiceCheckEnabled,
-		ApprovalTypeImage:                 *approvalTypeImage,
+		WhenConditionsImage:               *whenConditionsImage,
 	}
 
 	vc, err := vault.NewVaultAuth(&vault.Config{

@@ -13,88 +13,6 @@ import (
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"
 )
 
-type UnresolvableSecretEnvelope struct {
-	Name string `json:"name"`
-}
-
-type UnresolvableOutputEnvelope struct {
-	From string `json:"from"`
-	Name string `json:"name"`
-}
-
-type UnresolvableParameterEnvelope struct {
-	Name string `json:"name"`
-}
-
-type UnresolvableInvocationEnvelope struct {
-	Name string `json:"name"`
-}
-
-type UnresolvableEnvelope struct {
-	Secrets     []*UnresolvableSecretEnvelope     `json:"secrets,omitempty"`
-	Outputs     []*UnresolvableOutputEnvelope     `json:"outputs,omitempty"`
-	Parameters  []*UnresolvableParameterEnvelope  `json:"parameters,omitempty"`
-	Invocations []*UnresolvableInvocationEnvelope `json:"invocations,omitempty"`
-}
-
-func NewUnresolvableEnvelope(ur evaluate.Unresolvable) *UnresolvableEnvelope {
-	env := &UnresolvableEnvelope{}
-
-	if len(ur.Secrets) > 0 {
-		env.Secrets = make([]*UnresolvableSecretEnvelope, len(ur.Secrets))
-		for i, s := range ur.Secrets {
-			env.Secrets[i] = &UnresolvableSecretEnvelope{
-				Name: s.Name,
-			}
-		}
-	}
-
-	if len(ur.Outputs) > 0 {
-		env.Outputs = make([]*UnresolvableOutputEnvelope, len(ur.Outputs))
-		for i, o := range ur.Outputs {
-			env.Outputs[i] = &UnresolvableOutputEnvelope{
-				From: o.From,
-				Name: o.Name,
-			}
-		}
-	}
-
-	if len(ur.Parameters) > 0 {
-		env.Parameters = make([]*UnresolvableParameterEnvelope, len(ur.Parameters))
-		for i, p := range ur.Parameters {
-			env.Parameters[i] = &UnresolvableParameterEnvelope{
-				Name: p.Name,
-			}
-		}
-	}
-
-	if len(ur.Invocations) > 0 {
-		env.Invocations = make([]*UnresolvableInvocationEnvelope, len(ur.Invocations))
-		for i, call := range ur.Invocations {
-			// TODO: Add cause?
-			env.Invocations[i] = &UnresolvableInvocationEnvelope{
-				Name: call.Name,
-			}
-		}
-	}
-
-	return env
-}
-
-type ResultEnvelope struct {
-	Value        interface{}           `json:"value"`
-	Unresolvable *UnresolvableEnvelope `json:"unresolvable"`
-	Complete     bool                  `json:"complete"`
-}
-
-func NewResultEnvelope(rv *evaluate.Result) *ResultEnvelope {
-	return &ResultEnvelope{
-		Value:        rv.Value,
-		Unresolvable: NewUnresolvableEnvelope(rv.Unresolvable),
-		Complete:     rv.Complete(),
-	}
-}
-
 type specHandler struct {
 	logger logging.Logger
 }
@@ -105,9 +23,9 @@ func (h *specHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	m := middleware.Managers(r)
 	md := middleware.TaskMetadata(r)
 
-	h.logger.Info("handling spec request", "task-name", md.Name)
+	h.logger.Info("handling spec request", "task-id", md.Hash.HexEncoding())
 
-	spec, err := m.SpecsManager().GetByTaskID(ctx, md.Name)
+	spec, err := m.SpecsManager().Get(ctx, md.Hash)
 	if err != nil {
 		utilapi.WriteError(ctx, w, err)
 		return
@@ -138,7 +56,6 @@ func (h *specHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			return o.Value.Data, nil
 		})),
-		evaluate.WithResultMapper(evaluate.NewUTF8SafeResultMapper()),
 	)
 
 	var rv *evaluate.Result
@@ -153,5 +70,5 @@ func (h *specHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	utilapi.WriteObjectOK(ctx, w, NewResultEnvelope(rv))
+	utilapi.WriteObjectOK(ctx, w, evaluate.NewJSONResultEnvelope(rv))
 }

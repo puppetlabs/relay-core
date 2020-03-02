@@ -11,6 +11,7 @@ import (
 	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/resolve"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"
+	"github.com/puppetlabs/nebula-tasks/pkg/task"
 )
 
 type specsHandler struct {
@@ -27,16 +28,20 @@ func (h *specsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	key, r.URL.Path = shiftPath(r.URL.Path)
 	if key == "" || "" != r.URL.Path {
 		http.NotFound(w, r)
-
 		return
 	}
 
 	h.logger.Info("handling spec request", "key", key)
 
-	specData, err := managers.SpecsManager().GetByTaskID(ctx, key)
+	th, herr := task.HashFromID(key)
+	if herr != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	specData, err := managers.SpecsManager().Get(ctx, th)
 	if err != nil {
 		utilapi.WriteError(ctx, w, err)
-
 		return
 	}
 

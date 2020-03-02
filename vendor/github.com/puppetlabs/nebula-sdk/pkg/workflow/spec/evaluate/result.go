@@ -4,6 +4,7 @@ import (
 	"sort"
 
 	"github.com/puppetlabs/horsehead/v2/datastructure"
+	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/resolve"
 )
 
 type UnresolvableSecret struct {
@@ -39,6 +40,19 @@ func (s unresolvableParameterSort) Len() int           { return len(s) }
 func (s unresolvableParameterSort) Less(i, j int) bool { return s[i].Name < s[j].Name }
 func (s unresolvableParameterSort) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
+type UnresolvableAnswer struct {
+	AskRef string
+	Name   string
+}
+
+type unresolvableAnswerSort []UnresolvableAnswer
+
+func (s unresolvableAnswerSort) Len() int { return len(s) }
+func (s unresolvableAnswerSort) Less(i, j int) bool {
+	return s[i].AskRef < s[j].AskRef || (s[i].Name == s[j].Name && s[i].Name < s[j].Name)
+}
+func (s unresolvableAnswerSort) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+
 type UnresolvableInvocation struct {
 	Name  string
 	Cause error
@@ -56,27 +70,38 @@ type Unresolvable struct {
 	Secrets     []UnresolvableSecret
 	Outputs     []UnresolvableOutput
 	Parameters  []UnresolvableParameter
+	Answers     []UnresolvableAnswer
 	Invocations []UnresolvableInvocation
 }
 
-type Result struct {
-	Value        interface{}
-	Unresolvable Unresolvable
-}
+func (u *Unresolvable) AsError() error {
+	err := &UnresolvableError{}
 
-func (r *Result) Complete() bool {
-	return len(r.Unresolvable.Secrets) == 0 &&
-		len(r.Unresolvable.Outputs) == 0 &&
-		len(r.Unresolvable.Parameters) == 0 &&
-		len(r.Unresolvable.Invocations) == 0
-}
+	for _, s := range u.Secrets {
+		err.Causes = append(err.Causes, &resolve.SecretNotFoundError{Name: s.Name})
+	}
 
-func (r *Result) extends(other *Result) *Result {
-	// For convenience, we can copy in the information from another result,
-	// which extends the unresolvables here.
+	for _, o := range u.Outputs {
+		err.Causes = append(err.Causes, &resolve.OutputNotFoundError{From: o.From, Name: o.Name})
+	}
 
-	r.Unresolvable.extends(other.Unresolvable)
-	return r
+	for _, p := range u.Parameters {
+		err.Causes = append(err.Causes, &resolve.ParameterNotFoundError{Name: p.Name})
+	}
+
+	for _, a := range u.Answers {
+		err.Causes = append(err.Causes, &resolve.AnswerNotFoundError{AskRef: a.AskRef, Name: a.Name})
+	}
+
+	for _, i := range u.Invocations {
+		err.Causes = append(err.Causes, &resolve.FunctionResolutionError{Name: i.Name, Cause: i.Cause})
+	}
+
+	if len(err.Causes) == 0 {
+		return nil
+	}
+
+	return err
 }
 
 func (u *Unresolvable) extends(other Unresolvable) {
@@ -128,6 +153,22 @@ func (u *Unresolvable) extends(other Unresolvable) {
 		sort.Sort(unresolvableParameterSort(u.Parameters))
 	}
 
+	// Answers
+	if len(u.Answers) == 0 {
+		u.Answers = append(u.Answers, other.Answers...)
+	} else if len(other.Answers) != 0 {
+		set := datastructure.NewHashSet()
+		for _, o := range u.Answers {
+			set.Add(o)
+		}
+		for _, o := range other.Answers {
+			set.Add(o)
+		}
+		u.Answers = nil
+		set.ValuesInto(&u.Answers)
+		sort.Sort(unresolvableAnswerSort(u.Answers))
+	}
+
 	// Invocations
 	if len(u.Invocations) == 0 {
 		u.Invocations = append(u.Invocations, other.Invocations...)
@@ -143,4 +184,21 @@ func (u *Unresolvable) extends(other Unresolvable) {
 		set.ValuesInto(&u.Invocations)
 		sort.Sort(unresolvableInvocationSort(u.Invocations))
 	}
+}
+
+type Result struct {
+	Value        interface{}
+	Unresolvable Unresolvable
+}
+
+func (r *Result) Complete() bool {
+	return r.Unresolvable.AsError() == nil
+}
+
+func (r *Result) extends(other *Result) *Result {
+	// For convenience, we can copy in the information from another result,
+	// which extends the unresolvables here.
+
+	r.Unresolvable.extends(other.Unresolvable)
+	return r
 }

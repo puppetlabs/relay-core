@@ -19,7 +19,7 @@ var (
 )
 
 type StateClient interface {
-	SetState(ctx context.Context, key, value string) error
+	SetState(ctx context.Context, value string) error
 	GetState(ctx context.Context, key string) (string, error)
 }
 
@@ -27,17 +27,12 @@ type DefaultStateClient struct {
 	apiURL *url.URL
 }
 
-func (c DefaultStateClient) SetState(ctx context.Context, key, value string) error {
-	if key == "" {
-		return ErrStateClientKeyEmpty
-	}
-
+func (c DefaultStateClient) SetState(ctx context.Context, value string) error {
 	if value == "" {
 		return ErrStateClientValueEmpty
 	}
 
 	loc := *c.apiURL
-	loc.Path = path.Join(loc.Path, key)
 
 	buf := bytes.NewBufferString(value)
 
