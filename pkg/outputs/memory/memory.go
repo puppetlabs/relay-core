@@ -2,9 +2,11 @@ package memory
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
+
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/outputs"
 	"github.com/puppetlabs/nebula-tasks/pkg/task"
@@ -16,37 +18,41 @@ type OutputsManager struct {
 	sync.Mutex
 }
 
-func (om *OutputsManager) Get(ctx context.Context, taskName, key string) (*outputs.Output, errors.Error) {
+func (om *OutputsManager) Get(ctx context.Context, metadata *task.Metadata, stepName, key string) (*outputs.Output, errors.Error) {
 	om.Lock()
 	defer om.Unlock()
 
-	taskHashKey := task.HashFromName(taskName).HexEncoding()
+	thisTask := &task.Task{
+		Run:  metadata.Run,
+		Name: stepName,
+	}
+	name := fmt.Sprintf("task-%s-outputs", thisTask.TaskHash().HexEncoding())
 
 	if om.data == nil {
-		return nil, errors.NewOutputsTaskNotFound(taskName)
+		return nil, errors.NewOutputsTaskNotFound(stepName)
 	}
 
-	if om.data[taskHashKey] == nil {
-		return nil, errors.NewOutputsTaskNotFound(taskName)
+	if om.data[name] == nil {
+		return nil, errors.NewOutputsTaskNotFound(stepName)
 	}
 
-	value, ok := om.data[taskHashKey][key]
+	value, ok := om.data[name][key]
 	if !ok {
 		return nil, errors.NewOutputsKeyNotFound(key)
 	}
 
 	return &outputs.Output{
-		TaskName: taskName,
+		TaskName: stepName,
 		Key:      key,
 		Value:    value,
 	}, nil
 }
 
-func (om *OutputsManager) Put(ctx context.Context, taskHash task.Hash, key string, value transfer.JSONInterface) errors.Error {
+func (om *OutputsManager) Put(ctx context.Context, metadata *task.Metadata, key string, value transfer.JSONInterface) errors.Error {
 	om.Lock()
 	defer om.Unlock()
 
-	taskHashKey := taskHash.HexEncoding()
+	name := fmt.Sprintf("task-%s-outputs", metadata.Hash.HexEncoding())
 
 	if key == "" {
 		return errors.NewOutputsKeyEmptyError()
@@ -56,11 +62,11 @@ func (om *OutputsManager) Put(ctx context.Context, taskHash task.Hash, key strin
 		om.data = make(map[string]map[string]transfer.JSONInterface)
 	}
 
-	if om.data[taskHashKey] == nil {
-		om.data[taskHashKey] = make(map[string]transfer.JSONInterface)
+	if om.data[name] == nil {
+		om.data[name] = make(map[string]transfer.JSONInterface)
 	}
 
-	om.data[taskHashKey][key] = value
+	om.data[name][key] = value
 
 	return nil
 }

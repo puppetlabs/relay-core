@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 
 	corev1 "k8s.io/api/core/v1"
@@ -22,20 +21,20 @@ type StateManager struct {
 	kubeclient kubernetes.Interface
 }
 
-func (sm StateManager) Get(ctx context.Context, taskHash task.Hash, key string) (*state.State, errors.Error) {
-	name := fmt.Sprintf("task-%s-state", taskHash.HexEncoding())
+func (sm StateManager) Get(ctx context.Context, metadata *task.Metadata, key string) (*state.State, errors.Error) {
+	taskHashKey := metadata.Hash.HexEncoding()
 
-	cm, err := sm.kubeclient.CoreV1().ConfigMaps(sm.namespace).Get(name, metav1.GetOptions{})
+	cm, err := sm.kubeclient.CoreV1().ConfigMaps(sm.namespace).Get(taskHashKey, metav1.GetOptions{})
 	if err != nil {
 		if kerrors.IsNotFound(err) {
-			return nil, errors.NewStateTaskNotFound(name).WithCause(err)
+			return nil, errors.NewStateTaskNotFound(taskHashKey).WithCause(err)
 		}
 
 		return nil, errors.NewStateGetError().WithCause(err)
 	}
 
 	if _, ok := cm.Data["state"]; !ok {
-		return nil, errors.NewStateNotFoundForID(taskHash.HexEncoding())
+		return nil, errors.NewStateNotFoundForID(taskHashKey)
 	}
 
 	st := cm.Data["state"]
@@ -56,15 +55,15 @@ func (sm StateManager) Get(ctx context.Context, taskHash task.Hash, key string) 
 	}, nil
 }
 
-func (sm StateManager) Set(ctx context.Context, taskHash task.Hash, value io.Reader) errors.Error {
-	name := fmt.Sprintf("task-%s-state", taskHash.HexEncoding())
+func (sm StateManager) Set(ctx context.Context, metadata *task.Metadata, value io.Reader) errors.Error {
+	taskHashKey := metadata.Hash.HexEncoding()
 
-	cm, err := sm.kubeclient.CoreV1().ConfigMaps(sm.namespace).Get(name, metav1.GetOptions{})
+	cm, err := sm.kubeclient.CoreV1().ConfigMaps(sm.namespace).Get(taskHashKey, metav1.GetOptions{})
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			cm = &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
+					Name:      taskHashKey,
 					Namespace: sm.namespace,
 				},
 				Data: map[string]string{},

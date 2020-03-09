@@ -7,27 +7,32 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	utilapi "github.com/puppetlabs/horsehead/v2/httputil/api"
 	"github.com/puppetlabs/horsehead/v2/logging"
 	sdktestutil "github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/testutil"
+	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/runtime"
+
 	"github.com/puppetlabs/nebula-tasks/pkg/conditionals"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/testutil"
-	"github.com/stretchr/testify/require"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
 func TestConditionalsHandlerSuccess(t *testing.T) {
 	const namespace = "workflow-run-ns"
 
 	var (
+		run          = uuid.New().String()
 		previousTask = testutil.MockTaskConfig{
+			Run:       run,
 			Name:      "previous-task",
 			Namespace: namespace,
 			PodIP:     "10.3.3.4",
 		}
 		task = testutil.MockTaskConfig{
+			Run:       run,
 			Name:      "current-task",
 			Namespace: namespace,
 			PodIP:     "10.3.3.3",
@@ -95,12 +100,15 @@ func TestConditionalsHandlerFailure(t *testing.T) {
 	const namespace = "workflow-run-ns"
 
 	var (
+		run          = uuid.New().String()
 		previousTask = testutil.MockTaskConfig{
+			Run:       run,
 			Name:      "previous-task",
 			Namespace: namespace,
 			PodIP:     "10.3.3.4",
 		}
 		task = testutil.MockTaskConfig{
+			Run:       run,
 			Name:      "current-task",
 			Namespace: namespace,
 			PodIP:     "10.3.3.3",
@@ -169,6 +177,7 @@ func TestConditionalsHandlerUnsupportedExpressions(t *testing.T) {
 
 	var (
 		task = testutil.MockTaskConfig{
+			Run:       uuid.New().String(),
 			Name:      "current-task",
 			Namespace: namespace,
 			PodIP:     "10.3.3.3",
@@ -229,6 +238,7 @@ func TestConditionalsHandlerUnresolvedExpressions(t *testing.T) {
 
 	var (
 		task = testutil.MockTaskConfig{
+			Run:       uuid.New().String(),
 			Name:      "current-task",
 			Namespace: namespace,
 			PodIP:     "10.3.3.3",

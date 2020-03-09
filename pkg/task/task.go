@@ -32,5 +32,23 @@ func HashFromID(id string) (h Hash, err error) {
 // Metadata represents task metadata (such as the hash uniquely identifying the
 // task).
 type Metadata struct {
+	Run  string
 	Hash Hash
+}
+
+type Task struct {
+	Run  string
+	Name string
+}
+
+func (t *Task) TaskHash() Hash {
+	taskName := fmt.Sprintf("run-%s-task-%s", t.Run, t.Name)
+	return HashFromName(taskName)
+}
+
+func (t *Task) TaskMetadata() *Metadata {
+	return &Metadata{
+		Run:  t.Run,
+		Hash: t.TaskHash(),
+	}
 }

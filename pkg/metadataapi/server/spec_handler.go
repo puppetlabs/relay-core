@@ -9,6 +9,7 @@ import (
 	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/evaluate"
 	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/parse"
 	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/resolve"
+
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"
 )
@@ -25,7 +26,7 @@ func (h *specHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	h.logger.Info("handling spec request", "task-id", md.Hash.HexEncoding())
 
-	spec, err := m.SpecsManager().Get(ctx, md.Hash)
+	spec, err := m.SpecsManager().Get(ctx, md)
 	if err != nil {
 		utilapi.WriteError(ctx, w, err)
 		return
@@ -48,7 +49,7 @@ func (h *specHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return s.Value, nil
 		})),
 		evaluate.WithOutputTypeResolver(resolve.OutputTypeResolverFunc(func(ctx context.Context, from, name string) (interface{}, error) {
-			o, err := m.OutputsManager().Get(ctx, from, name)
+			o, err := m.OutputsManager().Get(ctx, md, from, name)
 			if errors.IsOutputsTaskNotFound(err) || errors.IsOutputsKeyNotFound(err) {
 				return nil, &resolve.OutputNotFoundError{From: from, Name: name}
 			} else if err != nil {

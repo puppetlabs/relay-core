@@ -1923,8 +1923,8 @@ type StateGetErrorBuilder struct {
 // Build creates the error for the code "get_error" from this builder.
 func (b *StateGetErrorBuilder) Build() Error {
 	description := &impl.ErrorDescription{
-		Friendly:  "there was an error getting the output",
-		Technical: "there was an error getting the output",
+		Friendly:  "there was an error getting the state",
+		Technical: "there was an error getting the state",
 	}
 
 	return &impl.Error{
@@ -1948,54 +1948,6 @@ func NewStateGetErrorBuilder() *StateGetErrorBuilder {
 // NewStateGetError creates a new error with the code "get_error".
 func NewStateGetError() Error {
 	return NewStateGetErrorBuilder().Build()
-}
-
-// StateKeyEmptyErrorCode is the code for an instance of "key_empty_error".
-const StateKeyEmptyErrorCode = "nt_state_key_empty_error"
-
-// IsStateKeyEmptyError tests whether a given error is an instance of "key_empty_error".
-func IsStateKeyEmptyError(err errawr.Error) bool {
-	return err != nil && err.Is(StateKeyEmptyErrorCode)
-}
-
-// IsStateKeyEmptyError tests whether a given error is an instance of "key_empty_error".
-func (External) IsStateKeyEmptyError(err errawr.Error) bool {
-	return IsStateKeyEmptyError(err)
-}
-
-// StateKeyEmptyErrorBuilder is a builder for "key_empty_error" errors.
-type StateKeyEmptyErrorBuilder struct {
-	arguments impl.ErrorArguments
-}
-
-// Build creates the error for the code "key_empty_error" from this builder.
-func (b *StateKeyEmptyErrorBuilder) Build() Error {
-	description := &impl.ErrorDescription{
-		Friendly:  "the output key was empty",
-		Technical: "the output key was empty",
-	}
-
-	return &impl.Error{
-		ErrorArguments:   b.arguments,
-		ErrorCode:        "key_empty_error",
-		ErrorDescription: description,
-		ErrorDomain:      Domain,
-		ErrorMetadata:    &impl.ErrorMetadata{},
-		ErrorSection:     StateSection,
-		ErrorSensitivity: errawr.ErrorSensitivityNone,
-		ErrorTitle:       "Key empty error",
-		Version:          1,
-	}
-}
-
-// NewStateKeyEmptyErrorBuilder creates a new error builder for the code "key_empty_error".
-func NewStateKeyEmptyErrorBuilder() *StateKeyEmptyErrorBuilder {
-	return &StateKeyEmptyErrorBuilder{arguments: impl.ErrorArguments{}}
-}
-
-// NewStateKeyEmptyError creates a new error with the code "key_empty_error".
-func NewStateKeyEmptyError() Error {
-	return NewStateKeyEmptyErrorBuilder().Build()
 }
 
 // StateKeyNotFoundCode is the code for an instance of "key_not_found".
@@ -2121,8 +2073,8 @@ type StatePutErrorBuilder struct {
 // Build creates the error for the code "put_error" from this builder.
 func (b *StatePutErrorBuilder) Build() Error {
 	description := &impl.ErrorDescription{
-		Friendly:  "there was an error storing the output",
-		Technical: "there was an error storing the output",
+		Friendly:  "there was an error storing the state",
+		Technical: "there was an error storing the state",
 	}
 
 	return &impl.Error{

@@ -9,16 +9,18 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
 	"github.com/puppetlabs/horsehead/v2/logging"
 	"github.com/puppetlabs/nebula-sdk/pkg/outputs"
 	"github.com/puppetlabs/nebula-sdk/pkg/secrets"
 	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/evaluate"
+	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/runtime"
+
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/testutil"
-	"github.com/stretchr/testify/require"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
 func TestServerSecretsHandler(t *testing.T) {
@@ -63,6 +65,7 @@ func TestServerSecretsHandler(t *testing.T) {
 
 func TestServerOutputsHandler(t *testing.T) {
 	taskConfig := testutil.MockTaskConfig{
+		Run:       uuid.New().String(),
 		Name:      "test-task",
 		Namespace: "test-task",
 		PodIP:     "10.3.3.3",
@@ -110,12 +113,15 @@ func TestServerSpecHandler(t *testing.T) {
 	const namespace = "workflow-run-ns"
 
 	var (
+		run          = uuid.New().String()
 		previousTask = testutil.MockTaskConfig{
+			Run:       run,
 			Name:      "previous-task",
 			Namespace: namespace,
 			PodIP:     "10.3.3.4",
 		}
 		currentTask = testutil.MockTaskConfig{
+			Run:       run,
 			Name:      "current-task",
 			Namespace: namespace,
 			PodIP:     "10.3.3.3",
@@ -206,12 +212,15 @@ func TestServerSpecsHandler(t *testing.T) {
 	const namespace = "workflow-run-ns"
 
 	var (
+		run          = uuid.New().String()
 		previousTask = testutil.MockTaskConfig{
+			Run:       run,
 			Name:      "previous-task",
 			Namespace: namespace,
 			PodIP:     "10.3.3.4",
 		}
 		currentTask = testutil.MockTaskConfig{
+			Run:       run,
 			Name:      "current-task",
 			Namespace: namespace,
 			PodIP:     "10.3.3.3",
@@ -238,12 +247,13 @@ func TestServerSpecsHandler(t *testing.T) {
 	logger := logging.Builder().At("server-test").Build()
 	srv := New(&config.MetadataServerConfig{Logger: logger}, managers)
 
-	mw := []middleware.MiddlewareFunc{testutil.WithRemoteAddress(previousTask.PodIP)}
+	mw := []middleware.MiddlewareFunc{testutil.WithRemoteAddressFromHeader("Nebula-Unit-Test-Address")}
 
 	testutil.WithTestMetadataAPIServer(srv, mw, func(ts *httptest.Server) {
 		client := ts.Client()
 
 		req, err := http.NewRequest(http.MethodPut, ts.URL+"/outputs/test-output-key", strings.NewReader("test-output-value"))
+		req.Header.Set("Nebula-Unit-Test-Address", previousTask.PodIP)
 		require.NoError(t, err)
 
 		resp, err := client.Do(req)
@@ -251,6 +261,7 @@ func TestServerSpecsHandler(t *testing.T) {
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 
 		req, err = http.NewRequest(http.MethodPut, ts.URL+"/outputs/test-structured-output-key", strings.NewReader(`{"a":"value","another":"thing"}`))
+		req.Header.Set("Nebula-Unit-Test-Address", previousTask.PodIP)
 		require.NoError(t, err)
 		req.Header.Set("Content-Type", "application/json")
 
@@ -258,7 +269,12 @@ func TestServerSpecsHandler(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 
-		resp, err = client.Get(ts.URL + "/specs/" + currentTask.TaskHash().HexEncoding())
+		// Request the whole spec
+		req, err = http.NewRequest(http.MethodGet, ts.URL+"/specs", nil)
+		require.NoError(t, err)
+		req.Header.Set("Nebula-Unit-Test-Address", currentTask.PodIP)
+
+		resp, err = client.Do(req)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 

@@ -18,11 +18,11 @@ type StateManager struct {
 	sync.Mutex
 }
 
-func (sm *StateManager) Get(ctx context.Context, taskHash task.Hash, key string) (*state.State, errors.Error) {
+func (sm *StateManager) Get(ctx context.Context, metadata *task.Metadata, key string) (*state.State, errors.Error) {
 	sm.Lock()
 	defer sm.Unlock()
 
-	taskHashKey := taskHash.HexEncoding()
+	taskHashKey := metadata.Hash.HexEncoding()
 
 	if sm.data == nil {
 		return nil, errors.NewStateTaskNotFound(taskHashKey)
@@ -48,11 +48,11 @@ func (sm *StateManager) Get(ctx context.Context, taskHash task.Hash, key string)
 	}, nil
 }
 
-func (sm *StateManager) Set(ctx context.Context, taskHash task.Hash, value io.Reader) errors.Error {
+func (sm *StateManager) Set(ctx context.Context, metadata *task.Metadata, value io.Reader) errors.Error {
 	sm.Lock()
 	defer sm.Unlock()
 
-	taskHashKey := taskHash.HexEncoding()
+	taskHashKey := metadata.Hash.HexEncoding()
 
 	if sm.data == nil {
 		sm.data = make(map[string]string)
