@@ -6,10 +6,11 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+
+	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 )
 
 // PreconfiguredMetadataManager is a task metadata manager that can be
@@ -57,11 +58,12 @@ func (mm *KubernetesMetadataManager) GetByIP(ctx context.Context, ip string) (*M
 	}
 
 	// TODO fine tune this: this should theoretically never return more than 1 pod (if it does,
-	// then out network fabric has some serious issues), but we should figure out how to handle
+	// then our network fabric has some serious issues), but we should figure out how to handle
 	// this scenario.
 	pod := pods.Items[0]
 
 	taskHashHex := pod.GetLabels()["nebula.puppet.com/task.hash"]
+	run := pod.GetLabels()["nebula.puppet.com/run"]
 	taskHash, err := hex.DecodeString(taskHashHex)
 	if err != nil {
 		return nil, errors.NewTaskInvalidHashError().WithCause(err).Bug()
@@ -69,7 +71,7 @@ func (mm *KubernetesMetadataManager) GetByIP(ctx context.Context, ip string) (*M
 		return nil, errors.NewTaskInvalidHashError().Bug()
 	}
 
-	md := &Metadata{}
+	md := &Metadata{Run: run}
 	copy(md.Hash[:], taskHash)
 
 	return md, nil
@@ -86,8 +88,8 @@ type PreconfiguredSpecManager struct {
 	specs map[string]string
 }
 
-func (sm PreconfiguredSpecManager) Get(ctx context.Context, taskHash Hash) (string, errors.Error) {
-	taskHashKey := taskHash.HexEncoding()
+func (sm PreconfiguredSpecManager) Get(ctx context.Context, metadata *Metadata) (string, errors.Error) {
+	taskHashKey := metadata.Hash.HexEncoding()
 
 	if sm.specs == nil {
 		return "", errors.NewTaskSpecNotFoundForID(taskHashKey)
@@ -109,18 +111,20 @@ type KubernetesSpecManager struct {
 	namespace  string
 }
 
-func (sm KubernetesSpecManager) Get(ctx context.Context, taskHash Hash) (string, errors.Error) {
-	configMap, err := sm.kubeclient.CoreV1().ConfigMaps(sm.namespace).Get(taskHash.HexEncoding(), metav1.GetOptions{})
+func (sm KubernetesSpecManager) Get(ctx context.Context, metadata *Metadata) (string, errors.Error) {
+	taskHashKey := metadata.Hash.HexEncoding()
+
+	configMap, err := sm.kubeclient.CoreV1().ConfigMaps(sm.namespace).Get(taskHashKey, metav1.GetOptions{})
 	if nil != err {
 		if kerrors.IsNotFound(err) {
-			return "", errors.NewTaskSpecNotFoundForID(taskHash.HexEncoding()).WithCause(err)
+			return "", errors.NewTaskSpecNotFoundForID(taskHashKey).WithCause(err)
 		}
 
 		return "", errors.NewTaskSpecLookupError().WithCause(err)
 	}
 
 	if _, ok := configMap.Data["spec.json"]; !ok {
-		return "", errors.NewTaskSpecNotFoundForID(taskHash.HexEncoding())
+		return "", errors.NewTaskSpecNotFoundForID(taskHashKey)
 	}
 
 	return configMap.Data["spec.json"], nil

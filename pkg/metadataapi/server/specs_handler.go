@@ -9,9 +9,9 @@ import (
 	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/evaluate"
 	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/parse"
 	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/resolve"
+
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"
-	"github.com/puppetlabs/nebula-tasks/pkg/task"
 )
 
 type specsHandler struct {
@@ -22,24 +22,11 @@ func (h *specsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	managers := middleware.Managers(r)
+	md := middleware.TaskMetadata(r)
 
-	var key string
+	h.logger.Info("handling spec request", "task-id", md.Hash.HexEncoding())
 
-	key, r.URL.Path = shiftPath(r.URL.Path)
-	if key == "" || "" != r.URL.Path {
-		http.NotFound(w, r)
-		return
-	}
-
-	h.logger.Info("handling spec request", "key", key)
-
-	th, herr := task.HashFromID(key)
-	if herr != nil {
-		http.NotFound(w, r)
-		return
-	}
-
-	specData, err := managers.SpecsManager().Get(ctx, th)
+	specData, err := managers.SpecsManager().Get(ctx, md)
 	if err != nil {
 		utilapi.WriteError(ctx, w, err)
 		return
@@ -66,7 +53,7 @@ func (h *specsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return s.Value, nil
 		})),
 		evaluate.WithOutputTypeResolver(resolve.OutputTypeResolverFunc(func(ctx context.Context, from, name string) (interface{}, error) {
-			o, err := managers.OutputsManager().Get(ctx, from, name)
+			o, err := managers.OutputsManager().Get(ctx, md, from, name)
 			if errors.IsOutputsTaskNotFound(err) || errors.IsOutputsKeyNotFound(err) {
 				// TODO: Similarly, this would typically return an instance of
 				// *resolve.OutputNotFoundError.

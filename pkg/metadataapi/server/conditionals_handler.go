@@ -8,6 +8,7 @@ import (
 	"github.com/puppetlabs/horsehead/v2/logging"
 	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/evaluate"
 	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/resolve"
+
 	"github.com/puppetlabs/nebula-tasks/pkg/conditionals"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"
@@ -37,7 +38,7 @@ func (h *conditionalsHandler) get(w http.ResponseWriter, r *http.Request) {
 
 	cm := managers.ConditionalsManager()
 
-	tree, err := cm.Get(ctx, md.Hash)
+	tree, err := cm.Get(ctx, md)
 	if err != nil {
 		utilapi.WriteError(ctx, w, err)
 		return
@@ -45,7 +46,7 @@ func (h *conditionalsHandler) get(w http.ResponseWriter, r *http.Request) {
 
 	ev := evaluate.NewEvaluator(
 		evaluate.WithOutputTypeResolver(resolve.OutputTypeResolverFunc(func(ctx context.Context, from, name string) (interface{}, error) {
-			o, err := managers.OutputsManager().Get(ctx, from, name)
+			o, err := managers.OutputsManager().Get(ctx, md, from, name)
 			if errors.IsOutputsTaskNotFound(err) || errors.IsOutputsKeyNotFound(err) {
 				return nil, &resolve.OutputNotFoundError{From: from, Name: name}
 			} else if err != nil {
@@ -55,7 +56,7 @@ func (h *conditionalsHandler) get(w http.ResponseWriter, r *http.Request) {
 			return o.Value.Data, nil
 		})),
 		evaluate.WithAnswerTypeResolver(resolve.AnswerTypeResolverFunc(func(ctx context.Context, askRef, name string) (interface{}, error) {
-			st, err := managers.StateManager().Get(ctx, md.Hash, name)
+			st, err := managers.StateManager().Get(ctx, md, name)
 			if errors.IsStateTaskNotFound(err) || errors.IsStateNotFoundForID(err) || errors.IsStateKeyNotFound(err) {
 				return nil, &resolve.AnswerNotFoundError{AskRef: askRef, Name: name}
 			} else if err != nil {

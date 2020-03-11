@@ -7,6 +7,7 @@ import (
 	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
 	utilapi "github.com/puppetlabs/horsehead/v2/httputil/api"
 	"github.com/puppetlabs/horsehead/v2/logging"
+
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"
 	"github.com/puppetlabs/nebula-tasks/pkg/state"
@@ -39,7 +40,7 @@ func (st stateHandler) get(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
-	response, err := stm.Get(ctx, md.Hash, key)
+	response, err := stm.Get(ctx, md, key)
 	if err != nil {
 		utilapi.WriteError(ctx, w, err)
 		return
@@ -71,7 +72,7 @@ func (st stateHandler) put(w http.ResponseWriter, r *http.Request) {
 	buf.ReadFrom(r.Body)
 	defer r.Body.Close()
 
-	if err := stm.Set(ctx, md.Hash, buf); err != nil {
+	if err := stm.Set(ctx, md, buf); err != nil {
 		utilapi.WriteError(ctx, w, err)
 
 		return

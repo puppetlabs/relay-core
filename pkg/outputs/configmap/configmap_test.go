@@ -6,19 +6,22 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/puppetlabs/horsehead/v2/logging"
 	"github.com/puppetlabs/nebula-sdk/pkg/outputs"
+	"github.com/stretchr/testify/require"
+
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/testutil"
-	"github.com/stretchr/testify/require"
 )
 
 func TestConfigMapOutputs(t *testing.T) {
 	t.Parallel()
 
 	taskConfig := testutil.MockTaskConfig{
+		Run:       uuid.New().String(),
 		Name:      "test-task",
 		Namespace: "test-task",
 		PodIP:     "10.3.3.3",

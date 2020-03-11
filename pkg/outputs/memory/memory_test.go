@@ -2,11 +2,13 @@ package memory
 
 import (
 	"context"
-	"crypto/sha1"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
 	"github.com/stretchr/testify/require"
+
+	"github.com/puppetlabs/nebula-tasks/pkg/task"
 )
 
 func TestMemoryMetadataManager(t *testing.T) {
@@ -14,16 +16,27 @@ func TestMemoryMetadataManager(t *testing.T) {
 
 	ctx := context.Background()
 
-	err := om.Put(ctx, sha1.Sum([]byte("test-task")), "test-key", transfer.JSONInterface{Data: "test-value"})
+	key := "test-key"
+	value := "test-value"
+	stepName := "test-task"
+	run := uuid.New().String()
+
+	thisTask := &task.Task{
+		Run:  run,
+		Name: stepName,
+	}
+	md := thisTask.TaskMetadata()
+
+	err := om.Put(ctx, md, key, transfer.JSONInterface{Data: value})
 	require.NoError(t, err)
 
-	out, err := om.Get(ctx, "test-task", "test-key")
+	out, err := om.Get(ctx, md, stepName, key)
 	require.NoError(t, err)
-	require.Equal(t, "test-value", out.Value.Data)
+	require.Equal(t, value, out.Value.Data)
 
-	out, err = om.Get(ctx, "test-task2", "test-key")
+	out, err = om.Get(ctx, md, uuid.New().String(), key)
 	require.Error(t, err)
 
-	out, err = om.Get(ctx, "test-task", "test-key2")
+	out, err = om.Get(ctx, md, stepName, uuid.New().String())
 	require.Error(t, err)
 }

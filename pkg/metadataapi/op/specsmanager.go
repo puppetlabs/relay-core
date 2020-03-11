@@ -8,5 +8,5 @@ import (
 )
 
 type SpecsManager interface {
-	Get(ctx context.Context, taskID task.Hash) (string, errors.Error)
+	Get(ctx context.Context, metadata *task.Metadata) (string, errors.Error)
 }
