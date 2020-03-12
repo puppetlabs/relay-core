@@ -10,7 +10,7 @@ import (
 	"github.com/puppetlabs/nebula-tasks/pkg/secrets"
 	tekclientset "github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
 	tekinformers "github.com/tektoncd/pipeline/pkg/client/informers/externalversions"
-	pipelinev1alpha1informers "github.com/tektoncd/pipeline/pkg/client/informers/externalversions/pipeline/v1alpha1"
+	pipelinev1beta1informers "github.com/tektoncd/pipeline/pkg/client/informers/externalversions/pipeline/v1beta1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -29,8 +29,8 @@ func (d DependencyManager) WorkflowRunInformer() nebv1informers.WorkflowRunInfor
 	return d.NebulaInformerFactory.Nebula().V1().WorkflowRuns()
 }
 
-func (d DependencyManager) PipelineRunInformer() pipelinev1alpha1informers.PipelineRunInformer {
-	return d.TektonInformerFactory.Tekton().V1alpha1().PipelineRuns()
+func (d DependencyManager) PipelineRunInformer() pipelinev1beta1informers.PipelineRunInformer {
+	return d.TektonInformerFactory.Tekton().V1beta1().PipelineRuns()
 }
 
 func NewDependencyManager(kcfg *rest.Config) (*DependencyManager, error) {
