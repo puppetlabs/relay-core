@@ -6,9 +6,6 @@ import (
 	"log"
 	"net/url"
 	"os"
-	"os/signal"
-	"syscall"
-	"time"
 
 	"github.com/puppetlabs/horsehead/v2/instrumentation/metrics"
 	"github.com/puppetlabs/horsehead/v2/instrumentation/metrics/delegates"
@@ -16,15 +13,18 @@ import (
 	"github.com/puppetlabs/horsehead/v2/storage"
 	_ "github.com/puppetlabs/nebula-libs/storage/file/v2"
 	_ "github.com/puppetlabs/nebula-libs/storage/gcs/v2"
+	nebulav1 "github.com/puppetlabs/nebula-tasks/pkg/apis/nebula.puppet.com/v1"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
-	"github.com/puppetlabs/nebula-tasks/pkg/controllers"
-	"github.com/puppetlabs/nebula-tasks/pkg/controllers/workflow"
+	"github.com/puppetlabs/nebula-tasks/pkg/controller/workflow"
+	"github.com/puppetlabs/nebula-tasks/pkg/dependency"
 	"github.com/puppetlabs/nebula-tasks/pkg/secrets/vault"
-
-	"k8s.io/apimachinery/pkg/util/wait"
+	"github.com/puppetlabs/nebula-tasks/pkg/util"
+	tekv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 )
 
 func main() {
@@ -53,15 +53,6 @@ func main() {
 
 	klogFlags := flag.NewFlagSet("klog", flag.ExitOnError)
 	klog.InitFlags(klogFlags)
-
-	cfg := &config.WorkflowControllerConfig{
-		MetadataServiceImage:              *metadataServiceImage,
-		MetadataServiceImagePullSecret:    *metadataServiceImagePullSecret,
-		MetadataServiceVaultAddr:          *metadataServiceVaultAddr,
-		MetadataServiceVaultAuthMountPath: *metadataServiceVaultAuthMountPath,
-		MetadataServiceCheckEnabled:       *metadataServiceCheckEnabled,
-		WhenConditionsImage:               *whenConditionsImage,
-	}
 
 	vc, err := vault.NewVaultAuth(&vault.Config{
 		Addr:             *vaultAddr,
@@ -114,29 +105,47 @@ func main() {
 		log.Fatal("Error creating kubernetes config", err)
 	}
 
-	stopCh := make(chan struct{})
-	defer close(stopCh)
-
-	manager, err := workflow.NewDependencyManager(kcc)
-	if err != nil {
-		log.Fatal("Error creating controller dependency builder", err)
-	}
-
-	namespace, err := controllers.LookupNamespace(*kubeNamespace)
+	namespace, err := util.LookupNamespace(*kubeNamespace)
 	if err != nil {
 		log.Fatal("Error looking up namespace")
 	}
 
-	controller := workflow.NewController(manager, cfg, vc, blobStore, namespace, mets)
+	cfg := &config.WorkflowControllerConfig{
+		Namespace:                         namespace,
+		MetadataServiceImage:              *metadataServiceImage,
+		MetadataServiceImagePullSecret:    *metadataServiceImagePullSecret,
+		MetadataServiceVaultAddr:          *metadataServiceVaultAddr,
+		MetadataServiceVaultAuthMountPath: *metadataServiceVaultAuthMountPath,
+		MetadataServiceCheckEnabled:       *metadataServiceCheckEnabled,
+		WhenConditionsImage:               *whenConditionsImage,
+		MaxConcurrentReconciles:           *numWorkers,
+	}
 
-	manager.NebulaInformerFactory.Start(stopCh)
-	manager.TektonInformerFactory.Start(stopCh)
+	dm, err := dependency.NewDependencyManager(kcc, cfg, vc, blobStore, mets)
+	if err != nil {
+		log.Fatal("Error creating controller dependency builder", err)
+	}
 
-	go wait.Forever(klog.Flush, time.Second*2)
-	go controller.Run(*numWorkers, stopCh)
+	config := ctrl.GetConfigOrDie()
 
-	termCh := make(chan os.Signal, 1)
-	signal.Notify(termCh, syscall.SIGTERM)
-	signal.Notify(termCh, syscall.SIGINT)
-	<-termCh
+	mgr, err := ctrl.NewManager(config, ctrl.Options{})
+	if err != nil {
+		log.Fatal("Unable to create new manager", err)
+	}
+
+	if err := nebulav1.AddToScheme(mgr.GetScheme()); err != nil {
+		log.Fatal("Could not add manager scheme", err)
+	}
+
+	if err := tekv1beta1.AddToScheme(mgr.GetScheme()); err != nil {
+		log.Fatal("Could not add manager scheme", err)
+	}
+
+	if err := workflow.Add(mgr, dm); err != nil {
+		log.Fatal("Could not add all controllers to operator manager", err)
+	}
+
+	if err := mgr.Start(signals.SetupSignalHandler()); err != nil {
+		log.Fatal("Manager exited non-zero", err)
+	}
 }
