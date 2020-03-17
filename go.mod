@@ -6,6 +6,7 @@ require (
 	cloud.google.com/go/storage v1.1.2 // indirect
 	github.com/frankban/quicktest v1.7.3 // indirect
 	github.com/golang/groupcache v0.0.0-20191002201903-404acd9df4cc // indirect
+	github.com/google/go-cmp v0.4.0 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/hashicorp/vault/api v1.0.4
 	github.com/inconshreveable/log15 v0.0.0-20180818164646-67afb5ed74ec
@@ -27,21 +28,5 @@ require (
 	k8s.io/code-generator v0.17.1
 	k8s.io/klog v1.0.0
 	knative.dev/pkg v0.0.0-20200207155214-fef852970f43
-)
-
-// Knative deps
-
-replace (
-	contrib.go.opencensus.io/exporter/stackdriver => contrib.go.opencensus.io/exporter/stackdriver v0.12.5
-	knative.dev/pkg => knative.dev/pkg v0.0.0-20190909195211-528ad1c1dd62
-	knative.dev/pkg/vendor/github.com/spf13/pflag => github.com/spf13/pflag v1.0.5
-)
-
-// Pin k8s deps to 1.15.5
-
-replace (
-	k8s.io/api => k8s.io/api v0.0.0-20191016110246-af539daaa43a
-	k8s.io/apimachinery => k8s.io/apimachinery v0.0.0-20191004115701-31ade1b30762
-	k8s.io/client-go => k8s.io/client-go v0.0.0-20191016110837-54936ba21026
-	k8s.io/code-generator => k8s.io/code-generator v0.0.0-20190612205613-18da4a14b22b
+	sigs.k8s.io/controller-runtime v0.4.0
 )
