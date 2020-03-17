@@ -18,18 +18,15 @@ require (
 	github.com/puppetlabs/nebula-libs/storage/gcs/v2 v2.0.0
 	github.com/puppetlabs/nebula-sdk v1.9.2
 	github.com/stretchr/testify v1.4.0
-	github.com/tektoncd/pipeline v0.10.1
-	go.uber.org/multierr v1.2.0 // indirect
-	golang.org/x/net v0.0.0-20200114155413-6afb5195e5aa // indirect
-	golang.org/x/tools v0.0.0-20200128220307-520188d60f50 // indirect
+	github.com/tektoncd/pipeline v0.11.0-rc2
 	gonum.org/v1/gonum v0.6.2 // indirect
 	gopkg.in/yaml.v2 v2.2.8
-	k8s.io/api v0.17.0
-	k8s.io/apimachinery v0.17.1
+	k8s.io/api v0.17.2
+	k8s.io/apimachinery v0.17.2
 	k8s.io/client-go v0.17.0
 	k8s.io/code-generator v0.17.1
 	k8s.io/klog v1.0.0
-	knative.dev/pkg v0.0.0-20191111150521-6d806b998379
+	knative.dev/pkg v0.0.0-20200207155214-fef852970f43
 )
 
 // Knative deps
