@@ -19,9 +19,9 @@ func add(mgr manager.Manager, r reconcile.Reconciler, o controller.Options) erro
 		Complete(r)
 }
 
-func Add(mgr manager.Manager, dm *dependency.DependencyManager) error {
+func Add(dm *dependency.DependencyManager) error {
 	o := controller.Options{
 		MaxConcurrentReconciles: dm.Config.MaxConcurrentReconciles,
 	}
-	return add(mgr, workflow.NewReconciler(mgr, dm), o)
+	return add(dm.Manager, workflow.NewReconciler(dm), o)
 }

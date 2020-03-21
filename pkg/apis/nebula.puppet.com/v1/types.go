@@ -1,3 +1,4 @@
+// +groupName=nebula.puppet.com
 package v1
 
 import (
@@ -8,10 +9,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// +genclient
-// +groupName=nebula.puppet.com
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// WorkflowRun is the root type for a workflow run.
+//
+// +kubebuilder:object:root=true
 type WorkflowRun struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -45,7 +45,7 @@ type WorkflowStep struct {
 	Input     []string           `json:"input,omitempty"`
 	Command   string             `json:"command,omitempty"`
 	Args      []string           `json:"args,omitempty"`
-	When      *Unstructured      `json:"when,omitempty"`
+	When      Unstructured       `json:"when,omitempty"`
 	DependsOn []string           `json:"depends_on,omitempty"`
 }
 
@@ -71,22 +71,19 @@ type WorkflowRunState struct {
 	Steps    map[string]WorkflowState `json:"steps"`
 }
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
 type WorkflowRunList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []WorkflowRun `json:"items"`
 }
 
+// +kubebuilder:validation:Type=object
 type Unstructured struct {
-	value transfer.JSONInterface
+	value transfer.JSONInterface `json:"-"`
 }
 
-func (u *Unstructured) Value() interface{} {
-	if u == nil {
-		return nil
-	}
-
+func (u Unstructured) Value() interface{} {
 	return u.value.Data
 }
 
@@ -111,13 +108,13 @@ func (in *Unstructured) DeepCopy() *Unstructured {
 	return out
 }
 
-func NewUnstructured(value interface{}) *Unstructured {
-	return &Unstructured{
+func AsUnstructured(value interface{}) Unstructured {
+	return Unstructured{
 		value: transfer.JSONInterface{Data: value},
 	}
 }
 
-type UnstructuredObject map[string]*Unstructured
+type UnstructuredObject map[string]Unstructured
 
 func (uo UnstructuredObject) Value() map[string]interface{} {
 	out := make(map[string]interface{}, len(uo))
@@ -128,9 +125,9 @@ func (uo UnstructuredObject) Value() map[string]interface{} {
 }
 
 func NewUnstructuredObject(value map[string]interface{}) UnstructuredObject {
-	out := make(map[string]*Unstructured, len(value))
+	out := make(map[string]Unstructured, len(value))
 	for k, v := range value {
-		out[k] = NewUnstructured(v)
+		out[k] = AsUnstructured(v)
 	}
 	return out
 }
