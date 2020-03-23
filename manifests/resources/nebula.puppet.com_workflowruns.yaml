@@ -16,6 +16,8 @@ spec:
     singular: workflowrun
   preserveUnknownFields: false
   scope: Namespaced
+  subresources:
+    status: {}
   validation:
     openAPIV3Schema:
       description: WorkflowRun is the root type for a workflow run.
@@ -37,13 +39,13 @@ spec:
             name:
               type: string
             parameters:
-              $ref: '#/definitions/UnstructuredObject'
+              $ref: '#/definitions/github.com~1puppetlabs~1nebula-tasks~1pkg~1apis~1relay.sh~1v1beta1~0UnstructuredObject'
             workflow:
               properties:
                 name:
                   type: string
                 parameters:
-                  $ref: '#/definitions/UnstructuredObject'
+                  $ref: '#/definitions/github.com~1puppetlabs~1nebula-tasks~1pkg~1apis~1relay.sh~1v1beta1~0UnstructuredObject'
                 steps:
                   items:
                     properties:
@@ -67,9 +69,13 @@ spec:
                         type: string
                       spec:
                         additionalProperties:
+                          description: Unstructured is arbitrary JSON data, which
+                            may also include base64-encoded binary data.
                           type: object
                         type: object
                       when:
+                        description: Unstructured is arbitrary JSON data, which may
+                          also include base64-encoded binary data.
                         type: object
                     required:
                     - name
@@ -86,13 +92,10 @@ spec:
           properties:
             steps:
               additionalProperties:
-                $ref: '#/definitions/UnstructuredObject'
+                $ref: '#/definitions/github.com~1puppetlabs~1nebula-tasks~1pkg~1apis~1relay.sh~1v1beta1~0UnstructuredObject'
               type: object
             workflow:
-              $ref: '#/definitions/UnstructuredObject'
-          required:
-          - steps
-          - workflow
+              $ref: '#/definitions/github.com~1puppetlabs~1nebula-tasks~1pkg~1apis~1relay.sh~1v1beta1~0UnstructuredObject'
           type: object
         status:
           properties:
@@ -113,9 +116,7 @@ spec:
                   status:
                     type: string
                 required:
-                - completionTime
                 - name
-                - startTime
                 - status
                 type: object
               type: object
@@ -138,18 +139,12 @@ spec:
                   status:
                     type: string
                 required:
-                - completionTime
                 - name
-                - startTime
                 - status
                 type: object
               type: object
           required:
-          - completionTime
-          - conditions
-          - startTime
           - status
-          - steps
           type: object
       required:
       - spec
