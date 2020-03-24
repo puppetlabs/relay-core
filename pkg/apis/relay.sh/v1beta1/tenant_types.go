@@ -103,8 +103,16 @@ type TenantStatus struct {
 type TenantConditionType string
 
 const (
+	// TenantNamespaceReady indicates whether the namespace requested by the
+	// tenant namespace template is ready to use.
 	TenantNamespaceReady TenantConditionType = "NamespaceReady"
-	TenantReady          TenantConditionType = "Ready"
+
+	// TenantEventSinkReady indicates whether the event sink can be used. For
+	// example, any secret references must be resolvable.
+	TenantEventSinkReady TenantConditionType = "EventSinkReady"
+
+	// TenantReady is set when all other conditions are ready.
+	TenantReady TenantConditionType = "Ready"
 )
 
 type TenantCondition struct {
@@ -112,7 +120,7 @@ type TenantCondition struct {
 
 	// Type is the identifier for this condition.
 	//
-	// +kubebuilder:validation:Enum=NamespaceReady;Ready
+	// +kubebuilder:validation:Enum=NamespaceReady;EventSinkReady;Ready
 	Type TenantConditionType `json:"type"`
 }
 

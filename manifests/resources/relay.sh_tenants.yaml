@@ -108,6 +108,7 @@ spec:
                     description: Type is the identifier for this condition.
                     enum:
                     - NamespaceReady
+                    - EventSinkReady
                     - Ready
                     type: string
                 required:

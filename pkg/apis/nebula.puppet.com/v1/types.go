@@ -22,24 +22,20 @@ type WorkflowRun struct {
 	Status WorkflowRunStatus `json:"status,omitempty"`
 }
 
-type WorkflowRunParameters relayv1beta1.UnstructuredObject
-
 type WorkflowRunSpec struct {
 	Name     string   `json:"name"`
 	Workflow Workflow `json:"workflow,omitempty"`
 
 	// +optional
-	Parameters WorkflowRunParameters `json:"parameters,omitempty"`
+	Parameters relayv1beta1.UnstructuredObject `json:"parameters,omitempty"`
 }
-
-type WorkflowParameters relayv1beta1.UnstructuredObject
 
 type Workflow struct {
 	Name  string          `json:"name"`
 	Steps []*WorkflowStep `json:"steps"`
 
 	// +optional
-	Parameters WorkflowParameters `json:"parameters,omitempty"`
+	Parameters relayv1beta1.UnstructuredObject `json:"parameters,omitempty"`
 }
 
 type WorkflowStep struct {
@@ -94,14 +90,12 @@ type WorkflowRunStatus struct {
 	Conditions map[string]WorkflowRunStatusSummary `json:"conditions"`
 }
 
-type WorkflowState relayv1beta1.UnstructuredObject
-
 type WorkflowRunState struct {
 	// +optional
-	Workflow WorkflowState `json:"workflow"`
+	Workflow relayv1beta1.UnstructuredObject `json:"workflow"`
 
 	// +optional
-	Steps map[string]WorkflowState `json:"steps"`
+	Steps map[string]relayv1beta1.UnstructuredObject `json:"steps"`
 }
 
 // WorkflowRunList enumerates many WorkflowRun resources.

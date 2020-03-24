@@ -39,13 +39,21 @@ spec:
             name:
               type: string
             parameters:
-              $ref: '#/definitions/github.com~1puppetlabs~1nebula-tasks~1pkg~1apis~1relay.sh~1v1beta1~0UnstructuredObject'
+              additionalProperties:
+                description: Unstructured is arbitrary JSON data, which may also include
+                  base64-encoded binary data.
+                type: object
+              type: object
             workflow:
               properties:
                 name:
                   type: string
                 parameters:
-                  $ref: '#/definitions/github.com~1puppetlabs~1nebula-tasks~1pkg~1apis~1relay.sh~1v1beta1~0UnstructuredObject'
+                  additionalProperties:
+                    description: Unstructured is arbitrary JSON data, which may also
+                      include base64-encoded binary data.
+                    type: object
+                  type: object
                 steps:
                   items:
                     properties:
@@ -92,10 +100,18 @@ spec:
           properties:
             steps:
               additionalProperties:
-                $ref: '#/definitions/github.com~1puppetlabs~1nebula-tasks~1pkg~1apis~1relay.sh~1v1beta1~0UnstructuredObject'
+                additionalProperties:
+                  description: Unstructured is arbitrary JSON data, which may also
+                    include base64-encoded binary data.
+                  type: object
+                type: object
               type: object
             workflow:
-              $ref: '#/definitions/github.com~1puppetlabs~1nebula-tasks~1pkg~1apis~1relay.sh~1v1beta1~0UnstructuredObject'
+              additionalProperties:
+                description: Unstructured is arbitrary JSON data, which may also include
+                  base64-encoded binary data.
+                type: object
+              type: object
           type: object
         status:
           properties:

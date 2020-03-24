@@ -19,6 +19,9 @@ func Resource(resource string) schema.GroupResource {
 var (
 	SchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
 	AddToScheme   = SchemeBuilder.AddToScheme
+
+	TenantKind         = SchemeGroupVersion.WithKind("Tenant")
+	WebhookTriggerKind = SchemeGroupVersion.WithKind("WebhookTrigger")
 )
 
 func addKnownTypes(scheme *runtime.Scheme) error {
