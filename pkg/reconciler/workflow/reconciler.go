@@ -637,7 +637,7 @@ func (r *Reconciler) createPipelineRun(ctx context.Context, wr *nebulav1.Workflo
 
 		psa := tekv1beta1.PipelineRunSpecServiceAccountName{
 			TaskName:           taskHashKey,
-			ServiceAccountName: getName(wr, ServiceAccountIdentifierCustomer),
+			ServiceAccountName: strings.Join([]string{wr.Spec.Workflow.Name, ServiceAccountIdentifierCustomer}, "-"),
 		}
 		serviceAccounts = append(serviceAccounts, psa)
 	}
@@ -649,7 +649,7 @@ func (r *Reconciler) createPipelineRun(ctx context.Context, wr *nebulav1.Workflo
 			Labels:    getLabels(wr, nil),
 		},
 		Spec: tekv1beta1.PipelineRunSpec{
-			ServiceAccountName:  getName(wr, ServiceAccountIdentifierSystem),
+			ServiceAccountName:  strings.Join([]string{wr.Spec.Workflow.Name, ServiceAccountIdentifierSystem}, "-"),
 			ServiceAccountNames: serviceAccounts,
 			PipelineRef: &tekv1beta1.PipelineRef{
 				Name: runID,
@@ -1554,7 +1554,7 @@ func copyImagePullSecret(workingNamespace string, kc kubernetes.Interface, wfr *
 }
 
 func createServiceAccount(kc kubernetes.Interface, wfr *nebulav1.WorkflowRun, identifier string, imagePullSecret *corev1.Secret) (*corev1.ServiceAccount, error) {
-	name := getName(wfr, identifier)
+	name := strings.Join([]string{wfr.Spec.Workflow.Name, identifier}, "-")
 
 	saccount := &corev1.ServiceAccount{
 		TypeMeta: metav1.TypeMeta{
@@ -1590,13 +1590,15 @@ func createServiceAccount(kc kubernetes.Interface, wfr *nebulav1.WorkflowRun, id
 func createRBAC(kc kubernetes.Interface, wfr *nebulav1.WorkflowRun, sa *corev1.ServiceAccount) (*rbacv1.Role, *rbacv1.RoleBinding, error) {
 	var err error
 
+	name := wfr.Spec.Workflow.Name
+
 	role := &rbacv1.Role{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "rbac.authorization.k8s.io/v1",
 			Kind:       "Role",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            getName(wfr, ""),
+			Name:            name,
 			Namespace:       wfr.GetNamespace(),
 			Labels:          getLabels(wfr, nil),
 			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(wfr, controllerKind)},
@@ -1621,7 +1623,7 @@ func createRBAC(kc kubernetes.Interface, wfr *nebulav1.WorkflowRun, sa *corev1.S
 			Kind:       "RoleBinding",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            getName(wfr, ""),
+			Name:            name,
 			Namespace:       wfr.GetNamespace(),
 			Labels:          getLabels(wfr, nil),
 			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(wfr, controllerKind)},
@@ -1629,7 +1631,7 @@ func createRBAC(kc kubernetes.Interface, wfr *nebulav1.WorkflowRun, sa *corev1.S
 		RoleRef: rbacv1.RoleRef{
 			Kind:     "Role",
 			APIGroup: "rbac.authorization.k8s.io",
-			Name:     getName(wfr, ""),
+			Name:     name,
 		},
 		Subjects: []rbacv1.Subject{
 			{
@@ -1643,7 +1645,7 @@ func createRBAC(kc kubernetes.Interface, wfr *nebulav1.WorkflowRun, sa *corev1.S
 	klog.Infof("creating role %s", wfr.GetName())
 	role, err = kc.RbacV1().Roles(wfr.GetNamespace()).Create(role)
 	if k8serrors.IsAlreadyExists(err) {
-		role, err = kc.RbacV1().Roles(wfr.GetNamespace()).Get(getName(wfr, ""), metav1.GetOptions{})
+		role, err = kc.RbacV1().Roles(wfr.GetNamespace()).Get(name, metav1.GetOptions{})
 	}
 	if err != nil {
 		return nil, nil, err
@@ -1652,7 +1654,7 @@ func createRBAC(kc kubernetes.Interface, wfr *nebulav1.WorkflowRun, sa *corev1.S
 	klog.Infof("creating role binding %s", wfr.GetName())
 	binding, err = kc.RbacV1().RoleBindings(wfr.GetNamespace()).Create(binding)
 	if k8serrors.IsAlreadyExists(err) {
-		binding, err = kc.RbacV1().RoleBindings(wfr.GetNamespace()).Get(getName(wfr, ""), metav1.GetOptions{})
+		binding, err = kc.RbacV1().RoleBindings(wfr.GetNamespace()).Get(name, metav1.GetOptions{})
 	}
 	if err != nil {
 		return nil, nil, err
@@ -1664,7 +1666,8 @@ func createRBAC(kc kubernetes.Interface, wfr *nebulav1.WorkflowRun, sa *corev1.S
 func createMetadataAPIPod(kc kubernetes.Interface, image string, saccount *corev1.ServiceAccount,
 	wr *nebulav1.WorkflowRun, secretsAddr, secretsAuthMountPath, scopedSecretsPath string) (*corev1.Pod, error) {
 
-	name := getName(wr, metadataServiceName)
+	name := strings.Join([]string{"run", wr.GetName(), metadataServiceName}, "-")
+
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -1732,7 +1735,8 @@ func createMetadataAPIPod(kc kubernetes.Interface, image string, saccount *corev
 }
 
 func createMetadataAPIService(kc kubernetes.Interface, wr *nebulav1.WorkflowRun) (*corev1.Service, error) {
-	name := getName(wr, metadataServiceName)
+	name := strings.Join([]string{"run", wr.GetName(), metadataServiceName}, "-")
+
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -1799,16 +1803,6 @@ func isCancelled(wr *nebulav1.WorkflowRun) bool {
 	}
 
 	return cancelled
-}
-
-func getName(wfr *nebulav1.WorkflowRun, name string) string {
-	prefix := "run"
-
-	if name == "" {
-		return fmt.Sprintf("%s-%s", prefix, wfr.GetName())
-	}
-
-	return fmt.Sprintf("%s-%s-%s", prefix, wfr.GetName(), name)
 }
 
 func getLabels(wfr *nebulav1.WorkflowRun, additional map[string]string) map[string]string {
