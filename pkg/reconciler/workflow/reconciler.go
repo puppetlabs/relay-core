@@ -188,6 +188,15 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, err
 	}
 
+	// TODO Replace this with a better system
+	expiry := wr.CreationTimestamp.Add(1 * time.Hour)
+	if time.Now().After(expiry) {
+		wr.Status.Status = string(WorkflowRunStatusTimedOut)
+		r.updateWorkflowRunStatus(nil, wr)
+
+		return ctrl.Result{}, nil
+	}
+
 	if wr.ObjectMeta.DeletionTimestamp.IsZero() {
 		err := r.handleWorkflowRun(ctx, wr)
 		if err != nil {
@@ -685,6 +694,7 @@ func (r *Reconciler) createPipelineRun(ctx context.Context, wr *nebulav1.Workflo
 	return pipelineRun, nil
 }
 
+// TODO Refine/split this logic
 func (r *Reconciler) updateWorkflowRunStatus(plr *tekv1beta1.PipelineRun, wr *nebulav1.WorkflowRun) (*nebulav1.WorkflowRunStatus, error) {
 	workflowRunSteps := make(map[string]nebulav1.WorkflowRunStatusSummary)
 	workflowRunConditions := make(map[string]nebulav1.WorkflowRunStatusSummary)
@@ -702,50 +712,52 @@ func (r *Reconciler) updateWorkflowRunStatus(plr *tekv1beta1.PipelineRun, wr *ne
 		Conditions: make(map[string]nebulav1.WorkflowRunStatusSummary),
 	}
 
-	if plr.Status.StartTime != nil {
-		workflowRunStatus.StartTime = plr.Status.StartTime
-	}
-	if plr.Status.CompletionTime != nil {
-		workflowRunStatus.CompletionTime = plr.Status.CompletionTime
-	}
+	if plr != nil {
+		if plr.Status.StartTime != nil {
+			workflowRunStatus.StartTime = plr.Status.StartTime
+		}
+		if plr.Status.CompletionTime != nil {
+			workflowRunStatus.CompletionTime = plr.Status.CompletionTime
+		}
 
-	for name, taskRun := range plr.Status.TaskRuns {
-		for _, condition := range taskRun.ConditionChecks {
-			if condition.Status == nil {
+		for name, taskRun := range plr.Status.TaskRuns {
+			for _, condition := range taskRun.ConditionChecks {
+				if condition.Status == nil {
+					continue
+				}
+				conditionStep := nebulav1.WorkflowRunStatusSummary{
+					Name:   name,
+					Status: string(mapStatus(condition.Status.Status)),
+				}
+
+				if condition.Status.StartTime != nil {
+					conditionStep.StartTime = condition.Status.StartTime
+				}
+				if condition.Status.CompletionTime != nil {
+					conditionStep.CompletionTime = condition.Status.CompletionTime
+				}
+
+				workflowRunConditions[condition.ConditionName] = conditionStep
+			}
+
+			if taskRun.Status == nil {
 				continue
 			}
-			conditionStep := nebulav1.WorkflowRunStatusSummary{
+
+			step := nebulav1.WorkflowRunStatusSummary{
 				Name:   name,
-				Status: string(mapStatus(condition.Status.Status)),
+				Status: string(mapStatus(taskRun.Status.Status)),
 			}
 
-			if condition.Status.StartTime != nil {
-				conditionStep.StartTime = condition.Status.StartTime
+			if taskRun.Status.StartTime != nil {
+				step.StartTime = taskRun.Status.StartTime
 			}
-			if condition.Status.CompletionTime != nil {
-				conditionStep.CompletionTime = condition.Status.CompletionTime
+			if taskRun.Status.CompletionTime != nil {
+				step.CompletionTime = taskRun.Status.CompletionTime
 			}
 
-			workflowRunConditions[condition.ConditionName] = conditionStep
+			workflowRunSteps[taskRun.PipelineTaskName] = step
 		}
-
-		if taskRun.Status == nil {
-			continue
-		}
-
-		step := nebulav1.WorkflowRunStatusSummary{
-			Name:   name,
-			Status: string(mapStatus(taskRun.Status.Status)),
-		}
-
-		if taskRun.Status.StartTime != nil {
-			step.StartTime = taskRun.Status.StartTime
-		}
-		if taskRun.Status.CompletionTime != nil {
-			step.CompletionTime = taskRun.Status.CompletionTime
-		}
-
-		workflowRunSteps[taskRun.PipelineTaskName] = step
 	}
 
 	steps := graph.NewSimpleDirectedGraphWithFeatures(graph.DeterministicIteration)
@@ -1838,10 +1850,9 @@ func mapStatus(status duckv1beta1.Status) WorkflowRunStatus {
 				if cs.Reason == ReasonConditionCheckFailed {
 					return WorkflowRunStatusSkipped
 				}
-				// TODO Ignore until this is recognized as a valid status
-				//if cs.Reason == ReasonTimedOut {
-				//	return WorkflowRunStatusTimedOut
-				//}
+				if cs.Reason == ReasonTimedOut {
+					return WorkflowRunStatusTimedOut
+				}
 				return WorkflowRunStatusFailure
 			}
 		}
