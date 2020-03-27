@@ -1551,10 +1551,9 @@ func copyImagePullSecret(workingNamespace string, kc kubernetes.Interface, wfr *
 			Kind:       "Secret",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            metadataImagePullSecretName,
-			Namespace:       wfr.GetNamespace(),
-			Labels:          getLabels(wfr, nil),
-			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(wfr, controllerKind)},
+			Name:      metadataImagePullSecretName,
+			Namespace: wfr.GetNamespace(),
+			Labels:    getLabels(wfr, nil),
 		},
 		Type: ref.Type,
 		Data: ref.Data,
@@ -1579,10 +1578,9 @@ func createServiceAccount(kc kubernetes.Interface, wfr *nebulav1.WorkflowRun, id
 			Kind:       "ServiceAccount",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            name,
-			Namespace:       wfr.GetNamespace(),
-			Labels:          getLabels(wfr, nil),
-			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(wfr, controllerKind)},
+			Name:      name,
+			Namespace: wfr.GetNamespace(),
+			Labels:    getLabels(wfr, nil),
 		},
 	}
 
@@ -1615,10 +1613,9 @@ func createRBAC(kc kubernetes.Interface, wfr *nebulav1.WorkflowRun, sa *corev1.S
 			Kind:       "Role",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            name,
-			Namespace:       wfr.GetNamespace(),
-			Labels:          getLabels(wfr, nil),
-			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(wfr, controllerKind)},
+			Name:      name,
+			Namespace: wfr.GetNamespace(),
+			Labels:    getLabels(wfr, nil),
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -1640,10 +1637,9 @@ func createRBAC(kc kubernetes.Interface, wfr *nebulav1.WorkflowRun, sa *corev1.S
 			Kind:       "RoleBinding",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            name,
-			Namespace:       wfr.GetNamespace(),
-			Labels:          getLabels(wfr, nil),
-			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(wfr, controllerKind)},
+			Name:      name,
+			Namespace: wfr.GetNamespace(),
+			Labels:    getLabels(wfr, nil),
 		},
 		RoleRef: rbacv1.RoleRef{
 			Kind:     "Role",
