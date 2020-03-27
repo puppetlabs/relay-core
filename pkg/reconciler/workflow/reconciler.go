@@ -792,6 +792,11 @@ func (r *Reconciler) enrichResults(sts *nebulav1.WorkflowRunStatus, steps *graph
 				sourceStep := sts.Steps[source.(string)]
 
 				if step.Status == string(WorkflowRunStatusPending) {
+					switch sts.Status {
+					case string(WorkflowRunStatusCancelled), string(WorkflowRunStatusFailure), string(WorkflowRunStatusTimedOut):
+						step.Status = string(WorkflowRunStatusSkipped)
+					}
+
 					switch sourceStep.Status {
 					case string(WorkflowRunStatusSkipped), string(WorkflowRunStatusFailure):
 						step.Status = string(WorkflowRunStatusSkipped)
