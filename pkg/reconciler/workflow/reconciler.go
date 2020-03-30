@@ -200,6 +200,7 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	if wr.ObjectMeta.DeletionTimestamp.IsZero() {
 		err := r.handleWorkflowRun(ctx, wr)
 		if err != nil {
+			klog.Error(err)
 			return ctrl.Result{}, err
 		}
 
@@ -1725,6 +1726,16 @@ func createMetadataAPIPod(kc kubernetes.Interface, image string, saccount *corev
 								Path: "/healthz",
 								Port: intstr.FromInt(7000),
 							},
+						},
+					},
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("50m"),
+							corev1.ResourceMemory: resource.MustParse("64Mi"),
+						},
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("10m"),
+							corev1.ResourceMemory: resource.MustParse("32Mi"),
 						},
 					},
 				},
