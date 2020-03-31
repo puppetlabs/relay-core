@@ -128,9 +128,6 @@ sections:
         metadata:
           http:
             status: 404
-      key_empty_error:
-        title: Key empty error
-        description: the output key was empty
       value_decoding_error:
         title: Value decoding error
         description: decoding the secret value failed
@@ -142,10 +139,10 @@ sections:
         description: there was an error reading the value from the buffer
       get_error:
         title: Get error
-        description: there was an error getting the output
+        description: there was an error getting the state
       put_error:
         title: Put error
-        description: there was an error storing the output
+        description: there was an error storing the state
 
   task:
     title: Task errors

@@ -30,6 +30,7 @@ import (
 )
 
 type MockTaskConfig struct {
+	Run       string
 	Name      string
 	Namespace string
 	PodIP     string
@@ -38,7 +39,11 @@ type MockTaskConfig struct {
 }
 
 func (cfg *MockTaskConfig) TaskHash() task.Hash {
-	return task.HashFromName(cfg.Name)
+	thisTask := &task.Task{
+		Run:  cfg.Run,
+		Name: cfg.Name,
+	}
+	return thisTask.TaskHash()
 }
 
 func MockTask(t *testing.T, cfg MockTaskConfig) []runtime.Object {
@@ -52,6 +57,7 @@ func MockTask(t *testing.T, cfg MockTaskConfig) []runtime.Object {
 
 	labels := map[string]string{
 		"nebula.puppet.com/task.hash": taskHashKey,
+		"nebula.puppet.com/run":       cfg.Run,
 	}
 
 	return []runtime.Object{
@@ -70,6 +76,7 @@ func MockTask(t *testing.T, cfg MockTaskConfig) []runtime.Object {
 				Name:      taskHashKey,
 				Namespace: cfg.Namespace,
 				Labels:    labels,
+				UID:       types.UID(uuid.New().String()),
 			},
 			Data: map[string]string{
 				"spec.json":    string(specData),

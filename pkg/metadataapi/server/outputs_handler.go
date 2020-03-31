@@ -9,6 +9,7 @@ import (
 	utilapi "github.com/puppetlabs/horsehead/v2/httputil/api"
 	"github.com/puppetlabs/horsehead/v2/logging"
 	"github.com/puppetlabs/nebula-sdk/pkg/outputs"
+
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"
 )
@@ -59,7 +60,7 @@ func (o outputsHandler) put(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := om.Put(ctx, md.Hash, key, value); err != nil {
+	if err := om.Put(ctx, md, key, value); err != nil {
 		utilapi.WriteError(ctx, w, err)
 
 		return
@@ -69,18 +70,19 @@ func (o outputsHandler) put(w http.ResponseWriter, r *http.Request) {
 }
 
 func (o outputsHandler) get(w http.ResponseWriter, r *http.Request) {
-	var taskName string
+	var stepName string
 
-	taskName, r.URL.Path = shiftPath(r.URL.Path)
+	stepName, r.URL.Path = shiftPath(r.URL.Path)
 	key, _ := shiftPath(r.URL.Path)
 
 	managers := middleware.Managers(r)
+	md := middleware.TaskMetadata(r)
 
 	om := managers.OutputsManager()
 
 	ctx := r.Context()
 
-	response, err := om.Get(ctx, taskName, key)
+	response, err := om.Get(ctx, md, stepName, key)
 	if err != nil {
 		utilapi.WriteError(ctx, w, err)
 		return

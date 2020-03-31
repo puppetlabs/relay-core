@@ -6,13 +6,14 @@ import (
 	"fmt"
 
 	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
-	"github.com/puppetlabs/nebula-tasks/pkg/errors"
-	"github.com/puppetlabs/nebula-tasks/pkg/outputs"
-	"github.com/puppetlabs/nebula-tasks/pkg/task"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+
+	"github.com/puppetlabs/nebula-tasks/pkg/errors"
+	"github.com/puppetlabs/nebula-tasks/pkg/outputs"
+	"github.com/puppetlabs/nebula-tasks/pkg/task"
 )
 
 // OutputsManager is an abstraction on top of the K8s api's for storing
@@ -24,13 +25,17 @@ type OutputsManager struct {
 	kubeclient kubernetes.Interface
 }
 
-func (om OutputsManager) Get(ctx context.Context, taskName, key string) (*outputs.Output, errors.Error) {
-	name := fmt.Sprintf("task-%s-outputs", task.HashFromName(taskName).HexEncoding())
+func (om OutputsManager) Get(ctx context.Context, metadata *task.Metadata, stepName, key string) (*outputs.Output, errors.Error) {
+	thisTask := &task.Task{
+		Run:  metadata.Run,
+		Name: stepName,
+	}
+	name := fmt.Sprintf("task-%s-outputs", thisTask.TaskHash().HexEncoding())
 
 	cm, err := om.kubeclient.CoreV1().ConfigMaps(om.namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
 		if kerrors.IsNotFound(err) {
-			return nil, errors.NewOutputsTaskNotFound(taskName).WithCause(err)
+			return nil, errors.NewOutputsTaskNotFound(stepName).WithCause(err)
 		}
 
 		return nil, errors.NewOutputsGetError().WithCause(err)
@@ -49,12 +54,12 @@ func (om OutputsManager) Get(ctx context.Context, taskName, key string) (*output
 	return &outputs.Output{
 		Key:      key,
 		Value:    val,
-		TaskName: taskName,
+		TaskName: stepName,
 	}, nil
 }
 
-func (om OutputsManager) Put(ctx context.Context, taskHash task.Hash, key string, value transfer.JSONInterface) errors.Error {
-	name := fmt.Sprintf("task-%s-outputs", taskHash.HexEncoding())
+func (om OutputsManager) Put(ctx context.Context, metadata *task.Metadata, key string, value transfer.JSONInterface) errors.Error {
+	name := fmt.Sprintf("task-%s-outputs", metadata.Hash.HexEncoding())
 
 	cm, err := om.kubeclient.CoreV1().ConfigMaps(om.namespace).Get(name, metav1.GetOptions{})
 	if err != nil {

@@ -9,6 +9,7 @@ import (
 
 	"github.com/puppetlabs/horsehead/v2/logging"
 	"github.com/puppetlabs/horsehead/v2/netutil"
+
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/op"
@@ -113,9 +114,9 @@ func New(cfg *config.MetadataServerConfig, managers op.ManagerFactory) *Server {
 		logger: cfg.Logger,
 	}))
 
-	specs := withManagers(&specsHandler{
+	specs := withManagers(withTask(&specsHandler{
 		logger: cfg.Logger,
-	})
+	}))
 
 	conditionals := withManagers(withTask(&conditionalsHandler{
 		logger: cfg.Logger,

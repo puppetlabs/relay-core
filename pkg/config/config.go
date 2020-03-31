@@ -49,8 +49,7 @@ type MetadataServerConfig struct {
 // WorkflowControllerConfig is the configuration object used to
 // configure the Workflow controller.
 type WorkflowControllerConfig struct {
-	Kubeconfig                        string
-	KubeMasterURL                     string
+	Namespace                         string
 	VaultAddr                         string
 	VaultToken                        string
 	MetadataServiceImage              string
@@ -59,6 +58,7 @@ type WorkflowControllerConfig struct {
 	MetadataServiceVaultAuthMountPath string
 	MetadataServiceCheckEnabled       bool
 	WhenConditionsImage               string
+	MaxConcurrentReconciles           int
 }
 
 // K8sClusterProvisionerConfig is the configuration object to used
