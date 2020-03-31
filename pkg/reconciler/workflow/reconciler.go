@@ -188,41 +188,32 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, err
 	}
 
-	// TODO Replace this with a better system
-	expiry := wr.CreationTimestamp.Add(1 * time.Hour)
-	if time.Now().After(expiry) {
-		wr.Status.Status = string(WorkflowRunStatusTimedOut)
-		r.updateWorkflowRunStatus(nil, wr)
-
-		return ctrl.Result{}, nil
-	}
-
 	if wr.ObjectMeta.DeletionTimestamp.IsZero() {
 		err := r.handleWorkflowRun(ctx, wr)
 		if err != nil {
-			klog.Error(err)
 			return ctrl.Result{}, err
 		}
 
 		plr := &tekv1beta1.PipelineRun{}
 		if err = r.Get(ctx, req.NamespacedName, plr); err != nil {
-			if k8serrors.IsNotFound(err) {
-				return ctrl.Result{}, nil
+			if !k8serrors.IsNotFound(err) {
+				return ctrl.Result{}, err
 			}
-			return ctrl.Result{}, err
 		}
 
 		logAnnotations := make(map[string]string, 0)
 
-		if areWeDoneYet(plr) {
-			// Upload the logs that are not defined on the PipelineRun record...
-			err := r.metrics.trackDurationWithOutcome(metricWorkflowRunLogUploadDuration, func() error {
-				logAnnotations, err = r.uploadLogs(ctx, plr)
+		if plr != nil && plr.ObjectMeta.Name == wr.ObjectMeta.Name {
+			if areWeDoneYet(plr) {
+				// Upload the logs that are not defined on the PipelineRun record...
+				err := r.metrics.trackDurationWithOutcome(metricWorkflowRunLogUploadDuration, func() error {
+					logAnnotations, err = r.uploadLogs(ctx, plr)
 
-				return err
-			})
-			if nil != err {
-				klog.Warning(err)
+					return err
+				})
+				if nil != err {
+					klog.Warning(err)
+				}
 			}
 		}
 
@@ -417,19 +408,6 @@ func (r *Reconciler) handleWorkflowRun(ctx context.Context, wr *nebulav1.Workflo
 
 	if wr.ObjectMeta.DeletionTimestamp.IsZero() {
 		cancelled := isCancelled(wr)
-
-		if cancelled {
-			if wr.Status.Status != string(WorkflowRunStatusCancelled) {
-				wfrCopy := wr.DeepCopy()
-				wfrCopy.Status.Status = string(WorkflowRunStatusCancelled)
-
-				_, err = r.NebulaClient.NebulaV1().WorkflowRuns(wr.GetNamespace()).Update(wfrCopy)
-				if err != nil {
-					return err
-				}
-			}
-		}
-
 		if annotation, ok := wr.GetAnnotations()[pipelineRunAnnotation]; !ok && !cancelled {
 			plr, err := r.createPipelineRun(ctx, wr)
 			if err != nil {
@@ -700,7 +678,10 @@ func (r *Reconciler) updateWorkflowRunStatus(plr *tekv1beta1.PipelineRun, wr *ne
 	workflowRunSteps := make(map[string]nebulav1.WorkflowRunStatusSummary)
 	workflowRunConditions := make(map[string]nebulav1.WorkflowRunStatusSummary)
 
-	status := string(mapStatus(plr.Status.Status))
+	status := wr.Status.Status
+	if plr != nil && plr.ObjectMeta.Name == wr.ObjectMeta.Name {
+		status = string(mapStatus(plr.Status.Status))
+	}
 
 	// FIXME Not necessarily true (needs to differentiate between actual failures and cancellations)
 	if isCancelled(wr) {
@@ -713,7 +694,7 @@ func (r *Reconciler) updateWorkflowRunStatus(plr *tekv1beta1.PipelineRun, wr *ne
 		Conditions: make(map[string]nebulav1.WorkflowRunStatusSummary),
 	}
 
-	if plr != nil {
+	if plr != nil && plr.ObjectMeta.Name == wr.ObjectMeta.Name {
 		if plr.Status.StartTime != nil {
 			workflowRunStatus.StartTime = plr.Status.StartTime
 		}
@@ -1801,7 +1782,7 @@ func createMetadataAPIService(kc kubernetes.Interface, wr *nebulav1.WorkflowRun)
 }
 
 func areWeDoneYet(plr *tekv1beta1.PipelineRun) bool {
-	if !plr.IsDone() && !plr.IsCancelled() {
+	if !plr.IsDone() && !plr.IsCancelled() && !plr.IsTimedOut() {
 		return false
 	}
 
