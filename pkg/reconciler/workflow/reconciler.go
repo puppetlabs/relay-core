@@ -195,23 +195,24 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 		plr := &tekv1beta1.PipelineRun{}
 		if err = r.Client.Get(ctx, req.NamespacedName, plr); err != nil {
-			if k8serrors.IsNotFound(err) {
-				return ctrl.Result{}, nil
+			if !k8serrors.IsNotFound(err) {
+				return ctrl.Result{}, err
 			}
-			return ctrl.Result{}, err
 		}
 
 		logAnnotations := make(map[string]string, 0)
 
-		if areWeDoneYet(plr) {
-			// Upload the logs that are not defined on the PipelineRun record...
-			err := r.metrics.trackDurationWithOutcome(metricWorkflowRunLogUploadDuration, func() error {
-				logAnnotations, err = r.uploadLogs(ctx, plr)
+		if plr != nil && plr.ObjectMeta.Name == wr.ObjectMeta.Name {
+			if areWeDoneYet(plr) {
+				// Upload the logs that are not defined on the PipelineRun record...
+				err := r.metrics.trackDurationWithOutcome(metricWorkflowRunLogUploadDuration, func() error {
+					logAnnotations, err = r.uploadLogs(ctx, plr)
 
-				return err
-			})
-			if nil != err {
-				klog.Warning(err)
+					return err
+				})
+				if nil != err {
+					klog.Warning(err)
+				}
 			}
 		}
 
@@ -412,18 +413,6 @@ func (r *Reconciler) handleWorkflowRun(ctx context.Context, wr *nebulav1.Workflo
 
 	if wr.ObjectMeta.DeletionTimestamp.IsZero() {
 		cancelled := isCancelled(wr)
-
-		if cancelled {
-			if wr.Status.Status != string(WorkflowRunStatusCancelled) {
-				wfrCopy := wr.DeepCopy()
-				wfrCopy.Status.Status = string(WorkflowRunStatusCancelled)
-
-				if err := r.Client.Update(ctx, wfrCopy); err != nil {
-					return err
-				}
-			}
-		}
-
 		if annotation, ok := wr.GetAnnotations()[pipelineRunAnnotation]; !ok && !cancelled {
 			plr, err := r.createPipelineRun(ctx, wr)
 			if err != nil {
@@ -617,7 +606,7 @@ func (r *Reconciler) createPipelineRun(ctx context.Context, wr *nebulav1.Workflo
 
 		psa := tekv1beta1.PipelineRunSpecServiceAccountName{
 			TaskName:           taskHashKey,
-			ServiceAccountName: getName(wr, ServiceAccountIdentifierCustomer),
+			ServiceAccountName: strings.Join([]string{wr.Spec.Workflow.Name, ServiceAccountIdentifierCustomer}, "-"),
 		}
 		serviceAccounts = append(serviceAccounts, psa)
 	}
@@ -629,7 +618,7 @@ func (r *Reconciler) createPipelineRun(ctx context.Context, wr *nebulav1.Workflo
 			Labels:    getLabels(wr, nil),
 		},
 		Spec: tekv1beta1.PipelineRunSpec{
-			ServiceAccountName:  getName(wr, ServiceAccountIdentifierSystem),
+			ServiceAccountName:  strings.Join([]string{wr.Spec.Workflow.Name, ServiceAccountIdentifierSystem}, "-"),
 			ServiceAccountNames: serviceAccounts,
 			PipelineRef: &tekv1beta1.PipelineRef{
 				Name: runID,
@@ -664,11 +653,15 @@ func (r *Reconciler) createPipelineRun(ctx context.Context, wr *nebulav1.Workflo
 	return pipelineRun, nil
 }
 
+// TODO Refine/split this logic
 func (r *Reconciler) updateWorkflowRunStatus(plr *tekv1beta1.PipelineRun, wr *nebulav1.WorkflowRun) (*nebulav1.WorkflowRunStatus, error) {
 	workflowRunSteps := make(map[string]nebulav1.WorkflowRunStatusSummary)
 	workflowRunConditions := make(map[string]nebulav1.WorkflowRunStatusSummary)
 
-	status := string(mapStatus(plr.Status.Status))
+	status := wr.Status.Status
+	if plr != nil && plr.ObjectMeta.Name == wr.ObjectMeta.Name {
+		status = string(mapStatus(plr.Status.Status))
+	}
 
 	// FIXME Not necessarily true (needs to differentiate between actual failures and cancellations)
 	if isCancelled(wr) {
@@ -681,50 +674,52 @@ func (r *Reconciler) updateWorkflowRunStatus(plr *tekv1beta1.PipelineRun, wr *ne
 		Conditions: make(map[string]nebulav1.WorkflowRunStatusSummary),
 	}
 
-	if plr.Status.StartTime != nil {
-		workflowRunStatus.StartTime = plr.Status.StartTime
-	}
-	if plr.Status.CompletionTime != nil {
-		workflowRunStatus.CompletionTime = plr.Status.CompletionTime
-	}
+	if plr != nil && plr.ObjectMeta.Name == wr.ObjectMeta.Name {
+		if plr.Status.StartTime != nil {
+			workflowRunStatus.StartTime = plr.Status.StartTime
+		}
+		if plr.Status.CompletionTime != nil {
+			workflowRunStatus.CompletionTime = plr.Status.CompletionTime
+		}
 
-	for name, taskRun := range plr.Status.TaskRuns {
-		for _, condition := range taskRun.ConditionChecks {
-			if condition.Status == nil {
+		for name, taskRun := range plr.Status.TaskRuns {
+			for _, condition := range taskRun.ConditionChecks {
+				if condition.Status == nil {
+					continue
+				}
+				conditionStep := nebulav1.WorkflowRunStatusSummary{
+					Name:   name,
+					Status: string(mapStatus(condition.Status.Status)),
+				}
+
+				if condition.Status.StartTime != nil {
+					conditionStep.StartTime = condition.Status.StartTime
+				}
+				if condition.Status.CompletionTime != nil {
+					conditionStep.CompletionTime = condition.Status.CompletionTime
+				}
+
+				workflowRunConditions[condition.ConditionName] = conditionStep
+			}
+
+			if taskRun.Status == nil {
 				continue
 			}
-			conditionStep := nebulav1.WorkflowRunStatusSummary{
+
+			step := nebulav1.WorkflowRunStatusSummary{
 				Name:   name,
-				Status: string(mapStatus(condition.Status.Status)),
+				Status: string(mapStatus(taskRun.Status.Status)),
 			}
 
-			if condition.Status.StartTime != nil {
-				conditionStep.StartTime = condition.Status.StartTime
+			if taskRun.Status.StartTime != nil {
+				step.StartTime = taskRun.Status.StartTime
 			}
-			if condition.Status.CompletionTime != nil {
-				conditionStep.CompletionTime = condition.Status.CompletionTime
+			if taskRun.Status.CompletionTime != nil {
+				step.CompletionTime = taskRun.Status.CompletionTime
 			}
 
-			workflowRunConditions[condition.ConditionName] = conditionStep
+			workflowRunSteps[taskRun.PipelineTaskName] = step
 		}
-
-		if taskRun.Status == nil {
-			continue
-		}
-
-		step := nebulav1.WorkflowRunStatusSummary{
-			Name:   name,
-			Status: string(mapStatus(taskRun.Status.Status)),
-		}
-
-		if taskRun.Status.StartTime != nil {
-			step.StartTime = taskRun.Status.StartTime
-		}
-		if taskRun.Status.CompletionTime != nil {
-			step.CompletionTime = taskRun.Status.CompletionTime
-		}
-
-		workflowRunSteps[taskRun.PipelineTaskName] = step
 	}
 
 	steps := graph.NewSimpleDirectedGraphWithFeatures(graph.DeterministicIteration)
@@ -771,6 +766,11 @@ func (r *Reconciler) enrichResults(sts *nebulav1.WorkflowRunStatus, steps *graph
 				sourceStep := sts.Steps[source.(string)]
 
 				if step.Status == string(WorkflowRunStatusPending) {
+					switch sts.Status {
+					case string(WorkflowRunStatusCancelled), string(WorkflowRunStatusFailure), string(WorkflowRunStatusTimedOut):
+						step.Status = string(WorkflowRunStatusSkipped)
+					}
+
 					switch sourceStep.Status {
 					case string(WorkflowRunStatusSkipped), string(WorkflowRunStatusFailure):
 						step.Status = string(WorkflowRunStatusSkipped)
@@ -1306,10 +1306,9 @@ func (r *Reconciler) copyImagePullSecret(wfr *nebulav1.WorkflowRun) (*corev1.Sec
 			Kind:       "Secret",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            metadataImagePullSecretName,
-			Namespace:       wfr.GetNamespace(),
-			Labels:          getLabels(wfr, nil),
-			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(wfr, controllerKind)},
+			Name:      metadataImagePullSecretName,
+			Namespace: wfr.GetNamespace(),
+			Labels:    getLabels(wfr, nil),
 		},
 		Type: ref.Type,
 		Data: ref.Data,
@@ -1323,7 +1322,7 @@ func (r *Reconciler) copyImagePullSecret(wfr *nebulav1.WorkflowRun) (*corev1.Sec
 }
 
 func (r *Reconciler) createServiceAccount(wfr *nebulav1.WorkflowRun, identifier string, imagePullSecret *corev1.Secret) (*corev1.ServiceAccount, error) {
-	name := getName(wfr, identifier)
+	name := strings.Join([]string{wfr.Spec.Workflow.Name, identifier}, "-")
 
 	saccount := &corev1.ServiceAccount{
 		TypeMeta: metav1.TypeMeta{
@@ -1331,10 +1330,9 @@ func (r *Reconciler) createServiceAccount(wfr *nebulav1.WorkflowRun, identifier 
 			Kind:       "ServiceAccount",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            name,
-			Namespace:       wfr.GetNamespace(),
-			Labels:          getLabels(wfr, nil),
-			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(wfr, controllerKind)},
+			Name:      name,
+			Namespace: wfr.GetNamespace(),
+			Labels:    getLabels(wfr, nil),
 		},
 	}
 
@@ -1353,16 +1351,19 @@ func (r *Reconciler) createServiceAccount(wfr *nebulav1.WorkflowRun, identifier 
 }
 
 func (r *Reconciler) createRBAC(wfr *nebulav1.WorkflowRun, sa *corev1.ServiceAccount) (*rbacv1.Role, *rbacv1.RoleBinding, error) {
+	var err error
+
+	name := wfr.Spec.Workflow.Name
+
 	role := &rbacv1.Role{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "rbac.authorization.k8s.io/v1",
 			Kind:       "Role",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            getName(wfr, ""),
-			Namespace:       wfr.GetNamespace(),
-			Labels:          getLabels(wfr, nil),
-			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(wfr, controllerKind)},
+			Name:      name,
+			Namespace: wfr.GetNamespace(),
+			Labels:    getLabels(wfr, nil),
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -1384,15 +1385,14 @@ func (r *Reconciler) createRBAC(wfr *nebulav1.WorkflowRun, sa *corev1.ServiceAcc
 			Kind:       "RoleBinding",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            getName(wfr, ""),
-			Namespace:       wfr.GetNamespace(),
-			Labels:          getLabels(wfr, nil),
-			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(wfr, controllerKind)},
+			Name:      name,
+			Namespace: wfr.GetNamespace(),
+			Labels:    getLabels(wfr, nil),
 		},
 		RoleRef: rbacv1.RoleRef{
 			Kind:     "Role",
 			APIGroup: "rbac.authorization.k8s.io",
-			Name:     getName(wfr, ""),
+			Name:     name,
 		},
 		Subjects: []rbacv1.Subject{
 			{
@@ -1430,9 +1430,11 @@ func (r *Reconciler) createMetadataAPIPod(saccount *corev1.ServiceAccount, wr *n
 		podVaultAuthMountPath = "auth/kubernetes"
 	}
 
+	name := strings.Join([]string{"run", wr.GetName(), metadataServiceName}, "-")
+
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      getName(wr, metadataServiceName),
+			Name:      name,
 			Namespace: wr.GetNamespace(),
 			Labels: getLabels(wr, map[string]string{
 				"app.kubernetes.io/name":      "nebula",
@@ -1476,6 +1478,16 @@ func (r *Reconciler) createMetadataAPIPod(saccount *corev1.ServiceAccount, wr *n
 							},
 						},
 					},
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("50m"),
+							corev1.ResourceMemory: resource.MustParse("64Mi"),
+						},
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("10m"),
+							corev1.ResourceMemory: resource.MustParse("32Mi"),
+						},
+					},
 				},
 			},
 			ServiceAccountName: saccount.GetName(),
@@ -1492,9 +1504,11 @@ func (r *Reconciler) createMetadataAPIPod(saccount *corev1.ServiceAccount, wr *n
 }
 
 func (r *Reconciler) createMetadataAPIService(wr *nebulav1.WorkflowRun) (*corev1.Service, error) {
+	name := strings.Join([]string{"run", wr.GetName(), metadataServiceName}, "-")
+
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      getName(wr, metadataServiceName),
+			Name:      name,
 			Namespace: wr.GetNamespace(),
 			Labels: getLabels(wr, map[string]string{
 				"app.kubernetes.io/name":      "nebula",
@@ -1743,7 +1757,7 @@ func extractPodAndTaskNamesFromPipelineRun(plr *tekv1beta1.PipelineRun) []podAnd
 }
 
 func areWeDoneYet(plr *tekv1beta1.PipelineRun) bool {
-	if !plr.IsDone() && !plr.IsCancelled() {
+	if !plr.IsDone() && !plr.IsCancelled() && !plr.IsTimedOut() {
 		return false
 	}
 
@@ -1769,16 +1783,6 @@ func isCancelled(wr *nebulav1.WorkflowRun) bool {
 	}
 
 	return cancelled
-}
-
-func getName(wfr *nebulav1.WorkflowRun, name string) string {
-	prefix := "run"
-
-	if name == "" {
-		return fmt.Sprintf("%s-%s", prefix, wfr.GetName())
-	}
-
-	return fmt.Sprintf("%s-%s-%s", prefix, wfr.GetName(), name)
 }
 
 func getLabels(wfr *nebulav1.WorkflowRun, additional map[string]string) map[string]string {
@@ -1809,10 +1813,9 @@ func mapStatus(status duckv1beta1.Status) WorkflowRunStatus {
 				if cs.Reason == ReasonConditionCheckFailed {
 					return WorkflowRunStatusSkipped
 				}
-				// TODO Ignore until this is recognized as a valid status
-				//if cs.Reason == ReasonTimedOut {
-				//	return WorkflowRunStatusTimedOut
-				//}
+				if cs.Reason == ReasonTimedOut {
+					return WorkflowRunStatusTimedOut
+				}
 				return WorkflowRunStatusFailure
 			}
 		}
