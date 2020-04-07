@@ -20,6 +20,7 @@ import (
 	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/parse"
 	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/resolve"
 	nebulav1 "github.com/puppetlabs/nebula-tasks/pkg/apis/nebula.puppet.com/v1"
+	relayv1beta1 "github.com/puppetlabs/nebula-tasks/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/nebula-tasks/pkg/dependency"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/secrets"
@@ -379,7 +380,7 @@ func (r *Reconciler) uploadLog(ctx context.Context, namespace string, podName st
 	return key, nil
 }
 
-func (r *Reconciler) writeWorkflowState(wr *nebulav1.WorkflowRun, taskHash [sha1.Size]byte, state nebulav1.WorkflowState) errors.Error {
+func (r *Reconciler) writeWorkflowState(wr *nebulav1.WorkflowRun, taskHash [sha1.Size]byte, state relayv1beta1.UnstructuredObject) errors.Error {
 	// TODO: The metadata API isn't using the controller-runtime framework so we
 	// may always need the KubeClient here.
 	stm := stconfigmap.New(r.KubeClient, wr.GetNamespace())
@@ -1351,8 +1352,6 @@ func (r *Reconciler) createServiceAccount(wfr *nebulav1.WorkflowRun, identifier 
 }
 
 func (r *Reconciler) createRBAC(wfr *nebulav1.WorkflowRun, sa *corev1.ServiceAccount) (*rbacv1.Role, *rbacv1.RoleBinding, error) {
-	var err error
-
 	name := wfr.Spec.Workflow.Name
 
 	role := &rbacv1.Role{
@@ -1678,7 +1677,7 @@ func getVolumeMounts(taskHash task.Hash, step *nebulav1.WorkflowStep) []corev1.V
 	return volumeMounts
 }
 
-func getConfigMapData(workflowParameters nebulav1.WorkflowParameters, workflowRunParameters nebulav1.WorkflowRunParameters, step *nebulav1.WorkflowStep) (map[string]string, errors.Error) {
+func getConfigMapData(workflowParameters, workflowRunParameters relayv1beta1.UnstructuredObject, step *nebulav1.WorkflowStep) (map[string]string, errors.Error) {
 	configMapData := make(map[string]string)
 
 	ev := evaluate.NewEvaluator(
