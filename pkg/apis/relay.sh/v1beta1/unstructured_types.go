@@ -10,7 +10,8 @@ import (
 // Unstructured is arbitrary JSON data, which may also include base64-encoded
 // binary data.
 //
-// +kubebuilder:validation:Type=object
+// +kubebuilder:validation:Type=""
+// +kubebuilder:validation:XPreserveUnknownFields
 type Unstructured struct {
 	value transfer.JSONInterface `json:"-"`
 }

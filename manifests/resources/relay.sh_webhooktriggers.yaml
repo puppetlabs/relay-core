@@ -59,7 +59,7 @@ spec:
               additionalProperties:
                 description: Unstructured is arbitrary JSON data, which may also include
                   base64-encoded binary data.
-                type: object
+                x-kubernetes-preserve-unknown-fields: true
               description: Spec is the Relay specification to be provided to the container
                 image.
               type: object

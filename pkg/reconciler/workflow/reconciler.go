@@ -201,18 +201,25 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			}
 		}
 
-		logAnnotations := make(map[string]string, 0)
-
 		if plr != nil && plr.ObjectMeta.Name == wr.ObjectMeta.Name {
 			if areWeDoneYet(plr) {
+				var logAnnotations map[string]string
+
 				// Upload the logs that are not defined on the PipelineRun record...
 				err := r.metrics.trackDurationWithOutcome(metricWorkflowRunLogUploadDuration, func() error {
 					logAnnotations, err = r.uploadLogs(ctx, plr)
-
 					return err
 				})
 				if nil != err {
 					klog.Warning(err)
+				}
+
+				for name, value := range logAnnotations {
+					metav1.SetMetaDataAnnotation(&wr.ObjectMeta, name, value)
+				}
+
+				if err := r.Client.Update(ctx, wr); err != nil {
+					return ctrl.Result{}, err
 				}
 			}
 		}
@@ -224,11 +231,7 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 		wr.Status = *status
 
-		for name, value := range logAnnotations {
-			metav1.SetMetaDataAnnotation(&wr.ObjectMeta, name, value)
-		}
-
-		err = r.Client.Update(ctx, wr)
+		err = r.Client.Status().Update(ctx, wr)
 		if err != nil {
 			return ctrl.Result{}, err
 		}

@@ -42,7 +42,7 @@ spec:
               additionalProperties:
                 description: Unstructured is arbitrary JSON data, which may also include
                   base64-encoded binary data.
-                type: object
+                x-kubernetes-preserve-unknown-fields: true
               type: object
             workflow:
               properties:
@@ -52,7 +52,7 @@ spec:
                   additionalProperties:
                     description: Unstructured is arbitrary JSON data, which may also
                       include base64-encoded binary data.
-                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
                   type: object
                 steps:
                   items:
@@ -79,12 +79,12 @@ spec:
                         additionalProperties:
                           description: Unstructured is arbitrary JSON data, which
                             may also include base64-encoded binary data.
-                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
                         type: object
                       when:
                         description: Unstructured is arbitrary JSON data, which may
                           also include base64-encoded binary data.
-                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
                     required:
                     - name
                     type: object
@@ -95,6 +95,7 @@ spec:
               type: object
           required:
           - name
+          - workflow
           type: object
         state:
           properties:
@@ -103,14 +104,14 @@ spec:
                 additionalProperties:
                   description: Unstructured is arbitrary JSON data, which may also
                     include base64-encoded binary data.
-                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
                 type: object
               type: object
             workflow:
               additionalProperties:
                 description: Unstructured is arbitrary JSON data, which may also include
                   base64-encoded binary data.
-                type: object
+                x-kubernetes-preserve-unknown-fields: true
               type: object
           type: object
         status:

@@ -16,7 +16,7 @@ type WebhookTrigger struct {
 	Spec              WebhookTriggerSpec `json:"spec"`
 
 	// +optional
-	Status WebhookTriggerStatus `json:"status"`
+	Status WebhookTriggerStatus `json:"status,omitempty"`
 }
 
 type WebhookTriggerSpec struct {
