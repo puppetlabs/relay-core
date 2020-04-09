@@ -226,6 +226,7 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 		status, err := r.updateWorkflowRunStatus(plr, wr)
 		if err != nil {
+			klog.Warningf("failed to update workflow run %s status: %+v", wr.GetName(), err)
 			return ctrl.Result{}, err
 		}
 
@@ -691,6 +692,7 @@ func (r *Reconciler) updateWorkflowRunStatus(plr *tekv1beta1.PipelineRun, wr *ne
 				if condition.Status == nil {
 					continue
 				}
+
 				conditionStep := nebulav1.WorkflowRunStatusSummary{
 					Name:   name,
 					Status: string(mapStatus(condition.Status.Status)),
@@ -703,7 +705,11 @@ func (r *Reconciler) updateWorkflowRunStatus(plr *tekv1beta1.PipelineRun, wr *ne
 					conditionStep.CompletionTime = condition.Status.CompletionTime
 				}
 
-				workflowRunConditions[condition.ConditionName] = conditionStep
+				if _, ok := workflowRunConditions[taskRun.PipelineTaskName]; ok {
+					klog.Warningf("task %s of workflow run %s has extra conditions, skipping processing for additional condition", taskRun.PipelineTaskName, wr.GetName())
+				} else {
+					workflowRunConditions[taskRun.PipelineTaskName] = conditionStep
+				}
 			}
 
 			if taskRun.Status == nil {
