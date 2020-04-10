@@ -226,7 +226,7 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 		status, err := r.updateWorkflowRunStatus(plr, wr)
 		if err != nil {
-			klog.Warningf("failed to update workflow run %s status: %+v", wr.GetName(), err)
+			klog.Warningf("failed to generate workflow run %s status: %+v", wr.GetName(), err)
 			return ctrl.Result{}, err
 		}
 
@@ -234,6 +234,7 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 		err = r.Client.Status().Update(ctx, wr)
 		if err != nil {
+			klog.Warningf("failed to update workflow run %s status: %+v", wr.GetName(), err)
 			return ctrl.Result{}, err
 		}
 
