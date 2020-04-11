@@ -1,3 +1,3 @@
-package v1
+package nebulapuppetcom
 
 const GroupName = "nebula.puppet.com"

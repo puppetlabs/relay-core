@@ -1,136 +1,108 @@
 package v1
 
 import (
-	"encoding/json"
-
-	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
+	relayv1beta1 "github.com/puppetlabs/nebula-tasks/pkg/apis/relay.sh/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// +genclient
-// +groupName=nebula.puppet.com
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// WorkflowRun is the root type for a workflow run.
+//
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:storageversion
 type WorkflowRun struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	Spec              WorkflowRunSpec `json:"spec"`
 
 	// +optional
-	State  WorkflowRunState  `json:"state,omitempty"`
+	State WorkflowRunState `json:"state,omitempty"`
+
+	// +optional
 	Status WorkflowRunStatus `json:"status,omitempty"`
 }
 
-type WorkflowRunParameters UnstructuredObject
-
 type WorkflowRunSpec struct {
-	Name       string                `json:"name"`
-	Parameters WorkflowRunParameters `json:"parameters,omitempty"`
-	Workflow   Workflow              `json:"workflow,omitempty"`
+	Name     string   `json:"name"`
+	Workflow Workflow `json:"workflow"`
+
+	// +optional
+	Parameters relayv1beta1.UnstructuredObject `json:"parameters,omitempty"`
 }
 
-type WorkflowParameters UnstructuredObject
-
 type Workflow struct {
-	Name       string             `json:"name"`
-	Parameters WorkflowParameters `json:"parameters,omitempty"`
-	Steps      []*WorkflowStep    `json:"steps"`
+	Name  string          `json:"name"`
+	Steps []*WorkflowStep `json:"steps"`
+
+	// +optional
+	Parameters relayv1beta1.UnstructuredObject `json:"parameters,omitempty"`
 }
 
 type WorkflowStep struct {
-	Name      string             `json:"name"`
-	Image     string             `json:"image,omitempty"`
-	Spec      UnstructuredObject `json:"spec,omitempty"`
-	Input     []string           `json:"input,omitempty"`
-	Command   string             `json:"command,omitempty"`
-	Args      []string           `json:"args,omitempty"`
-	When      *Unstructured      `json:"when,omitempty"`
-	DependsOn []string           `json:"depends_on,omitempty"`
+	Name string `json:"name"`
+
+	// +optional
+	Image string `json:"image,omitempty"`
+
+	// +optional
+	Spec relayv1beta1.UnstructuredObject `json:"spec,omitempty"`
+
+	// +optional
+	Input []string `json:"input,omitempty"`
+
+	// +optional
+	Command string `json:"command,omitempty"`
+
+	// +optional
+	Args []string `json:"args,omitempty"`
+
+	// +optional
+	When relayv1beta1.Unstructured `json:"when,omitempty"`
+
+	// +optional
+	DependsOn []string `json:"depends_on,omitempty"`
 }
 
 type WorkflowRunStatusSummary struct {
-	Name           string       `json:"name"`
-	Status         string       `json:"status"`
-	StartTime      *metav1.Time `json:"startTime"`
-	CompletionTime *metav1.Time `json:"completionTime"`
+	Name   string `json:"name"`
+	Status string `json:"status"`
+
+	// +optional
+	StartTime *metav1.Time `json:"startTime,omitempty"`
+
+	// +optional
+	CompletionTime *metav1.Time `json:"completionTime,omitempty"`
 }
 
 type WorkflowRunStatus struct {
-	Status         string                              `json:"status"`
-	StartTime      *metav1.Time                        `json:"startTime"`
-	CompletionTime *metav1.Time                        `json:"completionTime"`
-	Steps          map[string]WorkflowRunStatusSummary `json:"steps"`
-	Conditions     map[string]WorkflowRunStatusSummary `json:"conditions"`
-}
+	Status string `json:"status"`
 
-type WorkflowState UnstructuredObject
+	// +optional
+	StartTime *metav1.Time `json:"startTime,omitempty"`
+
+	// +optional
+	CompletionTime *metav1.Time `json:"completionTime,omitempty"`
+
+	// +optional
+	Steps map[string]WorkflowRunStatusSummary `json:"steps,omitempty"`
+
+	// +optional
+	Conditions map[string]WorkflowRunStatusSummary `json:"conditions,omitempty"`
+}
 
 type WorkflowRunState struct {
-	Workflow WorkflowState            `json:"workflow"`
-	Steps    map[string]WorkflowState `json:"steps"`
+	// +optional
+	Workflow relayv1beta1.UnstructuredObject `json:"workflow,omitempty"`
+
+	// +optional
+	Steps map[string]relayv1beta1.UnstructuredObject `json:"steps,omitempty"`
 }
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// WorkflowRunList enumerates many WorkflowRun resources.
+//
+// +kubebuilder:object:root=true
 type WorkflowRunList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []WorkflowRun `json:"items"`
-}
-
-type Unstructured struct {
-	value transfer.JSONInterface
-}
-
-func (u *Unstructured) Value() interface{} {
-	if u == nil {
-		return nil
-	}
-
-	return u.value.Data
-}
-
-func (u Unstructured) MarshalJSON() ([]byte, error) {
-	return u.value.MarshalJSON()
-}
-
-func (u *Unstructured) UnmarshalJSON(data []byte) error {
-	return json.Unmarshal(data, &u.value)
-}
-
-func (in *Unstructured) DeepCopy() *Unstructured {
-	if in == nil {
-		return nil
-	}
-
-	out := &Unstructured{}
-	*out = *in
-	out.value = transfer.JSONInterface{
-		Data: runtime.DeepCopyJSONValue(in.value.Data),
-	}
-	return out
-}
-
-func NewUnstructured(value interface{}) *Unstructured {
-	return &Unstructured{
-		value: transfer.JSONInterface{Data: value},
-	}
-}
-
-type UnstructuredObject map[string]*Unstructured
-
-func (uo UnstructuredObject) Value() map[string]interface{} {
-	out := make(map[string]interface{}, len(uo))
-	for k, v := range uo {
-		out[k] = v.Value()
-	}
-	return out
-}
-
-func NewUnstructuredObject(value map[string]interface{}) UnstructuredObject {
-	out := make(map[string]*Unstructured, len(value))
-	for k, v := range value {
-		out[k] = NewUnstructured(v)
-	}
-	return out
 }
