@@ -19,7 +19,10 @@ import (
 	"github.com/puppetlabs/nebula-tasks/pkg/dependency"
 	"github.com/puppetlabs/nebula-tasks/pkg/secrets/vault"
 	"github.com/puppetlabs/nebula-tasks/pkg/util"
+	tekv1alpha1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
 	tekv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog"
@@ -121,27 +124,31 @@ func main() {
 		MaxConcurrentReconciles:           *numWorkers,
 	}
 
-	dm, err := dependency.NewDependencyManager(kcc, cfg, vc, blobStore, mets)
-	if err != nil {
-		log.Fatal("Error creating controller dependency builder", err)
+	schemeBuilder := runtime.NewSchemeBuilder(
+		scheme.AddToScheme,
+		nebulav1.AddToScheme,
+		tekv1alpha1.AddToScheme,
+		tekv1beta1.AddToScheme,
+	)
+
+	scheme := runtime.NewScheme()
+	if err := schemeBuilder.AddToScheme(scheme); err != nil {
+		log.Fatal("Could not add manager scheme", err)
 	}
 
-	config := ctrl.GetConfigOrDie()
-
-	mgr, err := ctrl.NewManager(config, ctrl.Options{})
+	mgr, err := ctrl.NewManager(kcc, ctrl.Options{
+		Scheme: scheme,
+	})
 	if err != nil {
 		log.Fatal("Unable to create new manager", err)
 	}
 
-	if err := nebulav1.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Fatal("Could not add manager scheme", err)
+	dm, err := dependency.NewDependencyManager(mgr, cfg, vc, blobStore, mets)
+	if err != nil {
+		log.Fatal("Error creating controller dependency builder", err)
 	}
 
-	if err := tekv1beta1.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Fatal("Could not add manager scheme", err)
-	}
-
-	if err := workflow.Add(mgr, dm); err != nil {
+	if err := workflow.Add(dm); err != nil {
 		log.Fatal("Could not add all controllers to operator manager", err)
 	}
 
