@@ -116,7 +116,7 @@ const (
 )
 
 type TenantCondition struct {
-	Condition Condition `json:",inline"`
+	Condition `json:",inline"`
 
 	// Type is the identifier for this condition.
 	//

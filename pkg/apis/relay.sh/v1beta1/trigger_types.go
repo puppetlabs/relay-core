@@ -75,7 +75,7 @@ const (
 )
 
 type WebhookTriggerCondition struct {
-	Condition Condition `json:",inline"`
+	Condition `json:",inline"`
 
 	// Type is the identifier for this condition.
 	//
