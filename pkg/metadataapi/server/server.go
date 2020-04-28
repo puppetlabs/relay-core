@@ -30,9 +30,6 @@ type Server struct {
 	// specHandler handles requests to the given task spec on /spec/* path
 	specHandler http.Handler
 
-	// specsHandler handles requests to specs on the /specs/* path
-	specsHandler http.Handler
-
 	// outputsHandler handles requests for setting and getting task outputs
 	// on the /outputs/* path
 	outputsHandler http.Handler
@@ -59,13 +56,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "secrets":
 		s.secretsHandler.ServeHTTP(w, r)
 	case "spec":
-		// New specs handler, uses the spec of the request IP for lookup.
 		s.specHandler.ServeHTTP(w, r)
-	case "specs":
-		// Old specs handler, requires a unique task ID for lookup.
-		//
-		// TODO: Deprecate.
-		s.specsHandler.ServeHTTP(w, r)
 	case "outputs":
 		s.outputsHandler.ServeHTTP(w, r)
 	case "state":
@@ -114,10 +105,6 @@ func New(cfg *config.MetadataServerConfig, managers op.ManagerFactory) *Server {
 		logger: cfg.Logger,
 	}))
 
-	specs := withManagers(withTask(&specsHandler{
-		logger: cfg.Logger,
-	}))
-
 	conditionals := withManagers(withTask(&conditionalsHandler{
 		logger: cfg.Logger,
 	}))
@@ -136,7 +123,6 @@ func New(cfg *config.MetadataServerConfig, managers op.ManagerFactory) *Server {
 		managers:            managers,
 		secretsHandler:      secrets,
 		specHandler:         spec,
-		specsHandler:        specs,
 		outputsHandler:      outputs,
 		stateHandler:        state,
 		conditionalsHandler: conditionals,
