@@ -9,8 +9,6 @@ import (
 type MetadataServerConfig struct {
 	// BindAddr is the address and port to bind the server to
 	BindAddr string
-	// VaultAddr is the http address to the vault server or agent
-	VaultAddr string
 	// VaultRole is the role to use when logging into vault. In the context of
 	// Nebula and the metadata-api, this is most-likely the kubernetes namespace
 	// that the workflow is running under.
@@ -21,12 +19,10 @@ type MetadataServerConfig struct {
 	// VaultAuthMountPath is the path to use when authentication to Vault using
 	// the service token. Defaults to "auth/kubernetes" if empty.
 	VaultAuthMountPath string
-	// ScopedSecretsPath is the store to use inside secrets backends. Added to the path
-	// segment when crafting the path to a workflow secret.
-	ScopedSecretsPath string
-	// ScopedConnectionsPath is the store to use inside secrets backends. Added to the path
-	// segment when crafting the path to a connection secret.
-	ScopedConnectionsPath string
+	// VaultAccessGrants is an encoded json map of access grants to inform
+	// vault clients of server addresses and paths they should use to look up
+	// secrets.
+	VaultAccessGrants string
 	// K8sServiceAccountTokenPath is the path to the Service Account token. This
 	// defaults to the standard kubernetes location that is set when a pod is run.
 	K8sServiceAccountTokenPath string

@@ -20,32 +20,28 @@ const defaultServiceAccountTokenPath = "/var/run/secrets/kubernetes.io/serviceac
 func main() {
 	bindAddr := flag.String("bind-addr", "localhost:7000", "Host and port to bind the server to")
 	debug := flag.Bool("debug", false, "Enable debug output")
-	vaultAddr := flag.String("vault-addr", "http://localhost:8200", "Address to the vault server")
 	vaultToken := flag.String("vault-token", "", "Specify in place of -vault-role and -service-account-token-path for using a basic vault token auth")
 	vaultAuthMountPath := flag.String("vault-auth-mount-path", "auth/kubernetes", "The mount path to use when logging in to the Vault server")
 	vaultRole := flag.String("vault-role", "", "The role to use when logging into the vault server")
+	vaultAccessGrants := flag.String("vault-access-grants", "", "The grant objects to use when configuring the vault clients")
 	serviceAccountTokenPath := flag.String("service-account-token-path",
 		defaultServiceAccountTokenPath, "The path to k8s pod service account token")
-	scopedSecretsPath := flag.String("scoped-secrets-path", "", "The path to use when crafting secret paths")
-	scopedConnectionsPath := flag.String("scoped-connections-path", "", "The path to use when crafting secret paths")
 	namespace := flag.String("namespace", "", "The kubernetes namespace that contains the workflow")
 	devPreConfigPath := flag.String("development-preconfiguration-path", "", "The path to a development preconfiguration file. This option will put the server in development mode and all managers will operate in in-memory mode.")
 
 	flag.Parse()
 
-	if *scopedSecretsPath == "" {
-		fmt.Fprintln(os.Stderr, "server requires a path to scoped secrets (-scoped-secrets-path)")
+	if devPreConfigPath == nil && *vaultAccessGrants == "" {
+		fmt.Fprintf(os.Stderr, "server requires one or more vault access grants (-vault-access-grants)")
 		os.Exit(1)
 	}
 
 	cfg := config.MetadataServerConfig{
 		BindAddr:                   *bindAddr,
-		VaultAddr:                  *vaultAddr,
 		VaultRole:                  *vaultRole,
 		VaultToken:                 *vaultToken,
 		VaultAuthMountPath:         *vaultAuthMountPath,
-		ScopedSecretsPath:          *scopedSecretsPath,
-		ScopedConnectionsPath:      *scopedConnectionsPath,
+		VaultAccessGrants:          *vaultAccessGrants,
 		K8sServiceAccountTokenPath: *serviceAccountTokenPath,
 		Namespace:                  *namespace,
 		DevelopmentPreConfigPath:   *devPreConfigPath,

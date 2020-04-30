@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
 	"github.com/puppetlabs/horsehead/v2/graph"
 	"github.com/puppetlabs/horsehead/v2/graph/traverse"
 	"github.com/puppetlabs/horsehead/v2/storage"
@@ -536,6 +537,8 @@ func (r *Reconciler) createAccessResources(ctx context.Context, wr *nebulav1.Wor
 		return nil, err
 	}
 
+	// TODO clean this up. this might work better as an object where the struct
+	// field names replace the map keys
 	paths := make(map[string]string)
 	paths["workflows"] = "workflows"
 	paths["connections"] = "connections"
@@ -545,12 +548,22 @@ func (r *Reconciler) createAccessResources(ctx context.Context, wr *nebulav1.Wor
 		return nil, err
 	}
 
+	marshaledGrants, err := secrets.MarshalGrants(grants)
+	if err != nil {
+		return nil, err
+	}
+
+	encodedGrants, err := transfer.EncodeForTransfer(marshaledGrants)
+	if err != nil {
+		return nil, err
+	}
+
 	_, _, err = r.createRBAC(wr, saccount)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = r.createMetadataAPIPod(saccount, wr, grants)
+	_, err = r.createMetadataAPIPod(saccount, wr, encodedGrants)
 	if err != nil {
 		return nil, err
 	}
@@ -1432,19 +1445,7 @@ func (r *Reconciler) createRBAC(wfr *nebulav1.WorkflowRun, sa *corev1.ServiceAcc
 	return role, binding, nil
 }
 
-func (r *Reconciler) createMetadataAPIPod(saccount *corev1.ServiceAccount, wr *nebulav1.WorkflowRun, grants map[string]*secrets.AccessGrant) (*corev1.Pod, error) {
-	// It is possible that the metadata service and this controller talk to
-	// different Vault endpoints: each might be talking to a Vault agent (for
-	// caching or additional security) instead of directly to the Vault server.
-	podVaultAddr := r.Config.MetadataServiceVaultAddr
-	if podVaultAddr == "" {
-		// TODO: support multiple backends:
-		// Even through we have multiple grants, we will just pull the vault addr
-		// from the workflows object. We currently only run one vault server, so
-		// if we need to support multiple backends, we will need to fix this later.
-		podVaultAddr = grants["workflows"].BackendAddr
-	}
-
+func (r *Reconciler) createMetadataAPIPod(saccount *corev1.ServiceAccount, wr *nebulav1.WorkflowRun, grants string) (*corev1.Pod, error) {
 	podVaultAuthMountPath := r.Config.MetadataServiceVaultAuthMountPath
 	if podVaultAuthMountPath == "" {
 		podVaultAuthMountPath = "auth/kubernetes"
@@ -1473,16 +1474,12 @@ func (r *Reconciler) createMetadataAPIPod(saccount *corev1.ServiceAccount, wr *n
 						"/usr/bin/nebula-metadata-api",
 						"-bind-addr",
 						":7000",
-						"-vault-addr",
-						podVaultAddr,
 						"-vault-auth-mount-path",
 						podVaultAuthMountPath,
 						"-vault-role",
 						wr.GetNamespace(),
-						"-scoped-secrets-path",
-						grants["workflows"].ScopedPath,
-						"-scoped-connections-path",
-						grants["connections"].ScopedPath,
+						"-vault-access-grants",
+						grants,
 						"-namespace",
 						wr.GetNamespace(),
 					},

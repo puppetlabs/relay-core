@@ -4,7 +4,5 @@ package connections
 // contains key/value pairs that get merged into the parse tree when workflow
 // step specs are evaluated.
 type Connection struct {
-	Name string
-	Type string
 	Spec map[string]string
 }

@@ -37,8 +37,8 @@ func (v *Vault) GetAll(ctx context.Context, key string) ([]*secrets.Secret, erro
 
 // NewVaultWithKubernetesAuth returns a new Vault configured to login and
 // authenticate using a Kubernetes service account JWT
-func NewVaultWithKubernetesAuth(ctx context.Context, cfg *Config) (*Vault, errors.Error) {
-	session, err := newVaultLoggedInClient(ctx, cfg)
+func NewVaultWithKubernetesAuth(ctx context.Context, grant *secrets.AccessGrant, cfg *Config) (*Vault, errors.Error) {
+	session, err := newVaultLoggedInClient(ctx, grant, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -52,6 +52,7 @@ func NewVaultWithKubernetesAuth(ctx context.Context, cfg *Config) (*Vault, error
 type vaultLoggedInClient struct {
 	client *vaultapi.Client
 	cfg    *Config
+	grant  *secrets.AccessGrant
 	logger logging.Logger
 	// renewFunc takes a vault client and attempts to renew the auth token
 	// lease.  If the lease cannot be renewed, or an error occurres, then it
@@ -60,9 +61,15 @@ type vaultLoggedInClient struct {
 	renewFunc func(context.Context, *vaultLoggedInClient)
 }
 
-// mountPath returns a vault-api style path to the secret
-func (v *vaultLoggedInClient) mountPath(key string) string {
-	return path.Join(v.cfg.ScopedSecretsPath, key)
+// dataMountPath returns a vault-api style data path to the secret
+func (v *vaultLoggedInClient) dataMountPath(key string) string {
+	return path.Join(v.grant.MountPath, "data", v.grant.ScopedPath, key)
+}
+
+// metadataMountPath returns a vault-api style metadata path to the secret.
+// mostly used for listing.
+func (v *vaultLoggedInClient) metadataMountPath(key string) string {
+	return path.Join(v.grant.MountPath, "metadata", v.grant.ScopedPath, key)
 }
 
 // extractValue fetches the secret value from the secretRef key (standard
@@ -161,7 +168,7 @@ func (v *vaultLoggedInClient) login(ctx context.Context) errors.Error {
 // Get retrieves key from Vault using the session scoped workflow parameters and the
 // temporary token.
 func (v *vaultLoggedInClient) get(ctx context.Context, key string) (*secrets.Secret, errors.Error) {
-	sec, err := v.client.Logical().Read(v.mountPath(key))
+	sec, err := v.client.Logical().Read(v.dataMountPath(key))
 	if err != nil {
 		return nil, errors.NewSecretsGetError(key).WithCause(err).Bug()
 	}
@@ -182,7 +189,7 @@ func (v *vaultLoggedInClient) get(ctx context.Context, key string) (*secrets.Sec
 }
 
 func (v *vaultLoggedInClient) getAll(ctx context.Context, parent string) ([]*secrets.Secret, errors.Error) {
-	mds, err := v.client.Logical().List(v.mountPath(parent))
+	mds, err := v.client.Logical().List(v.metadataMountPath(parent))
 	if err != nil {
 		return nil, errors.NewSecretsListError(parent).WithCause(err).Bug()
 	}
@@ -193,7 +200,7 @@ func (v *vaultLoggedInClient) getAll(ctx context.Context, parent string) ([]*sec
 
 	for _, keyi := range keys.([]interface{}) {
 		key := keyi.(string)
-		full := v.mountPath(path.Join(parent, key))
+		full := v.dataMountPath(path.Join(parent, key))
 
 		sec, err := v.client.Logical().Read(full)
 		if err != nil {
@@ -211,7 +218,7 @@ func (v *vaultLoggedInClient) getAll(ctx context.Context, parent string) ([]*sec
 	return vals, nil
 }
 
-func newVaultLoggedInClient(ctx context.Context, cfg *Config) (*vaultLoggedInClient, errors.Error) {
+func newVaultLoggedInClient(ctx context.Context, grant *secrets.AccessGrant, cfg *Config) (*vaultLoggedInClient, errors.Error) {
 	c, err := vaultapi.NewClient(&vaultapi.Config{Address: cfg.Addr})
 	if err != nil {
 		return nil, errors.NewSecretsVaultSetupError().WithCause(err)
@@ -220,6 +227,7 @@ func newVaultLoggedInClient(ctx context.Context, cfg *Config) (*vaultLoggedInCli
 	vlc := &vaultLoggedInClient{
 		client: c,
 		cfg:    cfg,
+		grant:  grant,
 		logger: cfg.Logger.At("vault"),
 	}
 

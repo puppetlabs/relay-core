@@ -32,6 +32,102 @@ var ConnectionsSection = &impl.ErrorSection{
 	Title: "Connections errors",
 }
 
+// ConnectionsGetErrorCode is the code for an instance of "get_error".
+const ConnectionsGetErrorCode = "nt_connections_get_error"
+
+// IsConnectionsGetError tests whether a given error is an instance of "get_error".
+func IsConnectionsGetError(err errawr.Error) bool {
+	return err != nil && err.Is(ConnectionsGetErrorCode)
+}
+
+// IsConnectionsGetError tests whether a given error is an instance of "get_error".
+func (External) IsConnectionsGetError(err errawr.Error) bool {
+	return IsConnectionsGetError(err)
+}
+
+// ConnectionsGetErrorBuilder is a builder for "get_error" errors.
+type ConnectionsGetErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "get_error" from this builder.
+func (b *ConnectionsGetErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "there was an error getting the connection data",
+		Technical: "there was an error getting the connection data",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "get_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     ConnectionsSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Get error",
+		Version:          1,
+	}
+}
+
+// NewConnectionsGetErrorBuilder creates a new error builder for the code "get_error".
+func NewConnectionsGetErrorBuilder() *ConnectionsGetErrorBuilder {
+	return &ConnectionsGetErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewConnectionsGetError creates a new error with the code "get_error".
+func NewConnectionsGetError() Error {
+	return NewConnectionsGetErrorBuilder().Build()
+}
+
+// ConnectionsNotFoundErrorCode is the code for an instance of "not_found_error".
+const ConnectionsNotFoundErrorCode = "nt_connections_not_found_error"
+
+// IsConnectionsNotFoundError tests whether a given error is an instance of "not_found_error".
+func IsConnectionsNotFoundError(err errawr.Error) bool {
+	return err != nil && err.Is(ConnectionsNotFoundErrorCode)
+}
+
+// IsConnectionsNotFoundError tests whether a given error is an instance of "not_found_error".
+func (External) IsConnectionsNotFoundError(err errawr.Error) bool {
+	return IsConnectionsNotFoundError(err)
+}
+
+// ConnectionsNotFoundErrorBuilder is a builder for "not_found_error" errors.
+type ConnectionsNotFoundErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "not_found_error" from this builder.
+func (b *ConnectionsNotFoundErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "connection not found",
+		Technical: "connection not found",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "not_found_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     ConnectionsSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Not found error",
+		Version:          1,
+	}
+}
+
+// NewConnectionsNotFoundErrorBuilder creates a new error builder for the code "not_found_error".
+func NewConnectionsNotFoundErrorBuilder() *ConnectionsNotFoundErrorBuilder {
+	return &ConnectionsNotFoundErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewConnectionsNotFoundError creates a new error with the code "not_found_error".
+func NewConnectionsNotFoundError() Error {
+	return NewConnectionsNotFoundErrorBuilder().Build()
+}
+
 // ConnectionsValueDecodingErrorCode is the code for an instance of "value_decoding_error".
 const ConnectionsValueDecodingErrorCode = "nt_connections_value_decoding_error"
 
@@ -1996,6 +2092,54 @@ func NewServerSecretFetcherNameValidationErrorBuilder() *ServerSecretFetcherName
 // NewServerSecretFetcherNameValidationError creates a new error with the code "secret_fetcher_name_validation_error".
 func NewServerSecretFetcherNameValidationError() Error {
 	return NewServerSecretFetcherNameValidationErrorBuilder().Build()
+}
+
+// ServerVaultGrantNotFoundCode is the code for an instance of "vault_grant_not_found".
+const ServerVaultGrantNotFoundCode = "nt_server_vault_grant_not_found"
+
+// IsServerVaultGrantNotFound tests whether a given error is an instance of "vault_grant_not_found".
+func IsServerVaultGrantNotFound(err errawr.Error) bool {
+	return err != nil && err.Is(ServerVaultGrantNotFoundCode)
+}
+
+// IsServerVaultGrantNotFound tests whether a given error is an instance of "vault_grant_not_found".
+func (External) IsServerVaultGrantNotFound(err errawr.Error) bool {
+	return IsServerVaultGrantNotFound(err)
+}
+
+// ServerVaultGrantNotFoundBuilder is a builder for "vault_grant_not_found" errors.
+type ServerVaultGrantNotFoundBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "vault_grant_not_found" from this builder.
+func (b *ServerVaultGrantNotFoundBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "the access grant for {{grant}} was not found",
+		Technical: "the access grant for {{grant}} was not found",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "vault_grant_not_found",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     ServerSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Vault grant not found",
+		Version:          1,
+	}
+}
+
+// NewServerVaultGrantNotFoundBuilder creates a new error builder for the code "vault_grant_not_found".
+func NewServerVaultGrantNotFoundBuilder(grant string) *ServerVaultGrantNotFoundBuilder {
+	return &ServerVaultGrantNotFoundBuilder{arguments: impl.ErrorArguments{"grant": impl.NewErrorArgument(grant, "the grant that was missing")}}
+}
+
+// NewServerVaultGrantNotFound creates a new error with the code "vault_grant_not_found".
+func NewServerVaultGrantNotFound(grant string) Error {
+	return NewServerVaultGrantNotFoundBuilder(grant).Build()
 }
 
 // StateSection defines a section of errors with the following scope:

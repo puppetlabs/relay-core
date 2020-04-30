@@ -11,8 +11,13 @@ type ConnectionsManager struct {
 	data map[string]map[string]string
 }
 
-func (m ConnectionsManager) Get(ctx context.Context, typ, name string) (*connections.Connection, errors.Error) {
-	return nil, nil
+func (m ConnectionsManager) Get(ctx context.Context, connectionID string) (*connections.Connection, errors.Error) {
+	data, ok := m.data[connectionID]
+	if !ok {
+		return nil, errors.NewConnectionsNotFoundError()
+	}
+
+	return &connections.Connection{Spec: data}, nil
 }
 
 func New(conns map[string]map[string]string) *ConnectionsManager {

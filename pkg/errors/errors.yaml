@@ -70,6 +70,12 @@ sections:
       value_decoding_error:
         title: Value decoding error
         description: decoding the secret value failed
+      not_found_error:
+        title: Not found error
+        description: connection not found
+      get_error:
+        title: Get error
+        description: there was an error getting the connection data
 
   outputs:
     title: Outputs errors
@@ -297,6 +303,12 @@ sections:
             description: The name of the config map
           namespace:
             description: The namespace of the config map
+      vault_grant_not_found:
+        title: Vault grant not found
+        description: the access grant for {{grant}} was not found
+        arguments:
+          grant:
+            description: the grant that was missing
       secret_fetcher_name_validation_error:
         title: Secret fetcher name validation error
         description: name was missing or invalid
