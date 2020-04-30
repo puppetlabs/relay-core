@@ -17,7 +17,6 @@ import (
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
 	"github.com/puppetlabs/nebula-tasks/pkg/controller/workflow"
 	"github.com/puppetlabs/nebula-tasks/pkg/dependency"
-	"github.com/puppetlabs/nebula-tasks/pkg/secrets/vault"
 	"github.com/puppetlabs/nebula-tasks/pkg/util"
 	tekv1alpha1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
 	tekv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
@@ -38,15 +37,8 @@ func main() {
 	kubeconfig := fs.String("kubeconfig", "", "path to kubeconfig file. Only required if running outside of a cluster.")
 	kubeMasterURL := fs.String("kube-master-url", "", "url to the kubernetes master")
 	kubeNamespace := fs.String("kube-namespace", "", "an optional working namespace to run the controller as. Only required if running outside of a cluster.")
-	vaultAddr := fs.String("vault-addr", "http://localhost:8200", "address to the vault server")
-	vaultToken := fs.String("vault-token", "", "token used to authenticate with the vault server")
-	vaultEngineMount := fs.String("vault-engine-mount", "nebula", "the engine mount to craft paths from")
+	imagePullSecret := fs.String("image-pull-secret", "", "the optionally namespaced name of the image pull secret to use for system images")
 	storageAddr := fs.String("storage-addr", "", "the storage URL to upload logs into")
-	metadataServiceImage := fs.String("metadata-service-image", "gcr.io/nebula-235818/nebula-metadata-api:latest", "the image and tag to use for the metadata service api")
-	metadataServiceImagePullSecret := fs.String("metadata-service-image-pull-secret", "", "the optionally namespaced name of the image pull secret to use for the metadata service")
-	metadataServiceVaultAddr := fs.String("metadata-service-vault-addr", "", "the address to use when authenticating the metadata service to Vault")
-	metadataServiceVaultAuthMountPath := fs.String("metadata-service-vault-auth-mount-path", "", "the mount path to use when authenticating the metadata service to Vault")
-	metadataServiceCheckEnabled := fs.Bool("metadata-service-check-enabled", true, "whether to enable checking the metadata service over HTTP")
 	numWorkers := fs.Int("num-workers", 2, "the number of worker threads to spawn that process Workflow resources")
 	metricsEnabled := fs.Bool("metrics-enabled", false, "enables the metrics collection and server")
 	metricsServerBindAddr := fs.String("metrics-server-bind-addr", "localhost:3050", "the host:port to bind the metrics server to")
@@ -56,16 +48,6 @@ func main() {
 
 	klogFlags := flag.NewFlagSet("klog", flag.ExitOnError)
 	klog.InitFlags(klogFlags)
-
-	vc, err := vault.NewVaultAuth(&vault.Config{
-		Addr:             *vaultAddr,
-		K8sAuthMountPath: *metadataServiceVaultAuthMountPath,
-		Token:            *vaultToken,
-		EngineMount:      *vaultEngineMount,
-	})
-	if err != nil {
-		log.Fatal("Error initializing the vault client from the -vault-addr -vault-token and -vault-engine-mount", err)
-	}
 
 	storageUrl, err := url.Parse(*storageAddr)
 	if err != nil {
@@ -114,14 +96,10 @@ func main() {
 	}
 
 	cfg := &config.WorkflowControllerConfig{
-		Namespace:                         namespace,
-		MetadataServiceImage:              *metadataServiceImage,
-		MetadataServiceImagePullSecret:    *metadataServiceImagePullSecret,
-		MetadataServiceVaultAddr:          *metadataServiceVaultAddr,
-		MetadataServiceVaultAuthMountPath: *metadataServiceVaultAuthMountPath,
-		MetadataServiceCheckEnabled:       *metadataServiceCheckEnabled,
-		WhenConditionsImage:               *whenConditionsImage,
-		MaxConcurrentReconciles:           *numWorkers,
+		Namespace:               namespace,
+		ImagePullSecret:         *imagePullSecret,
+		WhenConditionsImage:     *whenConditionsImage,
+		MaxConcurrentReconciles: *numWorkers,
 	}
 
 	schemeBuilder := runtime.NewSchemeBuilder(
@@ -143,7 +121,7 @@ func main() {
 		log.Fatal("Unable to create new manager", err)
 	}
 
-	dm, err := dependency.NewDependencyManager(mgr, cfg, vc, blobStore, mets)
+	dm, err := dependency.NewDependencyManager(mgr, cfg, blobStore, mets)
 	if err != nil {
 		log.Fatal("Error creating controller dependency builder", err)
 	}

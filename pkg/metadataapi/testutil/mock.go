@@ -2,7 +2,6 @@ package testutil
 
 import (
 	"encoding/json"
-	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -20,13 +19,10 @@ import (
 	"github.com/puppetlabs/nebula-tasks/pkg/task"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/fake"
-	kubetesting "k8s.io/client-go/testing"
 )
 
 type MockTaskConfig struct {
@@ -182,49 +178,4 @@ func WithTestMetadataAPIServer(handler http.Handler, mw []middleware.MiddlewareF
 	defer ts.Close()
 
 	fn(ts)
-}
-
-func setObjectUID(action kubetesting.Action) (bool, runtime.Object, error) {
-	switch action := action.(type) {
-	case kubetesting.CreateActionImpl:
-		objMeta, err := meta.Accessor(action.GetObject())
-		if err != nil {
-			return false, nil, err
-		}
-
-		obj := action.GetObject()
-		objMeta.SetUID(types.UID(uuid.New().String()))
-
-		return false, obj, nil
-	default:
-		return false, nil, fmt.Errorf("no reaction implemented for %s", action)
-	}
-}
-
-func filterListPods(tracker kubetesting.ObjectTracker) kubetesting.ReactionFunc {
-	delegate := kubetesting.ObjectReaction(tracker)
-
-	return func(action kubetesting.Action) (bool, runtime.Object, error) {
-		la := action.(kubetesting.ListAction)
-
-		found, obj, err := delegate(action)
-		if err != nil || !found {
-			return found, obj, err
-		}
-
-		pods := obj.(*corev1.PodList)
-
-		keep := 0
-		for _, pod := range pods.Items {
-			if !la.GetListRestrictions().Fields.Matches(fields.Set{"status.podIP": pod.Status.PodIP}) {
-				continue
-			}
-
-			pods.Items[keep] = pod
-			keep++
-		}
-
-		pods.Items = pods.Items[:keep]
-		return true, pods, nil
-	}
 }

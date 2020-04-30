@@ -1,0 +1,19 @@
+package reject
+
+import (
+	"context"
+
+	"github.com/puppetlabs/nebula-tasks/pkg/model"
+)
+
+type stepOutputManager struct{}
+
+func (*stepOutputManager) Get(ctx context.Context, stepName, name string) (*model.StepOutput, error) {
+	return nil, model.ErrRejected
+}
+
+func (*stepOutputManager) Set(ctx context.Context, name string, value interface{}) (*model.StepOutput, error) {
+	return nil, model.ErrRejected
+}
+
+var StepOutputManager model.StepOutputManager = &stepOutputManager{}

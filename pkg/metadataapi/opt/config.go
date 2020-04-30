@@ -1,0 +1,253 @@
+package opt
+
+import (
+	"fmt"
+	"io/ioutil"
+	"net"
+	"net/http"
+	"net/url"
+	"os"
+	"time"
+
+	"github.com/hashicorp/go-retryablehttp"
+	vaultapi "github.com/hashicorp/vault/api"
+	"github.com/spf13/viper"
+	"gopkg.in/yaml.v3"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/util/cert"
+)
+
+const (
+	DefaultListenPort = 7000
+	DefaultVaultURL   = "http://localhost:8200"
+
+	DefaultKubernetesAutomountTokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+	DefaultKubernetesAutomountCAFile    = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+)
+
+type Config struct {
+	// Debug determines whether this server starts with debugging enabled.
+	Debug bool
+
+	// ListenPort is the port to bind the server to.
+	ListenPort int
+
+	// VaultTransitURL is the HTTP(S) URL to the Vault server to use for secure
+	// token decryption.
+	VaultTransitURL string
+
+	// VaultTransitToken is the token to use to authenticate transit requests.
+	VaultTransitToken string
+
+	// VaultTransitPath is the path to the transit secrets engine providing
+	// token decryption.
+	VaultTransitPath string
+
+	// VaultAuthURL is the HTTP(S) URL to the Vault server to use for
+	// authenticating tenants.
+	VaultAuthURL string
+
+	// VaultAuthPath is the path to the JWT secrets engine providing
+	// authentication for tenants.
+	VaultAuthPath string
+
+	// VaultAuthRole is the role to use when logging in as a tenant.
+	VaultAuthRole string
+
+	// KubernetesURL is the the HTTP(S) URL to the Kubernetes cluster master.
+	KubernetesURL string
+
+	// KubernetesCAData is certificate authority data for the Kubernetes cluster
+	// to connect to.
+	KubernetesCAData string
+
+	// KubernetesServiceAccountToken is the service account token to use for
+	// reading pod data.
+	KubernetesServiceAccountToken string
+
+	// SampleConfigFiles is a list of configuration files that configure this
+	// instance of the metadata API to serve sample data for demo or testing
+	// purposes.
+	SampleConfigFiles []string
+
+	// SampleHS256SigningKey is a base64-encoded signing key for handling JWTs
+	// from sample steps.
+	SampleHS256SigningKey string
+}
+
+func (c *Config) kubernetesInClusterHost() (string, bool) {
+	host, port := os.Getenv("KUBERNETES_SERVICE_HOST"), os.Getenv("KUBERNETES_SERVICE_PORT")
+	if host == "" || port == "" {
+		return "", false
+	}
+
+	return (&url.URL{Scheme: "https", Host: net.JoinHostPort(host, port)}).String(), true
+}
+
+func (c *Config) kubernetesClientConfig() (*rest.Config, error) {
+	inClusterHost, inCluster := c.kubernetesInClusterHost()
+
+	cfg := &rest.Config{
+		Host: c.KubernetesURL,
+		TLSClientConfig: rest.TLSClientConfig{
+			CAData: []byte(c.KubernetesCAData),
+		},
+	}
+
+	if cfg.Host == "" {
+		if !inCluster {
+			return nil, rest.ErrNotInCluster
+		}
+
+		cfg.Host = inClusterHost
+	}
+
+	if len(cfg.TLSClientConfig.CAData) == 0 {
+		if !inCluster {
+			return nil, rest.ErrNotInCluster
+		} else if _, err := cert.NewPool(DefaultKubernetesAutomountCAFile); err != nil {
+			return nil, err
+		}
+
+		cfg.CAFile = DefaultKubernetesAutomountCAFile
+	}
+
+	return cfg, nil
+}
+
+func (c *Config) KubernetesClientFactory(token string) (kubernetes.Interface, error) {
+	cfg, err := c.kubernetesClientConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	cfg.BearerToken = token
+
+	return kubernetes.NewForConfig(cfg)
+}
+
+func (c *Config) KubernetesClient() (kubernetes.Interface, error) {
+	cfg, err := c.kubernetesClientConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	cfg.BearerToken = c.KubernetesServiceAccountToken
+	if cfg.BearerToken == "" {
+		if _, ok := c.kubernetesInClusterHost(); !ok {
+			return nil, rest.ErrNotInCluster
+		}
+
+		// Attempt to read from standard file.
+		b, err := ioutil.ReadFile(DefaultKubernetesAutomountTokenFile)
+		if err != nil {
+			return nil, err
+		}
+
+		cfg.BearerToken = string(b)
+		cfg.BearerTokenFile = DefaultKubernetesAutomountTokenFile
+	}
+
+	return kubernetes.NewForConfig(cfg)
+}
+
+func (c *Config) VaultTransitClient() (*vaultapi.Client, error) {
+	// Transit is authoritative so can safely fall back to the default config.
+	cfg := vaultapi.DefaultConfig()
+	cfg.Address = c.VaultTransitURL
+
+	client, err := vaultapi.NewClient(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	client.SetToken(c.VaultTransitToken)
+
+	return client, nil
+}
+
+func (c *Config) VaultAuthConfig() (*vaultapi.Config, error) {
+	// This is similar to the Vault default config but doesn't look in the
+	// environment for anything and uses the regular Go library HTTP client.
+	cfg := &vaultapi.Config{
+		Address:    c.VaultAuthURL,
+		HttpClient: &http.Client{},
+		Timeout:    60 * time.Second,
+		Backoff:    retryablehttp.LinearJitterBackoff,
+		MaxRetries: 2,
+	}
+
+	// See comments in the Vault code for this.
+	cfg.HttpClient.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+
+	return cfg, nil
+}
+
+func (c *Config) SampleConfig() (*SampleConfig, error) {
+	if len(c.SampleConfigFiles) == 0 {
+		return nil, nil
+	}
+
+	sc := &SampleConfig{
+		Secrets: make(map[string]string),
+		Runs:    make(map[string]*SampleConfigRun),
+	}
+
+	for _, f := range c.SampleConfigFiles {
+		b, err := ioutil.ReadFile(f)
+		if err != nil {
+			return nil, fmt.Errorf("opt: cannot read sample file %q: %+v", f, err)
+		}
+
+		var tsc SampleConfig
+		if err := yaml.Unmarshal(b, &tsc); err != nil {
+			return nil, fmt.Errorf("opt: cannot parse sample file %q: %+v", f, err)
+		}
+
+		tsc.AppendTo(sc)
+	}
+
+	return sc, nil
+}
+
+func NewConfig() *Config {
+	viper.SetEnvPrefix("relay_metadata_api")
+	viper.AutomaticEnv()
+
+	viper.BindEnv("vault_addr", "VAULT_ADDR")
+	viper.SetDefault("vault_addr", DefaultVaultURL)
+
+	viper.BindEnv("vault_token", "VAULT_TOKEN")
+
+	viper.SetDefault("listen_port", DefaultListenPort)
+
+	viper.SetDefault("vault_transit_url", viper.GetString("vault_addr"))
+	viper.SetDefault("vault_transit_token", viper.GetString("vault_token"))
+	viper.SetDefault("vault_transit_path", "transit")
+
+	viper.SetDefault("vault_auth_url", viper.GetString("vault_addr"))
+	viper.SetDefault("vault_auth_path", "auth/jwt")
+
+	return &Config{
+		Debug:      viper.GetBool("debug"),
+		ListenPort: viper.GetInt("listen_port"),
+
+		VaultTransitURL:   viper.GetString("vault_transit_url"),
+		VaultTransitToken: viper.GetString("vault_transit_token"),
+		VaultTransitPath:  viper.GetString("vault_transit_path"),
+
+		VaultAuthURL:  viper.GetString("vault_auth_url"),
+		VaultAuthPath: viper.GetString("vault_auth_path"),
+		VaultAuthRole: viper.GetString("vault_auth_role"),
+
+		KubernetesURL:                 viper.GetString("kubernetes_url"),
+		KubernetesCAData:              viper.GetString("kubernetes_ca_data"),
+		KubernetesServiceAccountToken: viper.GetString("kubernetes_service_account_token"),
+
+		SampleConfigFiles:     viper.GetStringSlice("sample_config_files"),
+		SampleHS256SigningKey: viper.GetString("sample_hs256_signing_key"),
+	}
+}

@@ -8,10 +8,8 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"net/http"
 	"path"
 	"strings"
-	"time"
 
 	"github.com/puppetlabs/horsehead/v2/graph"
 	"github.com/puppetlabs/horsehead/v2/graph/traverse"
@@ -23,21 +21,17 @@ import (
 	relayv1beta1 "github.com/puppetlabs/nebula-tasks/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/nebula-tasks/pkg/dependency"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
-	"github.com/puppetlabs/nebula-tasks/pkg/secrets"
 	stconfigmap "github.com/puppetlabs/nebula-tasks/pkg/state/configmap"
 	"github.com/puppetlabs/nebula-tasks/pkg/task"
 	tekv1alpha1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
 	tekv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/apimachinery/pkg/watch"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog"
@@ -70,11 +64,8 @@ const (
 )
 
 const (
-	// default name for the workflow metadata api pod and service
-	metadataServiceName = "metadata-api"
-
-	// name for the image pull secret used by the metadata API, if needed
-	metadataImagePullSecretName = "metadata-api-docker-registry"
+	// name for the image pull secret used by system containers, if needed
+	imagePullSecretName = "relay-system-docker-registry"
 
 	// PipelineRun annotation indicating the log upload location
 	logUploadAnnotationPrefix = "log-archive-"
@@ -93,7 +84,6 @@ const (
 const (
 	ServiceAccountIdentifierCustomer = "customer"
 	ServiceAccountIdentifierSystem   = "system"
-	ServiceAccountIdentifierMetadata = "metadata"
 )
 
 var (
@@ -244,93 +234,6 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	return ctrl.Result{}, nil
 }
 
-func (r *Reconciler) waitForEndpoint(service *corev1.Service) error {
-	var (
-		conditionMet bool
-		timeout      = int64(30)
-	)
-
-	var endpoints corev1.Endpoints
-	if err := r.Client.Get(context.TODO(), client.ObjectKey{
-		Namespace: service.GetNamespace(),
-		Name:      service.GetName(),
-	}, &endpoints); err != nil {
-		return err
-	}
-
-	if endpoints.Subsets != nil && len(endpoints.Subsets) > 0 {
-		for _, subset := range endpoints.Subsets {
-			if subset.Addresses != nil && len(subset.Addresses) > 0 {
-				return nil
-			}
-		}
-	}
-
-	listOptions := metav1.SingleObject(endpoints.ObjectMeta)
-	listOptions.TimeoutSeconds = &timeout
-
-	// XXX: We can't do this with the dynamic client yet.
-	watcher, err := r.KubeClient.CoreV1().Endpoints(endpoints.GetNamespace()).Watch(listOptions)
-	if err != nil {
-		return err
-	}
-
-eventLoop:
-	for event := range watcher.ResultChan() {
-		switch event.Type {
-		case watch.Modified:
-			endpoints := event.Object.(*corev1.Endpoints)
-
-			if endpoints.Subsets != nil && len(endpoints.Subsets) > 0 {
-				for _, subset := range endpoints.Subsets {
-					if subset.Addresses != nil && len(subset.Addresses) > 0 {
-						watcher.Stop()
-						conditionMet = true
-
-						break eventLoop
-					}
-				}
-			}
-		}
-	}
-
-	if !conditionMet {
-		return fmt.Errorf("timeout occurred while waiting for service %s to be ready", service.GetName())
-	}
-
-	return nil
-}
-
-func (r *Reconciler) waitForSuccessfulServiceResponse(service *corev1.Service) error {
-	if !r.Config.MetadataServiceCheckEnabled {
-		return nil
-	}
-
-	var (
-		u        = fmt.Sprintf("http://%s.%s.svc.cluster.local/healthz", service.GetName(), service.GetNamespace())
-		interval = time.Millisecond * 750
-		timeout  = time.Second * 10
-	)
-
-	return wait.PollImmediate(interval, timeout, func() (bool, error) {
-		client := http.Client{
-			Timeout: timeout,
-		}
-		resp, err := client.Get(u)
-		if err != nil {
-			klog.Infof("got an error when probing the service %s - %s", service.GetName(), err)
-			return false, nil
-		}
-
-		if resp.StatusCode != http.StatusOK {
-			klog.Infof("got an invalid status code when probing service %s %d", service.GetName(), resp.StatusCode)
-			return false, nil
-		}
-
-		return true, nil
-	})
-}
-
 func (r *Reconciler) uploadLogs(ctx context.Context, plr *tekv1beta1.PipelineRun) (map[string]string, error) {
 	logAnnotations := make(map[string]string, 0)
 
@@ -477,22 +380,17 @@ func (r *Reconciler) initializeWorkflowRun(ctx context.Context, wr *nebulav1.Wor
 		}
 	}
 
-	// If we haven't set the state of the run yet, then we need to ensure all the secret access
-	// and rbac is setup.
+	// If we haven't set the state of the run yet, then we need to ensure all
+	// the secret access is set up.
 	if wr.Status.Status == "" {
 		klog.Infof("unreconciled %s %s", wr.Kind, wr.GetName())
 
 		err := r.metrics.trackDurationWithOutcome(metricWorkflowRunStartUpDuration, func() error {
-			service, err := r.createAccessResources(ctx, wr)
-			if err != nil {
+			if err := r.createAccessResources(ctx, wr); err != nil {
 				return err
 			}
 
-			if err := r.initializePipeline(wr, service); err != nil {
-				return err
-			}
-
-			return r.ensureAccessResourcesExist(ctx, wr, service)
+			return r.initializePipeline(wr)
 		})
 
 		if err != nil {
@@ -503,84 +401,23 @@ func (r *Reconciler) initializeWorkflowRun(ctx context.Context, wr *nebulav1.Wor
 	return nil
 }
 
-func (r *Reconciler) createAccessResources(ctx context.Context, wr *nebulav1.WorkflowRun) (*corev1.Service, error) {
-	var (
-		ips      *corev1.Secret
-		saccount *corev1.ServiceAccount
-		err      error
-	)
-
-	namespace := wr.GetNamespace()
-
-	ips, err = r.copyImagePullSecret(wr)
+func (r *Reconciler) createAccessResources(ctx context.Context, wr *nebulav1.WorkflowRun) error {
+	ips, err := r.copyImagePullSecret(wr)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	_, err = r.createServiceAccount(wr, ServiceAccountIdentifierCustomer, nil)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	_, err = r.createServiceAccount(wr, ServiceAccountIdentifierSystem, ips)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	saccount, err = r.createServiceAccount(wr, ServiceAccountIdentifierMetadata, ips)
-	if err != nil {
-		return nil, err
-	}
-
-	klog.Infof("granting workflow run access to scoped secrets %s", wr.GetName())
-	grant, err := r.SecretsClient.GrantScopedAccess(ctx, wr.Spec.Workflow.Name, namespace, saccount.GetName())
-	if err != nil {
-		return nil, err
-	}
-
-	_, _, err = r.createRBAC(wr, saccount)
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = r.createMetadataAPIPod(saccount, wr, grant)
-	if err != nil {
-		return nil, err
-	}
-
-	service, err := r.createMetadataAPIService(wr)
-	if err != nil {
-		return nil, err
-	}
-
-	return service, nil
-}
-
-func (r *Reconciler) ensureAccessResourcesExist(ctx context.Context, wr *nebulav1.WorkflowRun, service *corev1.Service) error {
-	return r.metrics.trackDurationWithOutcome(metricWorkflowRunWaitForMetadataAPIServiceDuration, func() error {
-		klog.Infof("waiting for metadata service to become ready %s", wr.Spec.Workflow.Name)
-
-		// This waits for a Modified watch event on a service's Endpoint object.
-		// When this event is received, it will check it's addresses to see if there's
-		// pods that are ready to be served.
-		if err := r.waitForEndpoint(service); err != nil {
-			return err
-		}
-
-		// Because of a possible race condition bug in the kernel or kubelet network stack, there's a very
-		// tiny window of time where packets will get dropped if you try to make requests to the ports
-		// that are supposed to be forwarded to underlying pods. This unfortunately happens quite frequently
-		// since we exec task pods from Tekton very quickly. This function will make GET requests in a loop
-		// to the readiness endpoint of the pod (via the service dns) to make sure it actually gets a 200
-		// response before setting the status object on SecretAuth resources.
-		if err := r.waitForSuccessfulServiceResponse(service); err != nil {
-			return err
-		}
-
-		klog.Infof("metadata service is ready %s", wr.GetName())
-
-		return nil
-	})
+	return nil
 }
 
 func (r *Reconciler) createPipelineRun(ctx context.Context, wr *nebulav1.WorkflowRun) (*tekv1beta1.PipelineRun, error) {
@@ -800,7 +637,7 @@ func (r *Reconciler) enrichResults(sts *nebulav1.WorkflowRunStatus, steps *graph
 	return sts, nil
 }
 
-func (r *Reconciler) initializePipeline(wr *nebulav1.WorkflowRun, service *corev1.Service) errors.Error {
+func (r *Reconciler) initializePipeline(wr *nebulav1.WorkflowRun) errors.Error {
 	klog.Infof("initializing Pipeline %s", wr.GetName())
 	defer klog.Infof("done initializing Pipeline %s", wr.GetName())
 
@@ -828,7 +665,7 @@ func (r *Reconciler) initializePipeline(wr *nebulav1.WorkflowRun, service *corev
 		return errors.NewWorkflowExecutionError().WithCause(err)
 	}
 
-	tasks, err := r.createTasks(wr, service)
+	tasks, err := r.createTasks(wr)
 	if err != nil {
 		return errors.NewWorkflowExecutionError().WithCause(err)
 	}
@@ -1072,7 +909,7 @@ func (r *Reconciler) createLimitRange(namespace string) (*corev1.LimitRange, err
 	return lr, nil
 }
 
-func (r *Reconciler) createTasks(wr *nebulav1.WorkflowRun, service *corev1.Service) (StepTasks, errors.Error) {
+func (r *Reconciler) createTasks(wr *nebulav1.WorkflowRun) (StepTasks, errors.Error) {
 	stepTasks := make(StepTasks)
 
 	// TODO: Configure CoreDNS and a real DNS name here.
@@ -1289,13 +1126,13 @@ func (r *Reconciler) createConfigMap(wr *nebulav1.WorkflowRun, taskHash task.Has
 }
 
 func (r *Reconciler) copyImagePullSecret(wfr *nebulav1.WorkflowRun) (*corev1.Secret, error) {
-	if r.Config.MetadataServiceImagePullSecret == "" {
+	if r.Config.ImagePullSecret == "" {
 		return nil, nil
 	}
 
-	klog.Infof("copying secret for metadata service image %s", wfr.GetName())
+	klog.Infof("copying secret for system images %s", wfr.GetName())
 
-	namespace, name, err := cache.SplitMetaNamespaceKey(r.Config.MetadataServiceImagePullSecret)
+	namespace, name, err := cache.SplitMetaNamespaceKey(r.Config.ImagePullSecret)
 	if err != nil {
 		return nil, err
 	} else if namespace == "" {
@@ -1317,7 +1154,7 @@ func (r *Reconciler) copyImagePullSecret(wfr *nebulav1.WorkflowRun) (*corev1.Sec
 			Kind:       "Secret",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      metadataImagePullSecretName,
+			Name:      imagePullSecretName,
 			Namespace: wfr.GetNamespace(),
 			Labels:    getLabels(wfr, nil),
 		},
@@ -1359,194 +1196,6 @@ func (r *Reconciler) createServiceAccount(wfr *nebulav1.WorkflowRun, identifier 
 	}
 
 	return saccount, nil
-}
-
-func (r *Reconciler) createRBAC(wfr *nebulav1.WorkflowRun, sa *corev1.ServiceAccount) (*rbacv1.Role, *rbacv1.RoleBinding, error) {
-	name := wfr.Spec.Workflow.Name
-
-	role := &rbacv1.Role{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "rbac.authorization.k8s.io/v1",
-			Kind:       "Role",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: wfr.GetNamespace(),
-			Labels:    getLabels(wfr, nil),
-		},
-		Rules: []rbacv1.PolicyRule{
-			{
-				APIGroups: []string{""},
-				Resources: []string{"configmaps"},
-				Verbs:     []string{"create", "update", "list", "watch", "get"},
-			},
-			{
-				APIGroups: []string{""},
-				Resources: []string{"pods"},
-				Verbs:     []string{"list", "watch", "get"},
-			},
-		},
-	}
-
-	binding := &rbacv1.RoleBinding{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "rbac.authorization.k8s.io/v1",
-			Kind:       "RoleBinding",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: wfr.GetNamespace(),
-			Labels:    getLabels(wfr, nil),
-		},
-		RoleRef: rbacv1.RoleRef{
-			Kind:     "Role",
-			APIGroup: "rbac.authorization.k8s.io",
-			Name:     name,
-		},
-		Subjects: []rbacv1.Subject{
-			{
-				Name:      sa.GetName(),
-				Kind:      "ServiceAccount",
-				Namespace: wfr.GetNamespace(),
-			},
-		},
-	}
-
-	klog.Infof("creating role %s", wfr.GetName())
-	if err := r.createOrGetObject(context.TODO(), role); err != nil {
-		return nil, nil, err
-	}
-
-	klog.Infof("creating role binding %s", wfr.GetName())
-	if err := r.createOrGetObject(context.TODO(), binding); err != nil {
-		return nil, nil, err
-	}
-
-	return role, binding, nil
-}
-
-func (r *Reconciler) createMetadataAPIPod(saccount *corev1.ServiceAccount, wr *nebulav1.WorkflowRun, grant *secrets.AccessGrant) (*corev1.Pod, error) {
-	// It is possible that the metadata service and this controller talk to
-	// different Vault endpoints: each might be talking to a Vault agent (for
-	// caching or additional security) instead of directly to the Vault server.
-	podVaultAddr := r.Config.MetadataServiceVaultAddr
-	if podVaultAddr == "" {
-		podVaultAddr = grant.BackendAddr
-	}
-
-	podVaultAuthMountPath := r.Config.MetadataServiceVaultAuthMountPath
-	if podVaultAuthMountPath == "" {
-		podVaultAuthMountPath = "auth/kubernetes"
-	}
-
-	name := strings.Join([]string{"run", wr.GetName(), metadataServiceName}, "-")
-
-	pod := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: wr.GetNamespace(),
-			Labels: getLabels(wr, map[string]string{
-				"app.kubernetes.io/name":      "nebula",
-				"app.kubernetes.io/component": metadataServiceName,
-				"nebula.puppet.com/run":       wr.GetName(),
-			}),
-			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(wr, controllerKind)},
-		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Name:            metadataServiceName,
-					Image:           r.Config.MetadataServiceImage,
-					ImagePullPolicy: corev1.PullIfNotPresent,
-					Command: []string{
-						"/usr/bin/nebula-metadata-api",
-						"-bind-addr",
-						":7000",
-						"-vault-addr",
-						podVaultAddr,
-						"-vault-auth-mount-path",
-						podVaultAuthMountPath,
-						"-vault-role",
-						wr.GetNamespace(),
-						"-scoped-secrets-path",
-						grant.ScopedPath,
-						"-namespace",
-						wr.GetNamespace(),
-					},
-					Ports: []corev1.ContainerPort{
-						{
-							Name:          "http",
-							ContainerPort: 7000,
-						},
-					},
-					ReadinessProbe: &corev1.Probe{
-						Handler: corev1.Handler{
-							HTTPGet: &corev1.HTTPGetAction{
-								Path: "/healthz",
-								Port: intstr.FromInt(7000),
-							},
-						},
-					},
-					Resources: corev1.ResourceRequirements{
-						Limits: corev1.ResourceList{
-							corev1.ResourceCPU:    resource.MustParse("50m"),
-							corev1.ResourceMemory: resource.MustParse("64Mi"),
-						},
-						Requests: corev1.ResourceList{
-							corev1.ResourceCPU:    resource.MustParse("10m"),
-							corev1.ResourceMemory: resource.MustParse("32Mi"),
-						},
-					},
-				},
-			},
-			ServiceAccountName: saccount.GetName(),
-			RestartPolicy:      corev1.RestartPolicyOnFailure,
-		},
-	}
-
-	klog.Infof("creating metadata service pod %s", wr.GetName())
-	if err := r.createOrGetObject(context.TODO(), pod); err != nil {
-		return nil, err
-	}
-
-	return pod, nil
-}
-
-func (r *Reconciler) createMetadataAPIService(wr *nebulav1.WorkflowRun) (*corev1.Service, error) {
-	name := strings.Join([]string{"run", wr.GetName(), metadataServiceName}, "-")
-
-	service := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: wr.GetNamespace(),
-			Labels: getLabels(wr, map[string]string{
-				"app.kubernetes.io/name":      "nebula",
-				"app.kubernetes.io/component": metadataServiceName,
-				"nebula.puppet.com/run":       wr.GetName(),
-			}),
-			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(wr, controllerKind)},
-		},
-		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{
-				{
-					Port:       80,
-					TargetPort: intstr.FromInt(7000),
-				},
-			},
-			Selector: map[string]string{
-				"app.kubernetes.io/name":      "nebula",
-				"app.kubernetes.io/component": metadataServiceName,
-				"nebula.puppet.com/run":       wr.GetName(),
-			},
-		},
-	}
-
-	klog.Infof("creating pod service %s", wr.GetName())
-	if err := r.createOrGetObject(context.TODO(), service); err != nil {
-		return nil, err
-	}
-
-	return service, nil
 }
 
 func (r *Reconciler) createOrGetObject(ctx context.Context, obj runtime.Object) error {
