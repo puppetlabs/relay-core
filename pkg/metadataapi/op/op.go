@@ -93,26 +93,42 @@ func NewForKubernetes(ctx context.Context, cfg *config.MetadataServerConfig) (*D
 		K8sServiceAccountTokenPath: cfg.K8sServiceAccountTokenPath,
 		Token:                      cfg.VaultToken,
 		Role:                       cfg.VaultRole,
-		ScopedSecretsPath:          cfg.ScopedSecretsPath,
+		ScopedSecretsPath:          cfg.ScopedWorkflowSecretsPath,
 		Logger:                     cfg.Logger,
 	})
 	if err != nil {
 		return nil, err
 	}
 
+	forConns, err := vault.NewVaultWithKubernetesAuth(ctx, &vault.Config{
+		Addr:                       cfg.VaultAddr,
+		K8sAuthMountPath:           cfg.VaultAuthMountPath,
+		K8sServiceAccountTokenPath: cfg.K8sServiceAccountTokenPath,
+		Token:                      cfg.VaultToken,
+		Role:                       cfg.VaultRole,
+		ScopedSecretsPath:          cfg.ScopedConnectionsSecretsPath,
+		Logger:                     cfg.Logger,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	cm := vault.NewConnectionsManager(forConns)
+
 	om := configmap.New(kc, cfg.Namespace)
 	stm := stconfigmap.New(kc, cfg.Namespace)
 	mm := task.NewKubernetesMetadataManager(kc, cfg.Namespace)
 	spm := task.NewKubernetesSpecManager(kc, cfg.Namespace)
-	cm := cconfigmap.New(kc, cfg.Namespace)
+	cmm := cconfigmap.New(kc, cfg.Namespace)
 
 	return &DefaultManagerFactory{
 		sm:  NewEncodingSecretManager(sm),
+		cm:  NewEncodingConnectionManager(cm),
 		om:  om,
 		stm: NewEncodeDecodingStateManager(stm),
 		mm:  mm,
 		spm: spm,
-		cm:  cm,
+		cmm: cmm,
 	}, nil
 }
 

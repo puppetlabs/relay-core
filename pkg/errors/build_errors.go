@@ -25,6 +25,61 @@ var Domain = &impl.ErrorDomain{
 	Title: "Nebula Tasks",
 }
 
+// ConnectionsSection defines a section of errors with the following scope:
+// Connections errors
+var ConnectionsSection = &impl.ErrorSection{
+	Key:   "connections",
+	Title: "Connections errors",
+}
+
+// ConnectionsValueDecodingErrorCode is the code for an instance of "value_decoding_error".
+const ConnectionsValueDecodingErrorCode = "nt_connections_value_decoding_error"
+
+// IsConnectionsValueDecodingError tests whether a given error is an instance of "value_decoding_error".
+func IsConnectionsValueDecodingError(err errawr.Error) bool {
+	return err != nil && err.Is(ConnectionsValueDecodingErrorCode)
+}
+
+// IsConnectionsValueDecodingError tests whether a given error is an instance of "value_decoding_error".
+func (External) IsConnectionsValueDecodingError(err errawr.Error) bool {
+	return IsConnectionsValueDecodingError(err)
+}
+
+// ConnectionsValueDecodingErrorBuilder is a builder for "value_decoding_error" errors.
+type ConnectionsValueDecodingErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "value_decoding_error" from this builder.
+func (b *ConnectionsValueDecodingErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "decoding the secret value failed",
+		Technical: "decoding the secret value failed",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "value_decoding_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     ConnectionsSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Value decoding error",
+		Version:          1,
+	}
+}
+
+// NewConnectionsValueDecodingErrorBuilder creates a new error builder for the code "value_decoding_error".
+func NewConnectionsValueDecodingErrorBuilder() *ConnectionsValueDecodingErrorBuilder {
+	return &ConnectionsValueDecodingErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewConnectionsValueDecodingError creates a new error with the code "value_decoding_error".
+func NewConnectionsValueDecodingError() Error {
+	return NewConnectionsValueDecodingErrorBuilder().Build()
+}
+
 // KubernetesSection defines a section of errors with the following scope:
 // Kubernetes errors
 var KubernetesSection = &impl.ErrorSection{
@@ -725,6 +780,54 @@ func NewSecretsKeyNotFoundBuilder(key string) *SecretsKeyNotFoundBuilder {
 // NewSecretsKeyNotFound creates a new error with the code "key_not_found".
 func NewSecretsKeyNotFound(key string) Error {
 	return NewSecretsKeyNotFoundBuilder(key).Build()
+}
+
+// SecretsListErrorCode is the code for an instance of "list_error".
+const SecretsListErrorCode = "nt_secrets_list_error"
+
+// IsSecretsListError tests whether a given error is an instance of "list_error".
+func IsSecretsListError(err errawr.Error) bool {
+	return err != nil && err.Is(SecretsListErrorCode)
+}
+
+// IsSecretsListError tests whether a given error is an instance of "list_error".
+func (External) IsSecretsListError(err errawr.Error) bool {
+	return IsSecretsListError(err)
+}
+
+// SecretsListErrorBuilder is a builder for "list_error" errors.
+type SecretsListErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "list_error" from this builder.
+func (b *SecretsListErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "failed to list the secrets at key {{key}}",
+		Technical: "failed to list the secrets at key {{key}}",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "list_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     SecretsSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "List error",
+		Version:          1,
+	}
+}
+
+// NewSecretsListErrorBuilder creates a new error builder for the code "list_error".
+func NewSecretsListErrorBuilder(key string) *SecretsListErrorBuilder {
+	return &SecretsListErrorBuilder{arguments: impl.ErrorArguments{"key": impl.NewErrorArgument(key, "the key that had the failure")}}
+}
+
+// NewSecretsListError creates a new error with the code "list_error".
+func NewSecretsListError(key string) Error {
+	return NewSecretsListErrorBuilder(key).Build()
 }
 
 // SecretsMalformedValueCode is the code for an instance of "malformed_value".

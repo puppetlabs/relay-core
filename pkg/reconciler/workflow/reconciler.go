@@ -510,8 +510,6 @@ func (r *Reconciler) createAccessResources(ctx context.Context, wr *nebulav1.Wor
 		err      error
 	)
 
-	namespace := wr.GetNamespace()
-
 	ips, err = r.copyImagePullSecret(wr)
 	if err != nil {
 		return nil, err
@@ -533,7 +531,16 @@ func (r *Reconciler) createAccessResources(ctx context.Context, wr *nebulav1.Wor
 	}
 
 	klog.Infof("granting workflow run access to scoped secrets %s", wr.GetName())
-	grant, err := r.SecretsClient.GrantScopedAccess(ctx, wr.Spec.Workflow.Name, namespace, saccount.GetName())
+	granter, err := r.SecretsClient.ServiceAccountAccessGranter(saccount)
+	if err != nil {
+		return nil, err
+	}
+
+	paths := make(map[string]string)
+	paths["workflows"] = "workflows"
+	paths["connections"] = "connections"
+
+	grants, err := granter.GrantAccessForPaths(ctx, paths)
 	if err != nil {
 		return nil, err
 	}
@@ -543,7 +550,7 @@ func (r *Reconciler) createAccessResources(ctx context.Context, wr *nebulav1.Wor
 		return nil, err
 	}
 
-	_, err = r.createMetadataAPIPod(saccount, wr, grant)
+	_, err = r.createMetadataAPIPod(saccount, wr, grants)
 	if err != nil {
 		return nil, err
 	}
@@ -1425,13 +1432,17 @@ func (r *Reconciler) createRBAC(wfr *nebulav1.WorkflowRun, sa *corev1.ServiceAcc
 	return role, binding, nil
 }
 
-func (r *Reconciler) createMetadataAPIPod(saccount *corev1.ServiceAccount, wr *nebulav1.WorkflowRun, grant *secrets.AccessGrant) (*corev1.Pod, error) {
+func (r *Reconciler) createMetadataAPIPod(saccount *corev1.ServiceAccount, wr *nebulav1.WorkflowRun, grants map[string]*secrets.AccessGrant) (*corev1.Pod, error) {
 	// It is possible that the metadata service and this controller talk to
 	// different Vault endpoints: each might be talking to a Vault agent (for
 	// caching or additional security) instead of directly to the Vault server.
 	podVaultAddr := r.Config.MetadataServiceVaultAddr
 	if podVaultAddr == "" {
-		podVaultAddr = grant.BackendAddr
+		// TODO: support multiple backends:
+		// Even through we have multiple grants, we will just pull the vault addr
+		// from the workflows object. We currently only run one vault server, so
+		// if we need to support multiple backends, we will need to fix this later.
+		podVaultAddr = grants["workflows"].BackendAddr
 	}
 
 	podVaultAuthMountPath := r.Config.MetadataServiceVaultAuthMountPath
@@ -1469,7 +1480,9 @@ func (r *Reconciler) createMetadataAPIPod(saccount *corev1.ServiceAccount, wr *n
 						"-vault-role",
 						wr.GetNamespace(),
 						"-scoped-secrets-path",
-						grant.ScopedPath,
+						grants["workflows"].ScopedPath,
+						"-scoped-connections-path",
+						grants["connections"].ScopedPath,
 						"-namespace",
 						wr.GetNamespace(),
 					},

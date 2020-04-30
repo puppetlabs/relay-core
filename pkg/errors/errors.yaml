@@ -18,6 +18,12 @@ sections:
         arguments:
           key:
             description: the key that had the failure
+      list_error:
+        title: List error
+        description: failed to list the secrets at key {{key}}
+        arguments:
+          key:
+            description: the key that had the failure
       key_not_found:
         title: Key not found
         description: key {{key}} not found
@@ -57,6 +63,13 @@ sections:
       vault_authentication_not_configured_error:
         title: Vault authentication not configured error
         description: no vault token or service account path specified
+
+  connections:
+    title: Connections errors
+    errors:
+      value_decoding_error:
+        title: Value decoding error
+        description: decoding the secret value failed
 
   outputs:
     title: Outputs errors

@@ -27,6 +27,7 @@ func main() {
 	serviceAccountTokenPath := flag.String("service-account-token-path",
 		defaultServiceAccountTokenPath, "The path to k8s pod service account token")
 	scopedSecretsPath := flag.String("scoped-secrets-path", "", "The path to use when crafting secret paths")
+	scopedConnectionsPath := flag.String("scoped-connections-path", "", "The path to use when crafting secret paths")
 	namespace := flag.String("namespace", "", "The kubernetes namespace that contains the workflow")
 	devPreConfigPath := flag.String("development-preconfiguration-path", "", "The path to a development preconfiguration file. This option will put the server in development mode and all managers will operate in in-memory mode.")
 
@@ -44,6 +45,7 @@ func main() {
 		VaultToken:                 *vaultToken,
 		VaultAuthMountPath:         *vaultAuthMountPath,
 		ScopedSecretsPath:          *scopedSecretsPath,
+		ScopedConnectionsPath:      *scopedConnectionsPath,
 		K8sServiceAccountTokenPath: *serviceAccountTokenPath,
 		Namespace:                  *namespace,
 		DevelopmentPreConfigPath:   *devPreConfigPath,

@@ -22,8 +22,11 @@ type MetadataServerConfig struct {
 	// the service token. Defaults to "auth/kubernetes" if empty.
 	VaultAuthMountPath string
 	// ScopedSecretsPath is the store to use inside secrets backends. Added to the path
-	// segment when crafting the path to a secret.
+	// segment when crafting the path to a workflow secret.
 	ScopedSecretsPath string
+	// ScopedConnectionsPath is the store to use inside secrets backends. Added to the path
+	// segment when crafting the path to a connection secret.
+	ScopedConnectionsPath string
 	// K8sServiceAccountTokenPath is the path to the Service Account token. This
 	// defaults to the standard kubernetes location that is set when a pod is run.
 	K8sServiceAccountTokenPath string
