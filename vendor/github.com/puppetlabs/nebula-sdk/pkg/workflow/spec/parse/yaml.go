@@ -12,6 +12,47 @@ type YAMLTransformer interface {
 	Transform(node *yaml.Node) (bool, error)
 }
 
+type YAMLDataTransformer struct{}
+
+func (YAMLDataTransformer) Transform(node *yaml.Node) (bool, error) {
+	if node.Tag != "!Data" {
+		return false, nil
+	}
+
+	var query *yaml.Node
+	switch node.Kind {
+	case yaml.MappingNode:
+		if len(node.Content) != 2 || node.Content[0].Value != "query" {
+			return false, fmt.Errorf(`expected mapping-style !Data to have exactly one key, "query"`)
+		}
+
+		query = node.Content[1]
+	case yaml.SequenceNode:
+		if len(node.Content) != 1 {
+			return false, fmt.Errorf(`expected sequence-style !Data to have exactly one item`)
+		}
+
+		query = node.Content[0]
+	case yaml.ScalarNode:
+		query = &yaml.Node{
+			Kind:  yaml.ScalarNode,
+			Value: node.Value,
+		}
+	}
+
+	// {$type: Data, query: <query>}
+	*node = yaml.Node{
+		Kind: yaml.MappingNode,
+		Content: []*yaml.Node{
+			{Kind: yaml.ScalarNode, Value: "$type"},
+			{Kind: yaml.ScalarNode, Value: "Data"},
+			{Kind: yaml.ScalarNode, Value: "query"},
+			query,
+		},
+	}
+	return true, nil
+}
+
 type YAMLSecretTransformer struct{}
 
 func (YAMLSecretTransformer) Transform(node *yaml.Node) (bool, error) {
@@ -46,6 +87,56 @@ func (YAMLSecretTransformer) Transform(node *yaml.Node) (bool, error) {
 		Content: []*yaml.Node{
 			{Kind: yaml.ScalarNode, Value: "$type"},
 			{Kind: yaml.ScalarNode, Value: "Secret"},
+			{Kind: yaml.ScalarNode, Value: "name"},
+			name,
+		},
+	}
+	return true, nil
+}
+
+type YAMLConnectionTransformer struct{}
+
+func (YAMLConnectionTransformer) Transform(node *yaml.Node) (bool, error) {
+	if node.ShortTag() != "!Connection" {
+		return false, nil
+	}
+
+	var connectionType, name *yaml.Node
+	switch node.Kind {
+	case yaml.MappingNode:
+		if len(node.Content) != 4 {
+			return false, fmt.Errorf(`expected mapping-style !Connection to have exactly two keys, "type" and "name"`)
+		}
+
+		for i := 0; i < len(node.Content); i += 2 {
+			switch node.Content[i].Value {
+			case "type":
+				connectionType = node.Content[i+1]
+			case "name":
+				name = node.Content[i+1]
+			default:
+				return false, fmt.Errorf(`expected mapping-style !Connection to have exactly two keys, "type" and "name"`)
+			}
+		}
+	case yaml.SequenceNode:
+		if len(node.Content) != 2 {
+			return false, fmt.Errorf(`expected mapping-style !Connection to have exactly two items`)
+		}
+
+		connectionType = node.Content[0]
+		name = node.Content[1]
+	default:
+		return false, fmt.Errorf(`unexpected scalar value for !Connection, must be a mapping or sequence`)
+	}
+
+	// {$type: Connection, type: <type>, name: <name>}
+	*node = yaml.Node{
+		Kind: yaml.MappingNode,
+		Content: []*yaml.Node{
+			{Kind: yaml.ScalarNode, Value: "$type"},
+			{Kind: yaml.ScalarNode, Value: "Connection"},
+			{Kind: yaml.ScalarNode, Value: "type"},
+			connectionType,
 			{Kind: yaml.ScalarNode, Value: "name"},
 			name,
 		},
@@ -267,7 +358,9 @@ func (YAMLUnknownTagTransformer) Transform(node *yaml.Node) (bool, error) {
 }
 
 var YAMLTransformers = []YAMLTransformer{
+	YAMLDataTransformer{},
 	YAMLSecretTransformer{},
+	YAMLConnectionTransformer{},
 	YAMLOutputTransformer{},
 	YAMLParameterTransformer{},
 	YAMLAnswerTransformer{},
