@@ -80,52 +80,55 @@ func NewConnectionsGetError() Error {
 	return NewConnectionsGetErrorBuilder().Build()
 }
 
-// ConnectionsNotFoundErrorCode is the code for an instance of "not_found_error".
-const ConnectionsNotFoundErrorCode = "nt_connections_not_found_error"
+// ConnectionsTypeNameNotFoundCode is the code for an instance of "type_name_not_found".
+const ConnectionsTypeNameNotFoundCode = "nt_connections_type_name_not_found"
 
-// IsConnectionsNotFoundError tests whether a given error is an instance of "not_found_error".
-func IsConnectionsNotFoundError(err errawr.Error) bool {
-	return err != nil && err.Is(ConnectionsNotFoundErrorCode)
+// IsConnectionsTypeNameNotFound tests whether a given error is an instance of "type_name_not_found".
+func IsConnectionsTypeNameNotFound(err errawr.Error) bool {
+	return err != nil && err.Is(ConnectionsTypeNameNotFoundCode)
 }
 
-// IsConnectionsNotFoundError tests whether a given error is an instance of "not_found_error".
-func (External) IsConnectionsNotFoundError(err errawr.Error) bool {
-	return IsConnectionsNotFoundError(err)
+// IsConnectionsTypeNameNotFound tests whether a given error is an instance of "type_name_not_found".
+func (External) IsConnectionsTypeNameNotFound(err errawr.Error) bool {
+	return IsConnectionsTypeNameNotFound(err)
 }
 
-// ConnectionsNotFoundErrorBuilder is a builder for "not_found_error" errors.
-type ConnectionsNotFoundErrorBuilder struct {
+// ConnectionsTypeNameNotFoundBuilder is a builder for "type_name_not_found" errors.
+type ConnectionsTypeNameNotFoundBuilder struct {
 	arguments impl.ErrorArguments
 }
 
-// Build creates the error for the code "not_found_error" from this builder.
-func (b *ConnectionsNotFoundErrorBuilder) Build() Error {
+// Build creates the error for the code "type_name_not_found" from this builder.
+func (b *ConnectionsTypeNameNotFoundBuilder) Build() Error {
 	description := &impl.ErrorDescription{
-		Friendly:  "connection not found",
-		Technical: "connection not found",
+		Friendly:  "connection {{type}}/{{name}} was not found",
+		Technical: "connection {{type}}/{{name}} was not found",
 	}
 
 	return &impl.Error{
 		ErrorArguments:   b.arguments,
-		ErrorCode:        "not_found_error",
+		ErrorCode:        "type_name_not_found",
 		ErrorDescription: description,
 		ErrorDomain:      Domain,
 		ErrorMetadata:    &impl.ErrorMetadata{},
 		ErrorSection:     ConnectionsSection,
 		ErrorSensitivity: errawr.ErrorSensitivityNone,
-		ErrorTitle:       "Not found error",
+		ErrorTitle:       "Type name not found",
 		Version:          1,
 	}
 }
 
-// NewConnectionsNotFoundErrorBuilder creates a new error builder for the code "not_found_error".
-func NewConnectionsNotFoundErrorBuilder() *ConnectionsNotFoundErrorBuilder {
-	return &ConnectionsNotFoundErrorBuilder{arguments: impl.ErrorArguments{}}
+// NewConnectionsTypeNameNotFoundBuilder creates a new error builder for the code "type_name_not_found".
+func NewConnectionsTypeNameNotFoundBuilder(type_ string, name string) *ConnectionsTypeNameNotFoundBuilder {
+	return &ConnectionsTypeNameNotFoundBuilder{arguments: impl.ErrorArguments{
+		"name": impl.NewErrorArgument(name, "the connection name"),
+		"type": impl.NewErrorArgument(type_, "the connection type"),
+	}}
 }
 
-// NewConnectionsNotFoundError creates a new error with the code "not_found_error".
-func NewConnectionsNotFoundError() Error {
-	return NewConnectionsNotFoundErrorBuilder().Build()
+// NewConnectionsTypeNameNotFound creates a new error with the code "type_name_not_found".
+func NewConnectionsTypeNameNotFound(type_ string, name string) Error {
+	return NewConnectionsTypeNameNotFoundBuilder(type_, name).Build()
 }
 
 // ConnectionsValueDecodingErrorCode is the code for an instance of "value_decoding_error".

@@ -70,9 +70,14 @@ sections:
       value_decoding_error:
         title: Value decoding error
         description: decoding the secret value failed
-      not_found_error:
-        title: Not found error
-        description: connection not found
+      type_name_not_found:
+        title: Type name not found
+        description: "connection {{type}}/{{name}} was not found"
+        arguments:
+          type:
+            description: the connection type
+          name:
+            description: the connection name
       get_error:
         title: Get error
         description: there was an error getting the connection data

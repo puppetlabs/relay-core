@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/parse"
 	cconfigmap "github.com/puppetlabs/nebula-tasks/pkg/conditionals/configmap"
+	cmemory "github.com/puppetlabs/nebula-tasks/pkg/connections/memory"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/op"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"
 	"github.com/puppetlabs/nebula-tasks/pkg/outputs/configmap"
@@ -88,6 +89,7 @@ func MockTask(t *testing.T, cfg MockTaskConfig) []runtime.Object {
 
 type MockManagerFactoryConfig struct {
 	SecretData       map[string]string
+	ConnectionData   map[string]map[string]string
 	ConditionalsData map[string]string
 	Namespace        string
 	K8sResources     []runtime.Object
@@ -95,15 +97,20 @@ type MockManagerFactoryConfig struct {
 
 type MockManagerFactory struct {
 	sm  op.SecretsManager
+	cm  op.ConnectionsManager
 	om  op.OutputsManager
 	stm op.StateManager
 	mm  op.MetadataManager
 	spm op.SpecsManager
-	cm  op.ConditionalsManager
+	cdm op.ConditionalsManager
 }
 
 func (m MockManagerFactory) SecretsManager() op.SecretsManager {
 	return m.sm
+}
+
+func (m MockManagerFactory) ConnectionsManager() op.ConnectionsManager {
+	return m.cm
 }
 
 func (m MockManagerFactory) OutputsManager() op.OutputsManager {
@@ -123,7 +130,7 @@ func (m MockManagerFactory) SpecsManager() op.SpecsManager {
 }
 
 func (m MockManagerFactory) ConditionalsManager() op.ConditionalsManager {
-	return m.cm
+	return m.cdm
 }
 
 func NewMockManagerFactory(t *testing.T, cfg MockManagerFactoryConfig) MockManagerFactory {
@@ -135,14 +142,16 @@ func NewMockManagerFactory(t *testing.T, cfg MockManagerFactoryConfig) MockManag
 	stm := stconfigmap.New(kc, cfg.Namespace)
 	mm := task.NewKubernetesMetadataManager(kc, cfg.Namespace)
 	sm := smemory.New(cfg.SecretData)
+	cm := cmemory.New(cfg.ConnectionData)
 	spm := task.NewKubernetesSpecManager(kc, cfg.Namespace)
-	cm := cconfigmap.New(kc, cfg.Namespace)
+	cdm := cconfigmap.New(kc, cfg.Namespace)
 
 	return MockManagerFactory{
 		sm:  op.NewEncodingSecretManager(sm),
+		cm:  op.NewEncodingConnectionManager(cm),
 		om:  om,
 		stm: op.NewEncodeDecodingStateManager(stm),
-		cm:  cm,
+		cdm: cdm,
 		mm:  mm,
 		spm: spm,
 	}

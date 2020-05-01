@@ -2,6 +2,7 @@ package vault
 
 import (
 	"context"
+	"path"
 
 	"github.com/puppetlabs/nebula-tasks/pkg/connections"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
@@ -14,15 +15,15 @@ type ConnectionsManager struct {
 }
 
 // Get makes a call to vault's GetAll method to return a list of secret
-// key/value pairs. The lookup key is the connectionID. If an error is
+// key/value pairs. The lookup key is the connection type/name. If an error is
 // returned from vault, it will check to see if it's a not found error
 // and then convert it to a ConnectionNotFoundError. Otherwise the error
 // is converted to ConnectionGetError.
-func (cm *ConnectionsManager) Get(ctx context.Context, connectionID string) (*connections.Connection, errors.Error) {
-	resp, err := cm.v.GetAll(ctx, connectionID)
+func (cm *ConnectionsManager) Get(ctx context.Context, typ, name string) (*connections.Connection, errors.Error) {
+	resp, err := cm.v.GetAll(ctx, path.Join(typ, name))
 	if err != nil {
 		if errors.IsSecretsKeyNotFound(err) {
-			return nil, errors.NewConnectionsNotFoundError().WithCause(err)
+			return nil, errors.NewConnectionsTypeNameNotFound(typ, name).WithCause(err)
 		}
 
 		return nil, errors.NewConnectionsGetError().WithCause(err).Bug()

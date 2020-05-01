@@ -30,6 +30,7 @@ import (
 // where data resides.
 type ManagerFactory interface {
 	SecretsManager() SecretsManager
+	ConnectionsManager() ConnectionsManager
 	OutputsManager() OutputsManager
 	StateManager() StateManager
 	MetadataManager() MetadataManager
