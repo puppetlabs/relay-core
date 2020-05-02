@@ -44,6 +44,9 @@ type Config struct {
 	// token decryption.
 	VaultTransitPath string
 
+	// VaultTransitKey is the key to use for token decryption.
+	VaultTransitKey string
+
 	// VaultAuthURL is the HTTP(S) URL to the Vault server to use for
 	// authenticating tenants.
 	VaultAuthURL string
@@ -227,6 +230,7 @@ func NewConfig() *Config {
 	viper.SetDefault("vault_transit_url", viper.GetString("vault_addr"))
 	viper.SetDefault("vault_transit_token", viper.GetString("vault_token"))
 	viper.SetDefault("vault_transit_path", "transit")
+	viper.SetDefault("vault_transit_key", "metadata-api")
 
 	viper.SetDefault("vault_auth_url", viper.GetString("vault_addr"))
 	viper.SetDefault("vault_auth_path", "auth/jwt")
@@ -238,6 +242,7 @@ func NewConfig() *Config {
 		VaultTransitURL:   viper.GetString("vault_transit_url"),
 		VaultTransitToken: viper.GetString("vault_transit_token"),
 		VaultTransitPath:  viper.GetString("vault_transit_path"),
+		VaultTransitKey:   viper.GetString("vault_transit_key"),
 
 		VaultAuthURL:  viper.GetString("vault_auth_url"),
 		VaultAuthPath: viper.GetString("vault_auth_path"),

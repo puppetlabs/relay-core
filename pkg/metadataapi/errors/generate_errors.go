@@ -328,7 +328,10 @@ func (b *ExpressionUnresolvableErrorBuilder) Build() Error {
 		ErrorCode:        "unresolvable_error",
 		ErrorDescription: description,
 		ErrorDomain:      Domain,
-		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorMetadata: &impl.ErrorMetadata{HTTPErrorMetadata: &impl.HTTPErrorMetadata{
+			ErrorHeaders: impl.HTTPErrorMetadataHeaders{},
+			ErrorStatus:  422,
+		}},
 		ErrorSection:     ExpressionSection,
 		ErrorSensitivity: errawr.ErrorSensitivityNone,
 		ErrorTitle:       "Unresolvable",

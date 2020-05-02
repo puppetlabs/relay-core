@@ -14,15 +14,21 @@ type VaultTransitIntermediary struct {
 	client     *vaultapi.Client
 	path       string
 	key        string
+	context    string
 	ciphertext string
 }
 
 var _ Intermediary = &VaultTransitIntermediary{}
 
 func (vti *VaultTransitIntermediary) Next(ctx context.Context, state *Authentication) (Raw, error) {
-	secret, err := vti.client.Logical().Write(vaultTransitDecryptPath(vti.path, vti.key), map[string]interface{}{
+	data := map[string]interface{}{
 		"ciphertext": vti.ciphertext,
-	})
+	}
+	if vti.context != "" {
+		data["context"] = base64.StdEncoding.EncodeToString([]byte(vti.context))
+	}
+
+	secret, err := vti.client.Logical().Write(vaultTransitDecryptPath(vti.path, vti.key), data)
 	if err != nil {
 		return nil, err
 	} else if secret == nil {
@@ -42,13 +48,27 @@ func (vti *VaultTransitIntermediary) Next(ctx context.Context, state *Authentica
 	return Raw(plaintext), nil
 }
 
-func NewVaultTransitIntermediary(client *vaultapi.Client, path, key, ciphertext string) *VaultTransitIntermediary {
-	return &VaultTransitIntermediary{
+type VaultTransitIntermediaryOption func(vti *VaultTransitIntermediary)
+
+func VaultTransitIntermediaryWithContext(context string) VaultTransitIntermediaryOption {
+	return func(vti *VaultTransitIntermediary) {
+		vti.context = context
+	}
+}
+
+func NewVaultTransitIntermediary(client *vaultapi.Client, path, key, ciphertext string, opts ...VaultTransitIntermediaryOption) *VaultTransitIntermediary {
+	vti := &VaultTransitIntermediary{
 		client:     client,
 		path:       path,
 		key:        key,
 		ciphertext: ciphertext,
 	}
+
+	for _, opt := range opts {
+		opt(vti)
+	}
+
+	return vti
 }
 
 func ChainVaultTransitIntermediary(client *vaultapi.Client, path, key string) ChainIntermediaryFunc {
@@ -62,19 +82,23 @@ func vaultTransitDecryptPath(root, key string) string {
 }
 
 type VaultTransitWrapper struct {
-	client *vaultapi.Client
-	path   string
-	key    string
+	client  *vaultapi.Client
+	path    string
+	key     string
+	context string
 }
 
 var _ Wrapper = &VaultTransitWrapper{}
 
 func (vtw *VaultTransitWrapper) Wrap(ctx context.Context, raw Raw) (Raw, error) {
-	encoded := base64.StdEncoding.EncodeToString(raw)
+	data := map[string]interface{}{
+		"plaintext": base64.StdEncoding.EncodeToString(raw),
+	}
+	if vtw.context != "" {
+		data["context"] = base64.StdEncoding.EncodeToString([]byte(vtw.context))
+	}
 
-	secret, err := vtw.client.Logical().Write(vaultTransitEncryptPath(vtw.path, vtw.key), map[string]interface{}{
-		"plaintext": encoded,
-	})
+	secret, err := vtw.client.Logical().Write(vaultTransitEncryptPath(vtw.path, vtw.key), data)
 	if err != nil {
 		return nil, err
 	} else if secret == nil {
@@ -89,12 +113,26 @@ func (vtw *VaultTransitWrapper) Wrap(ctx context.Context, raw Raw) (Raw, error) 
 	return Raw(ciphertext), nil
 }
 
-func NewVaultTransitWrapper(client *vaultapi.Client, path, key string) *VaultTransitWrapper {
-	return &VaultTransitWrapper{
+type VaultTransitWrapperOption func(vtw *VaultTransitWrapper)
+
+func VaultTransitWrapperWithContext(context string) VaultTransitWrapperOption {
+	return func(vtw *VaultTransitWrapper) {
+		vtw.context = context
+	}
+}
+
+func NewVaultTransitWrapper(client *vaultapi.Client, path, key string, opts ...VaultTransitWrapperOption) *VaultTransitWrapper {
+	vtw := &VaultTransitWrapper{
 		client: client,
 		path:   path,
 		key:    key,
 	}
+
+	for _, opt := range opts {
+		opt(vtw)
+	}
+
+	return vtw
 }
 
 func vaultTransitEncryptPath(root, key string) string {

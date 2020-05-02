@@ -89,6 +89,9 @@ sections:
           errors:
             type: list<string>
             description: the unresolvables from the expression
+        metadata:
+          http:
+            status: 422
 
   condition:
     title: Condition errors

@@ -110,3 +110,24 @@ func MutateConfigMap(ctx context.Context, cm ConfigMap, fn func(cm *corev1.Confi
 		return obj, nil
 	}
 }
+
+type LocalConfigMap struct {
+	delegate *corev1.ConfigMap
+}
+
+var _ ConfigMap = &LocalConfigMap{}
+
+func (lcm *LocalConfigMap) Get(ctx context.Context) (*corev1.ConfigMap, error) {
+	return lcm.delegate.DeepCopy(), nil
+}
+
+func (lcm *LocalConfigMap) CreateOrUpdate(ctx context.Context, cm *corev1.ConfigMap) (*corev1.ConfigMap, error) {
+	*lcm.delegate = *cm.DeepCopy()
+	return lcm.delegate, nil
+}
+
+func NewLocalConfigMap(delegate *corev1.ConfigMap) *LocalConfigMap {
+	return &LocalConfigMap{
+		delegate: delegate,
+	}
+}

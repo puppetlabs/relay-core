@@ -8,6 +8,7 @@ require (
 	github.com/containerd/fifo v0.0.0-20200410184934-f15a3290365b // indirect
 	github.com/containerd/ttrpc v1.0.0 // indirect
 	github.com/containerd/typeurl v1.0.0 // indirect
+	github.com/docker/docker v1.13.1 // indirect
 	github.com/docker/go-events v0.0.0-20190806004212-e31b211e4f1c // indirect
 	github.com/frankban/quicktest v1.7.3 // indirect
 	github.com/golang/groupcache v0.0.0-20191002201903-404acd9df4cc // indirect
@@ -20,6 +21,8 @@ require (
 	github.com/inconshreveable/log15 v0.0.0-20180818164646-67afb5ed74ec
 	github.com/json-iterator/go v1.1.9 // indirect
 	github.com/jstemmer/go-junit-report v0.9.1 // indirect
+	github.com/keybase/go-crypto v0.0.0-20200123153347-de78d2cb44f4 // indirect
+	github.com/moby/moby v1.13.1 // indirect
 	github.com/opencontainers/runtime-spec v1.0.2 // indirect
 	github.com/opentracing/opentracing-go v1.1.0 // indirect
 	github.com/puppetlabs/errawr-gen v1.0.1

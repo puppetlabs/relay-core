@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"net/http"
 
@@ -41,6 +40,7 @@ type KubernetesAuthenticator struct {
 	// Uses Vault for token decryption (Kubernetes intermediary).
 	vaultClient      *vaultapi.Client
 	vaultTransitPath string
+	vaultTransitKey  string
 
 	// Uses Vault for JWT verification.
 	vaultJWTConfig   *vaultapi.Config
@@ -79,7 +79,13 @@ func (ka *KubernetesAuthenticator) intermediary(r *http.Request) authenticate.In
 
 	// Otherwise we chain to the Vault client to let it decrypt the token.
 	return ki.Chain(func(ctx context.Context, raw authenticate.Raw, md *authenticate.KubernetesIntermediaryMetadata) (authenticate.Intermediary, error) {
-		return authenticate.NewVaultTransitIntermediary(ka.vaultClient, ka.vaultTransitPath, fmt.Sprintf("ns-%s", md.NamespaceUID), string(raw)), nil
+		return authenticate.NewVaultTransitIntermediary(
+			ka.vaultClient,
+			ka.vaultTransitPath,
+			ka.vaultTransitKey,
+			string(raw),
+			authenticate.VaultTransitIntermediaryWithContext(string(md.NamespaceUID)),
+		), nil
 	})
 }
 
@@ -157,10 +163,11 @@ func KubernetesAuthenticatorWithKubernetesIntermediary(client kubernetes.Interfa
 	}
 }
 
-func KubernetesAuthenticatorWithChainToVaultTransitIntermediary(client *vaultapi.Client, path string) KubernetesAuthenticatorOption {
+func KubernetesAuthenticatorWithChainToVaultTransitIntermediary(client *vaultapi.Client, path, key string) KubernetesAuthenticatorOption {
 	return func(ka *KubernetesAuthenticator) {
 		ka.vaultClient = client
 		ka.vaultTransitPath = path
+		ka.vaultTransitKey = key
 	}
 }
 

@@ -76,7 +76,7 @@ func main() {
 			auth = middleware.NewKubernetesAuthenticator(
 				cfg.KubernetesClientFactory,
 				middleware.KubernetesAuthenticatorWithKubernetesIntermediary(kc),
-				middleware.KubernetesAuthenticatorWithChainToVaultTransitIntermediary(vc, cfg.VaultTransitPath),
+				middleware.KubernetesAuthenticatorWithChainToVaultTransitIntermediary(vc, cfg.VaultTransitPath, cfg.VaultTransitKey),
 				middleware.KubernetesAuthenticatorWithVaultResolver(vcfg, cfg.VaultAuthPath, cfg.VaultAuthRole),
 			)
 		}
