@@ -4,11 +4,18 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"net/http"
 	"path"
+	"time"
 
+	"github.com/hashicorp/go-retryablehttp"
 	vaultapi "github.com/hashicorp/vault/api"
 	"gopkg.in/square/go-jose.v2/jwt"
 )
+
+func VaultTransitNamespaceContext(namespace string) string {
+	return fmt.Sprintf("k8s.io/namespaces/%s", namespace)
+}
 
 type VaultTransitIntermediary struct {
 	client     *vaultapi.Client
@@ -71,9 +78,9 @@ func NewVaultTransitIntermediary(client *vaultapi.Client, path, key, ciphertext 
 	return vti
 }
 
-func ChainVaultTransitIntermediary(client *vaultapi.Client, path, key string) ChainIntermediaryFunc {
+func ChainVaultTransitIntermediary(client *vaultapi.Client, path, key string, opts ...VaultTransitIntermediaryOption) ChainIntermediaryFunc {
 	return func(ctx context.Context, raw Raw) (Intermediary, error) {
-		return NewVaultTransitIntermediary(client, path, key, string(raw)), nil
+		return NewVaultTransitIntermediary(client, path, key, string(raw), opts...), nil
 	}
 }
 
@@ -242,4 +249,23 @@ func NewVaultResolver(cfg *vaultapi.Config, path string, opts ...VaultResolverOp
 	}
 
 	return vr
+}
+
+func NewStubConfigVaultResolver(addr, path string, opts ...VaultResolverOption) *VaultResolver {
+	// This is similar to the Vault default config but doesn't look in the
+	// environment for anything and uses the regular Go library HTTP client.
+	cfg := &vaultapi.Config{
+		Address:    addr,
+		HttpClient: &http.Client{},
+		Timeout:    60 * time.Second,
+		Backoff:    retryablehttp.LinearJitterBackoff,
+		MaxRetries: 2,
+	}
+
+	// See comments in the Vault code for this.
+	cfg.HttpClient.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+
+	return NewVaultResolver(cfg, path, opts...)
 }

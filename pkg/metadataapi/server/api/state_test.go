@@ -1,102 +1,91 @@
 package api_test
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"testing"
 
-	"github.com/google/uuid"
-	"github.com/puppetlabs/horsehead/v2/logging"
+	"github.com/puppetlabs/errawr-go/v2/pkg/errawr"
+	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/errors"
+	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/opt"
+	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/sample"
+	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/api"
+	"github.com/puppetlabs/nebula-tasks/pkg/util/testutil"
 	"github.com/stretchr/testify/require"
-
-	"github.com/puppetlabs/nebula-tasks/pkg/config"
-	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"
-	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/testutil"
-	"github.com/puppetlabs/nebula-tasks/pkg/state"
 )
 
-func TestStateManager(t *testing.T) {
-	t.Parallel()
+func TestGetState(t *testing.T) {
+	ctx := context.Background()
 
-	taskConfig := testutil.MockTaskConfig{
-		Run:       uuid.New().String(),
-		Name:      "test-task",
-		Namespace: "test-task",
-		PodIP:     "10.3.3.3",
-	}
+	tokenGenerator, err := sample.NewHS256TokenGenerator(nil)
+	require.NoError(t, err)
 
-	managers := testutil.NewMockManagerFactory(t, testutil.MockManagerFactoryConfig{
-		Namespace:    taskConfig.Namespace,
-		K8sResources: testutil.MockTask(t, taskConfig),
-	})
-	logger := logging.Builder().At("state-client-test").Build()
-	srv := New(&config.MetadataServerConfig{Logger: logger}, managers)
-	mw := []middleware.MiddlewareFunc{testutil.WithRemoteAddress(taskConfig.PodIP)}
-
-	cases := []struct {
-		description string
-		key         string
-		value       string
-		taskName    string
-		setErr      error
-		getErr      error
+	tests := []struct {
+		Name          string
+		State         map[string]interface{}
+		ExpectedValue interface{}
+		ExpectedError errawr.Error
 	}{
 		{
-			description: "can set a simple pair",
-			key:         "test-key",
-			value:       "test-value",
-			taskName:    taskConfig.Name,
+			Name: "Basic",
+			State: map[string]interface{}{
+				"test-key": "test-value",
+			},
+			ExpectedValue: "test-value",
 		},
 		{
-			description: "missing key raises an error",
-			key:         "",
-			value:       "test-value",
-			taskName:    taskConfig.Name,
-			getErr:      state.ErrStateClientKeyEmpty,
+			Name: "Non-UTF-8 characters",
+			State: map[string]interface{}{
+				"test-key": "hello\x90",
+			},
+			ExpectedValue: "hello\x90",
+		},
+		{
+			Name: "Nonexistent",
+			State: map[string]interface{}{
+				"other-key": "test-value",
+			},
+			ExpectedError: errors.NewModelNotFoundError(),
 		},
 	}
+	for _, test := range tests {
+		t.Run(test.Name, func(t *testing.T) {
+			sc := &opt.SampleConfig{
+				Runs: map[string]*opt.SampleConfigRun{
+					"test": &opt.SampleConfigRun{
+						Steps: map[string]*opt.SampleConfigStep{
+							"test-task": &opt.SampleConfigStep{
+								State: test.State,
+							},
+						},
+					},
+				},
+			}
 
-	testutil.WithTestMetadataAPIServer(srv, mw, func(ts *httptest.Server) {
-		for _, c := range cases {
-			t.Run(c.description, func(t *testing.T) {
-				apiEndpoint, err := url.Parse(ts.URL + "/state")
-				require.NoError(t, err)
+			tokenMap := tokenGenerator.GenerateAll(ctx, sc)
 
-				client := state.NewDefaultStateClient(apiEndpoint)
-				ctx := context.Background()
+			testTaskToken, found := tokenMap.Get("test", "test-task")
+			require.True(t, found)
 
-				data := make(map[string]interface{})
-				data[c.key] = c.value
-				raw, err := json.Marshal(data)
-				require.NoError(t, err)
+			h := api.NewHandler(sample.NewAuthenticator(sc, tokenGenerator.Key()))
 
-				buf := &bytes.Buffer{}
-				buf.Write(raw)
+			req, err := http.NewRequest(http.MethodGet, "/state/test-key", nil)
+			require.NoError(t, err)
+			req.Header.Set("Authorization", "Bearer "+testTaskToken)
 
-				err = client.SetState(ctx, buf.String())
-				if c.setErr != nil {
-					require.Error(t, err)
-					require.Equal(t, c.setErr, err)
+			resp := httptest.NewRecorder()
+			h.ServeHTTP(resp, req)
+			if test.ExpectedError == nil {
+				require.Equal(t, http.StatusOK, resp.Result().StatusCode)
 
-					return
-				}
-
-				require.NoError(t, err)
-
-				value, err := client.GetState(ctx, c.key)
-				if c.getErr != nil {
-					require.Error(t, err)
-					require.Equal(t, c.getErr, err)
-
-					return
-				}
-
-				require.NoError(t, err)
-				require.Equal(t, c.value, value)
-			})
-		}
-	})
+				var env api.GetStateResponseEnvelope
+				require.NoError(t, json.NewDecoder(resp.Result().Body).Decode(&env))
+				require.Equal(t, test.ExpectedValue, env.Value.Data)
+			} else {
+				testutil.RequireErrorResponse(t, test.ExpectedError, resp.Result())
+			}
+		})
+	}
 }

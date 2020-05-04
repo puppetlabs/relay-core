@@ -2,105 +2,83 @@ package configmap_test
 
 import (
 	"context"
-	"net/http/httptest"
-	"net/url"
 	"testing"
 
-	"github.com/google/uuid"
-	"github.com/puppetlabs/horsehead/v2/logging"
-	"github.com/puppetlabs/nebula-sdk/pkg/outputs"
-	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server"
-	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"
-	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/testutil"
-	"github.com/puppetlabs/nebula-tasks/pkg/metadatapi/config"
+	"github.com/puppetlabs/nebula-tasks/pkg/manager/configmap"
+	"github.com/puppetlabs/nebula-tasks/pkg/util/testutil"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 )
 
-func TestConfigMapOutputs(t *testing.T) {
-	t.Parallel()
+func TestClientConfigMap(t *testing.T) {
+	ctx := context.Background()
+	kc := testutil.NewMockKubernetesClient()
 
-	taskConfig := testutil.MockTaskConfig{
-		Run:       uuid.New().String(),
-		Name:      "test-task",
-		Namespace: "test-task",
-		PodIP:     "10.3.3.3",
+	cm := configmap.NewClientConfigMap(kc, "default", "test")
+
+	obj, err := cm.Get(ctx)
+	require.Nil(t, obj)
+	require.True(t, errors.IsNotFound(err))
+
+	obj = &corev1.ConfigMap{
+		Data: map[string]string{
+			"foo": "bar",
+		},
 	}
+	obj, err = cm.CreateOrUpdate(ctx, obj)
+	require.NoError(t, err)
+	require.NotEmpty(t, obj.GetUID())
+	require.Equal(t, "default", obj.GetNamespace())
+	require.Equal(t, "test", obj.GetName())
+	require.Equal(t, "bar", obj.Data["foo"])
 
-	managers := testutil.NewMockManagerFactory(t, testutil.MockManagerFactoryConfig{
-		Namespace:    "test-task",
-		K8sResources: testutil.MockTask(t, taskConfig),
-	})
-	logger := logging.Builder().At("outputs-client-test").Build()
-	srv := server.New(&config.Config{Logger: logger}, managers)
-	mw := []middleware.MiddlewareFunc{testutil.WithRemoteAddress(taskConfig.PodIP)}
+	obj.Data["foo"] = "baz"
+	obj, err = cm.CreateOrUpdate(ctx, obj)
+	require.NoError(t, err)
+	require.Equal(t, "baz", obj.Data["foo"])
+}
 
-	cases := []struct {
-		description string
-		key         string
-		value       string
-		taskName    string
-		setErr      error
-		getErr      error
-	}{
-		{
-			description: "can set a simple pair",
-			key:         "foo",
-			value:       "bar",
-			taskName:    taskConfig.Name,
-		},
-		{
-			description: "missing key raises an error",
-			key:         "",
-			value:       "bar",
-			taskName:    taskConfig.Name,
-			setErr:      outputs.ErrOutputsClientKeyEmpty,
-		},
-		{
-			description: "missing value raises an error",
-			key:         "foo",
-			value:       "",
-			taskName:    taskConfig.Name,
-			setErr:      outputs.ErrOutputsClientValueEmpty,
-		},
-		{
-			description: "missing taskName raises an error",
-			key:         "foo",
-			value:       "value",
-			taskName:    "",
-			getErr:      outputs.ErrOutputsClientTaskNameEmpty,
+func TestLocalConfigMap(t *testing.T) {
+	ctx := context.Background()
+	obj := &corev1.ConfigMap{
+		Data: map[string]string{
+			"foo": "bar",
 		},
 	}
 
-	testutil.WithTestMetadataAPIServer(srv, mw, func(ts *httptest.Server) {
-		for _, c := range cases {
-			t.Run(c.description, func(t *testing.T) {
-				apiEndpoint, err := url.Parse(ts.URL + "/outputs")
-				require.NoError(t, err)
+	cm := configmap.NewLocalConfigMap(obj)
 
-				client := outputs.NewDefaultOutputsClient(apiEndpoint)
-				ctx := context.Background()
+	copy, err := cm.Get(ctx)
+	require.NoError(t, err)
 
-				err = client.SetOutput(ctx, c.key, c.value)
-				if c.setErr != nil {
-					require.Error(t, err)
-					require.Equal(t, c.setErr, err)
+	// Make sure we're using a copy.
+	copy.Data["foo"] = "baz"
+	require.Equal(t, "bar", obj.Data["foo"])
 
-					return
-				}
+	// Make sure that save propagates back to the original map.
+	copy, err = cm.CreateOrUpdate(ctx, copy)
+	require.NoError(t, err)
+	require.Equal(t, "baz", obj.Data["foo"])
+}
 
-				require.NoError(t, err)
+func TestMutateConfigMap(t *testing.T) {
+	ctx := context.Background()
+	kc := testutil.NewMockKubernetesClient()
 
-				value, err := client.GetOutput(ctx, c.taskName, c.key)
-				if c.getErr != nil {
-					require.Error(t, err)
-					require.Equal(t, c.getErr, err)
+	cm := configmap.NewClientConfigMap(kc, "default", "test")
 
-					return
-				}
-
-				require.NoError(t, err)
-				require.Equal(t, c.value, value)
-			})
-		}
+	obj, err := configmap.MutateConfigMap(ctx, cm, func(obj *corev1.ConfigMap) {
+		obj.Data["foo"] = "bar"
 	})
+	require.NoError(t, err)
+	require.NotEmpty(t, obj.GetUID())
+	require.Equal(t, "test", obj.GetName())
+	require.Equal(t, "bar", obj.Data["foo"])
+
+	obj, err = configmap.MutateConfigMap(ctx, cm, func(obj *corev1.ConfigMap) {
+		obj.Data["foo"] = "baz"
+	})
+	require.NoError(t, err)
+	require.Equal(t, "baz", obj.Data["foo"])
 }

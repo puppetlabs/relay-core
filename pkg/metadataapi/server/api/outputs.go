@@ -65,7 +65,7 @@ func (s *Server) PutOutput(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := om.Set(ctx, name, value); err != nil {
+	if _, err := om.Set(ctx, name, value.Data); err != nil {
 		utilapi.WriteError(ctx, w, ModelWriteError(err))
 		return
 	}

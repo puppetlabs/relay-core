@@ -4,12 +4,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
-	"net/http"
 	"net/url"
 	"os"
-	"time"
 
-	"github.com/hashicorp/go-retryablehttp"
 	vaultapi "github.com/hashicorp/vault/api"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
@@ -168,25 +165,6 @@ func (c *Config) VaultTransitClient() (*vaultapi.Client, error) {
 	client.SetToken(c.VaultTransitToken)
 
 	return client, nil
-}
-
-func (c *Config) VaultAuthConfig() (*vaultapi.Config, error) {
-	// This is similar to the Vault default config but doesn't look in the
-	// environment for anything and uses the regular Go library HTTP client.
-	cfg := &vaultapi.Config{
-		Address:    c.VaultAuthURL,
-		HttpClient: &http.Client{},
-		Timeout:    60 * time.Second,
-		Backoff:    retryablehttp.LinearJitterBackoff,
-		MaxRetries: 2,
-	}
-
-	// See comments in the Vault code for this.
-	cfg.HttpClient.CheckRedirect = func(req *http.Request, via []*http.Request) error {
-		return http.ErrUseLastResponse
-	}
-
-	return cfg, nil
 }
 
 func (c *Config) SampleConfig() (*SampleConfig, error) {

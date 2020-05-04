@@ -13,6 +13,19 @@ import (
 	"gopkg.in/square/go-jose.v2/jwt"
 )
 
+type tokenEntry struct {
+	runID, stepName string
+}
+
+type TokenMap struct {
+	m map[tokenEntry]string
+}
+
+func (tm *TokenMap) Get(runID, stepName string) (tok string, found bool) {
+	tok, found = tm.m[tokenEntry{runID, stepName}]
+	return
+}
+
 type TokenGenerator struct {
 	key    interface{}
 	issuer authenticate.Issuer
@@ -22,7 +35,11 @@ func (tg *TokenGenerator) Key() interface{} {
 	return tg.key
 }
 
-func (tg *TokenGenerator) LogAll(ctx context.Context, sc *opt.SampleConfig) {
+func (tg *TokenGenerator) GenerateAll(ctx context.Context, sc *opt.SampleConfig) *TokenMap {
+	tm := &TokenMap{
+		m: make(map[tokenEntry]string),
+	}
+
 	for id, run := range sc.Runs {
 		rm := model.Run{ID: id}
 
@@ -31,7 +48,8 @@ func (tg *TokenGenerator) LogAll(ctx context.Context, sc *opt.SampleConfig) {
 
 			claims := &authenticate.Claims{
 				Claims: &jwt.Claims{
-					Subject: fmt.Sprintf(path.Join(sm.Type().Plural, sm.Hash().HexEncoding())),
+					Audience: jwt.Audience{authenticate.MetadataAPIAudienceV1},
+					Subject:  fmt.Sprintf(path.Join(sm.Type().Plural, sm.Hash().HexEncoding())),
 				},
 				RelayRunID: rm.ID,
 				RelayName:  sm.Name,
@@ -42,9 +60,12 @@ func (tg *TokenGenerator) LogAll(ctx context.Context, sc *opt.SampleConfig) {
 				log().Error("failed to generate token for step", "run-id", rm.ID, "step-name", sm.Name, "error", err)
 			}
 
+			tm.m[tokenEntry{rm.ID, sm.Name}] = string(tok)
 			log().Info("generated JWT for step", "run-id", rm.ID, "step-name", sm.Name, "token", string(tok))
 		}
 	}
+
+	return tm
 }
 
 func NewHS256TokenGenerator(key []byte) (*TokenGenerator, error) {

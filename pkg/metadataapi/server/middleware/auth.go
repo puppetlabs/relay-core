@@ -43,7 +43,7 @@ type KubernetesAuthenticator struct {
 	vaultTransitKey  string
 
 	// Uses Vault for JWT verification.
-	vaultJWTConfig   *vaultapi.Config
+	vaultJWTAuthAddr string
 	vaultJWTAuthPath string
 	vaultJWTAuthRole string
 
@@ -84,7 +84,7 @@ func (ka *KubernetesAuthenticator) intermediary(r *http.Request) authenticate.In
 			ka.vaultTransitPath,
 			ka.vaultTransitKey,
 			string(raw),
-			authenticate.VaultTransitIntermediaryWithContext(string(md.NamespaceUID)),
+			authenticate.VaultTransitIntermediaryWithContext(authenticate.VaultTransitNamespaceContext(string(md.NamespaceUID))),
 		), nil
 	})
 }
@@ -92,9 +92,9 @@ func (ka *KubernetesAuthenticator) intermediary(r *http.Request) authenticate.In
 func (ka *KubernetesAuthenticator) resolver(mgrs *builder.MetadataBuilder) authenticate.Resolver {
 	var delegates []authenticate.Resolver
 
-	if ka.vaultJWTConfig != nil {
-		delegates = append(delegates, authenticate.NewVaultResolver(
-			ka.vaultJWTConfig,
+	if ka.vaultJWTAuthAddr != "" {
+		delegates = append(delegates, authenticate.NewStubConfigVaultResolver(
+			ka.vaultJWTAuthAddr,
 			ka.vaultJWTAuthPath,
 			authenticate.VaultResolverWithRole(ka.vaultJWTAuthRole),
 			authenticate.VaultResolverWithInjector(authenticate.VaultResolverInjectorFunc(func(ctx context.Context, claims *authenticate.Claims, md *authenticate.VaultResolverMetadata) error {
@@ -171,9 +171,9 @@ func KubernetesAuthenticatorWithChainToVaultTransitIntermediary(client *vaultapi
 	}
 }
 
-func KubernetesAuthenticatorWithVaultResolver(cfg *vaultapi.Config, path, role string) KubernetesAuthenticatorOption {
+func KubernetesAuthenticatorWithVaultResolver(addr, path, role string) KubernetesAuthenticatorOption {
 	return func(ka *KubernetesAuthenticator) {
-		ka.vaultJWTConfig = cfg
+		ka.vaultJWTAuthAddr = addr
 		ka.vaultJWTAuthPath = path
 		ka.vaultJWTAuthRole = role
 	}

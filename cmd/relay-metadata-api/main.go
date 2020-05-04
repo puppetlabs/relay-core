@@ -53,9 +53,9 @@ func main() {
 			}
 
 			// Print the JWTs so users can pick them off for requests.
-			tg.LogAll(ctx, sc)
+			_ = tg.GenerateAll(ctx, sc)
 
-			auth = sample.NewAuthenticator(sc, tg)
+			auth = sample.NewAuthenticator(sc, tg.Key())
 		} else {
 			// Set up the server for real traffic.
 			kc, err := cfg.KubernetesClient()
@@ -68,16 +68,11 @@ func main() {
 				return err
 			}
 
-			vcfg, err := cfg.VaultAuthConfig()
-			if err != nil {
-				return err
-			}
-
 			auth = middleware.NewKubernetesAuthenticator(
 				cfg.KubernetesClientFactory,
 				middleware.KubernetesAuthenticatorWithKubernetesIntermediary(kc),
 				middleware.KubernetesAuthenticatorWithChainToVaultTransitIntermediary(vc, cfg.VaultTransitPath, cfg.VaultTransitKey),
-				middleware.KubernetesAuthenticatorWithVaultResolver(vcfg, cfg.VaultAuthPath, cfg.VaultAuthRole),
+				middleware.KubernetesAuthenticatorWithVaultResolver(cfg.VaultAuthURL, cfg.VaultAuthPath, cfg.VaultAuthRole),
 			)
 		}
 

@@ -29,11 +29,10 @@ type PipelineDeps struct {
 	ImmutableConfigMap *ConfigMap
 	MutableConfigMap   *ConfigMap
 
-	MetadataAPIURL                       *url.URL
-	MetadataAPIServiceAccount            *ServiceAccount
-	MetadataAPIServiceAccountTokenSecret *ServiceAccountTokenSecret
-	MetadataAPIRole                      *Role
-	MetadataAPIRoleBinding               *RoleBinding
+	MetadataAPIURL            *url.URL
+	MetadataAPIServiceAccount *ServiceAccount
+	MetadataAPIRole           *Role
+	MetadataAPIRoleBinding    *RoleBinding
 
 	PipelineServiceAccount *ServiceAccount
 
@@ -52,7 +51,6 @@ func (pd *PipelineDeps) Persist(ctx context.Context, cl client.Client) error {
 		pd.ImmutableConfigMap,
 		pd.MutableConfigMap,
 		pd.MetadataAPIServiceAccount,
-		pd.MetadataAPIServiceAccountTokenSecret,
 		pd.MetadataAPIRole,
 		pd.MetadataAPIRoleBinding,
 		pd.PipelineServiceAccount,
@@ -77,7 +75,6 @@ func (pd *PipelineDeps) Load(ctx context.Context, cl client.Client) (bool, error
 		pd.ImmutableConfigMap,
 		pd.MutableConfigMap,
 		pd.MetadataAPIServiceAccount,
-		pd.MetadataAPIServiceAccountTokenSecret,
 		pd.MetadataAPIRole,
 		pd.MetadataAPIRoleBinding,
 		pd.PipelineServiceAccount,
@@ -96,17 +93,24 @@ func (pd *PipelineDeps) AnnotateStepToken(ctx context.Context, target *metav1.Ob
 	ms := ModelStep(pd.WorkflowRun, ws)
 	now := time.Now()
 
+	sat, err := pd.MetadataAPIServiceAccount.DefaultTokenSecret.Token()
+	if err != nil {
+		return err
+	}
+
 	claims := &authenticate.Claims{
 		Claims: &jwt.Claims{
 			Issuer:    authenticate.ControllerIssuer,
+			Audience:  jwt.Audience{authenticate.MetadataAPIAudienceV1},
 			Subject:   path.Join(ms.Type().Plural, ms.Hash().HexEncoding()),
 			Expiry:    jwt.NewNumericDate(now.Add(1*time.Hour + 5*time.Minute)),
 			NotBefore: jwt.NewNumericDate(now),
 			IssuedAt:  jwt.NewNumericDate(now),
 		},
 
-		KubernetesNamespaceName: pd.Namespace.Name,
-		KubernetesNamespaceUID:  string(pd.Namespace.Object.GetUID()),
+		KubernetesNamespaceName:       pd.Namespace.Name,
+		KubernetesNamespaceUID:        string(pd.Namespace.Object.GetUID()),
+		KubernetesServiceAccountToken: sat,
 
 		RelayRunID: ms.Run.ID,
 		RelayName:  ms.Name,
@@ -152,11 +156,10 @@ func NewPipelineDeps(wr *WorkflowRun, issuer authenticate.Issuer, metadataAPIURL
 		ImmutableConfigMap: NewConfigMap(SuffixObjectKey(key, "immutable")),
 		MutableConfigMap:   NewConfigMap(SuffixObjectKey(key, "mutable")),
 
-		MetadataAPIURL:                       metadataAPIURL,
-		MetadataAPIServiceAccount:            NewServiceAccount(SuffixObjectKey(key, "metadata-api")),
-		MetadataAPIServiceAccountTokenSecret: NewServiceAccountTokenSecret(SuffixObjectKey(key, "metadata-api-jwt")),
-		MetadataAPIRole:                      NewRole(SuffixObjectKey(key, "metadata-api")),
-		MetadataAPIRoleBinding:               NewRoleBinding(SuffixObjectKey(key, "metadata-api")),
+		MetadataAPIURL:            metadataAPIURL,
+		MetadataAPIServiceAccount: NewServiceAccount(SuffixObjectKey(key, "metadata-api")),
+		MetadataAPIRole:           NewRole(SuffixObjectKey(key, "metadata-api")),
+		MetadataAPIRoleBinding:    NewRoleBinding(SuffixObjectKey(key, "metadata-api")),
 
 		PipelineServiceAccount: NewServiceAccount(SuffixObjectKey(key, "pipeline")),
 
@@ -210,9 +213,6 @@ func ConfigurePipelineDeps(ctx context.Context, pd *PipelineDeps) error {
 	}
 
 	ConfigureMetadataAPIServiceAccount(pd.MetadataAPIServiceAccount)
-	if err := ConfigureServiceAccountTokenSecret(pd.MetadataAPIServiceAccountTokenSecret, pd.MetadataAPIServiceAccount); err != nil {
-		return err
-	}
 	ConfigureMetadataAPIRole(pd.MetadataAPIRole, pd.ImmutableConfigMap, pd.MutableConfigMap)
 	ConfigureMetadataAPIRoleBinding(pd.MetadataAPIRoleBinding, pd.MetadataAPIServiceAccount, pd.MetadataAPIRole)
 

@@ -51,7 +51,7 @@ func CreateOrUpdate(ctx context.Context, cl client.Client, key client.ObjectKey,
 		return cl.Create(ctx, obj)
 	}
 
-	klog.Info("updating %T %s", obj, key)
+	klog.Infof("updating %T %s", obj, key)
 	return cl.Update(ctx, obj)
 }
 

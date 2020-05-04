@@ -2,15 +2,22 @@ package obj
 
 import (
 	"context"
+	"errors"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+var (
+	ErrServiceAccountMissingDefaultTokenSecret = errors.New("obj: service account has no default token secret")
+)
+
 type ServiceAccount struct {
 	Key    client.ObjectKey
 	Object *corev1.ServiceAccount
+
+	DefaultTokenSecret *ServiceAccountTokenSecret
 }
 
 var _ Persister = &ServiceAccount{}
@@ -19,11 +26,47 @@ var _ Ownable = &ServiceAccount{}
 var _ LabelAnnotatableFrom = &ServiceAccount{}
 
 func (sa *ServiceAccount) Persist(ctx context.Context, cl client.Client) error {
-	return CreateOrUpdate(ctx, cl, sa.Key, sa.Object)
+	if err := CreateOrUpdate(ctx, cl, sa.Key, sa.Object); err != nil {
+		return err
+	}
+
+	return sa.loadDefaultTokenSecret(ctx, cl)
 }
 
 func (sa *ServiceAccount) Load(ctx context.Context, cl client.Client) (bool, error) {
-	return GetIgnoreNotFound(ctx, cl, sa.Key, sa.Object)
+	if ok, err := GetIgnoreNotFound(ctx, cl, sa.Key, sa.Object); err != nil {
+		return false, err
+	} else if !ok {
+		return false, nil
+	}
+
+	if err := sa.loadDefaultTokenSecret(ctx, cl); err != nil {
+		return false, err
+	}
+
+	return true, nil
+}
+
+func (sa *ServiceAccount) loadDefaultTokenSecret(ctx context.Context, cl client.Client) error {
+	if len(sa.Object.Secrets) == 0 || sa.Object.Secrets[0].Name == "" {
+		return ErrServiceAccountMissingDefaultTokenSecret
+	}
+
+	key := client.ObjectKey{
+		Namespace: sa.Key.Namespace,
+		Name:      sa.Object.Secrets[0].Name,
+	}
+
+	if sa.DefaultTokenSecret.Key == key && len(sa.DefaultTokenSecret.Object.GetUID()) != 0 {
+		// Already loaded.
+		return nil
+	}
+
+	if _, err := (RequiredLoader{sa.DefaultTokenSecret}).Load(ctx, cl); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (sa *ServiceAccount) Owned(ctx context.Context, ref *metav1.OwnerReference) {

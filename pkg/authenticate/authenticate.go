@@ -19,6 +19,17 @@ func (a *Authentication) AddInjector(i Injector) {
 	*a.injectors = append(*a.injectors, i)
 }
 
+func NewInitializedAuthentication(validators *[]Validator, injectors *[]Injector) *Authentication {
+	return &Authentication{
+		validators: validators,
+		injectors:  injectors,
+	}
+}
+
+func NewAuthentication() *Authentication {
+	return NewInitializedAuthentication(&[]Validator{}, &[]Injector{})
+}
+
 // Authenticator provides client authentication using a token. It resolves and
 // validates claims, finally injecting contextual information as needed.
 type Authenticator struct {
@@ -32,10 +43,7 @@ func (a *Authenticator) Authenticate(ctx context.Context) (bool, error) {
 	validators := append([]Validator{}, a.validators...)
 	injectors := append([]Injector{}, a.injectors...)
 
-	state := &Authentication{
-		validators: &validators,
-		injectors:  &injectors,
-	}
+	state := NewInitializedAuthentication(&validators, &injectors)
 
 	raw, err := a.intermediary.Next(ctx, state)
 	if err == ErrNotFound {

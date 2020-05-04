@@ -90,11 +90,13 @@ func MutateConfigMap(ctx context.Context, cm ConfigMap, fn func(cm *corev1.Confi
 	for {
 		obj, err := cm.Get(ctx)
 		if errors.IsNotFound(err) {
-			obj = &corev1.ConfigMap{
-				Data: make(map[string]string),
-			}
+			obj = &corev1.ConfigMap{}
 		} else if err != nil {
 			return nil, err
+		}
+
+		if obj.Data == nil {
+			obj.Data = make(map[string]string)
 		}
 
 		fn(obj)
@@ -123,7 +125,7 @@ func (lcm *LocalConfigMap) Get(ctx context.Context) (*corev1.ConfigMap, error) {
 
 func (lcm *LocalConfigMap) CreateOrUpdate(ctx context.Context, cm *corev1.ConfigMap) (*corev1.ConfigMap, error) {
 	*lcm.delegate = *cm.DeepCopy()
-	return lcm.delegate, nil
+	return cm, nil
 }
 
 func NewLocalConfigMap(delegate *corev1.ConfigMap) *LocalConfigMap {

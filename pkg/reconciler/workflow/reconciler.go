@@ -56,7 +56,7 @@ func NewReconciler(dm *dependency.DependencyManager) *Reconciler {
 				dm.VaultClient,
 				dm.Config.VaultTransitPath,
 				dm.Config.VaultTransitKey,
-				authenticate.VaultTransitWrapperWithContext(claims.KubernetesNamespaceUID),
+				authenticate.VaultTransitWrapperWithContext(authenticate.VaultTransitNamespaceContext(claims.KubernetesNamespaceUID)),
 			).Wrap(ctx, raw)
 		}),
 	}

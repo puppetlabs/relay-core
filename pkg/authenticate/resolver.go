@@ -7,6 +7,14 @@ type Resolver interface {
 	Resolve(ctx context.Context, state *Authentication, raw Raw) (*Claims, error)
 }
 
+type ResolverFunc func(ctx context.Context, state *Authentication, raw Raw) (*Claims, error)
+
+var _ Resolver = ResolverFunc(nil)
+
+func (rf ResolverFunc) Resolve(ctx context.Context, state *Authentication, raw Raw) (*Claims, error) {
+	return rf(ctx, state, raw)
+}
+
 // AnyResolver picks the first resolver that resolves claims successfully. If a
 // resolver returns an error other than ErrNotFound, it is immediately
 // propagated.
@@ -26,11 +34,7 @@ func (ar *AnyResolver) Resolve(ctx context.Context, state *Authentication, raw R
 		// Temporary state that will be propagated back on success.
 		var validators []Validator
 		var injectors []Injector
-
-		ts := &Authentication{
-			validators: &validators,
-			injectors:  &injectors,
-		}
+		ts := NewInitializedAuthentication(&validators, &injectors)
 
 		claims, err := delegate.Resolve(ctx, ts, raw)
 		if err == ErrNotFound {

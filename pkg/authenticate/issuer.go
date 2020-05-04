@@ -4,6 +4,8 @@ import "context"
 
 const (
 	ControllerIssuer = "controller.k8s.relay.sh"
+
+	MetadataAPIAudienceV1 = "k8s.relay.sh/metadata-api/v1"
 )
 
 type Issuer interface {

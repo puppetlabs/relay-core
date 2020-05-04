@@ -2,6 +2,7 @@ package obj
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 
 	corev1 "k8s.io/api/core/v1"
@@ -12,7 +13,7 @@ import (
 var (
 	ErrNotImagePullSecret             = errors.New("obj: secret is not usable for pulling container images")
 	ErrNotServiceAccountTokenSecret   = errors.New("obj: secret is not usable for service accounts")
-	ErrServiceAccountInOtherNamespace = errors.New("obj: cannot configure service account token secret for service account in other namespace")
+	ErrServiceAccountTokenMissingData = errors.New("obj: service account token secret has no token data")
 )
 
 type ImagePullSecret struct {
@@ -83,6 +84,21 @@ func (sats *ServiceAccountTokenSecret) Load(ctx context.Context, cl client.Clien
 	return ok, nil
 }
 
+func (sats *ServiceAccountTokenSecret) Token() (string, error) {
+	encoded := string(sats.Object.Data["token"])
+
+	if encoded == "" {
+		return "", ErrServiceAccountTokenMissingData
+	}
+
+	tok, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return "", err
+	}
+
+	return string(tok), nil
+}
+
 func NewServiceAccountTokenSecret(key client.ObjectKey) *ServiceAccountTokenSecret {
 	return &ServiceAccountTokenSecret{
 		Key: key,
@@ -90,13 +106,4 @@ func NewServiceAccountTokenSecret(key client.ObjectKey) *ServiceAccountTokenSecr
 			Type: corev1.SecretTypeServiceAccountToken,
 		},
 	}
-}
-
-func ConfigureServiceAccountTokenSecret(sec *ServiceAccountTokenSecret, sa *ServiceAccount) error {
-	if sec.Key.Namespace != sa.Key.Namespace {
-		return ErrServiceAccountInOtherNamespace
-	}
-
-	Annotate(&sec.Object.ObjectMeta, corev1.ServiceAccountNameKey, sa.Key.Name)
-	return nil
 }
