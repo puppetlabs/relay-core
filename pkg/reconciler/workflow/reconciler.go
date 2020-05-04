@@ -86,30 +86,38 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 		return ctrl.Result{}, nil
 	}
 
-	// Configure and save all the infrastructure bits needed to create a
-	// Pipeline.
-	deps, err := obj.ApplyPipelineDeps(
-		ctx,
-		r.Client,
-		wr,
-		r.issuer,
-		r.Config.MetadataAPIURL,
-		obj.PipelineDepsWithSourceSystemImagePullSecret(r.Config.ImagePullSecretKey()),
-	)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to apply dependencies: %+v", err)
-	}
+	var pr *obj.PipelineRun
+	err = r.metrics.trackDurationWithOutcome(metricWorkflowRunStartUpDuration, func() error {
+		// Configure and save all the infrastructure bits needed to create a
+		// Pipeline.
+		deps, err := obj.ApplyPipelineDeps(
+			ctx,
+			r.Client,
+			wr,
+			r.issuer,
+			r.Config.MetadataAPIURL,
+			obj.PipelineDepsWithSourceSystemImagePullSecret(r.Config.ImagePullSecretKey()),
+		)
+		if err != nil {
+			return fmt.Errorf("failed to apply dependencies: %+v", err)
+		}
 
-	// Configure and save the underlying Tekton Pipeline.
-	pipeline, err := obj.ApplyPipeline(ctx, r.Client, deps)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to apply Pipeline: %+v", err)
-	}
+		// Configure and save the underlying Tekton Pipeline.
+		pipeline, err := obj.ApplyPipeline(ctx, r.Client, deps)
+		if err != nil {
+			return fmt.Errorf("failed to apply Pipeline: %+v", err)
+		}
 
-	// Create or update a PipelineRun.
-	pr, err := obj.ApplyPipelineRun(ctx, r.Client, pipeline)
+		// Create or update a PipelineRun.
+		pr, err = obj.ApplyPipelineRun(ctx, r.Client, pipeline)
+		if err != nil {
+			return fmt.Errorf("failed to apply PipelineRun: %+v", err)
+		}
+
+		return nil
+	})
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to apply PipelineRun: %+v", err)
+		return ctrl.Result{}, err
 	}
 
 	if pr.IsComplete() {
