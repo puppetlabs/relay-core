@@ -38,6 +38,16 @@ func (h *specHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var lang evaluate.Language
+	switch r.URL.Query().Get("lang") {
+	case "jsonpath-template":
+		lang = evaluate.LanguageJSONPathTemplate
+	case "jsonpath":
+		lang = evaluate.LanguageJSONPath
+	default:
+		lang = evaluate.LanguagePath
+	}
+
 	ev := evaluate.NewEvaluator(
 		evaluate.WithSecretTypeResolver(resolve.SecretTypeResolverFunc(func(ctx context.Context, name string) (string, error) {
 			s, err := m.SecretsManager().Get(ctx, name)
@@ -66,6 +76,7 @@ func (h *specHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			return c.Spec, nil
 		})),
+		evaluate.WithLanguage(lang),
 	)
 
 	var rv *evaluate.Result
