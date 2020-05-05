@@ -78,6 +78,12 @@ sections:
             description: the connection type
           name:
             description: the connection name
+      id_not_found:
+        title: ID not found
+        description: "connection {{id}} was not found"
+        arguments:
+          id:
+            description: the connection type
       get_error:
         title: Get error
         description: there was an error getting the connection data

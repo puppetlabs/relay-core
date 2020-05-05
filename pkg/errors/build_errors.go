@@ -80,6 +80,54 @@ func NewConnectionsGetError() Error {
 	return NewConnectionsGetErrorBuilder().Build()
 }
 
+// ConnectionsIDNotFoundCode is the code for an instance of "id_not_found".
+const ConnectionsIDNotFoundCode = "nt_connections_id_not_found"
+
+// IsConnectionsIDNotFound tests whether a given error is an instance of "id_not_found".
+func IsConnectionsIDNotFound(err errawr.Error) bool {
+	return err != nil && err.Is(ConnectionsIDNotFoundCode)
+}
+
+// IsConnectionsIDNotFound tests whether a given error is an instance of "id_not_found".
+func (External) IsConnectionsIDNotFound(err errawr.Error) bool {
+	return IsConnectionsIDNotFound(err)
+}
+
+// ConnectionsIDNotFoundBuilder is a builder for "id_not_found" errors.
+type ConnectionsIDNotFoundBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "id_not_found" from this builder.
+func (b *ConnectionsIDNotFoundBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "connection {{id}} was not found",
+		Technical: "connection {{id}} was not found",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "id_not_found",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     ConnectionsSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "ID not found",
+		Version:          1,
+	}
+}
+
+// NewConnectionsIDNotFoundBuilder creates a new error builder for the code "id_not_found".
+func NewConnectionsIDNotFoundBuilder(id string) *ConnectionsIDNotFoundBuilder {
+	return &ConnectionsIDNotFoundBuilder{arguments: impl.ErrorArguments{"id": impl.NewErrorArgument(id, "the connection type")}}
+}
+
+// NewConnectionsIDNotFound creates a new error with the code "id_not_found".
+func NewConnectionsIDNotFound(id string) Error {
+	return NewConnectionsIDNotFoundBuilder(id).Build()
+}
+
 // ConnectionsTypeNameNotFoundCode is the code for an instance of "type_name_not_found".
 const ConnectionsTypeNameNotFoundCode = "nt_connections_type_name_not_found"
 

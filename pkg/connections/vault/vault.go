@@ -20,10 +20,21 @@ type ConnectionsManager struct {
 // and then convert it to a ConnectionNotFoundError. Otherwise the error
 // is converted to ConnectionGetError.
 func (cm *ConnectionsManager) Get(ctx context.Context, typ, name string) (*connections.Connection, errors.Error) {
-	resp, err := cm.v.GetAll(ctx, path.Join(typ, name))
+	sec, err := cm.v.Get(ctx, path.Join(typ, name))
 	if err != nil {
 		if errors.IsSecretsKeyNotFound(err) {
 			return nil, errors.NewConnectionsTypeNameNotFound(typ, name).WithCause(err)
+		}
+
+		return nil, errors.NewConnectionsGetError().WithCause(err).Bug()
+	}
+
+	connectionID := sec.Value
+
+	resp, err := cm.v.GetAll(ctx, connectionID)
+	if err != nil {
+		if errors.IsSecretsKeyNotFound(err) {
+			return nil, errors.NewConnectionsIDNotFound(connectionID).WithCause(err)
 		}
 
 		return nil, errors.NewConnectionsGetError().WithCause(err).Bug()
