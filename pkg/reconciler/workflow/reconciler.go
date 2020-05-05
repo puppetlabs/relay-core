@@ -50,12 +50,18 @@ import (
 
 var controllerKind = nebulav1.SchemeGroupVersion.WithKind("WorkflowRun")
 
+// nebula.puppet.com group labels and annotations
 const (
 	nebulaGroupNamePrefix = "nebula.puppet.com/"
 	pipelineRunAnnotation = nebulaGroupNamePrefix + "pipelinerun"
 	workflowRunAnnotation = nebulaGroupNamePrefix + "workflowrun"
 	workflowRunLabel      = nebulaGroupNamePrefix + "workflow-run-id"
 	workflowLabel         = nebulaGroupNamePrefix + "workflow-id"
+)
+
+// relay.sh group labels and annotations
+const (
+	domainIDAnnotation = "relay.sh/domain-id"
 )
 
 type WorkflowRunStatus string
@@ -540,8 +546,15 @@ func (r *Reconciler) createAccessResources(ctx context.Context, wr *nebulav1.Wor
 	// TODO clean this up. this might work better as an object where the struct
 	// field names replace the map keys
 	paths := make(map[string]string)
-	paths["workflows"] = "workflows"
-	paths["connections"] = "connections"
+	paths["workflows"] = path.Join("workflows", wr.Spec.Workflow.Name)
+
+	// only grant access to the connections path if the domain-id annotation
+	// exists and it's not empty.
+	if domainID, ok := wr.ObjectMeta.Annotations[domainIDAnnotation]; ok {
+		if domainID != "" {
+			paths["connections"] = path.Join("connections", domainID)
+		}
+	}
 
 	grants, err := granter.GrantAccessForPaths(ctx, paths)
 	if err != nil {
