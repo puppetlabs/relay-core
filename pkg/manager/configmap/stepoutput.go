@@ -52,5 +52,5 @@ func NewStepOutputManager(step *model.Step, cm ConfigMap) *StepOutputManager {
 }
 
 func stepOutputKey(step *model.Step, name string) string {
-	return fmt.Sprintf("%s/%s/output/%s", step.Type().Plural, step.Hash(), name)
+	return fmt.Sprintf("%s.%s.output.%s", step.Type().Plural, step.Hash(), name)
 }

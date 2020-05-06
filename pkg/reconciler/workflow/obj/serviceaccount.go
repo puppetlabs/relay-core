@@ -3,10 +3,16 @@ package obj
 import (
 	"context"
 	"errors"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	ServiceAccountDefaultTokenSecretLoadTimeout          = 10 * time.Second
+	ServiceAccountDefaultTokenSecretLoadBackoffFrequency = 250 * time.Millisecond
 )
 
 var (
@@ -30,21 +36,28 @@ func (sa *ServiceAccount) Persist(ctx context.Context, cl client.Client) error {
 		return err
 	}
 
-	return sa.loadDefaultTokenSecret(ctx, cl)
+	_, err := RequiredLoader{sa}.Load(ctx, cl)
+	return err
 }
 
 func (sa *ServiceAccount) Load(ctx context.Context, cl client.Client) (bool, error) {
-	if ok, err := GetIgnoreNotFound(ctx, cl, sa.Key, sa.Object); err != nil {
-		return false, err
-	} else if !ok {
-		return false, nil
-	}
+	ctx, cancel := context.WithTimeout(ctx, ServiceAccountDefaultTokenSecretLoadTimeout)
+	defer cancel()
 
-	if err := sa.loadDefaultTokenSecret(ctx, cl); err != nil {
-		return false, err
-	}
+	var ok bool
+	err := Retry(ctx, ServiceAccountDefaultTokenSecretLoadBackoffFrequency, func() *RetryError {
+		if ok, err := GetIgnoreNotFound(ctx, cl, sa.Key, sa.Object); err != nil || !ok {
+			return RetryPermanent(err)
+		}
 
-	return true, nil
+		if err := sa.loadDefaultTokenSecret(ctx, cl); err != nil {
+			return RetryTransient(err)
+		}
+
+		ok = true
+		return RetryPermanent(nil)
+	})
+	return ok, err
 }
 
 func (sa *ServiceAccount) loadDefaultTokenSecret(ctx context.Context, cl client.Client) error {
@@ -55,6 +68,9 @@ func (sa *ServiceAccount) loadDefaultTokenSecret(ctx context.Context, cl client.
 	key := client.ObjectKey{
 		Namespace: sa.Key.Namespace,
 		Name:      sa.Object.Secrets[0].Name,
+	}
+	if sa.DefaultTokenSecret == nil {
+		sa.DefaultTokenSecret = NewServiceAccountTokenSecret(key)
 	}
 
 	if sa.DefaultTokenSecret.Key == key && len(sa.DefaultTokenSecret.Object.GetUID()) != 0 {

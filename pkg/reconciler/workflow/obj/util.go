@@ -94,7 +94,7 @@ func Own(target *metav1.ObjectMeta, ref *metav1.OwnerReference) {
 
 func ModelStepFromName(wr *WorkflowRun, stepName string) *model.Step {
 	return &model.Step{
-		Run:  model.Run{ID: wr.Key.Name},
+		Run:  model.Run{ID: wr.Object.Spec.Name},
 		Name: stepName,
 	}
 }

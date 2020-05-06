@@ -98,7 +98,10 @@ func (ka *KubernetesAuthenticator) resolver(mgrs *builder.MetadataBuilder) authe
 			ka.vaultJWTAuthPath,
 			authenticate.VaultResolverWithRole(ka.vaultJWTAuthRole),
 			authenticate.VaultResolverWithInjector(authenticate.VaultResolverInjectorFunc(func(ctx context.Context, claims *authenticate.Claims, md *authenticate.VaultResolverMetadata) error {
-				mgrs.SetSecrets(vault.NewSecretManager(md.VaultClient, claims.RelayVaultSecretPath))
+				if claims.RelayVaultSecretPath != "" {
+					mgrs.SetSecrets(vault.NewSecretManager(md.VaultClient, claims.RelayVaultSecretPath))
+				}
+
 				return nil
 			})),
 		))

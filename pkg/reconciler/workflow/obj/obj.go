@@ -3,6 +3,7 @@ package obj
 import (
 	"context"
 	"errors"
+	"reflect"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -21,7 +22,7 @@ type IgnoreNilPersister struct {
 }
 
 func (inp IgnoreNilPersister) Persist(ctx context.Context, cl client.Client) error {
-	if inp.Persister == nil {
+	if inp.Persister == nil || reflect.ValueOf(inp.Persister).IsNil() {
 		return nil
 	}
 
@@ -37,7 +38,7 @@ type IgnoreNilLoader struct {
 }
 
 func (inl IgnoreNilLoader) Load(ctx context.Context, cl client.Client) (bool, error) {
-	if inl.Loader == nil {
+	if inl.Loader == nil || reflect.ValueOf(inl.Loader).IsNil() {
 		return true, nil
 	}
 
@@ -86,7 +87,7 @@ type IgnoreNilOwnable struct {
 }
 
 func (ino IgnoreNilOwnable) Owned(ctx context.Context, ref *metav1.OwnerReference) {
-	if ino.Ownable == nil {
+	if ino.Ownable == nil || reflect.ValueOf(ino.Ownable).IsNil() {
 		return
 	}
 
@@ -102,7 +103,7 @@ type IgnoreNilLabelAnnotatableFrom struct {
 }
 
 func (inlaf IgnoreNilLabelAnnotatableFrom) LabelAnnotateFrom(ctx context.Context, from metav1.ObjectMeta) {
-	if inlaf.LabelAnnotatableFrom == nil {
+	if inlaf.LabelAnnotatableFrom == nil || reflect.ValueOf(inlaf.LabelAnnotatableFrom).IsNil() {
 		return
 	}
 

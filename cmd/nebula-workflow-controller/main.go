@@ -17,20 +17,14 @@ import (
 	"github.com/puppetlabs/horsehead/v2/storage"
 	_ "github.com/puppetlabs/nebula-libs/storage/file/v2"
 	_ "github.com/puppetlabs/nebula-libs/storage/gcs/v2"
-	nebulav1 "github.com/puppetlabs/nebula-tasks/pkg/apis/nebula.puppet.com/v1"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
 	"github.com/puppetlabs/nebula-tasks/pkg/controller/workflow"
 	"github.com/puppetlabs/nebula-tasks/pkg/dependency"
 	"github.com/puppetlabs/nebula-tasks/pkg/util/k8sutil"
-	tekv1alpha1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
-	tekv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"gopkg.in/square/go-jose.v2"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 )
 
@@ -144,26 +138,7 @@ func main() {
 		VaultTransitKey:         *vaultTransitKey,
 	}
 
-	schemeBuilder := runtime.NewSchemeBuilder(
-		scheme.AddToScheme,
-		nebulav1.AddToScheme,
-		tekv1alpha1.AddToScheme,
-		tekv1beta1.AddToScheme,
-	)
-
-	scheme := runtime.NewScheme()
-	if err := schemeBuilder.AddToScheme(scheme); err != nil {
-		log.Fatal("Could not add manager scheme", err)
-	}
-
-	mgr, err := ctrl.NewManager(kcc, ctrl.Options{
-		Scheme: scheme,
-	})
-	if err != nil {
-		log.Fatal("Unable to create new manager", err)
-	}
-
-	dm, err := dependency.NewDependencyManager(mgr, cfg, vc, jwtSigner, blobStore, mets)
+	dm, err := dependency.NewDependencyManager(cfg, kcc, vc, jwtSigner, blobStore, mets)
 	if err != nil {
 		log.Fatal("Error creating controller dependency builder", err)
 	}
@@ -172,7 +147,7 @@ func main() {
 		log.Fatal("Could not add all controllers to operator manager", err)
 	}
 
-	if err := mgr.Start(signals.SetupSignalHandler()); err != nil {
+	if err := dm.Manager.Start(signals.SetupSignalHandler()); err != nil {
 		log.Fatal("Manager exited non-zero", err)
 	}
 }

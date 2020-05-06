@@ -138,7 +138,7 @@ func TestKubernetesIntermediaryChain(t *testing.T) {
 func TestKubernetesIntermediaryChainToVault(t *testing.T) {
 	ctx := context.Background()
 
-	testutil.WithTestVaultClient(t, func(vc *vaultapi.Client) {
+	testutil.WithVaultClient(t, func(vc *vaultapi.Client) {
 		// Vault configuration:
 		require.NoError(t, vc.Sys().Mount("transit-test", &vaultapi.MountInput{
 			Type: "transit",

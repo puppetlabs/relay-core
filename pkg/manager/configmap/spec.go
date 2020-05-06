@@ -44,5 +44,5 @@ func NewSpecManager(action model.Action, cm ConfigMap) *SpecManager {
 }
 
 func specKey(action model.Action) string {
-	return fmt.Sprintf("%s/%s/spec", action.Type().Plural, action.Hash())
+	return fmt.Sprintf("%s.%s.spec", action.Type().Plural, action.Hash())
 }

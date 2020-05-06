@@ -21,7 +21,7 @@ import (
 func TestVaultTransitIntermediary(t *testing.T) {
 	ctx := context.Background()
 
-	testutil.WithTestVaultClient(t, func(vc *vaultapi.Client) {
+	testutil.WithVaultClient(t, func(vc *vaultapi.Client) {
 		// Vault configuration:
 		require.NoError(t, vc.Sys().Mount("transit-test", &vaultapi.MountInput{
 			Type: "transit",
@@ -56,7 +56,7 @@ func TestVaultTransitIntermediary(t *testing.T) {
 func TestVaultTransitWrapper(t *testing.T) {
 	ctx := context.Background()
 
-	testutil.WithTestVaultClient(t, func(vc *vaultapi.Client) {
+	testutil.WithVaultClient(t, func(vc *vaultapi.Client) {
 		// Vault configuration:
 		require.NoError(t, vc.Sys().Mount("transit-test", &vaultapi.MountInput{
 			Type: "transit",
@@ -112,7 +112,7 @@ func TestVaultResolver(t *testing.T) {
 	pub, err := x509.MarshalPKIXPublicKey(key.Public())
 	require.NoError(t, err)
 
-	testutil.WithTestVaultClient(t, func(vc *vaultapi.Client) {
+	testutil.WithVaultClient(t, func(vc *vaultapi.Client) {
 		require.NoError(t, vc.Sys().EnableAuthWithOptions("jwt-test", &vaultapi.EnableAuthOptions{
 			Type: "jwt",
 		}))

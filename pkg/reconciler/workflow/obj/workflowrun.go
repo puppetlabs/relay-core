@@ -29,6 +29,8 @@ const (
 	WorkflowRunStatusSkipped    WorkflowRunStatus = "skipped"
 	WorkflowRunStatusTimedOut   WorkflowRunStatus = "timed-out"
 
+	WorkflowRunDomainIDAnnotation        = "relay.sh/domain-id"
+	WorkflowRunTenantIDAnnotation        = "relay.sh/tenant-id"
 	WorkflowRunVaultSecretPathAnnotation = "relay.sh/vault-secret-path"
 )
 
@@ -45,11 +47,11 @@ var _ Persister = &WorkflowRun{}
 var _ Loader = &WorkflowRun{}
 
 func (wr *WorkflowRun) Persist(ctx context.Context, cl client.Client) error {
-	if err := CreateOrUpdate(ctx, cl, wr.Key, wr.Object); err != nil {
+	if err := cl.Status().Update(ctx, wr.Object); err != nil {
 		return err
 	}
 
-	if err := cl.Status().Update(ctx, wr.Object); err != nil {
+	if err := CreateOrUpdate(ctx, cl, wr.Key, wr.Object); err != nil {
 		return err
 	}
 

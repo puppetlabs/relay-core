@@ -45,5 +45,5 @@ func NewStateManager(action model.Action, cm ConfigMap) *StateManager {
 }
 
 func stateKey(action model.Action, name string) string {
-	return fmt.Sprintf("%s/%s/state/%s", action.Type().Plural, action.Hash(), name)
+	return fmt.Sprintf("%s.%s.state.%s", action.Type().Plural, action.Hash(), name)
 }

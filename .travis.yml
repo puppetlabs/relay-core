@@ -10,8 +10,12 @@ env:
 jobs:
   include:
   - stage: test
+    before_script:
+    - go get sigs.k8s.io/kind
+    - export KUBECONFIG=/tmp/kubeconfig-kind
+    - kind create cluster
     script:
-    - "./scripts/ci test"
+    - RELAY_TEST_E2E_LABEL_NODES=true ./scripts/ci test
   - stage: build
     before_script:
     - if [ ! -d "$HOME/google-cloud-sdk/bin" ]; then rm -rf $HOME/google-cloud-sdk;

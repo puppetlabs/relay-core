@@ -44,5 +44,5 @@ func NewConditionManager(action model.Action, cm ConfigMap) *ConditionManager {
 }
 
 func conditionKey(action model.Action) string {
-	return fmt.Sprintf("%s/%s/condition", action.Type().Plural, action.Hash())
+	return fmt.Sprintf("%s.%s.condition", action.Type().Plural, action.Hash())
 }

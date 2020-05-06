@@ -33,10 +33,11 @@ require (
 	gopkg.in/yaml.v2 v2.2.8 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20191010095647-fc94e3f71652
 	k8s.io/api v0.17.2
+	k8s.io/apiextensions-apiserver v0.17.2
 	k8s.io/apimachinery v0.17.2
-	k8s.io/client-go v0.17.0
+	k8s.io/client-go v0.17.2
 	k8s.io/klog v1.0.0
 	knative.dev/pkg v0.0.0-20200207155214-fef852970f43
-	sigs.k8s.io/controller-runtime v0.4.0
+	sigs.k8s.io/controller-runtime v0.5.0
 	sigs.k8s.io/controller-tools v0.2.8
 )

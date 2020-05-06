@@ -2,7 +2,6 @@ package obj
 
 import (
 	"context"
-	"encoding/base64"
 	"errors"
 
 	corev1 "k8s.io/api/core/v1"
@@ -85,18 +84,12 @@ func (sats *ServiceAccountTokenSecret) Load(ctx context.Context, cl client.Clien
 }
 
 func (sats *ServiceAccountTokenSecret) Token() (string, error) {
-	encoded := string(sats.Object.Data["token"])
-
-	if encoded == "" {
+	tok := string(sats.Object.Data["token"])
+	if tok == "" {
 		return "", ErrServiceAccountTokenMissingData
 	}
 
-	tok, err := base64.StdEncoding.DecodeString(encoded)
-	if err != nil {
-		return "", err
-	}
-
-	return string(tok), nil
+	return tok, nil
 }
 
 func NewServiceAccountTokenSecret(key client.ObjectKey) *ServiceAccountTokenSecret {

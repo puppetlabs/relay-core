@@ -10,17 +10,26 @@ import (
 type Claims struct {
 	*jwt.Claims `json:",inline"`
 
-	KubernetesNamespaceName       string `json:"//k8s.io/namespace-name,omitempty"`
-	KubernetesNamespaceUID        string `json:"//k8s.io/namespace-uid,omitempty"`
-	KubernetesServiceAccountToken string `json:"//k8s.io/service-account-token,omitempty"`
+	KubernetesNamespaceName       string `json:"k8s.io/namespace-name,omitempty"`
+	KubernetesNamespaceUID        string `json:"k8s.io/namespace-uid,omitempty"`
+	KubernetesServiceAccountToken string `json:"k8s.io/service-account-token,omitempty"`
 
-	RelayRunID string `json:"//relay.sh/run-id,omitempty"`
-	RelayName  string `json:"//relay.sh/name,omitempty"`
+	// RelayDomainID represents a holder of tenants with high-level
+	// configuration like connections. In our SaaS service, domains correspond
+	// to accounts.
+	RelayDomainID string `json:"relay.sh/domain-id,omitempty"`
 
-	RelayKubernetesImmutableConfigMapName string `json:"//relay.sh/k8s/immutable-config-map-name,omitempty"`
-	RelayKubernetesMutableConfigMapName   string `json:"//relay.sh/k8s/mutable-config-map-name,omitempty"`
+	// RelayTenantID represents the root of configuration for secrets, etc. In
+	// our SaaS service, tenants correspond to workflows.
+	RelayTenantID string `json:"relay.sh/tenant-id,omitempty"`
 
-	RelayVaultSecretPath string `json:"//relay.sh/vault/secret-path,omitempty"`
+	RelayRunID string `json:"relay.sh/run-id,omitempty"`
+	RelayName  string `json:"relay.sh/name,omitempty"`
+
+	RelayKubernetesImmutableConfigMapName string `json:"relay.sh/k8s/immutable-config-map-name,omitempty"`
+	RelayKubernetesMutableConfigMapName   string `json:"relay.sh/k8s/mutable-config-map-name,omitempty"`
+
+	RelayVaultSecretPath string `json:"relay.sh/vault/secret-path,omitempty"`
 }
 
 func (c *Claims) Action() model.Action {

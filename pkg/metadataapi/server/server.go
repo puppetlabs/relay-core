@@ -13,9 +13,11 @@ import (
 type Server struct {
 	auth             middleware.Authenticator
 	errorSensitivity errawr.ErrorSensitivity
+	trustedProxyHops int
 }
 
 func (s *Server) Route(r *mux.Router) {
+	r.Use(middleware.WithTrustedProxyHops(s.trustedProxyHops))
 	r.Use(utilapi.RequestMiddleware)
 	r.Use(utilapi.LogMiddleware)
 	r.Use(middleware.WithErrorSensitivity(s.errorSensitivity))
@@ -31,6 +33,12 @@ type Option func(s *Server)
 func WithErrorSensitivity(sensitivity errawr.ErrorSensitivity) Option {
 	return func(s *Server) {
 		s.errorSensitivity = sensitivity
+	}
+}
+
+func WithTrustedProxyHops(n int) Option {
+	return func(s *Server) {
+		s.trustedProxyHops = n
 	}
 }
 

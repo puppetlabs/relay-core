@@ -98,6 +98,8 @@ func (pd *PipelineDeps) AnnotateStepToken(ctx context.Context, target *metav1.Ob
 		return err
 	}
 
+	annotations := pd.WorkflowRun.Object.GetAnnotations()
+
 	claims := &authenticate.Claims{
 		Claims: &jwt.Claims{
 			Issuer:    authenticate.ControllerIssuer,
@@ -112,13 +114,15 @@ func (pd *PipelineDeps) AnnotateStepToken(ctx context.Context, target *metav1.Ob
 		KubernetesNamespaceUID:        string(pd.Namespace.Object.GetUID()),
 		KubernetesServiceAccountToken: sat,
 
-		RelayRunID: ms.Run.ID,
-		RelayName:  ms.Name,
+		RelayDomainID: annotations[WorkflowRunDomainIDAnnotation],
+		RelayTenantID: annotations[WorkflowRunTenantIDAnnotation],
+		RelayRunID:    ms.Run.ID,
+		RelayName:     ms.Name,
 
 		RelayKubernetesImmutableConfigMapName: pd.ImmutableConfigMap.Key.Name,
 		RelayKubernetesMutableConfigMapName:   pd.MutableConfigMap.Key.Name,
 
-		RelayVaultSecretPath: pd.WorkflowRun.Object.GetAnnotations()[WorkflowRunVaultSecretPathAnnotation],
+		RelayVaultSecretPath: annotations[WorkflowRunVaultSecretPathAnnotation],
 	}
 
 	tok, err := pd.Issuer.Issue(ctx, claims)

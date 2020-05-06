@@ -1,14 +1,41 @@
 package dependency
 
 import (
+	"log"
+
 	vaultapi "github.com/hashicorp/vault/api"
 	"github.com/puppetlabs/horsehead/v2/instrumentation/metrics"
 	"github.com/puppetlabs/horsehead/v2/storage"
+	nebulav1 "github.com/puppetlabs/nebula-tasks/pkg/apis/nebula.puppet.com/v1"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
+	tektonv1alpha1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
+	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"gopkg.in/square/go-jose.v2"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
+
+var (
+	SchemeBuilder = runtime.NewSchemeBuilder(
+		scheme.AddToScheme,
+		nebulav1.AddToScheme,
+		tektonv1alpha1.AddToScheme,
+		tektonv1beta1.AddToScheme,
+	)
+	AddToScheme = SchemeBuilder.AddToScheme
+
+	Scheme = runtime.NewScheme()
+)
+
+func init() {
+	if err := SchemeBuilder.AddToScheme(Scheme); err != nil {
+		panic(err)
+	}
+}
 
 type DependencyManager struct {
 	Manager       manager.Manager
@@ -20,7 +47,15 @@ type DependencyManager struct {
 	Metrics       *metrics.Metrics
 }
 
-func NewDependencyManager(mgr manager.Manager, cfg *config.WorkflowControllerConfig, vc *vaultapi.Client, jwtSigner jose.Signer, bs storage.BlobStore, mets *metrics.Metrics) (*DependencyManager, error) {
+func NewDependencyManager(cfg *config.WorkflowControllerConfig, kcc *rest.Config, vc *vaultapi.Client, jwtSigner jose.Signer, bs storage.BlobStore, mets *metrics.Metrics) (*DependencyManager, error) {
+	mgr, err := ctrl.NewManager(kcc, ctrl.Options{
+		Namespace: cfg.Namespace,
+		Scheme:    Scheme,
+	})
+	if err != nil {
+		log.Fatal("Unable to create new manager", err)
+	}
+
 	kc, err := kubernetes.NewForConfig(mgr.GetConfig())
 	if err != nil {
 		return nil, err
