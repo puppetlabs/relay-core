@@ -38,6 +38,16 @@ func (h *specHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var lang evaluate.Language
+	switch r.URL.Query().Get("lang") {
+	case "jsonpath-template":
+		lang = evaluate.LanguageJSONPathTemplate
+	case "jsonpath":
+		lang = evaluate.LanguageJSONPath
+	default:
+		lang = evaluate.LanguagePath
+	}
+
 	ev := evaluate.NewEvaluator(
 		evaluate.WithSecretTypeResolver(resolve.SecretTypeResolverFunc(func(ctx context.Context, name string) (string, error) {
 			s, err := m.SecretsManager().Get(ctx, name)
@@ -57,6 +67,16 @@ func (h *specHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			return o.Value.Data, nil
 		})),
+		evaluate.WithConnectionTypeResolver(resolve.ConnectionTypeResolverFunc(func(ctx context.Context, typ, name string) (interface{}, error) {
+			c, err := m.ConnectionsManager().Get(ctx, typ, name)
+			if errors.IsConnectionsTypeNameNotFound(err) {
+				return "", &resolve.ConnectionNotFoundError{Type: typ, Name: name}
+			} else if err != nil {
+				return nil, err
+			}
+			return c.Spec, nil
+		})),
+		evaluate.WithLanguage(lang),
 	)
 
 	var rv *evaluate.Result

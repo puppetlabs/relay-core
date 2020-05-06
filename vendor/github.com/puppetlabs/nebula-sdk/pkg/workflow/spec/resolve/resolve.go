@@ -6,6 +6,18 @@ import (
 	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/fn"
 )
 
+type DataTypeResolver interface {
+	ResolveData(ctx context.Context, query string) (interface{}, error)
+}
+
+type DataTypeResolverFunc func(ctx context.Context, query string) (interface{}, error)
+
+var _ DataTypeResolver = DataTypeResolverFunc(nil)
+
+func (f DataTypeResolverFunc) ResolveData(ctx context.Context, query string) (interface{}, error) {
+	return f(ctx, query)
+}
+
 type SecretTypeResolver interface {
 	ResolveSecret(ctx context.Context, name string) (string, error)
 }
@@ -16,6 +28,18 @@ var _ SecretTypeResolver = SecretTypeResolverFunc(nil)
 
 func (f SecretTypeResolverFunc) ResolveSecret(ctx context.Context, name string) (string, error) {
 	return f(ctx, name)
+}
+
+type ConnectionTypeResolver interface {
+	ResolveConnection(ctx context.Context, connectionType, name string) (interface{}, error)
+}
+
+type ConnectionTypeResolverFunc func(ctx context.Context, connectionType, name string) (interface{}, error)
+
+var _ ConnectionTypeResolver = ConnectionTypeResolverFunc(nil)
+
+func (f ConnectionTypeResolverFunc) ResolveConnection(ctx context.Context, connectionType, name string) (interface{}, error) {
+	return f(ctx, connectionType, name)
 }
 
 type OutputTypeResolver interface {

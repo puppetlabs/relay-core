@@ -25,6 +25,208 @@ var Domain = &impl.ErrorDomain{
 	Title: "Nebula Tasks",
 }
 
+// ConnectionsSection defines a section of errors with the following scope:
+// Connections errors
+var ConnectionsSection = &impl.ErrorSection{
+	Key:   "connections",
+	Title: "Connections errors",
+}
+
+// ConnectionsGetErrorCode is the code for an instance of "get_error".
+const ConnectionsGetErrorCode = "nt_connections_get_error"
+
+// IsConnectionsGetError tests whether a given error is an instance of "get_error".
+func IsConnectionsGetError(err errawr.Error) bool {
+	return err != nil && err.Is(ConnectionsGetErrorCode)
+}
+
+// IsConnectionsGetError tests whether a given error is an instance of "get_error".
+func (External) IsConnectionsGetError(err errawr.Error) bool {
+	return IsConnectionsGetError(err)
+}
+
+// ConnectionsGetErrorBuilder is a builder for "get_error" errors.
+type ConnectionsGetErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "get_error" from this builder.
+func (b *ConnectionsGetErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "there was an error getting the connection data",
+		Technical: "there was an error getting the connection data",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "get_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     ConnectionsSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Get error",
+		Version:          1,
+	}
+}
+
+// NewConnectionsGetErrorBuilder creates a new error builder for the code "get_error".
+func NewConnectionsGetErrorBuilder() *ConnectionsGetErrorBuilder {
+	return &ConnectionsGetErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewConnectionsGetError creates a new error with the code "get_error".
+func NewConnectionsGetError() Error {
+	return NewConnectionsGetErrorBuilder().Build()
+}
+
+// ConnectionsIDNotFoundCode is the code for an instance of "id_not_found".
+const ConnectionsIDNotFoundCode = "nt_connections_id_not_found"
+
+// IsConnectionsIDNotFound tests whether a given error is an instance of "id_not_found".
+func IsConnectionsIDNotFound(err errawr.Error) bool {
+	return err != nil && err.Is(ConnectionsIDNotFoundCode)
+}
+
+// IsConnectionsIDNotFound tests whether a given error is an instance of "id_not_found".
+func (External) IsConnectionsIDNotFound(err errawr.Error) bool {
+	return IsConnectionsIDNotFound(err)
+}
+
+// ConnectionsIDNotFoundBuilder is a builder for "id_not_found" errors.
+type ConnectionsIDNotFoundBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "id_not_found" from this builder.
+func (b *ConnectionsIDNotFoundBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "connection {{id}} was not found",
+		Technical: "connection {{id}} was not found",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "id_not_found",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     ConnectionsSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "ID not found",
+		Version:          1,
+	}
+}
+
+// NewConnectionsIDNotFoundBuilder creates a new error builder for the code "id_not_found".
+func NewConnectionsIDNotFoundBuilder(id string) *ConnectionsIDNotFoundBuilder {
+	return &ConnectionsIDNotFoundBuilder{arguments: impl.ErrorArguments{"id": impl.NewErrorArgument(id, "the connection type")}}
+}
+
+// NewConnectionsIDNotFound creates a new error with the code "id_not_found".
+func NewConnectionsIDNotFound(id string) Error {
+	return NewConnectionsIDNotFoundBuilder(id).Build()
+}
+
+// ConnectionsTypeNameNotFoundCode is the code for an instance of "type_name_not_found".
+const ConnectionsTypeNameNotFoundCode = "nt_connections_type_name_not_found"
+
+// IsConnectionsTypeNameNotFound tests whether a given error is an instance of "type_name_not_found".
+func IsConnectionsTypeNameNotFound(err errawr.Error) bool {
+	return err != nil && err.Is(ConnectionsTypeNameNotFoundCode)
+}
+
+// IsConnectionsTypeNameNotFound tests whether a given error is an instance of "type_name_not_found".
+func (External) IsConnectionsTypeNameNotFound(err errawr.Error) bool {
+	return IsConnectionsTypeNameNotFound(err)
+}
+
+// ConnectionsTypeNameNotFoundBuilder is a builder for "type_name_not_found" errors.
+type ConnectionsTypeNameNotFoundBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "type_name_not_found" from this builder.
+func (b *ConnectionsTypeNameNotFoundBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "connection {{type}}/{{name}} was not found",
+		Technical: "connection {{type}}/{{name}} was not found",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "type_name_not_found",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     ConnectionsSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Type name not found",
+		Version:          1,
+	}
+}
+
+// NewConnectionsTypeNameNotFoundBuilder creates a new error builder for the code "type_name_not_found".
+func NewConnectionsTypeNameNotFoundBuilder(type_ string, name string) *ConnectionsTypeNameNotFoundBuilder {
+	return &ConnectionsTypeNameNotFoundBuilder{arguments: impl.ErrorArguments{
+		"name": impl.NewErrorArgument(name, "the connection name"),
+		"type": impl.NewErrorArgument(type_, "the connection type"),
+	}}
+}
+
+// NewConnectionsTypeNameNotFound creates a new error with the code "type_name_not_found".
+func NewConnectionsTypeNameNotFound(type_ string, name string) Error {
+	return NewConnectionsTypeNameNotFoundBuilder(type_, name).Build()
+}
+
+// ConnectionsValueDecodingErrorCode is the code for an instance of "value_decoding_error".
+const ConnectionsValueDecodingErrorCode = "nt_connections_value_decoding_error"
+
+// IsConnectionsValueDecodingError tests whether a given error is an instance of "value_decoding_error".
+func IsConnectionsValueDecodingError(err errawr.Error) bool {
+	return err != nil && err.Is(ConnectionsValueDecodingErrorCode)
+}
+
+// IsConnectionsValueDecodingError tests whether a given error is an instance of "value_decoding_error".
+func (External) IsConnectionsValueDecodingError(err errawr.Error) bool {
+	return IsConnectionsValueDecodingError(err)
+}
+
+// ConnectionsValueDecodingErrorBuilder is a builder for "value_decoding_error" errors.
+type ConnectionsValueDecodingErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "value_decoding_error" from this builder.
+func (b *ConnectionsValueDecodingErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "decoding the secret value failed",
+		Technical: "decoding the secret value failed",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "value_decoding_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     ConnectionsSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Value decoding error",
+		Version:          1,
+	}
+}
+
+// NewConnectionsValueDecodingErrorBuilder creates a new error builder for the code "value_decoding_error".
+func NewConnectionsValueDecodingErrorBuilder() *ConnectionsValueDecodingErrorBuilder {
+	return &ConnectionsValueDecodingErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewConnectionsValueDecodingError creates a new error with the code "value_decoding_error".
+func NewConnectionsValueDecodingError() Error {
+	return NewConnectionsValueDecodingErrorBuilder().Build()
+}
+
 // KubernetesSection defines a section of errors with the following scope:
 // Kubernetes errors
 var KubernetesSection = &impl.ErrorSection{
@@ -725,6 +927,54 @@ func NewSecretsKeyNotFoundBuilder(key string) *SecretsKeyNotFoundBuilder {
 // NewSecretsKeyNotFound creates a new error with the code "key_not_found".
 func NewSecretsKeyNotFound(key string) Error {
 	return NewSecretsKeyNotFoundBuilder(key).Build()
+}
+
+// SecretsListErrorCode is the code for an instance of "list_error".
+const SecretsListErrorCode = "nt_secrets_list_error"
+
+// IsSecretsListError tests whether a given error is an instance of "list_error".
+func IsSecretsListError(err errawr.Error) bool {
+	return err != nil && err.Is(SecretsListErrorCode)
+}
+
+// IsSecretsListError tests whether a given error is an instance of "list_error".
+func (External) IsSecretsListError(err errawr.Error) bool {
+	return IsSecretsListError(err)
+}
+
+// SecretsListErrorBuilder is a builder for "list_error" errors.
+type SecretsListErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "list_error" from this builder.
+func (b *SecretsListErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "failed to list the secrets at key {{key}}",
+		Technical: "failed to list the secrets at key {{key}}",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "list_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     SecretsSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "List error",
+		Version:          1,
+	}
+}
+
+// NewSecretsListErrorBuilder creates a new error builder for the code "list_error".
+func NewSecretsListErrorBuilder(key string) *SecretsListErrorBuilder {
+	return &SecretsListErrorBuilder{arguments: impl.ErrorArguments{"key": impl.NewErrorArgument(key, "the key that had the failure")}}
+}
+
+// NewSecretsListError creates a new error with the code "list_error".
+func NewSecretsListError(key string) Error {
+	return NewSecretsListErrorBuilder(key).Build()
 }
 
 // SecretsMalformedValueCode is the code for an instance of "malformed_value".
@@ -1893,6 +2143,54 @@ func NewServerSecretFetcherNameValidationErrorBuilder() *ServerSecretFetcherName
 // NewServerSecretFetcherNameValidationError creates a new error with the code "secret_fetcher_name_validation_error".
 func NewServerSecretFetcherNameValidationError() Error {
 	return NewServerSecretFetcherNameValidationErrorBuilder().Build()
+}
+
+// ServerVaultGrantNotFoundCode is the code for an instance of "vault_grant_not_found".
+const ServerVaultGrantNotFoundCode = "nt_server_vault_grant_not_found"
+
+// IsServerVaultGrantNotFound tests whether a given error is an instance of "vault_grant_not_found".
+func IsServerVaultGrantNotFound(err errawr.Error) bool {
+	return err != nil && err.Is(ServerVaultGrantNotFoundCode)
+}
+
+// IsServerVaultGrantNotFound tests whether a given error is an instance of "vault_grant_not_found".
+func (External) IsServerVaultGrantNotFound(err errawr.Error) bool {
+	return IsServerVaultGrantNotFound(err)
+}
+
+// ServerVaultGrantNotFoundBuilder is a builder for "vault_grant_not_found" errors.
+type ServerVaultGrantNotFoundBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "vault_grant_not_found" from this builder.
+func (b *ServerVaultGrantNotFoundBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "the access grant for {{grant}} was not found",
+		Technical: "the access grant for {{grant}} was not found",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "vault_grant_not_found",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     ServerSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Vault grant not found",
+		Version:          1,
+	}
+}
+
+// NewServerVaultGrantNotFoundBuilder creates a new error builder for the code "vault_grant_not_found".
+func NewServerVaultGrantNotFoundBuilder(grant string) *ServerVaultGrantNotFoundBuilder {
+	return &ServerVaultGrantNotFoundBuilder{arguments: impl.ErrorArguments{"grant": impl.NewErrorArgument(grant, "the grant that was missing")}}
+}
+
+// NewServerVaultGrantNotFound creates a new error with the code "vault_grant_not_found".
+func NewServerVaultGrantNotFound(grant string) Error {
+	return NewServerVaultGrantNotFoundBuilder(grant).Build()
 }
 
 // StateSection defines a section of errors with the following scope:

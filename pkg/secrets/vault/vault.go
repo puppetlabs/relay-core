@@ -15,17 +15,30 @@ import (
 	"github.com/puppetlabs/nebula-tasks/pkg/secrets"
 )
 
+// Vault wraps a logged in vault session and provides methods for reading
+// secrets for keys
 type Vault struct {
 	cfg     *Config
 	session *vaultLoggedInClient
 }
 
+// Get returns the secret data for key.
 func (v *Vault) Get(ctx context.Context, key string) (*secrets.Secret, errors.Error) {
 	return v.session.get(ctx, key)
 }
 
-func NewVaultWithKubernetesAuth(ctx context.Context, cfg *Config) (*Vault, errors.Error) {
-	session, err := newVaultLoggedInClient(ctx, cfg)
+// GetAll attempts to list all child paths under key and returns the secrets
+// for all of them.  This method only supports paths ONE level under key. It
+// will not recursively return secrets beyond that depth. If the given key is
+// not a "directory", then an error is returned.
+func (v *Vault) GetAll(ctx context.Context, key string) ([]*secrets.Secret, errors.Error) {
+	return v.session.getAll(ctx, key)
+}
+
+// NewVaultWithKubernetesAuth returns a new Vault configured to login and
+// authenticate using a Kubernetes service account JWT
+func NewVaultWithKubernetesAuth(ctx context.Context, grant *secrets.AccessGrant, cfg *Config) (*Vault, errors.Error) {
+	session, err := newVaultLoggedInClient(ctx, grant, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -39,26 +52,30 @@ func NewVaultWithKubernetesAuth(ctx context.Context, cfg *Config) (*Vault, error
 type vaultLoggedInClient struct {
 	client *vaultapi.Client
 	cfg    *Config
+	grant  *secrets.AccessGrant
 	logger logging.Logger
-	// renewFunc takes a vault client and attempts to renew the auth token lease.
-	// If the lease cannot be renewed, or an error occurres, then it will not restart
-	// the renewFunc goroutine and then next attempt to use the token will fail.
+	// renewFunc takes a vault client and attempts to renew the auth token
+	// lease.  If the lease cannot be renewed, or an error occurres, then it
+	// will not restart the renewFunc goroutine and then next attempt to use
+	// the token will fail.
 	renewFunc func(context.Context, *vaultLoggedInClient)
 }
 
-// read is just a shortcut to the Vault client's Read method
-func (v *vaultLoggedInClient) read(path string) (*vaultapi.Secret, error) {
-	return v.client.Logical().Read(path)
+// dataMountPath returns a vault-api style data path to the secret
+func (v *vaultLoggedInClient) dataMountPath(key string) string {
+	return path.Join(v.grant.MountPath, "data", v.grant.ScopedPath, key)
 }
 
-// mountPath returns a vault-api style path to the secret
-func (v *vaultLoggedInClient) mountPath(key string) string {
-	return path.Join(v.cfg.ScopedSecretsPath, key)
+// metadataMountPath returns a vault-api style metadata path to the secret.
+// mostly used for listing.
+func (v *vaultLoggedInClient) metadataMountPath(key string) string {
+	return path.Join(v.grant.MountPath, "metadata", v.grant.ScopedPath, key)
 }
 
-// extractValue fetches the secret value from the secretRef key (standard location for nebula
-// secret values under a path when using vault). Secret values must always be strings. Any special
-// type handling should be processed at a higher level when decoding the string.
+// extractValue fetches the secret value from the secretRef key (standard
+// location for nebula secret values under a path when using vault). Secret
+// values must always be strings. Any special type handling should be processed
+// at a higher level when decoding the string.
 func (v *vaultLoggedInClient) extractValue(sec *vaultapi.Secret) (string, errors.Error) {
 	vaultData, _ := sec.Data["data"].(map[string]interface{})
 
@@ -151,7 +168,7 @@ func (v *vaultLoggedInClient) login(ctx context.Context) errors.Error {
 // Get retrieves key from Vault using the session scoped workflow parameters and the
 // temporary token.
 func (v *vaultLoggedInClient) get(ctx context.Context, key string) (*secrets.Secret, errors.Error) {
-	sec, err := v.read(v.mountPath(key))
+	sec, err := v.client.Logical().Read(v.dataMountPath(key))
 	if err != nil {
 		return nil, errors.NewSecretsGetError(key).WithCause(err).Bug()
 	}
@@ -171,7 +188,37 @@ func (v *vaultLoggedInClient) get(ctx context.Context, key string) (*secrets.Sec
 	}, nil
 }
 
-func newVaultLoggedInClient(ctx context.Context, cfg *Config) (*vaultLoggedInClient, errors.Error) {
+func (v *vaultLoggedInClient) getAll(ctx context.Context, parent string) ([]*secrets.Secret, errors.Error) {
+	mds, err := v.client.Logical().List(v.metadataMountPath(parent))
+	if err != nil {
+		return nil, errors.NewSecretsListError(parent).WithCause(err).Bug()
+	}
+
+	vals := []*secrets.Secret{}
+
+	keys := mds.Data["keys"]
+
+	for _, keyi := range keys.([]interface{}) {
+		key := keyi.(string)
+		full := v.dataMountPath(path.Join(parent, key))
+
+		sec, err := v.client.Logical().Read(full)
+		if err != nil {
+			return nil, errors.NewSecretsGetError(key).WithCause(err).Bug()
+		}
+
+		val, err := v.extractValue(sec)
+		if err != nil {
+			return nil, errors.NewSecretsGetError(key).WithCause(err).Bug()
+		}
+
+		vals = append(vals, &secrets.Secret{Key: key, Value: val})
+	}
+
+	return vals, nil
+}
+
+func newVaultLoggedInClient(ctx context.Context, grant *secrets.AccessGrant, cfg *Config) (*vaultLoggedInClient, errors.Error) {
 	c, err := vaultapi.NewClient(&vaultapi.Config{Address: cfg.Addr})
 	if err != nil {
 		return nil, errors.NewSecretsVaultSetupError().WithCause(err)
@@ -180,6 +227,7 @@ func newVaultLoggedInClient(ctx context.Context, cfg *Config) (*vaultLoggedInCli
 	vlc := &vaultLoggedInClient{
 		client: c,
 		cfg:    cfg,
+		grant:  grant,
 		logger: cfg.Logger.At("vault"),
 	}
 

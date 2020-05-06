@@ -1,6 +1,31 @@
 package resolve
 
-import "context"
+import (
+	"context"
+)
+
+type chainDataTypeResolvers struct {
+	resolvers []DataTypeResolver
+}
+
+func (cr *chainDataTypeResolvers) ResolveData(ctx context.Context, query string) (interface{}, error) {
+	for _, r := range cr.resolvers {
+		s, err := r.ResolveData(ctx, query)
+		if _, ok := err.(*DataNotFoundError); ok {
+			continue
+		} else if err != nil {
+			return "", err
+		}
+
+		return s, nil
+	}
+
+	return "", &DataNotFoundError{Query: query}
+}
+
+func ChainDataTypeResolvers(resolvers ...DataTypeResolver) DataTypeResolver {
+	return &chainDataTypeResolvers{resolvers: resolvers}
+}
 
 type chainSecretTypeResolvers struct {
 	resolvers []SecretTypeResolver
@@ -23,6 +48,29 @@ func (cr *chainSecretTypeResolvers) ResolveSecret(ctx context.Context, name stri
 
 func ChainSecretTypeResolvers(resolvers ...SecretTypeResolver) SecretTypeResolver {
 	return &chainSecretTypeResolvers{resolvers: resolvers}
+}
+
+type chainConnectionTypeResolvers struct {
+	resolvers []ConnectionTypeResolver
+}
+
+func (cr *chainConnectionTypeResolvers) ResolveConnection(ctx context.Context, connectionType, name string) (interface{}, error) {
+	for _, r := range cr.resolvers {
+		o, err := r.ResolveConnection(ctx, connectionType, name)
+		if _, ok := err.(*ConnectionNotFoundError); ok {
+			continue
+		} else if err != nil {
+			return "", err
+		}
+
+		return o, nil
+	}
+
+	return "", &ConnectionNotFoundError{Type: connectionType, Name: name}
+}
+
+func ChainConnectionTypeResolvers(resolvers ...ConnectionTypeResolver) ConnectionTypeResolver {
+	return &chainConnectionTypeResolvers{resolvers: resolvers}
 }
 
 type chainOutputTypeResolvers struct {

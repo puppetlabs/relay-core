@@ -16,7 +16,7 @@ require (
 	github.com/puppetlabs/horsehead/v2 v2.7.0
 	github.com/puppetlabs/nebula-libs/storage/file/v2 v2.0.0
 	github.com/puppetlabs/nebula-libs/storage/gcs/v2 v2.0.0
-	github.com/puppetlabs/nebula-sdk v1.9.2
+	github.com/puppetlabs/nebula-sdk v1.11.0
 	github.com/stretchr/testify v1.4.0
 	github.com/tektoncd/pipeline v0.11.0-rc2
 	gopkg.in/yaml.v2 v2.2.8

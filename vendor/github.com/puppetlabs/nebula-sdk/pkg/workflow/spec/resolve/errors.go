@@ -1,6 +1,24 @@
 package resolve
 
-import "fmt"
+import (
+	"fmt"
+)
+
+type DataQueryError struct {
+	Query string
+}
+
+func (e *DataQueryError) Error() string {
+	return fmt.Sprintf("resolve: data query %q could not be processed", e.Query)
+}
+
+type DataNotFoundError struct {
+	Query string
+}
+
+func (e *DataNotFoundError) Error() string {
+	return fmt.Sprintf("resolve: data for query %q could not be found", e.Query)
+}
 
 type SecretNotFoundError struct {
 	Name string
@@ -8,6 +26,15 @@ type SecretNotFoundError struct {
 
 func (e *SecretNotFoundError) Error() string {
 	return fmt.Sprintf("resolve: secret %q could not be found", e.Name)
+}
+
+type ConnectionNotFoundError struct {
+	Type string
+	Name string
+}
+
+func (e *ConnectionNotFoundError) Error() string {
+	return fmt.Sprintf("resolve: connection type %q with name %q could not be found", e.Type, e.Name)
 }
 
 type OutputNotFoundError struct {
