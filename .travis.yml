@@ -15,7 +15,7 @@ jobs:
     - export KUBECONFIG=/tmp/kubeconfig-kind
     - kind create cluster
     script:
-    - RELAY_TEST_E2E_LABEL_NODES=true ./scripts/ci test
+    - RELAY_TEST_E2E_KUBECONFIG="${KUBECONFIG}" RELAY_TEST_E2E_LABEL_NODES=true ./scripts/ci test
   - stage: build
     before_script:
     - if [ ! -d "$HOME/google-cloud-sdk/bin" ]; then rm -rf $HOME/google-cloud-sdk;

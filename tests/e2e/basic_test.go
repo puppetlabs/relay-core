@@ -72,8 +72,7 @@ func TestBasic(t *testing.T) {
 			metadataAPI := httptest.NewServer(server.NewHandler(
 				middleware.NewKubernetesAuthenticator(
 					func(token string) (kubernetes.Interface, error) {
-						rc := &rest.Config{}
-						*rc = *e2e.RESTConfig
+						rc := rest.AnonymousClientConfig(e2e.RESTConfig)
 						rc.BearerToken = token
 						rc.BearerTokenFile = ""
 

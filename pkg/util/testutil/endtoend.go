@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"path"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -17,6 +19,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
@@ -74,7 +77,28 @@ func doEndToEndEnvironment(ctx context.Context, fn func(e *EndToEndEnvironment),
 		return false, nil
 	}
 
+	// Don't inherit from $KUBECONFIG so people don't accidentally run these
+	// tests against a cluster they care about.
+	kubeconfigs := strings.TrimSpace(viper.GetString("kubeconfig"))
+	if kubeconfigs == "" {
+		return true, fmt.Errorf("end-to-end tests require the RELAY_TEST_E2E_KUBECONFIG environment variable to be set to the path of a valid Kubeconfig")
+	}
+
+	cfg, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		&clientcmd.ClientConfigLoadingRules{
+			Precedence:       filepath.SplitList(kubeconfigs),
+			WarnIfAllMissing: true,
+		},
+		&clientcmd.ConfigOverrides{
+			CurrentContext: viper.GetString("context"),
+		},
+	).ClientConfig()
+	if err != nil {
+		return true, fmt.Errorf("failed to create Kubernetes cluster configuration: %+v", err)
+	}
+
 	env := &envtest.Environment{
+		Config: cfg,
 		CRDDirectoryPaths: []string{
 			path.Join(ModuleDirectory, "manifests/resources"),
 		},
@@ -82,11 +106,13 @@ func doEndToEndEnvironment(ctx context.Context, fn func(e *EndToEndEnvironment),
 		UseExistingCluster:       func(b bool) *bool { return &b }(true),
 	}
 
-	cfg, err := env.Start()
+	cfg, err = env.Start()
 	if err != nil {
 		return true, fmt.Errorf("failed to connect to Kubernetes cluster: %+v", err)
 	}
 	defer env.Stop()
+
+	log.Println("connected to Kubernetes cluster", cfg.Host)
 
 	client, err := client.New(cfg, client.Options{
 		Scheme: TestScheme,
