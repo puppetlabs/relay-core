@@ -181,9 +181,15 @@ func NewReconciler(dm *dependency.DependencyManager) *Reconciler {
 	}
 }
 
-func (r *Reconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	klog.Infof("reconciling workflow run %s in %s", req.Name, req.Namespace)
-	defer klog.Infof("done reconciling workflow run %s in namespace %s", req.Name, req.Namespace)
+func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error) {
+	klog.Infof("reconciling WorkflowRun %s", req.NamespacedName)
+	defer func() {
+		if err != nil {
+			klog.Infof("error reconciling WorkflowRun %s: %+v", req.NamespacedName, err)
+		} else {
+			klog.Infof("done reconciling WorkflowRun %s", req.NamespacedName)
+		}
+	}()
 
 	ctx := context.Background()
 
