@@ -6,6 +6,7 @@ if [ -z "${NEBULA_EMAIL:-}" ] || [ -z "${NEBULA_PASSWORD:-}" ] || [ -z "${GITHUB
     exit 0
 fi
 
+# FIXME(impl): 25072016 is the release ID for v3.4.0. We should move back to latest ASAP.
 mkdir -p .deploy
 curl -LJ -o .deploy/relay \
     -H 'Accept: application/octet-stream' \
