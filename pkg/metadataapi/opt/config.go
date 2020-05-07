@@ -30,6 +30,14 @@ type Config struct {
 	// ListenPort is the port to bind the server to.
 	ListenPort int
 
+	// TLSKeyFile is the relative path to a PEM-encoded X509 private key to
+	// enable TLS.
+	TLSKeyFile string
+
+	// TLSCertFile is the relative path to a PEM-encoded X509 certificate
+	// bundle corresponding to the private key.
+	TLSCertificateFile string
+
 	// VaultTransitURL is the HTTP(S) URL to the Vault server to use for secure
 	// token decryption.
 	VaultTransitURL string
@@ -216,6 +224,9 @@ func NewConfig() *Config {
 	return &Config{
 		Debug:      viper.GetBool("debug"),
 		ListenPort: viper.GetInt("listen_port"),
+
+		TLSKeyFile:         viper.GetString("tls_key_file"),
+		TLSCertificateFile: viper.GetString("tls_certificate_file"),
 
 		VaultTransitURL:   viper.GetString("vault_transit_url"),
 		VaultTransitToken: viper.GetString("vault_transit_token"),

@@ -76,19 +76,24 @@ func main() {
 			)
 		}
 
-		var opts []server.Option
-
+		var serverOpts []server.Option
 		if cfg.Debug {
-			opts = append(opts, server.WithErrorSensitivity(errawr.ErrorSensitivityAll))
+			serverOpts = append(serverOpts, server.WithErrorSensitivity(errawr.ErrorSensitivityAll))
 		}
 
 		s := &http.Server{
-			Handler: server.NewHandler(auth, opts...),
+			Handler: server.NewHandler(auth, serverOpts...),
 			Addr:    fmt.Sprintf("0.0.0.0:%d", cfg.ListenPort),
 		}
 
+		var listenOpts []lifecycleutil.ListenWaitHTTPOption
+		if cfg.TLSKeyFile != "" {
+			log().Info("listening with TLS")
+			listenOpts = append(listenOpts, lifecycleutil.ListenWaitWithTLS(cfg.TLSCertificateFile, cfg.TLSKeyFile))
+		}
+
 		log().Info("listening for metadata connections", "addr", s.Addr)
-		return lifecycleutil.ListenWaitHTTP(ctx, s)
+		return lifecycleutil.ListenWaitHTTP(ctx, s, listenOpts...)
 	})
 
 	os.Exit(mainutil.TrapAndWait(context.Background(), servers...))

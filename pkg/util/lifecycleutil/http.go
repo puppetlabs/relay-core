@@ -19,25 +19,34 @@ type ListenWaitHTTPOptions struct {
 	ShutdownTimeout       time.Duration
 	CloserWhens           []func(ctx context.Context) error
 	CloserRequireContexts []func(ctx context.Context) error
+	TLSCertificateFile    string
+	TLSKeyFile            string
 }
 
 type ListenWaitHTTPOption func(opts *ListenWaitHTTPOptions)
 
-func WithListenWaitHTTPCloserWhen(fn func(ctx context.Context) error) ListenWaitHTTPOption {
+func ListenWaitWithHTTPCloserWhen(fn func(ctx context.Context) error) ListenWaitHTTPOption {
 	return func(opts *ListenWaitHTTPOptions) {
 		opts.CloserWhens = append(opts.CloserWhens, fn)
 	}
 }
 
-func WithListenWaitHTTPCloserRequireContext(fn func(ctx context.Context) error) ListenWaitHTTPOption {
+func ListenWaitWithHTTPCloserRequireContext(fn func(ctx context.Context) error) ListenWaitHTTPOption {
 	return func(opts *ListenWaitHTTPOptions) {
 		opts.CloserRequireContexts = append(opts.CloserRequireContexts, fn)
 	}
 }
 
-func WithListenWaitHTTPShutdownTimeout(timeout time.Duration) ListenWaitHTTPOption {
+func ListenWaitWithHTTPShutdownTimeout(timeout time.Duration) ListenWaitHTTPOption {
 	return func(opts *ListenWaitHTTPOptions) {
 		opts.ShutdownTimeout = timeout
+	}
+}
+
+func ListenWaitWithTLS(certificateFile, keyFile string) ListenWaitHTTPOption {
+	return func(opts *ListenWaitHTTPOptions) {
+		opts.TLSCertificateFile = certificateFile
+		opts.TLSKeyFile = keyFile
 	}
 }
 
@@ -75,7 +84,13 @@ func ListenWaitHTTP(ctx context.Context, s *http.Server, opts ...ListenWaitHTTPO
 
 	closer := cb.Build()
 
-	if err := s.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+	var err error
+	if ho.TLSKeyFile != "" {
+		err = s.ListenAndServeTLS(ho.TLSCertificateFile, ho.TLSKeyFile)
+	} else {
+		err = s.ListenAndServe()
+	}
+	if err != nil && err != http.ErrServerClosed {
 		return err
 	}
 
