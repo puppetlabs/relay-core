@@ -92,6 +92,7 @@ func (v VaultAuth) ServiceAccountAccessGranter(sa *corev1.ServiceAccount) (secre
 		client:         v.client,
 		namespace:      sa.GetNamespace(),
 		serviceAccount: sa.GetName(),
+		authMount:      v.authMountPath,
 	}, nil
 }
 
@@ -100,6 +101,7 @@ func (v VaultAuth) ServiceAccountAccessRevoker(sa *corev1.ServiceAccount) (secre
 		client:         v.client,
 		namespace:      sa.GetNamespace(),
 		serviceAccount: sa.GetName(),
+		authMount:      v.authMountPath,
 	}, nil
 }
 
