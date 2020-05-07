@@ -567,6 +567,12 @@ func (r *Reconciler) createAccessResources(ctx context.Context, wr *nebulav1.Wor
 		return nil, err
 	}
 
+	// NOTE swap out the addr with the one from config for the time being.
+	// TODO Evetually the new metadata api is going to remove all this
+	for k := range grants {
+		grants[k].BackendAddr = r.Config.MetadataServiceVaultAddr
+	}
+
 	marshaledGrants, err := secrets.MarshalGrants(grants)
 	if err != nil {
 		return nil, err
