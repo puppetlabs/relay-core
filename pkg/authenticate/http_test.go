@@ -26,6 +26,10 @@ func TestHTTPAuthorizationHeaderIntermediary(t *testing.T) {
 			ExpectedError:       authenticate.ErrNotFound,
 		},
 		{
+			AuthorizationHeader: "Basic Om15LXRva2Vu",
+			ExpectedRaw:         authenticate.Raw("my-token"),
+		},
+		{
 			ExpectedError: authenticate.ErrNotFound,
 		},
 	}
