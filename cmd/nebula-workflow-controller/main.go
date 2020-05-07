@@ -41,7 +41,7 @@ func main() {
 	numWorkers := fs.Int("num-workers", 2, "the number of worker threads to spawn that process Workflow resources")
 	metricsEnabled := fs.Bool("metrics-enabled", false, "enables the metrics collection and server")
 	metricsServerBindAddr := fs.String("metrics-server-bind-addr", "localhost:3050", "the host:port to bind the metrics server to")
-	jwtSigningKeyFile := fs.String("jwt-signing-key-file", "", "path to a PEM-encoded RS512 JWT key to use for signing step tokens")
+	jwtSigningKeyFile := fs.String("jwt-signing-key-file", "", "path to a PEM-encoded RSA JWT key to use for signing step tokens")
 	vaultTransitPath := fs.String("vault-transit-path", "transit", "path to the Vault secrets engine to use for encrypting step tokens")
 	vaultTransitKey := fs.String("vault-transit-key", "metadata-api", "the Vault transit key to use")
 	metadataAPIURLStr := fs.String("metadata-api-url", "", "URL to the metadata API")
