@@ -6,6 +6,7 @@ require (
 	cloud.google.com/go/storage v1.1.2 // indirect
 	github.com/containerd/continuity v0.0.0-20200413184840-d3ef23f19fbb // indirect
 	github.com/frankban/quicktest v1.7.3 // indirect
+	github.com/gofrs/flock v0.7.1
 	github.com/golang/groupcache v0.0.0-20191002201903-404acd9df4cc // indirect
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.3

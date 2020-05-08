@@ -65,7 +65,13 @@ func EndToEndEnvironmentWithTekton(ctx context.Context, e *EndToEndEnvironment) 
 
 var _ EndToEndEnvironmentOption = EndToEndEnvironmentWithTekton
 
-func doEndToEndEnvironment(ctx context.Context, fn func(e *EndToEndEnvironment), opts ...EndToEndEnvironmentOption) (bool, error) {
+func doEndToEndEnvironment(fn func(e *EndToEndEnvironment), opts ...EndToEndEnvironmentOption) (bool, error) {
+	// We'll allow 30 minutes to attach the environment and run the test. This
+	// should give us time to acquire the exclusive lock but puts a cap on any
+	// underlying issues causing timeouts in CI.
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	defer cancel()
+
 	viper.SetEnvPrefix("relay_test_e2e")
 	viper.AutomaticEnv()
 
@@ -105,6 +111,14 @@ func doEndToEndEnvironment(ctx context.Context, fn func(e *EndToEndEnvironment),
 		AttachControlPlaneOutput: true,
 		UseExistingCluster:       func(b bool) *bool { return &b }(true),
 	}
+
+	// End-to-end tests require an exclusive lock on the environment so, e.g.,
+	// we don't try to simultaneously install Tekton in two different packages.
+	release, err := Exclusive(ctx, "end-to-end")
+	if err != nil {
+		return true, fmt.Errorf("failed to acquire exclusive lock: %+v", err)
+	}
+	defer release()
 
 	cfg, err = env.Start()
 	if err != nil {
@@ -159,8 +173,8 @@ func doEndToEndEnvironment(ctx context.Context, fn func(e *EndToEndEnvironment),
 	return true, nil
 }
 
-func WithEndToEndEnvironment(t *testing.T, ctx context.Context, fn func(e *EndToEndEnvironment), opts ...EndToEndEnvironmentOption) {
-	enabled, err := doEndToEndEnvironment(ctx, fn)
+func WithEndToEndEnvironment(t *testing.T, fn func(e *EndToEndEnvironment), opts ...EndToEndEnvironmentOption) {
+	enabled, err := doEndToEndEnvironment(fn, opts...)
 	require.NoError(t, err)
 	if !enabled {
 		log.Println("end-to-end tests disabled by configuration")
@@ -168,7 +182,7 @@ func WithEndToEndEnvironment(t *testing.T, ctx context.Context, fn func(e *EndTo
 }
 
 func RunEndToEnd(m *testing.M, fn func(e *EndToEndEnvironment), opts ...EndToEndEnvironmentOption) int {
-	if enabled, err := doEndToEndEnvironment(context.Background(), fn); err != nil {
+	if enabled, err := doEndToEndEnvironment(fn, opts...); err != nil {
 		log.Println(err)
 		return 1
 	} else if !enabled {

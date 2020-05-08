@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	ServiceAccountDefaultTokenSecretLoadTimeout          = 10 * time.Second
+	ServiceAccountDefaultTokenSecretLoadTimeout          = 120 * time.Second
 	ServiceAccountDefaultTokenSecretLoadBackoffFrequency = 250 * time.Millisecond
 )
 
