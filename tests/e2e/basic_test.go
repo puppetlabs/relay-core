@@ -28,6 +28,7 @@ import (
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"
 	"github.com/puppetlabs/nebula-tasks/pkg/model"
 	"github.com/puppetlabs/nebula-tasks/pkg/reconciler/workflow/obj"
+	"github.com/puppetlabs/nebula-tasks/pkg/util/retry"
 	"github.com/puppetlabs/nebula-tasks/pkg/util/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -162,42 +163,42 @@ func TestBasic(t *testing.T) {
 			require.NoError(t, e2e.ControllerRuntimeClient.Create(ctx, wr))
 
 			// Wait for step to start. Could use a ListWatcher but meh.
-			require.NoError(t, obj.Retry(ctx, 500*time.Millisecond, func() *obj.RetryError {
+			require.NoError(t, retry.Retry(ctx, 500*time.Millisecond, func() *retry.RetryError {
 				if err := e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{
 					Namespace: wr.GetNamespace(),
 					Name:      wr.GetName(),
 				}, wr); err != nil {
-					return obj.RetryPermanent(err)
+					return retry.RetryPermanent(err)
 				}
 
 				if wr.Status.Steps["my-test-step"].Status == string(obj.WorkflowRunStatusInProgress) {
-					return obj.RetryPermanent(nil)
+					return retry.RetryPermanent(nil)
 				}
 
-				return obj.RetryTransient(fmt.Errorf("waiting for step to start"))
+				return retry.RetryTransient(fmt.Errorf("waiting for step to start"))
 			}))
 
 			// Pull the pod and get its IP.
 			pod := &corev1.Pod{}
-			require.NoError(t, obj.Retry(ctx, 500*time.Millisecond, func() *obj.RetryError {
+			require.NoError(t, retry.Retry(ctx, 500*time.Millisecond, func() *retry.RetryError {
 				pods := &corev1.PodList{}
 				if err := e2e.ControllerRuntimeClient.List(ctx, pods, client.MatchingLabels{
 					// TODO: We shouldn't really hardcode this.
 					"tekton.dev/task": fmt.Sprintf("%s-%s", wr.GetName(), (&model.Step{Run: model.Run{ID: wr.Spec.Name}, Name: "my-test-step"}).Hash().HexEncoding()),
 				}); err != nil {
-					return obj.RetryPermanent(err)
+					return retry.RetryPermanent(err)
 				}
 
 				if len(pods.Items) == 0 {
-					return obj.RetryTransient(fmt.Errorf("waiting for pod"))
+					return retry.RetryTransient(fmt.Errorf("waiting for pod"))
 				}
 
 				pod = &pods.Items[0]
 				if pod.Status.PodIP == "" {
-					return obj.RetryTransient(fmt.Errorf("waiting for pod IP"))
+					return retry.RetryTransient(fmt.Errorf("waiting for pod IP"))
 				}
 
-				return obj.RetryPermanent(nil)
+				return retry.RetryPermanent(nil)
 			}))
 
 			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/spec", metadataAPI.URL), nil)

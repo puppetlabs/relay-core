@@ -5,9 +5,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/puppetlabs/nebula-tasks/pkg/dependency"
+	"github.com/puppetlabs/nebula-tasks/pkg/util/retry"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -199,4 +202,37 @@ func ParseApplyKubernetesManifest(ctx context.Context, cl client.Client, r io.Re
 	}
 
 	return objs, nil
+}
+
+func WaitForServicesToBeReady(ctx context.Context, cl client.Client, namespace string) error {
+	err := retry.Retry(ctx, 2*time.Second, func() *retry.RetryError {
+		eps := &corev1.EndpointsList{}
+		if err := cl.List(ctx, eps, client.InNamespace(namespace)); err != nil {
+			return retry.RetryPermanent(err)
+		}
+
+		if len(eps.Items) == 0 {
+			return retry.RetryTransient(fmt.Errorf("waiting for endpoints"))
+		}
+
+		for _, ep := range eps.Items {
+			log.Println("checking service", ep.Name)
+			if len(ep.Subsets) == 0 {
+				return retry.RetryTransient(fmt.Errorf("waiting for subsets"))
+			}
+
+			for _, subset := range ep.Subsets {
+				if len(subset.Addresses) == 0 {
+					return retry.RetryTransient(fmt.Errorf("waiting for pod assignment"))
+				}
+			}
+		}
+
+		return retry.RetryPermanent(nil)
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

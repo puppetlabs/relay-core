@@ -33,7 +33,6 @@ type EndToEndEnvironment struct {
 	RESTConfig              *rest.Config
 	ControllerRuntimeClient client.Client
 	Interface               kubernetes.Interface
-	GithubToken             string
 }
 
 func (e *EndToEndEnvironment) WithTestNamespace(t *testing.T, ctx context.Context, fn func(ns *corev1.Namespace)) {
@@ -59,17 +58,17 @@ func (e *EndToEndEnvironment) WithTestNamespace(t *testing.T, ctx context.Contex
 type EndToEndEnvironmentOption func(ctx context.Context, e *EndToEndEnvironment) error
 
 func EndToEndEnvironmentWithTekton(ctx context.Context, e *EndToEndEnvironment) error {
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
 	return doInstallTektonPipeline(ctx, e.ControllerRuntimeClient, viper.GetString("tekton_pipeline_version"))
 }
 
 func EndToEndEnvironmentWithKnative(ctx context.Context, e *EndToEndEnvironment) error {
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
-	return doInstallKnativeServing(ctx, e.ControllerRuntimeClient, viper.GetString("knative_serving_version"), viper.GetString("github_token"))
+	return doInstallKnativeServing(ctx, e.ControllerRuntimeClient, viper.GetString("knative_serving_version"))
 }
 
 var _ EndToEndEnvironmentOption = EndToEndEnvironmentWithTekton
@@ -92,11 +91,6 @@ func doEndToEndEnvironment(fn func(e *EndToEndEnvironment), opts ...EndToEndEnvi
 
 	if viper.GetBool("disabled") {
 		return false, nil
-	}
-
-	githubToken := strings.TrimSpace(viper.GetString("github_token"))
-	if githubToken == "" {
-		return true, fmt.Errorf("end-to-end tests require the RELAY_TEST_E2E_GITHUB_TOKEN environment variable to be set to a valid github token")
 	}
 
 	// Don't inherit from $KUBECONFIG so people don't accidentally run these
@@ -177,7 +171,6 @@ func doEndToEndEnvironment(fn func(e *EndToEndEnvironment), opts ...EndToEndEnvi
 		RESTConfig:              cfg,
 		ControllerRuntimeClient: client,
 		Interface:               ifc,
-		GithubToken:             githubToken,
 	}
 
 	for _, opt := range opts {
