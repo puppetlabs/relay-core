@@ -93,6 +93,17 @@ sections:
           http:
             status: 422
 
+      unsupported_language_error:
+        title: Unsupported query language
+        description: >
+          We don't know the query language {{quote language}}.
+        arguments:
+          language:
+            description: the requested query language
+        metadata:
+          http:
+            status: 422
+
   condition:
     title: Condition errors
     errors:

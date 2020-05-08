@@ -349,6 +349,57 @@ func NewExpressionUnresolvableError(errors []string) Error {
 	return NewExpressionUnresolvableErrorBuilder(errors).Build()
 }
 
+// ExpressionUnsupportedLanguageErrorCode is the code for an instance of "unsupported_language_error".
+const ExpressionUnsupportedLanguageErrorCode = "rma_expression_unsupported_language_error"
+
+// IsExpressionUnsupportedLanguageError tests whether a given error is an instance of "unsupported_language_error".
+func IsExpressionUnsupportedLanguageError(err errawr.Error) bool {
+	return err != nil && err.Is(ExpressionUnsupportedLanguageErrorCode)
+}
+
+// IsExpressionUnsupportedLanguageError tests whether a given error is an instance of "unsupported_language_error".
+func (External) IsExpressionUnsupportedLanguageError(err errawr.Error) bool {
+	return IsExpressionUnsupportedLanguageError(err)
+}
+
+// ExpressionUnsupportedLanguageErrorBuilder is a builder for "unsupported_language_error" errors.
+type ExpressionUnsupportedLanguageErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "unsupported_language_error" from this builder.
+func (b *ExpressionUnsupportedLanguageErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "We don't know the query language {{quote language}}.",
+		Technical: "We don't know the query language {{quote language}}.",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "unsupported_language_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata: &impl.ErrorMetadata{HTTPErrorMetadata: &impl.HTTPErrorMetadata{
+			ErrorHeaders: impl.HTTPErrorMetadataHeaders{},
+			ErrorStatus:  422,
+		}},
+		ErrorSection:     ExpressionSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Unsupported query language",
+		Version:          1,
+	}
+}
+
+// NewExpressionUnsupportedLanguageErrorBuilder creates a new error builder for the code "unsupported_language_error".
+func NewExpressionUnsupportedLanguageErrorBuilder(language string) *ExpressionUnsupportedLanguageErrorBuilder {
+	return &ExpressionUnsupportedLanguageErrorBuilder{arguments: impl.ErrorArguments{"language": impl.NewErrorArgument(language, "the requested query language")}}
+}
+
+// NewExpressionUnsupportedLanguageError creates a new error with the code "unsupported_language_error".
+func NewExpressionUnsupportedLanguageError(language string) Error {
+	return NewExpressionUnsupportedLanguageErrorBuilder(language).Build()
+}
+
 // ModelSection defines a section of errors with the following scope:
 // Model errors
 var ModelSection = &impl.ErrorSection{

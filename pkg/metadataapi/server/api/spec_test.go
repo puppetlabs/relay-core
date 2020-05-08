@@ -110,4 +110,19 @@ func TestGetSpec(t *testing.T) {
 	require.NoError(t, json.NewDecoder(resp.Result().Body).Decode(&r))
 	require.Equal(t, "value", r.Value.Data)
 	require.True(t, r.Complete)
+
+	// Request a specific expression from the spec using the JSON path query language
+	req.URL.RawQuery = url.Values{
+		"q":    []string{"$.structuredOutput.a"},
+		"lang": []string{"jsonpath"},
+	}.Encode()
+
+	resp, err = client.Do(req)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	r = evaluate.JSONResultEnvelope{}
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&r))
+	require.Equal(t, "value", r.Value.Data)
+	require.True(t, r.Complete)
 }

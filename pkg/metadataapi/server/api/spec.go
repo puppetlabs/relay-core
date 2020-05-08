@@ -21,7 +21,19 @@ func (s *Server) GetSpec(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	lang := evaluate.LanguagePath
+	switch r.URL.Query().Get("lang") {
+	case "jsonpath-template":
+		lang = evaluate.LanguageJSONPathTemplate
+	case "jsonpath":
+		lang = evaluate.LanguageJSONPath
+	case "", "path":
+	default:
+		utilapi.WriteError(ctx, w, errors.NewExpressionUnsupportedLanguageError(r.URL.Query().Get("lang")))
+	}
+
 	ev := evaluate.NewEvaluator(
+		evaluate.WithLanguage(lang),
 		evaluate.WithSecretTypeResolver(resolve.NewSecretTypeResolver(managers.Secrets())),
 		evaluate.WithOutputTypeResolver(resolve.NewOutputTypeResolver(managers.StepOutputs())),
 	).ScopeTo(spec.Tree)

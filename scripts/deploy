@@ -6,10 +6,11 @@ if [ -z "${NEBULA_EMAIL:-}" ] || [ -z "${NEBULA_PASSWORD:-}" ] || [ -z "${GITHUB
     exit 0
 fi
 
+# FIXME(impl): 25072016 is the release ID for v3.4.0. We should move back to latest ASAP.
 mkdir -p .deploy
 curl -LJ -o .deploy/relay \
     -H 'Accept: application/octet-stream' \
-    "https://api.github.com/repos/puppetlabs/relay/releases/assets/$( curl -s "https://api.github.com/repos/puppetlabs/relay/releases/latest?access_token=${GITHUB_TOKEN}" | jq -r '.assets[] | select(.name | endswith("-linux-amd64")) | .id' )?access_token=${GITHUB_TOKEN}"
+    "https://api.github.com/repos/puppetlabs/relay/releases/assets/$( curl -s "https://api.github.com/repos/puppetlabs/relay/releases/25072016?access_token=${GITHUB_TOKEN}" | jq -r '.assets[] | select(.name | endswith("-linux-amd64")) | .id' )?access_token=${GITHUB_TOKEN}"
 chmod +x .deploy/relay
 
 mkdir -p ~/.config/nebula
