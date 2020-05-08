@@ -117,9 +117,9 @@ func TestGetSpec(t *testing.T) {
 		"lang": []string{"jsonpath"},
 	}.Encode()
 
-	resp, err = client.Do(req)
-	require.NoError(t, err)
-	require.Equal(t, http.StatusOK, resp.StatusCode)
+	resp = httptest.NewRecorder()
+	h.ServeHTTP(resp, req)
+	require.Equal(t, http.StatusOK, resp.Result().StatusCode)
 
 	r = evaluate.JSONResultEnvelope{}
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&r))
