@@ -17,16 +17,20 @@ import (
 func doInstallTektonPipeline(ctx context.Context, cl client.Client, version string) error {
 	requested := time.Now()
 
-	resp, err := http.Get(fmt.Sprintf("https://storage.googleapis.com/tekton-releases/pipeline/previous/v%s/release.yaml", version))
-	if err != nil {
-		return err
-	} else if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("expected 200 OK when retrieving Tekton configuration, got %s", resp.Status)
-	}
+	err := obj.Retry(ctx, 30*time.Second, func() *obj.RetryError {
+		resp, err := http.Get(fmt.Sprintf("https://storage.googleapis.com/tekton-releases/pipeline/previous/v%s/release.yaml", version))
+		if err != nil {
+			return obj.RetryTransient(err)
+		} else if resp.StatusCode != http.StatusOK {
+			return obj.RetryTransient(fmt.Errorf("expected 200 OK when retrieving Tekton configuration, got %s", resp.Status))
+		}
 
-	if _, err := ParseApplyKubernetesManifest(ctx, cl, resp.Body); err != nil {
-		return err
-	}
+		if _, err := ParseApplyKubernetesManifest(ctx, cl, resp.Body); err != nil {
+			return obj.RetryPermanent(err)
+		}
+
+		return obj.RetryPermanent(nil)
+	})
 
 	// Wait for Tekton services to be ready.
 	err = obj.Retry(ctx, 2*time.Second, func() *obj.RetryError {

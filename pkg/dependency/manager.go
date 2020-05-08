@@ -7,6 +7,7 @@ import (
 	"github.com/puppetlabs/horsehead/v2/instrumentation/metrics"
 	"github.com/puppetlabs/horsehead/v2/storage"
 	nebulav1 "github.com/puppetlabs/nebula-tasks/pkg/apis/nebula.puppet.com/v1"
+	relayv1beta1 "github.com/puppetlabs/nebula-tasks/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
 	tektonv1alpha1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
@@ -15,6 +16,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
@@ -23,8 +25,10 @@ var (
 	SchemeBuilder = runtime.NewSchemeBuilder(
 		scheme.AddToScheme,
 		nebulav1.AddToScheme,
+		relayv1beta1.AddToScheme,
 		tektonv1alpha1.AddToScheme,
 		tektonv1beta1.AddToScheme,
+		servingv1.AddToScheme,
 	)
 	AddToScheme = SchemeBuilder.AddToScheme
 

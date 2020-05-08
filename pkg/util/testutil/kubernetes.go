@@ -20,6 +20,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
+	cachingv1alpha1 "knative.dev/caching/pkg/apis/caching/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -31,6 +32,7 @@ func init() {
 	schemeBuilder := runtime.NewSchemeBuilder(
 		dependency.AddToScheme,
 		apiextensionsv1beta1.AddToScheme,
+		cachingv1alpha1.AddToScheme,
 	)
 
 	if err := schemeBuilder.AddToScheme(TestScheme); err != nil {

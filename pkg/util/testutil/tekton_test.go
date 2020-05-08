@@ -10,7 +10,7 @@ import (
 
 func TestInstallTektonPipeline(t *testing.T) {
 	testutil.WithEndToEndEnvironment(t, func(e2e *testutil.EndToEndEnvironment) {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
 
 		testutil.InstallTektonPipeline(t, ctx, e2e.ControllerRuntimeClient, testutil.DefaultTektonPipelineVersion)

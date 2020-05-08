@@ -25,13 +25,15 @@ import (
 )
 
 const (
-	DefaultTektonPipelineVersion = "0.11.3"
+	DefaultTektonPipelineVersion = "0.12.0"
+	DefaultKnativeServingVersion = "0.13.0"
 )
 
 type EndToEndEnvironment struct {
 	RESTConfig              *rest.Config
 	ControllerRuntimeClient client.Client
 	Interface               kubernetes.Interface
+	GithubToken             string
 }
 
 func (e *EndToEndEnvironment) WithTestNamespace(t *testing.T, ctx context.Context, fn func(ns *corev1.Namespace)) {
@@ -57,13 +59,21 @@ func (e *EndToEndEnvironment) WithTestNamespace(t *testing.T, ctx context.Contex
 type EndToEndEnvironmentOption func(ctx context.Context, e *EndToEndEnvironment) error
 
 func EndToEndEnvironmentWithTekton(ctx context.Context, e *EndToEndEnvironment) error {
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 
 	return doInstallTektonPipeline(ctx, e.ControllerRuntimeClient, viper.GetString("tekton_pipeline_version"))
 }
 
+func EndToEndEnvironmentWithKnative(ctx context.Context, e *EndToEndEnvironment) error {
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+
+	return doInstallKnativeServing(ctx, e.ControllerRuntimeClient, viper.GetString("knative_serving_version"), viper.GetString("github_token"))
+}
+
 var _ EndToEndEnvironmentOption = EndToEndEnvironmentWithTekton
+var _ EndToEndEnvironmentOption = EndToEndEnvironmentWithKnative
 
 func doEndToEndEnvironment(fn func(e *EndToEndEnvironment), opts ...EndToEndEnvironmentOption) (bool, error) {
 	// We'll allow 30 minutes to attach the environment and run the test. This
@@ -77,10 +87,16 @@ func doEndToEndEnvironment(fn func(e *EndToEndEnvironment), opts ...EndToEndEnvi
 
 	viper.SetDefault("label_nodes", false)
 	viper.SetDefault("tekton_pipeline_version", DefaultTektonPipelineVersion)
+	viper.SetDefault("knative_serving_version", DefaultKnativeServingVersion)
 	viper.SetDefault("disabled", false)
 
 	if viper.GetBool("disabled") {
 		return false, nil
+	}
+
+	githubToken := strings.TrimSpace(viper.GetString("github_token"))
+	if githubToken == "" {
+		return true, fmt.Errorf("end-to-end tests require the RELAY_TEST_E2E_GITHUB_TOKEN environment variable to be set to a valid github token")
 	}
 
 	// Don't inherit from $KUBECONFIG so people don't accidentally run these
@@ -161,6 +177,7 @@ func doEndToEndEnvironment(fn func(e *EndToEndEnvironment), opts ...EndToEndEnvi
 		RESTConfig:              cfg,
 		ControllerRuntimeClient: client,
 		Interface:               ifc,
+		GithubToken:             githubToken,
 	}
 
 	for _, opt := range opts {

@@ -466,6 +466,11 @@ func (in *PipelineSpec) DeepCopyInto(out *PipelineSpec) {
 		*out = make([]v1beta1.WorkspacePipelineDeclaration, len(*in))
 		copy(*out, *in)
 	}
+	if in.Results != nil {
+		in, out := &in.Results, &out.Results
+		*out = make([]v1beta1.PipelineResult, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 
@@ -793,8 +798,16 @@ func (in *TaskRunSpec) DeepCopyInto(out *TaskRunSpec) {
 		*out = new(v1beta1.TaskRunResources)
 		(*in).DeepCopyInto(*out)
 	}
-	in.Inputs.DeepCopyInto(&out.Inputs)
-	in.Outputs.DeepCopyInto(&out.Outputs)
+	if in.Inputs != nil {
+		in, out := &in.Inputs, &out.Inputs
+		*out = new(TaskRunInputs)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.Outputs != nil {
+		in, out := &in.Outputs, &out.Outputs
+		*out = new(TaskRunOutputs)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 
