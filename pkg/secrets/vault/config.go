@@ -17,7 +17,6 @@ type Config struct {
 	// The bucket path segment we are proxying requests for secrets for
 	Bucket string
 	// The engine to use to form paths from
-	EngineMount       string
-	ScopedSecretsPath string
-	Logger            logging.Logger
+	EngineMount string
+	Logger      logging.Logger
 }

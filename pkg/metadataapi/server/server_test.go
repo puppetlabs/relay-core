@@ -260,6 +260,7 @@ func TestServerSpecsHandler(t *testing.T) {
 				"super-secret":      map[string]string{"$type": "Secret", "name": "test-secret-key"},
 				"super-output":      map[string]string{"$type": "Output", "name": "test-output-key", "taskName": previousTask.Name},
 				"structured-output": map[string]string{"$type": "Output", "name": "test-structured-output-key", "taskName": previousTask.Name},
+				"super-connection":  map[string]string{"$type": "Connection", "type": "aws", "name": "test-aws-connection"},
 				"super-normal":      "test-normal-value",
 			},
 		}
@@ -272,6 +273,12 @@ func TestServerSpecsHandler(t *testing.T) {
 	managers := testutil.NewMockManagerFactory(t, testutil.MockManagerFactoryConfig{
 		SecretData: map[string]string{
 			"test-secret-key": "test-secret-value",
+		},
+		ConnectionData: map[string]map[string]string{
+			"aws/test-aws-connection": {
+				"accessKeyID":     "testaccesskey",
+				"secretAccessKey": "testsecretaccesskey",
+			},
 		},
 		Namespace:    namespace,
 		K8sResources: resources,
@@ -302,7 +309,7 @@ func TestServerSpecsHandler(t *testing.T) {
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 
 		// Request the whole spec
-		req, err = http.NewRequest(http.MethodGet, ts.URL+"/specs", nil)
+		req, err = http.NewRequest(http.MethodGet, ts.URL+"/spec", nil)
 		require.NoError(t, err)
 		req.Header.Set("Nebula-Unit-Test-Address", currentTask.PodIP)
 
@@ -314,13 +321,21 @@ func TestServerSpecsHandler(t *testing.T) {
 
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(&spec))
 		require.Equal(t, map[string]interface{}{
-			"super-secret": "test-secret-value",
-			"super-output": "test-output-value",
-			"structured-output": map[string]interface{}{
-				"a":       "value",
-				"another": "thing",
+			"complete":     true,
+			"unresolvable": map[string]interface{}{},
+			"value": map[string]interface{}{
+				"super-secret": "test-secret-value",
+				"super-output": "test-output-value",
+				"structured-output": map[string]interface{}{
+					"a":       "value",
+					"another": "thing",
+				},
+				"super-connection": map[string]interface{}{
+					"accessKeyID":     "testaccesskey",
+					"secretAccessKey": "testsecretaccesskey",
+				},
+				"super-normal": "test-normal-value",
 			},
-			"super-normal": "test-normal-value",
 		}, spec)
 	})
 }

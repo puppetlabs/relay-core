@@ -1,8 +1,6 @@
 package dependency
 
 import (
-	"context"
-
 	"github.com/puppetlabs/horsehead/v2/instrumentation/metrics"
 	"github.com/puppetlabs/horsehead/v2/storage"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
@@ -16,7 +14,7 @@ type DependencyManager struct {
 	Manager       manager.Manager
 	Config        *config.WorkflowControllerConfig
 	KubeClient    kubernetes.Interface
-	SecretsClient SecretAuthAccessManager
+	SecretsClient secrets.AuthAccessManager
 	StorageClient storage.BlobStore
 	Metrics       *metrics.Metrics
 }
@@ -36,9 +34,4 @@ func NewDependencyManager(mgr manager.Manager, cfg *config.WorkflowControllerCon
 		Metrics:       mets,
 	}
 	return d, nil
-}
-
-type SecretAuthAccessManager interface {
-	GrantScopedAccess(ctx context.Context, workflowID, namespace, serviceAccount string) (*secrets.AccessGrant, error)
-	RevokeScopedAccess(ctx context.Context, namespace string) error
 }

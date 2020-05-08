@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
 	"github.com/puppetlabs/horsehead/v2/graph"
 	"github.com/puppetlabs/horsehead/v2/graph/traverse"
 	"github.com/puppetlabs/horsehead/v2/storage"
@@ -49,12 +50,18 @@ import (
 
 var controllerKind = nebulav1.SchemeGroupVersion.WithKind("WorkflowRun")
 
+// nebula.puppet.com group labels and annotations
 const (
 	nebulaGroupNamePrefix = "nebula.puppet.com/"
 	pipelineRunAnnotation = nebulaGroupNamePrefix + "pipelinerun"
 	workflowRunAnnotation = nebulaGroupNamePrefix + "workflowrun"
 	workflowRunLabel      = nebulaGroupNamePrefix + "workflow-run-id"
 	workflowLabel         = nebulaGroupNamePrefix + "workflow-id"
+)
+
+// relay.sh group labels and annotations
+const (
+	domainIDAnnotation = "relay.sh/domain-id"
 )
 
 type WorkflowRunStatus string
@@ -174,9 +181,15 @@ func NewReconciler(dm *dependency.DependencyManager) *Reconciler {
 	}
 }
 
-func (r *Reconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	klog.Infof("reconciling workflow run %s in %s", req.Name, req.Namespace)
-	defer klog.Infof("done reconciling workflow run %s in namespace %s", req.Name, req.Namespace)
+func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error) {
+	klog.Infof("reconciling WorkflowRun %s", req.NamespacedName)
+	defer func() {
+		if err != nil {
+			klog.Infof("error reconciling WorkflowRun %s: %+v", req.NamespacedName, err)
+		} else {
+			klog.Infof("done reconciling WorkflowRun %s", req.NamespacedName)
+		}
+	}()
 
 	ctx := context.Background()
 
@@ -510,8 +523,6 @@ func (r *Reconciler) createAccessResources(ctx context.Context, wr *nebulav1.Wor
 		err      error
 	)
 
-	namespace := wr.GetNamespace()
-
 	ips, err = r.copyImagePullSecret(wr)
 	if err != nil {
 		return nil, err
@@ -533,7 +544,41 @@ func (r *Reconciler) createAccessResources(ctx context.Context, wr *nebulav1.Wor
 	}
 
 	klog.Infof("granting workflow run access to scoped secrets %s", wr.GetName())
-	grant, err := r.SecretsClient.GrantScopedAccess(ctx, wr.Spec.Workflow.Name, namespace, saccount.GetName())
+	granter, err := r.SecretsClient.ServiceAccountAccessGranter(saccount)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO clean this up. this might work better as an object where the struct
+	// field names replace the map keys
+	paths := make(map[string]string)
+	paths["workflows"] = path.Join("workflows", wr.Spec.Workflow.Name)
+
+	// only grant access to the connections path if the domain-id annotation
+	// exists and it's not empty.
+	if domainID, ok := wr.ObjectMeta.Annotations[domainIDAnnotation]; ok {
+		if domainID != "" {
+			paths["connections"] = path.Join("connections", domainID)
+		}
+	}
+
+	grants, err := granter.GrantAccessForPaths(ctx, paths)
+	if err != nil {
+		return nil, err
+	}
+
+	// NOTE swap out the addr with the one from config for the time being.
+	// TODO Evetually the new metadata api is going to remove all this
+	for k := range grants {
+		grants[k].BackendAddr = r.Config.MetadataServiceVaultAddr
+	}
+
+	marshaledGrants, err := secrets.MarshalGrants(grants)
+	if err != nil {
+		return nil, err
+	}
+
+	encodedGrants, err := transfer.EncodeForTransfer(marshaledGrants)
 	if err != nil {
 		return nil, err
 	}
@@ -543,7 +588,7 @@ func (r *Reconciler) createAccessResources(ctx context.Context, wr *nebulav1.Wor
 		return nil, err
 	}
 
-	_, err = r.createMetadataAPIPod(saccount, wr, grant)
+	_, err = r.createMetadataAPIPod(saccount, wr, encodedGrants)
 	if err != nil {
 		return nil, err
 	}
@@ -1425,15 +1470,7 @@ func (r *Reconciler) createRBAC(wfr *nebulav1.WorkflowRun, sa *corev1.ServiceAcc
 	return role, binding, nil
 }
 
-func (r *Reconciler) createMetadataAPIPod(saccount *corev1.ServiceAccount, wr *nebulav1.WorkflowRun, grant *secrets.AccessGrant) (*corev1.Pod, error) {
-	// It is possible that the metadata service and this controller talk to
-	// different Vault endpoints: each might be talking to a Vault agent (for
-	// caching or additional security) instead of directly to the Vault server.
-	podVaultAddr := r.Config.MetadataServiceVaultAddr
-	if podVaultAddr == "" {
-		podVaultAddr = grant.BackendAddr
-	}
-
+func (r *Reconciler) createMetadataAPIPod(saccount *corev1.ServiceAccount, wr *nebulav1.WorkflowRun, grants string) (*corev1.Pod, error) {
 	podVaultAuthMountPath := r.Config.MetadataServiceVaultAuthMountPath
 	if podVaultAuthMountPath == "" {
 		podVaultAuthMountPath = "auth/kubernetes"
@@ -1462,14 +1499,12 @@ func (r *Reconciler) createMetadataAPIPod(saccount *corev1.ServiceAccount, wr *n
 						"/usr/bin/nebula-metadata-api",
 						"-bind-addr",
 						":7000",
-						"-vault-addr",
-						podVaultAddr,
 						"-vault-auth-mount-path",
 						podVaultAuthMountPath,
 						"-vault-role",
 						wr.GetNamespace(),
-						"-scoped-secrets-path",
-						grant.ScopedPath,
+						"-vault-access-grants",
+						grants,
 						"-namespace",
 						wr.GetNamespace(),
 					},

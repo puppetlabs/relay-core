@@ -67,6 +67,15 @@ func (h *specHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			return o.Value.Data, nil
 		})),
+		evaluate.WithConnectionTypeResolver(resolve.ConnectionTypeResolverFunc(func(ctx context.Context, typ, name string) (interface{}, error) {
+			c, err := m.ConnectionsManager().Get(ctx, typ, name)
+			if errors.IsConnectionsTypeNameNotFound(err) {
+				return "", &resolve.ConnectionNotFoundError{Type: typ, Name: name}
+			} else if err != nil {
+				return nil, err
+			}
+			return c.Spec, nil
+		})),
 		evaluate.WithLanguage(lang),
 	)
 

@@ -590,8 +590,8 @@ github.com/puppetlabs/nebula-libs/storage/file/v2 v2.0.0 h1:NE2F6IF6m99cfY6H/cs5
 github.com/puppetlabs/nebula-libs/storage/file/v2 v2.0.0/go.mod h1:LIc6Noslj53YQ54ze6gW09LXpBlpmikJ5RAPvDPSAn4=
 github.com/puppetlabs/nebula-libs/storage/gcs/v2 v2.0.0 h1:U7nFTBwzt1SBDBt2WjWvlRHesqqCGYtohqcapwleK2Q=
 github.com/puppetlabs/nebula-libs/storage/gcs/v2 v2.0.0/go.mod h1:La6Fd+xP5r9TOoiYgdsiD5es6HkGdUEOvjF5QI1XFxo=
-github.com/puppetlabs/nebula-sdk v1.9.2 h1:TRIwOx0O+S10sXxTVVDlynQhNcJAMLlkSJ1TlRZaEok=
-github.com/puppetlabs/nebula-sdk v1.9.2/go.mod h1:4q0Mwh5cT0g3EodFkfFNAk8wJwec4eN2+5Xn5DxEiPc=
+github.com/puppetlabs/nebula-sdk v1.11.0 h1:BE1DXiSqmEvvNUJrwCULJfJXT4ny4VONADO6YeVwlwE=
+github.com/puppetlabs/nebula-sdk v1.11.0/go.mod h1:4q0Mwh5cT0g3EodFkfFNAk8wJwec4eN2+5Xn5DxEiPc=
 github.com/puppetlabs/paesslerag-gval v1.0.2-0.20191119012647-d2c694821b5b h1:L3KBXqsUZK0OsVAN6DQ99OzI18BvtP+uVtX0oTjCxhQ=
 github.com/puppetlabs/paesslerag-gval v1.0.2-0.20191119012647-d2c694821b5b/go.mod h1:+fTpFaf5D42b+LP12OkDl9tYbLdn36H+fvBauW4KIR4=
 github.com/puppetlabs/paesslerag-jsonpath v0.1.2-0.20191119013138-25b86105f641 h1:qGAe9FVzhkLON7icGlVWmvHFAAQQYJFczZRl7mlv00Y=

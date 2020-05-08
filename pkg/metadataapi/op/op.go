@@ -5,12 +5,16 @@ import (
 	"crypto/sha1"
 	"os"
 
+	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
 	cconfigmap "github.com/puppetlabs/nebula-tasks/pkg/conditionals/configmap"
 	cmemory "github.com/puppetlabs/nebula-tasks/pkg/conditionals/memory"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
+	comemory "github.com/puppetlabs/nebula-tasks/pkg/connections/memory"
+	connvault "github.com/puppetlabs/nebula-tasks/pkg/connections/vault"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/outputs/configmap"
 	omemory "github.com/puppetlabs/nebula-tasks/pkg/outputs/memory"
+	"github.com/puppetlabs/nebula-tasks/pkg/secrets"
 	smemory "github.com/puppetlabs/nebula-tasks/pkg/secrets/memory"
 	"github.com/puppetlabs/nebula-tasks/pkg/secrets/vault"
 	stconfigmap "github.com/puppetlabs/nebula-tasks/pkg/state/configmap"
@@ -26,6 +30,7 @@ import (
 // where data resides.
 type ManagerFactory interface {
 	SecretsManager() SecretsManager
+	ConnectionsManager() ConnectionsManager
 	OutputsManager() OutputsManager
 	StateManager() StateManager
 	MetadataManager() MetadataManager
@@ -37,17 +42,24 @@ type ManagerFactory interface {
 // within the context of nebula and the workflow system.
 type DefaultManagerFactory struct {
 	sm  SecretsManager
+	cm  ConnectionsManager
 	om  OutputsManager
 	stm StateManager
 	mm  MetadataManager
 	spm SpecsManager
-	cm  ConditionalsManager
+	cdm ConditionalsManager
 }
 
 // SecretsManager returns a configured SecretsManager implementation.
 // See pkg/metadataapi/op/secretsmanager.go
 func (m DefaultManagerFactory) SecretsManager() SecretsManager {
 	return m.sm
+}
+
+// ConnectionsManager returns a configured ConnectionsManager implementation.
+// See pkg/metadataapi/op/secretsmanager.go
+func (m DefaultManagerFactory) ConnectionsManager() ConnectionsManager {
+	return m.cm
 }
 
 // OutputsManager returns a configured OutputsManager based on values in Configuration type.
@@ -77,7 +89,7 @@ func (m DefaultManagerFactory) SpecsManager() SpecsManager {
 // ConditionalsManager returns a configured ConditionalsManager.
 // See pkg/metadataapi/op/conditionalsmanager.go
 func (m DefaultManagerFactory) ConditionalsManager() ConditionalsManager {
-	return m.cm
+	return m.cdm
 }
 
 // NewDefaultManagerFactory creates and returns a new DefaultManagerFactory
@@ -87,37 +99,76 @@ func NewForKubernetes(ctx context.Context, cfg *config.MetadataServerConfig) (*D
 		return nil, err
 	}
 
-	sm, err := vault.NewVaultWithKubernetesAuth(ctx, &vault.Config{
-		Addr:                       cfg.VaultAddr,
+	// decode the access grants
+	grantBytes, gerr := transfer.DecodeFromTransfer(cfg.VaultAccessGrants)
+	if gerr != nil {
+		return nil, errors.NewServerRunError().WithCause(gerr).Bug()
+	}
+
+	grants, gerr := secrets.UnmarshalGrants(grantBytes)
+	if gerr != nil {
+		return nil, errors.NewServerRunError().WithCause(gerr).Bug()
+	}
+
+	if _, ok := grants["workflows"]; !ok {
+		return nil, errors.NewServerVaultGrantNotFound("workflows")
+	}
+
+	sm, err := vault.NewVaultWithKubernetesAuth(ctx, grants["workflows"], &vault.Config{
+		Addr:                       grants["workflows"].BackendAddr,
 		K8sAuthMountPath:           cfg.VaultAuthMountPath,
 		K8sServiceAccountTokenPath: cfg.K8sServiceAccountTokenPath,
 		Token:                      cfg.VaultToken,
 		Role:                       cfg.VaultRole,
-		ScopedSecretsPath:          cfg.ScopedSecretsPath,
 		Logger:                     cfg.Logger,
 	})
 	if err != nil {
 		return nil, err
 	}
 
+	if _, ok := grants["connections"]; !ok {
+		// TODO remove this once connections is fully merged into staging
+		grants["connections"] = &secrets.AccessGrant{
+			BackendAddr: grants["workflows"].BackendAddr,
+			MountPath:   "/todo",
+			ScopedPath:  "/todo",
+		}
+		// return nil, errors.NewServerVaultGrantNotFound("connections")
+	}
+	forConns, err := vault.NewVaultWithKubernetesAuth(ctx, grants["connections"], &vault.Config{
+		Addr:                       grants["connections"].BackendAddr,
+		K8sAuthMountPath:           cfg.VaultAuthMountPath,
+		K8sServiceAccountTokenPath: cfg.K8sServiceAccountTokenPath,
+		Token:                      cfg.VaultToken,
+		Role:                       cfg.VaultRole,
+		Logger:                     cfg.Logger,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	cm := connvault.New(forConns)
+
 	om := configmap.New(kc, cfg.Namespace)
 	stm := stconfigmap.New(kc, cfg.Namespace)
 	mm := task.NewKubernetesMetadataManager(kc, cfg.Namespace)
 	spm := task.NewKubernetesSpecManager(kc, cfg.Namespace)
-	cm := cconfigmap.New(kc, cfg.Namespace)
+	cdm := cconfigmap.New(kc, cfg.Namespace)
 
 	return &DefaultManagerFactory{
 		sm:  NewEncodingSecretManager(sm),
+		cm:  NewEncodingConnectionManager(cm),
 		om:  om,
 		stm: NewEncodeDecodingStateManager(stm),
 		mm:  mm,
 		spm: spm,
-		cm:  cm,
+		cdm: cdm,
 	}, nil
 }
 
 type developmentPreConfig struct {
-	Secrets      map[string]string `yaml:"secrets"`
+	Secrets      map[string]string            `yaml:"secrets"`
+	Connections  map[string]map[string]string `yaml:"connections"`
 	TaskMetadata map[string]struct {
 		Name string `yaml:"name"`
 	} `yaml:"taskMetadata"`
@@ -148,19 +199,21 @@ func NewForDev(ctx context.Context, cfg *config.MetadataServerConfig) (*DefaultM
 	}
 
 	sm := smemory.New(preCfg.Secrets)
+	cm := comemory.New(preCfg.Connections)
 	om := omemory.New()
 	stm := stmemory.New()
 	mm := task.NewPreconfiguredMetadataManager(mds)
 	spm := task.NewPreconfiguredSpecManager(preCfg.TaskSpecs)
-	cm := cmemory.New(preCfg.TaskConditionals)
+	cdm := cmemory.New(preCfg.TaskConditionals)
 
 	return &DefaultManagerFactory{
 		sm:  NewEncodingSecretManager(sm),
+		cm:  NewEncodingConnectionManager(cm),
 		om:  om,
 		stm: NewEncodeDecodingStateManager(stm),
 		mm:  mm,
 		spm: spm,
-		cm:  cm,
+		cdm: cdm,
 	}, nil
 }
 
