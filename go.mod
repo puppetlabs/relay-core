@@ -27,18 +27,19 @@ require (
 	github.com/puppetlabs/nebula-libs/storage/gcs/v2 v2.0.0
 	github.com/puppetlabs/nebula-sdk v1.9.2
 	github.com/spf13/viper v1.3.2
-	github.com/stretchr/testify v1.4.0
-	github.com/tektoncd/pipeline v0.11.0-rc2
+	github.com/stretchr/testify v1.5.1
+	github.com/tektoncd/pipeline v0.12.0
 	golang.org/x/net v0.0.0-20200202094626-16171245cfb2
 	gopkg.in/square/go-jose.v2 v2.4.1
-	gopkg.in/yaml.v2 v2.2.8 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20191010095647-fc94e3f71652
-	k8s.io/api v0.17.2
-	k8s.io/apiextensions-apiserver v0.17.2
-	k8s.io/apimachinery v0.17.2
-	k8s.io/client-go v0.17.2
+	k8s.io/api v0.17.3
+	k8s.io/apiextensions-apiserver v0.17.3
+	k8s.io/apimachinery v0.17.3
+	k8s.io/client-go v0.17.3
 	k8s.io/klog v1.0.0
-	knative.dev/pkg v0.0.0-20200207155214-fef852970f43
+	knative.dev/caching v0.0.0-20200116200605-67bca2c83dfa
+	knative.dev/pkg v0.0.0-20200306230727-a56a6ea3fa56
+	knative.dev/serving v0.13.0
 	sigs.k8s.io/controller-runtime v0.5.0
 	sigs.k8s.io/controller-tools v0.2.8
 )

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/puppetlabs/nebula-tasks/pkg/util/retry"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -45,17 +46,17 @@ func (sa *ServiceAccount) Load(ctx context.Context, cl client.Client) (bool, err
 	defer cancel()
 
 	var ok bool
-	err := Retry(ctx, ServiceAccountDefaultTokenSecretLoadBackoffFrequency, func() *RetryError {
+	err := retry.Retry(ctx, ServiceAccountDefaultTokenSecretLoadBackoffFrequency, func() *retry.RetryError {
 		if ok, err := GetIgnoreNotFound(ctx, cl, sa.Key, sa.Object); err != nil || !ok {
-			return RetryPermanent(err)
+			return retry.RetryPermanent(err)
 		}
 
 		if err := sa.loadDefaultTokenSecret(ctx, cl); err != nil {
-			return RetryTransient(err)
+			return retry.RetryTransient(err)
 		}
 
 		ok = true
-		return RetryPermanent(nil)
+		return retry.RetryPermanent(nil)
 	})
 	return ok, err
 }
