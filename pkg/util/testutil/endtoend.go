@@ -114,7 +114,7 @@ func doEndToEndEnvironment(fn func(e *EndToEndEnvironment), opts ...EndToEndEnvi
 
 	// End-to-end tests require an exclusive lock on the environment so, e.g.,
 	// we don't try to simultaneously install Tekton in two different packages.
-	release, err := Exclusive(ctx, "end-to-end")
+	release, err := Exclusive(ctx, LockEndToEndEnvironment)
 	if err != nil {
 		return true, fmt.Errorf("failed to acquire exclusive lock: %+v", err)
 	}

@@ -13,7 +13,7 @@ import (
 type LockID string
 
 const (
-	LockEndToEnd LockID = "end-to-end"
+	LockEndToEndEnvironment LockID = "end-to-end"
 )
 
 func Exclusive(ctx context.Context, name LockID) (release func(), err error) {
