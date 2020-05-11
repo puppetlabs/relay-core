@@ -4,6 +4,7 @@ package model
 // service.
 type MetadataManagers interface {
 	Conditions() ConditionGetterManager
+	Connections() ConnectionManager
 	Secrets() SecretManager
 	Spec() SpecGetterManager
 	State() StateGetterManager

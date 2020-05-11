@@ -7,3 +7,4 @@ NEBULA_WORKFLOWS[improvements/workflows]=nebula
 NEBULA_WORKFLOWS[improvements/cluster-security]=nebula-system-deploy-tr-security
 NEBULA_WORKFLOWS[features/PN-151-prometheus-instrumentation]=features-tr-metrics
 NEBULA_WORKFLOWS[features/triggers]=relay-feature-triggers-v2
+NEBULA_WORKFLOWS[features/connection-v1]=tr-conn2

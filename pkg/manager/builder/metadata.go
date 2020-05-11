@@ -6,6 +6,7 @@ import (
 )
 
 type metadataManagers struct {
+	connections model.ConnectionManager
 	conditions  model.ConditionGetterManager
 	secrets     model.SecretManager
 	spec        model.SpecGetterManager
@@ -14,6 +15,10 @@ type metadataManagers struct {
 }
 
 var _ model.MetadataManagers = &metadataManagers{}
+
+func (mm *metadataManagers) Connections() model.ConnectionManager {
+	return mm.connections
+}
 
 func (mm *metadataManagers) Conditions() model.ConditionGetterManager {
 	return mm.conditions
@@ -36,11 +41,17 @@ func (mm *metadataManagers) StepOutputs() model.StepOutputManager {
 }
 
 type MetadataBuilder struct {
+	connections model.ConnectionManager
 	conditions  model.ConditionGetterManager
 	secrets     model.SecretManager
 	spec        model.SpecGetterManager
 	state       model.StateGetterManager
 	stepOutputs model.StepOutputManager
+}
+
+func (mb *MetadataBuilder) SetConnections(m model.ConnectionManager) *MetadataBuilder {
+	mb.connections = m
+	return mb
 }
 
 func (mb *MetadataBuilder) SetConditions(m model.ConditionGetterManager) *MetadataBuilder {
@@ -70,6 +81,7 @@ func (mb *MetadataBuilder) SetStepOutputs(m model.StepOutputManager) *MetadataBu
 
 func (mb *MetadataBuilder) Build() model.MetadataManagers {
 	return &metadataManagers{
+		connections: mb.connections,
 		conditions:  mb.conditions,
 		secrets:     mb.secrets,
 		spec:        mb.spec,
@@ -80,6 +92,7 @@ func (mb *MetadataBuilder) Build() model.MetadataManagers {
 
 func NewMetadataBuilder() *MetadataBuilder {
 	return &MetadataBuilder{
+		connections: reject.ConnectionManager,
 		conditions:  reject.ConditionManager,
 		secrets:     reject.SecretManager,
 		spec:        reject.SpecManager,

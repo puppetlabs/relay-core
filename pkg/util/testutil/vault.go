@@ -1,15 +1,17 @@
 package testutil
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
-	"fmt"
 	"path"
 	"testing"
+	"text/template"
 
+	"github.com/google/uuid"
 	jwt "github.com/hashicorp/vault-plugin-auth-jwt"
 	kv "github.com/hashicorp/vault-plugin-secrets-kv"
 	"github.com/hashicorp/vault/api"
@@ -52,11 +54,27 @@ func WithVaultClient(t *testing.T, fn func(client *api.Client)) {
 	})
 }
 
-const VaultMetadataAPIPolicyTemplate = `
-path "%s/data/workflows/{{identity.entity.aliases.%s.metadata.tenant_id}}/*" {
+var VaultMetadataAPIPolicyTemplate = template.Must(template.
+	New("vault_metadata_api_policy_template").
+	Delims("${", "}").
+	Parse(`
+path "${ .SecretsPath }/data/workflows/{{identity.entity.aliases.${ .Accessor }.metadata.tenant_id}}/*" {
 	capabilities = ["read"]
 }
-`
+
+path "${ .SecretsPath }/metadata/connections/{{identity.entity.aliases.${ .Accessor }.metadata.domain_id}}/*" {
+	capabilities = ["list"]
+}
+
+path "${ .SecretsPath }/data/connections/{{identity.entity.aliases.${ .Accessor }.metadata.domain_id}}/*" {
+	capabilities = ["read"]
+}
+`))
+
+type VaultMetadataAPIPolicyTemplateData struct {
+	SecretsPath string
+	Accessor    string
+}
 
 type Vault struct {
 	Address string
@@ -77,6 +95,26 @@ func (v *Vault) SetSecret(t *testing.T, tenantID, name, value string) {
 	_, err := v.Client.Logical().Write(path.Join(v.SecretsPath, "data/workflows", tenantID, name), map[string]interface{}{
 		"data": map[string]interface{}{
 			"value": value,
+		},
+	})
+	require.NoError(t, err)
+}
+
+func (v *Vault) SetConnection(t *testing.T, domainID, typ, name string, attrs map[string]string) {
+	id := uuid.New().String()
+
+	for k, vi := range attrs {
+		_, err := v.Client.Logical().Write(path.Join(v.SecretsPath, "data/connections", domainID, id, k), map[string]interface{}{
+			"data": map[string]interface{}{
+				"value": vi,
+			},
+		})
+		require.NoError(t, err)
+	}
+
+	_, err := v.Client.Logical().Write(path.Join(v.SecretsPath, "data/connections", domainID, typ, name), map[string]interface{}{
+		"data": map[string]interface{}{
+			"value": id,
 		},
 	})
 	require.NoError(t, err)
@@ -130,10 +168,13 @@ func WithVault(t *testing.T, fn func(cfg *Vault)) {
 		mounts, err := client.Sys().ListAuth()
 		require.NoError(t, err)
 
-		require.NoError(t, client.Sys().PutPolicy(
-			"relay/metadata-api",
-			fmt.Sprintf(VaultMetadataAPIPolicyTemplate, cfg.SecretsPath, mounts[path.Base(cfg.JWTAuthPath)+"/"].Accessor),
-		))
+		var policy bytes.Buffer
+		require.NoError(t, VaultMetadataAPIPolicyTemplate.Execute(&policy, VaultMetadataAPIPolicyTemplateData{
+			SecretsPath: cfg.SecretsPath,
+			Accessor:    mounts[path.Base(cfg.JWTAuthPath)+"/"].Accessor,
+		}))
+
+		require.NoError(t, client.Sys().PutPolicy("relay/metadata-api", policy.String()))
 
 		_, err = client.Logical().Write(path.Join(cfg.JWTAuthPath, "role", cfg.JWTAuthRole), map[string]interface{}{
 			"name":            cfg.JWTAuthRole,

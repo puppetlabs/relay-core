@@ -1,8 +1,34 @@
 package opt
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/serialize"
+	"github.com/puppetlabs/nebula-tasks/pkg/manager/memory"
+	"gopkg.in/yaml.v3"
 )
+
+type SampleConfigConnections map[memory.ConnectionKey]map[string]string
+
+func (scc *SampleConfigConnections) UnmarshalYAML(value *yaml.Node) error {
+	var m map[string]map[string]string
+	if err := value.Decode(&m); err != nil {
+		return err
+	}
+
+	*scc = make(SampleConfigConnections, len(m))
+	for tn, attrs := range m {
+		parts := strings.SplitN(tn, "/", 2)
+		if len(parts) != 2 {
+			return fmt.Errorf("connection keys must be in the format `<type>/<name>`")
+		}
+
+		(*scc)[memory.ConnectionKey{Type: parts[0], Name: parts[1]}] = attrs
+	}
+
+	return nil
+}
 
 type SampleConfigSpec map[string]serialize.YAMLTree
 
@@ -28,11 +54,16 @@ type SampleConfigRun struct {
 }
 
 type SampleConfig struct {
-	Secrets map[string]string           `yaml:"secrets"`
-	Runs    map[string]*SampleConfigRun `yaml:"runs"`
+	Connections SampleConfigConnections     `yaml:"connections"`
+	Secrets     map[string]string           `yaml:"secrets"`
+	Runs        map[string]*SampleConfigRun `yaml:"runs"`
 }
 
 func (sc *SampleConfig) AppendTo(other *SampleConfig) {
+	for name, attrs := range sc.Connections {
+		other.Connections[name] = attrs
+	}
+
 	for name, value := range sc.Secrets {
 		other.Secrets[name] = value
 	}

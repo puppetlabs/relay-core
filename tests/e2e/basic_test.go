@@ -9,7 +9,6 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
-	"path"
 	"sync"
 	"testing"
 	"time"
@@ -117,17 +116,23 @@ func TestBasic(t *testing.T) {
 				wg.Wait()
 			}()
 
-			// Set a secret for this workflow to look up.
+			// Set a secret and connection for this workflow to look up.
 			vcfg.SetSecret(t, "my-tenant-id", "foo", "Hello")
+			vcfg.SetConnection(t, "my-domain-id", "aws", "test", map[string]string{
+				"accessKeyID":     "AKIA123456789",
+				"secretAccessKey": "very-nice-key",
+			})
 
 			wr := &nebulav1.WorkflowRun{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: ns.GetName(),
 					Name:      "my-test-run",
 					Annotations: map[string]string{
-						obj.WorkflowRunVaultSecretPathAnnotation: path.Join(vcfg.SecretsPath, "data/workflows/my-tenant-id"),
-						obj.WorkflowRunDomainIDAnnotation:        "my-domain-id",
-						obj.WorkflowRunTenantIDAnnotation:        "my-tenant-id",
+						obj.WorkflowRunVaultEngineMountAnnotation:    vcfg.SecretsPath,
+						obj.WorkflowRunVaultConnectionPathAnnotation: "connections/my-domain-id",
+						obj.WorkflowRunVaultSecretPathAnnotation:     "workflows/my-tenant-id",
+						obj.WorkflowRunDomainIDAnnotation:            "my-domain-id",
+						obj.WorkflowRunTenantIDAnnotation:            "my-tenant-id",
 					},
 				},
 				Spec: nebulav1.WorkflowRunSpec{
@@ -145,6 +150,11 @@ func TestBasic(t *testing.T) {
 									"secret": map[string]interface{}{
 										"$type": "Secret",
 										"name":  "foo",
+									},
+									"connection": map[string]interface{}{
+										"$type": "Connection",
+										"type":  "aws",
+										"name":  "test",
 									},
 									"param": map[string]interface{}{
 										"$type": "Parameter",
@@ -214,7 +224,11 @@ func TestBasic(t *testing.T) {
 			assert.True(t, result.Complete)
 			assert.Equal(t, map[string]interface{}{
 				"secret": "Hello",
-				"param":  "World!",
+				"connection": map[string]interface{}{
+					"accessKeyID":     "AKIA123456789",
+					"secretAccessKey": "very-nice-key",
+				},
+				"param": "World!",
 			}, result.Value.Data)
 		})
 	})

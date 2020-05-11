@@ -6,6 +6,11 @@ type JSONUnresolvableSecretEnvelope struct {
 	Name string `json:"name"`
 }
 
+type JSONUnresolvableConnectionEnvelope struct {
+	Type string `json:"type"`
+	Name string `json:"name"`
+}
+
 type JSONUnresolvableOutputEnvelope struct {
 	From string `json:"from"`
 	Name string `json:"name"`
@@ -26,6 +31,7 @@ type JSONUnresolvableInvocationEnvelope struct {
 
 type JSONUnresolvableEnvelope struct {
 	Secrets     []*JSONUnresolvableSecretEnvelope     `json:"secrets,omitempty"`
+	Connections []*JSONUnresolvableConnectionEnvelope `json:"connections,omitempty"`
 	Outputs     []*JSONUnresolvableOutputEnvelope     `json:"outputs,omitempty"`
 	Parameters  []*JSONUnresolvableParameterEnvelope  `json:"parameters,omitempty"`
 	Answers     []*JSONUnresolvableAnswerEnvelope     `json:"answers,omitempty"`
@@ -40,6 +46,16 @@ func NewJSONUnresolvableEnvelope(ur Unresolvable) *JSONUnresolvableEnvelope {
 		for i, s := range ur.Secrets {
 			env.Secrets[i] = &JSONUnresolvableSecretEnvelope{
 				Name: s.Name,
+			}
+		}
+	}
+
+	if len(ur.Connections) > 0 {
+		env.Connections = make([]*JSONUnresolvableConnectionEnvelope, len(ur.Connections))
+		for i, c := range ur.Connections {
+			env.Connections[i] = &JSONUnresolvableConnectionEnvelope{
+				Type: c.Type,
+				Name: c.Name,
 			}
 		}
 	}

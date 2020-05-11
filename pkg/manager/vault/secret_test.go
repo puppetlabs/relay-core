@@ -22,7 +22,7 @@ func TestSecretManager(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		sm := vault.NewSecretManager(vcfg.Client, path.Join(vcfg.SecretsPath, "data/foo"))
+		sm := vault.NewSecretManager(vault.NewKVV2Client(vcfg.Client, vcfg.SecretsPath).In("foo"))
 
 		sec, err := sm.Get(ctx, "bar")
 		require.NoError(t, err)

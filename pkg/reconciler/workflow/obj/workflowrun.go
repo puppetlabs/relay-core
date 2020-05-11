@@ -29,9 +29,11 @@ const (
 	WorkflowRunStatusSkipped    WorkflowRunStatus = "skipped"
 	WorkflowRunStatusTimedOut   WorkflowRunStatus = "timed-out"
 
-	WorkflowRunDomainIDAnnotation        = "relay.sh/domain-id"
-	WorkflowRunTenantIDAnnotation        = "relay.sh/tenant-id"
-	WorkflowRunVaultSecretPathAnnotation = "relay.sh/vault-secret-path"
+	WorkflowRunDomainIDAnnotation            = "relay.sh/domain-id"
+	WorkflowRunTenantIDAnnotation            = "relay.sh/tenant-id"
+	WorkflowRunVaultEngineMountAnnotation    = "relay.sh/vault-engine-mount"
+	WorkflowRunVaultSecretPathAnnotation     = "relay.sh/vault-secret-path"
+	WorkflowRunVaultConnectionPathAnnotation = "relay.sh/vault-connection-path"
 )
 
 var (

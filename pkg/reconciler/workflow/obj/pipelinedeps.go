@@ -122,7 +122,9 @@ func (pd *PipelineDeps) AnnotateStepToken(ctx context.Context, target *metav1.Ob
 		RelayKubernetesImmutableConfigMapName: pd.ImmutableConfigMap.Key.Name,
 		RelayKubernetesMutableConfigMapName:   pd.MutableConfigMap.Key.Name,
 
-		RelayVaultSecretPath: annotations[WorkflowRunVaultSecretPathAnnotation],
+		RelayVaultEnginePath:     annotations[WorkflowRunVaultEngineMountAnnotation],
+		RelayVaultSecretPath:     annotations[WorkflowRunVaultSecretPathAnnotation],
+		RelayVaultConnectionPath: annotations[WorkflowRunVaultConnectionPathAnnotation],
 	}
 
 	tok, err := pd.Issuer.Issue(ctx, claims)

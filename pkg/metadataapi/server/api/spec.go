@@ -34,8 +34,9 @@ func (s *Server) GetSpec(w http.ResponseWriter, r *http.Request) {
 
 	ev := evaluate.NewEvaluator(
 		evaluate.WithLanguage(lang),
-		evaluate.WithSecretTypeResolver(resolve.NewSecretTypeResolver(managers.Secrets())),
+		evaluate.WithConnectionTypeResolver(resolve.NewConnectionTypeResolver(managers.Connections())),
 		evaluate.WithOutputTypeResolver(resolve.NewOutputTypeResolver(managers.StepOutputs())),
+		evaluate.WithSecretTypeResolver(resolve.NewSecretTypeResolver(managers.Secrets())),
 	).ScopeTo(spec.Tree)
 
 	var rv *evaluate.Result

@@ -29,7 +29,9 @@ type Claims struct {
 	RelayKubernetesImmutableConfigMapName string `json:"relay.sh/k8s/immutable-config-map-name,omitempty"`
 	RelayKubernetesMutableConfigMapName   string `json:"relay.sh/k8s/mutable-config-map-name,omitempty"`
 
-	RelayVaultSecretPath string `json:"relay.sh/vault/secret-path,omitempty"`
+	RelayVaultEnginePath     string `json:"relay.sh/vault/engine-path,omitempty"`
+	RelayVaultSecretPath     string `json:"relay.sh/vault/secret-path,omitempty"`
+	RelayVaultConnectionPath string `json:"relay.sh/vault/connection-path,omitempty"`
 }
 
 func (c *Claims) Action() model.Action {

@@ -33,6 +33,7 @@ func (a *Authenticator) Authenticate(r *http.Request) (*middleware.Credential, e
 			}),
 		),
 		authenticate.AuthenticatorWithInjector(authenticate.InjectorFunc(func(ctx context.Context, claims *authenticate.Claims) error {
+			mgrs.SetConnections(memory.NewConnectionManager(a.sc.Connections))
 			mgrs.SetSecrets(memory.NewSecretManager(a.sc.Secrets))
 
 			// TODO: Add support for triggers!

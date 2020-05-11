@@ -10,6 +10,7 @@ import (
 
 	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/evaluate"
 	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/serialize"
+	"github.com/puppetlabs/nebula-tasks/pkg/manager/memory"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/opt"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/sample"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/api"
@@ -23,6 +24,12 @@ func TestGetSpec(t *testing.T) {
 	require.NoError(t, err)
 
 	sc := &opt.SampleConfig{
+		Connections: map[memory.ConnectionKey]map[string]string{
+			memory.ConnectionKey{Type: "aws", Name: "test-aws-connection"}: {
+				"accessKeyID":     "testaccesskey",
+				"secretAccessKey": "testsecretaccesskey",
+			},
+		},
 		Secrets: map[string]string{
 			"test-secret-key": "test-secret-value",
 		},
@@ -60,6 +67,13 @@ func TestGetSpec(t *testing.T) {
 									"name":  "test-structured-output-key",
 								},
 							},
+							"superConnection": serialize.YAMLTree{
+								Tree: map[string]interface{}{
+									"$type": "Connection",
+									"type":  "aws",
+									"name":  "test-aws-connection",
+								},
+							},
 							"superNormal": serialize.YAMLTree{
 								Tree: "test-normal-value",
 							},
@@ -94,6 +108,10 @@ func TestGetSpec(t *testing.T) {
 		"structuredOutput": map[string]interface{}{
 			"a":       "value",
 			"another": "thing",
+		},
+		"superConnection": map[string]interface{}{
+			"accessKeyID":     "testaccesskey",
+			"secretAccessKey": "testsecretaccesskey",
 		},
 		"superNormal": "test-normal-value",
 	}, r.Value.Data)
