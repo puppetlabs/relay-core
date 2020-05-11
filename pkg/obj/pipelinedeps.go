@@ -8,6 +8,7 @@ import (
 
 	nebulav1 "github.com/puppetlabs/nebula-tasks/pkg/apis/nebula.puppet.com/v1"
 	"github.com/puppetlabs/nebula-tasks/pkg/authenticate"
+	"github.com/puppetlabs/nebula-tasks/pkg/model"
 	"gopkg.in/square/go-jose.v2/jwt"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -114,17 +115,17 @@ func (pd *PipelineDeps) AnnotateStepToken(ctx context.Context, target *metav1.Ob
 		KubernetesNamespaceUID:        string(pd.Namespace.Object.GetUID()),
 		KubernetesServiceAccountToken: sat,
 
-		RelayDomainID: annotations[WorkflowRunDomainIDAnnotation],
-		RelayTenantID: annotations[WorkflowRunTenantIDAnnotation],
+		RelayDomainID: annotations[model.RelayDomainIDAnnotation],
+		RelayTenantID: annotations[model.RelayTenantIDAnnotation],
 		RelayRunID:    ms.Run.ID,
 		RelayName:     ms.Name,
 
 		RelayKubernetesImmutableConfigMapName: pd.ImmutableConfigMap.Key.Name,
 		RelayKubernetesMutableConfigMapName:   pd.MutableConfigMap.Key.Name,
 
-		RelayVaultEnginePath:     annotations[WorkflowRunVaultEngineMountAnnotation],
-		RelayVaultSecretPath:     annotations[WorkflowRunVaultSecretPathAnnotation],
-		RelayVaultConnectionPath: annotations[WorkflowRunVaultConnectionPathAnnotation],
+		RelayVaultEnginePath:     annotations[model.RelayVaultEngineMountAnnotation],
+		RelayVaultSecretPath:     annotations[model.RelayVaultSecretPathAnnotation],
+		RelayVaultConnectionPath: annotations[model.RelayVaultConnectionPathAnnotation],
 	}
 
 	tok, err := pd.Issuer.Issue(ctx, claims)

@@ -103,6 +103,12 @@ func ModelStep(wr *WorkflowRun, step *nebulav1.WorkflowStep) *model.Step {
 	return ModelStepFromName(wr, step.Name)
 }
 
+func ModelTrigger(wt *WebhookTrigger) *model.Trigger {
+	return &model.Trigger{
+		Name: wt.Key.Name,
+	}
+}
+
 func SuffixObjectKey(key client.ObjectKey, suffix string) client.ObjectKey {
 	return client.ObjectKey{
 		Namespace: key.Namespace,

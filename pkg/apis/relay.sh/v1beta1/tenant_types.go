@@ -44,6 +44,7 @@ type NamespaceTemplate struct {
 	// namespace.
 	//
 	// +optional
+	// +kubebuilder:validation:XPreserveUnknownFields
 	Metadata metav1.ObjectMeta `json:"metadata,omitempty"`
 }
 

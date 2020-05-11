@@ -1,5 +1,20 @@
 package model
 
+const (
+	Shebang = "#!"
+
+	DefaultImage       = "alpine:latest"
+	DefaultInterpreter = Shebang + "/bin/sh"
+)
+
+const (
+	RelayDomainIDAnnotation            = "relay.sh/domain-id"
+	RelayTenantIDAnnotation            = "relay.sh/tenant-id"
+	RelayVaultEngineMountAnnotation    = "relay.sh/vault-engine-mount"
+	RelayVaultSecretPathAnnotation     = "relay.sh/vault-secret-path"
+	RelayVaultConnectionPathAnnotation = "relay.sh/vault-connection-path"
+)
+
 // MetadataManagers are the managers used by actions accessing the metadata
 // service.
 type MetadataManagers interface {
