@@ -93,6 +93,7 @@ func (v VaultAuth) ServiceAccountAccessGranter(sa *corev1.ServiceAccount) (secre
 		namespace:      sa.GetNamespace(),
 		serviceAccount: sa.GetName(),
 		authMount:      v.authMountPath,
+		dataMount:      v.engineMount,
 	}, nil
 }
 
