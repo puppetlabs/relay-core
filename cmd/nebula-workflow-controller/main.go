@@ -2,31 +2,29 @@ package main
 
 import (
 	"context"
+	"crypto/x509"
+	"encoding/pem"
 	"flag"
+	"io/ioutil"
 	"log"
 	"net/url"
 	"os"
 
+	vaultapi "github.com/hashicorp/vault/api"
 	"github.com/puppetlabs/horsehead/v2/instrumentation/metrics"
 	"github.com/puppetlabs/horsehead/v2/instrumentation/metrics/delegates"
 	metricsserver "github.com/puppetlabs/horsehead/v2/instrumentation/metrics/server"
 	"github.com/puppetlabs/horsehead/v2/storage"
 	_ "github.com/puppetlabs/nebula-libs/storage/file/v2"
 	_ "github.com/puppetlabs/nebula-libs/storage/gcs/v2"
-	nebulav1 "github.com/puppetlabs/nebula-tasks/pkg/apis/nebula.puppet.com/v1"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
 	"github.com/puppetlabs/nebula-tasks/pkg/controller/workflow"
 	"github.com/puppetlabs/nebula-tasks/pkg/dependency"
-	"github.com/puppetlabs/nebula-tasks/pkg/secrets/vault"
-	"github.com/puppetlabs/nebula-tasks/pkg/util"
-	tekv1alpha1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
-	tekv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/kubernetes/scheme"
+	"github.com/puppetlabs/nebula-tasks/pkg/util/k8sutil"
+	"gopkg.in/square/go-jose.v2"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 )
 
@@ -38,38 +36,29 @@ func main() {
 	kubeconfig := fs.String("kubeconfig", "", "path to kubeconfig file. Only required if running outside of a cluster.")
 	kubeMasterURL := fs.String("kube-master-url", "", "url to the kubernetes master")
 	kubeNamespace := fs.String("kube-namespace", "", "an optional working namespace to run the controller as. Only required if running outside of a cluster.")
-	vaultAddr := fs.String("vault-addr", "http://localhost:8200", "address to the vault server")
-	vaultToken := fs.String("vault-token", "", "token used to authenticate with the vault server")
-	vaultEngineMount := fs.String("vault-engine-mount", "nebula", "the engine mount to craft paths from")
+	imagePullSecret := fs.String("image-pull-secret", "", "the optionally namespaced name of the image pull secret to use for system images")
 	storageAddr := fs.String("storage-addr", "", "the storage URL to upload logs into")
-	metadataServiceImage := fs.String("metadata-service-image", "gcr.io/nebula-235818/nebula-metadata-api:latest", "the image and tag to use for the metadata service api")
-	metadataServiceImagePullSecret := fs.String("metadata-service-image-pull-secret", "", "the optionally namespaced name of the image pull secret to use for the metadata service")
-	metadataServiceVaultAddr := fs.String("metadata-service-vault-addr", "", "the address to use when authenticating the metadata service to Vault")
-	metadataServiceVaultAuthMountPath := fs.String("metadata-service-vault-auth-mount-path", "", "the mount path to use when authenticating the metadata service to Vault")
-	metadataServiceCheckEnabled := fs.Bool("metadata-service-check-enabled", true, "whether to enable checking the metadata service over HTTP")
 	numWorkers := fs.Int("num-workers", 2, "the number of worker threads to spawn that process Workflow resources")
 	metricsEnabled := fs.Bool("metrics-enabled", false, "enables the metrics collection and server")
 	metricsServerBindAddr := fs.String("metrics-server-bind-addr", "localhost:3050", "the host:port to bind the metrics server to")
-	whenConditionsImage := fs.String("when-conditions-image", "gcr.io/nebula-235818/nebula-conditions:latest", "the image and tag to use for evaluating when conditions")
+	jwtSigningKeyFile := fs.String("jwt-signing-key-file", "", "path to a PEM-encoded RSA JWT key to use for signing step tokens")
+	vaultTransitPath := fs.String("vault-transit-path", "transit", "path to the Vault secrets engine to use for encrypting step tokens")
+	vaultTransitKey := fs.String("vault-transit-key", "metadata-api", "the Vault transit key to use")
+	metadataAPIURLStr := fs.String("metadata-api-url", "", "URL to the metadata API")
 
 	fs.Parse(os.Args[1:])
 
 	klogFlags := flag.NewFlagSet("klog", flag.ExitOnError)
 	klog.InitFlags(klogFlags)
 
-	vc, err := vault.NewVaultAuth(&vault.Config{
-		Addr:             *vaultAddr,
-		K8sAuthMountPath: *metadataServiceVaultAuthMountPath,
-		Token:            *vaultToken,
-		EngineMount:      *vaultEngineMount,
-	})
-	if err != nil {
-		log.Fatal("Error initializing the vault client from the -vault-addr -vault-token and -vault-engine-mount", err)
-	}
-
 	storageUrl, err := url.Parse(*storageAddr)
 	if err != nil {
 		log.Fatal("Error parsing the -storage-addr", err)
+	}
+
+	metadataAPIURL, err := url.Parse(*metadataAPIURLStr)
+	if err != nil {
+		log.Fatal("Error parsing -metadata-api-url", err)
 	}
 
 	blobStore, err := storage.NewBlobStore(*storageUrl)
@@ -108,42 +97,48 @@ func main() {
 		log.Fatal("Error creating kubernetes config", err)
 	}
 
-	namespace, err := util.LookupNamespace(*kubeNamespace)
+	namespace, err := k8sutil.LookupNamespace(*kubeNamespace)
 	if err != nil {
 		log.Fatal("Error looking up namespace")
 	}
 
-	cfg := &config.WorkflowControllerConfig{
-		Namespace:                         namespace,
-		MetadataServiceImage:              *metadataServiceImage,
-		MetadataServiceImagePullSecret:    *metadataServiceImagePullSecret,
-		MetadataServiceVaultAddr:          *metadataServiceVaultAddr,
-		MetadataServiceVaultAuthMountPath: *metadataServiceVaultAuthMountPath,
-		MetadataServiceCheckEnabled:       *metadataServiceCheckEnabled,
-		WhenConditionsImage:               *whenConditionsImage,
-		MaxConcurrentReconciles:           *numWorkers,
-	}
-
-	schemeBuilder := runtime.NewSchemeBuilder(
-		scheme.AddToScheme,
-		nebulav1.AddToScheme,
-		tekv1alpha1.AddToScheme,
-		tekv1beta1.AddToScheme,
-	)
-
-	scheme := runtime.NewScheme()
-	if err := schemeBuilder.AddToScheme(scheme); err != nil {
-		log.Fatal("Could not add manager scheme", err)
-	}
-
-	mgr, err := ctrl.NewManager(kcc, ctrl.Options{
-		Scheme: scheme,
-	})
+	vc, err := vaultapi.NewClient(vaultapi.DefaultConfig())
 	if err != nil {
-		log.Fatal("Unable to create new manager", err)
+		log.Fatal("Error creating Vault client", err)
 	}
 
-	dm, err := dependency.NewDependencyManager(mgr, cfg, vc, blobStore, mets)
+	jwtSigningKeyBytes, err := ioutil.ReadFile(*jwtSigningKeyFile)
+	if err != nil {
+		log.Fatal("Error reading JWT signing key file", err)
+	}
+
+	jwtSigningKeyBlock, _ := pem.Decode(jwtSigningKeyBytes)
+	if jwtSigningKeyBlock == nil {
+		log.Fatal("Error parsing PEM")
+	} else if jwtSigningKeyBlock.Type != "RSA PRIVATE KEY" {
+		log.Fatal("PEM file does not contain an RSA private key")
+	}
+
+	jwtSigningKey, err := x509.ParsePKCS1PrivateKey(jwtSigningKeyBlock.Bytes)
+	if err != nil {
+		log.Fatal("Error parsing RSA private key", err)
+	}
+
+	jwtSigner, err := jose.NewSigner(jose.SigningKey{Algorithm: jose.RS512, Key: jwtSigningKey}, &jose.SignerOptions{})
+	if err != nil {
+		log.Fatal("Error creating signer for JWTs", err)
+	}
+
+	cfg := &config.WorkflowControllerConfig{
+		Namespace:               namespace,
+		ImagePullSecret:         *imagePullSecret,
+		MaxConcurrentReconciles: *numWorkers,
+		MetadataAPIURL:          metadataAPIURL,
+		VaultTransitPath:        *vaultTransitPath,
+		VaultTransitKey:         *vaultTransitKey,
+	}
+
+	dm, err := dependency.NewDependencyManager(cfg, kcc, vc, jwtSigner, blobStore, mets)
 	if err != nil {
 		log.Fatal("Error creating controller dependency builder", err)
 	}
@@ -152,7 +147,7 @@ func main() {
 		log.Fatal("Could not add all controllers to operator manager", err)
 	}
 
-	if err := mgr.Start(signals.SetupSignalHandler()); err != nil {
+	if err := dm.Manager.Start(signals.SetupSignalHandler()); err != nil {
 		log.Fatal("Manager exited non-zero", err)
 	}
 }

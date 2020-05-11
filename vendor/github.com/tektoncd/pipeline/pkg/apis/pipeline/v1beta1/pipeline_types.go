@@ -68,6 +68,22 @@ type PipelineSpec struct {
 	// provided by a PipelineRun.
 	// +optional
 	Workspaces []WorkspacePipelineDeclaration `json:"workspaces,omitempty"`
+	// Results are values that this pipeline can output once run
+	// +optional
+	Results []PipelineResult `json:"results,omitempty"`
+}
+
+// PipelineResult used to describe the results of a pipeline
+type PipelineResult struct {
+	// Name the given name
+	Name string `json:"name"`
+
+	// Description is a human-readable description of the result
+	// +optional
+	Description string `json:"description"`
+
+	// Value the expression used to retrieve the value
+	Value string `json:"value"`
 }
 
 // PipelineTask defines a task in a Pipeline, passing inputs from both
@@ -135,6 +151,25 @@ func (pt PipelineTask) Deps() []string {
 	for _, cond := range pt.Conditions {
 		for _, rd := range cond.Resources {
 			deps = append(deps, rd.From...)
+		}
+		for _, param := range cond.Params {
+			expressions, ok := GetVarSubstitutionExpressionsForParam(param)
+			if ok {
+				resultRefs := NewResultRefs(expressions)
+				for _, resultRef := range resultRefs {
+					deps = append(deps, resultRef.PipelineTask)
+				}
+			}
+		}
+	}
+	// Add any dependents from task results
+	for _, param := range pt.Params {
+		expressions, ok := GetVarSubstitutionExpressionsForParam(param)
+		if ok {
+			resultRefs := NewResultRefs(expressions)
+			for _, resultRef := range resultRefs {
+				deps = append(deps, resultRef.PipelineTask)
+			}
 		}
 	}
 	return deps

@@ -25,7 +25,6 @@ import (
 	"github.com/tektoncd/pipeline/pkg/apis/validate"
 	"github.com/tektoncd/pipeline/pkg/substitution"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"knative.dev/pkg/apis"
 )
@@ -40,9 +39,6 @@ func (t *Task) Validate(ctx context.Context) *apis.FieldError {
 }
 
 func (ts *TaskSpec) Validate(ctx context.Context) *apis.FieldError {
-	if equality.Semantic.DeepEqual(ts, &TaskSpec{}) {
-		return apis.ErrMissingField(apis.CurrentField)
-	}
 
 	if len(ts.Steps) == 0 {
 		return apis.ErrMissingField("steps")
@@ -93,6 +89,20 @@ func (ts *TaskSpec) Validate(ctx context.Context) *apis.FieldError {
 	if err := ValidateResourcesVariables(ts.Steps, ts.Resources); err != nil {
 		return err
 	}
+
+	if err := ValidateResults(ts.Results); err != nil {
+		return err
+	}
+	return nil
+}
+
+func ValidateResults(results []TaskResult) *apis.FieldError {
+	for index, result := range results {
+		if !resultNameFormatRegex.MatchString(result.Name) {
+			return apis.ErrInvalidKeyName(result.Name, fmt.Sprintf("results[%d].name", index), fmt.Sprintf("Name must consist of alphanumeric characters, '-', '_', and must start and end with an alphanumeric character (e.g. 'MyName',  or 'my-name',  or 'my_name', regex used for validation is '%s')", ResultNameFormat))
+		}
+	}
+
 	return nil
 }
 

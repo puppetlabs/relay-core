@@ -1,0 +1,117 @@
+version: 1
+domain:
+  key: rma
+  title: Relay Metadata API
+sections:
+  api:
+    title: API errors
+    errors:
+      authentication_error:
+        title: Unauthorized
+        description: >
+          The provided credential information did not authenticate this request.
+        metadata:
+          http:
+            status: 401
+
+      unknown_request_media_type_error:
+        title: Unknown media type
+        description: >
+          We don't know how to decode a request body with media type {{pre
+          mediaType}}.
+        arguments:
+          mediaType:
+            description: the unexpected media type
+        metadata:
+          http:
+            status: 422
+
+      malformed_request_error:
+        title: Malformed request
+        description: >
+          The request body you provided could not be deserialized.
+        metadata:
+          http:
+            status: 422
+
+  model:
+    title: Model errors
+    errors:
+      not_found_error:
+        title: Not found
+        description: >
+          The resource you requested does not exist.
+        metadata:
+          http:
+            status: 404
+
+      authorization_error:
+        title: Unauthorized
+        description: >
+          You are not authorized to access this resource.
+        metadata:
+          http:
+            status: 403
+
+      read_error:
+        title: Read error
+        description: >
+          We could not read this resource.
+
+      write_error:
+        title: Write error
+        description: >
+          We could not persist this resource.
+
+  expression:
+    title: Expression errors
+    errors:
+      evaluation_error:
+        title: Evaluation error
+        description: >
+          We could not evaluate this resource expression.
+
+          {{error}}
+        arguments:
+          error:
+            description: the problem that caused the evaluation error
+        metadata:
+          http:
+            status: 422
+
+      unresolvable_error:
+        title: Unresolvable
+        description: >
+          We could not fully evaluate this resource expression:
+
+          {{#enum errors}}{{this}}{{/enum}}
+        arguments:
+          errors:
+            type: list<string>
+            description: the unresolvables from the expression
+        metadata:
+          http:
+            status: 422
+
+      unsupported_language_error:
+        title: Unsupported query language
+        description: >
+          We don't know the query language {{quote language}}.
+        arguments:
+          language:
+            description: the requested query language
+        metadata:
+          http:
+            status: 422
+
+  condition:
+    title: Condition errors
+    errors:
+      type_error:
+        title: Type error
+        description: >
+          A condition must evaluate to a single boolean value or a list of
+          boolean values, but your condition provided a {{pre type}}.
+        arguments:
+          type:
+            description: the unexpected type

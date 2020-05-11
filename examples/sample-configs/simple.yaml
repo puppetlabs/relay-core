@@ -1,0 +1,14 @@
+secrets:
+  aws.accessKeyID: AKIAW3VDPWQFW35H22J6
+  aws.secretAccessKey: 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
+
+runs:
+  '1234':
+    steps:
+      foo:
+        spec:
+          foo: bar
+        outputs:
+          foo: bar
+        state:
+          foo: bar
