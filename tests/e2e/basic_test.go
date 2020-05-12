@@ -194,7 +194,7 @@ func TestBasic(t *testing.T) {
 				pods := &corev1.PodList{}
 				if err := e2e.ControllerRuntimeClient.List(ctx, pods, client.MatchingLabels{
 					// TODO: We shouldn't really hardcode this.
-					"tekton.dev/task": fmt.Sprintf("%s-%s", wr.GetName(), (&model.Step{Run: model.Run{ID: wr.Spec.Name}, Name: "my-test-step"}).Hash().HexEncoding()),
+					"tekton.dev/task": (&model.Step{Run: model.Run{ID: wr.Spec.Name}, Name: "my-test-step"}).Hash().HexEncoding(),
 				}); err != nil {
 					return retry.RetryPermanent(err)
 				}
