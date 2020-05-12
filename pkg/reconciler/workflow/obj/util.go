@@ -111,5 +111,8 @@ func SuffixObjectKey(key client.ObjectKey, suffix string) client.ObjectKey {
 }
 
 func ModelStepObjectKey(key client.ObjectKey, ms *model.Step) client.ObjectKey {
-	return SuffixObjectKey(key, ms.Hash().HexEncoding())
+	return client.ObjectKey{
+		Namespace: key.Namespace,
+		Name:      ms.Hash().HexEncoding(),
+	}
 }
