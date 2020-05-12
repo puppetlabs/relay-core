@@ -191,7 +191,7 @@ github.com/puppetlabs/horsehead/v2/storage
 github.com/puppetlabs/nebula-libs/storage/file/v2
 # github.com/puppetlabs/nebula-libs/storage/gcs/v2 v2.0.0
 github.com/puppetlabs/nebula-libs/storage/gcs/v2
-# github.com/puppetlabs/nebula-sdk v1.11.0
+# github.com/puppetlabs/nebula-sdk v1.12.3
 github.com/puppetlabs/nebula-sdk/pkg/outputs
 github.com/puppetlabs/nebula-sdk/pkg/secrets
 github.com/puppetlabs/nebula-sdk/pkg/util/jsonpath
@@ -203,7 +203,7 @@ github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/resolve
 github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/testutil
 # github.com/puppetlabs/paesslerag-gval v1.0.2-0.20191119012647-d2c694821b5b
 github.com/puppetlabs/paesslerag-gval
-# github.com/puppetlabs/paesslerag-jsonpath v0.1.2-0.20191119013138-25b86105f641
+# github.com/puppetlabs/paesslerag-jsonpath v0.1.2-0.20200512062544-1e26d7ca225e
 github.com/puppetlabs/paesslerag-jsonpath
 # github.com/reflect/raymond v0.0.0-20190227215356-5fa3955f4a50
 github.com/reflect/raymond
