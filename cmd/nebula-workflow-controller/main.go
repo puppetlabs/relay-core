@@ -20,7 +20,6 @@ import (
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
 	"github.com/puppetlabs/nebula-tasks/pkg/controller/workflow"
 	"github.com/puppetlabs/nebula-tasks/pkg/dependency"
-	"github.com/puppetlabs/nebula-tasks/pkg/util/k8sutil"
 	"gopkg.in/square/go-jose.v2"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -35,7 +34,7 @@ func main() {
 
 	kubeconfig := fs.String("kubeconfig", "", "path to kubeconfig file. Only required if running outside of a cluster.")
 	kubeMasterURL := fs.String("kube-master-url", "", "url to the kubernetes master")
-	kubeNamespace := fs.String("kube-namespace", "", "an optional working namespace to run the controller as. Only required if running outside of a cluster.")
+	kubeNamespace := fs.String("kube-namespace", "", "an optional working namespace to restrict to for watching CRDs")
 	imagePullSecret := fs.String("image-pull-secret", "", "the optionally namespaced name of the image pull secret to use for system images")
 	storageAddr := fs.String("storage-addr", "", "the storage URL to upload logs into")
 	numWorkers := fs.Int("num-workers", 2, "the number of worker threads to spawn that process Workflow resources")
@@ -97,11 +96,6 @@ func main() {
 		log.Fatal("Error creating kubernetes config", err)
 	}
 
-	namespace, err := k8sutil.LookupNamespace(*kubeNamespace)
-	if err != nil {
-		log.Fatal("Error looking up namespace")
-	}
-
 	vc, err := vaultapi.NewClient(vaultapi.DefaultConfig())
 	if err != nil {
 		log.Fatal("Error creating Vault client", err)
@@ -130,7 +124,7 @@ func main() {
 	}
 
 	cfg := &config.WorkflowControllerConfig{
-		Namespace:               namespace,
+		Namespace:               *kubeNamespace,
 		ImagePullSecret:         *imagePullSecret,
 		MaxConcurrentReconciles: *numWorkers,
 		MetadataAPIURL:          metadataAPIURL,
