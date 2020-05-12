@@ -11,6 +11,7 @@ import (
 	"github.com/puppetlabs/nebula-tasks/pkg/authenticate"
 	"github.com/puppetlabs/nebula-tasks/pkg/util/testutil"
 	"github.com/stretchr/testify/require"
+	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"gopkg.in/square/go-jose.v2/jwt"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,10 +21,26 @@ import (
 func TestKubernetesIntermediary(t *testing.T) {
 	ctx := context.Background()
 
+	tr := &tektonv1beta1.TaskRun{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "my-condition-namespace",
+			Name:      "task-run-xyz",
+			Annotations: map[string]string{
+				authenticate.KubernetesTokenAnnotation:   "my-tekton-auth-token",
+				authenticate.KubernetesSubjectAnnotation: "my-tekton-test-subject",
+			},
+		},
+	}
+
 	objs := []runtime.Object{
 		&corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "my-test-namespace",
+			},
+		},
+		&corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "my-condition-namespace",
 			},
 		},
 		&corev1.Pod{
@@ -48,9 +65,24 @@ func TestKubernetesIntermediary(t *testing.T) {
 				PodIP: "10.20.30.41",
 			},
 		},
+		&corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "my-condition-namespace",
+				Name:      "tekton-condition-pod",
+				OwnerReferences: []metav1.OwnerReference{
+					*metav1.NewControllerRef(tr, tektonv1beta1.SchemeGroupVersion.WithKind("TaskRun")),
+				},
+			},
+			Status: corev1.PodStatus{
+				PodIP: "10.20.30.42",
+			},
+		},
 	}
 
-	kc := testutil.NewMockKubernetesClient(objs...)
+	kc := &authenticate.KubernetesInterface{
+		Interface:       testutil.NewMockKubernetesClient(objs...),
+		TektonInterface: testutil.NewMockTektonKubernetesClient(tr),
+	}
 
 	tests := []struct {
 		IP            string
@@ -66,7 +98,11 @@ func TestKubernetesIntermediary(t *testing.T) {
 			ExpectedError: authenticate.ErrNotFound,
 		},
 		{
-			IP:            "10.20.30.42",
+			IP:          "10.20.30.42",
+			ExpectedRaw: authenticate.Raw("my-tekton-auth-token"),
+		},
+		{
+			IP:            "10.20.30.43",
 			ExpectedError: authenticate.ErrNotFound,
 		},
 	}
@@ -104,7 +140,10 @@ func TestKubernetesIntermediaryChain(t *testing.T) {
 		},
 	}
 
-	kc := testutil.NewMockKubernetesClient(objs...)
+	kc := &authenticate.KubernetesInterface{
+		Interface:       testutil.NewMockKubernetesClient(objs...),
+		TektonInterface: testutil.NewMockTektonKubernetesClient(),
+	}
 
 	var validators []authenticate.Validator
 	state := authenticate.NewInitializedAuthentication(&validators, &[]authenticate.Injector{})
@@ -182,7 +221,10 @@ func TestKubernetesIntermediaryChainToVault(t *testing.T) {
 			},
 		}
 
-		kc := testutil.NewMockKubernetesClient(objs...)
+		kc := &authenticate.KubernetesInterface{
+			Interface:       testutil.NewMockKubernetesClient(objs...),
+			TektonInterface: testutil.NewMockTektonKubernetesClient(),
+		}
 
 		// Test:
 		im := authenticate.NewChainIntermediary(

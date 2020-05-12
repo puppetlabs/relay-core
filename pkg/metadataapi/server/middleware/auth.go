@@ -35,7 +35,7 @@ type KubernetesAuthenticator struct {
 
 	// Client for using a Kubernetes pod-lookup intermediary instead of Bearer
 	// request headers.
-	kubernetesClient kubernetes.Interface
+	kubernetesClient *authenticate.KubernetesInterface
 
 	// Uses Vault for token decryption (Kubernetes intermediary).
 	vaultClient      *vaultapi.Client
@@ -170,7 +170,7 @@ func (ka *KubernetesAuthenticator) Authenticate(r *http.Request) (*Credential, e
 
 type KubernetesAuthenticatorOption func(ka *KubernetesAuthenticator)
 
-func KubernetesAuthenticatorWithKubernetesIntermediary(client kubernetes.Interface) KubernetesAuthenticatorOption {
+func KubernetesAuthenticatorWithKubernetesIntermediary(client *authenticate.KubernetesInterface) KubernetesAuthenticatorOption {
 	return func(ka *KubernetesAuthenticator) {
 		ka.kubernetesClient = client
 	}

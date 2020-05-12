@@ -20,6 +20,7 @@ import (
 	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/evaluate"
 	nebulav1 "github.com/puppetlabs/nebula-tasks/pkg/apis/nebula.puppet.com/v1"
 	relayv1beta1 "github.com/puppetlabs/nebula-tasks/pkg/apis/relay.sh/v1beta1"
+	"github.com/puppetlabs/nebula-tasks/pkg/authenticate"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
 	"github.com/puppetlabs/nebula-tasks/pkg/controller/workflow"
 	"github.com/puppetlabs/nebula-tasks/pkg/dependency"
@@ -78,7 +79,10 @@ func TestBasic(t *testing.T) {
 
 						return kubernetes.NewForConfig(rc)
 					},
-					middleware.KubernetesAuthenticatorWithKubernetesIntermediary(e2e.Interface),
+					middleware.KubernetesAuthenticatorWithKubernetesIntermediary(&authenticate.KubernetesInterface{
+						Interface:       e2e.Interface,
+						TektonInterface: e2e.TektonInterface,
+					}),
 					middleware.KubernetesAuthenticatorWithChainToVaultTransitIntermediary(vcfg.Client, vcfg.TransitPath, vcfg.TransitKey),
 					middleware.KubernetesAuthenticatorWithVaultResolver(vcfg.Address, vcfg.JWTAuthPath, vcfg.JWTAuthRole),
 				),

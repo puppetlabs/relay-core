@@ -8,6 +8,7 @@ import (
 	"os"
 
 	vaultapi "github.com/hashicorp/vault/api"
+	"github.com/puppetlabs/nebula-tasks/pkg/authenticate"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
 	"k8s.io/client-go/kubernetes"
@@ -135,7 +136,7 @@ func (c *Config) KubernetesClientFactory(token string) (kubernetes.Interface, er
 	return kubernetes.NewForConfig(cfg)
 }
 
-func (c *Config) KubernetesClient() (kubernetes.Interface, error) {
+func (c *Config) KubernetesClient() (*authenticate.KubernetesInterface, error) {
 	cfg, err := c.kubernetesClientConfig()
 	if err != nil {
 		return nil, err
@@ -157,7 +158,7 @@ func (c *Config) KubernetesClient() (kubernetes.Interface, error) {
 		cfg.BearerTokenFile = DefaultKubernetesAutomountTokenFile
 	}
 
-	return kubernetes.NewForConfig(cfg)
+	return authenticate.NewKubernetesInterfaceForConfig(cfg)
 }
 
 func (c *Config) VaultTransitClient() (*vaultapi.Client, error) {

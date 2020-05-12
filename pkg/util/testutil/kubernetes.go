@@ -11,6 +11,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/puppetlabs/nebula-tasks/pkg/dependency"
 	"github.com/puppetlabs/nebula-tasks/pkg/util/retry"
+	tekton "github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
+	tektonfake "github.com/tektoncd/pipeline/pkg/client/clientset/versioned/fake"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -52,6 +54,16 @@ func NewMockKubernetesClient(initial ...runtime.Object) kubernetes.Interface {
 	kc.PrependReactor("create", "*", setObjectUID)
 	kc.PrependReactor("list", "pods", filterListPods(kc.Tracker()))
 	return kc
+}
+
+func NewMockTektonKubernetesClient(initial ...runtime.Object) tekton.Interface {
+	for _, obj := range initial {
+		setObjectUIDOnObject(obj)
+	}
+
+	tkc := tektonfake.NewSimpleClientset(initial...)
+	tkc.PrependReactor("create", "*", setObjectUID)
+	return tkc
 }
 
 func setObjectUID(action testing.Action) (bool, runtime.Object, error) {

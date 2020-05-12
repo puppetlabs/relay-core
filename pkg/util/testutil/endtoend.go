@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	tekton "github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -33,6 +34,7 @@ type EndToEndEnvironment struct {
 	RESTConfig              *rest.Config
 	ControllerRuntimeClient client.Client
 	Interface               kubernetes.Interface
+	TektonInterface         tekton.Interface
 }
 
 func (e *EndToEndEnvironment) WithTestNamespace(t *testing.T, ctx context.Context, fn func(ns *corev1.Namespace)) {
@@ -167,10 +169,16 @@ func doEndToEndEnvironment(fn func(e *EndToEndEnvironment), opts ...EndToEndEnvi
 		return true, fmt.Errorf("failed to configure client: %+v", err)
 	}
 
+	tkc, err := tekton.NewForConfig(cfg)
+	if err != nil {
+		return true, fmt.Errorf("failed to configure Tekton client: %+v", err)
+	}
+
 	e := &EndToEndEnvironment{
 		RESTConfig:              cfg,
 		ControllerRuntimeClient: client,
 		Interface:               ifc,
+		TektonInterface:         tkc,
 	}
 
 	for _, opt := range opts {
