@@ -3,6 +3,7 @@ package authenticate
 import (
 	"strings"
 
+	"github.com/puppetlabs/horsehead/v2/jsonutil"
 	"github.com/puppetlabs/nebula-tasks/pkg/model"
 	"gopkg.in/square/go-jose.v2/jwt"
 )
@@ -32,6 +33,9 @@ type Claims struct {
 	RelayVaultEnginePath     string `json:"relay.sh/vault/engine-path,omitempty"`
 	RelayVaultSecretPath     string `json:"relay.sh/vault/secret-path,omitempty"`
 	RelayVaultConnectionPath string `json:"relay.sh/vault/connection-path,omitempty"`
+
+	RelayEventAPIURL   *jsonutil.URL `json:"relay.sh/event/api/url,omitempty"`
+	RelayEventAPIToken string        `json:"relay.sh/event/api/token,omitempty"`
 }
 
 func (c *Claims) Action() model.Action {

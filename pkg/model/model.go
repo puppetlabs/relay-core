@@ -5,6 +5,7 @@ package model
 type MetadataManagers interface {
 	Conditions() ConditionGetterManager
 	Connections() ConnectionManager
+	Events() EventManager
 	Secrets() SecretManager
 	Spec() SpecGetterManager
 	State() StateGetterManager

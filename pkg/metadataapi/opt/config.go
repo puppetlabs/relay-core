@@ -185,6 +185,7 @@ func (c *Config) SampleConfig() (*SampleConfig, error) {
 		Connections: make(SampleConfigConnections),
 		Secrets:     make(map[string]string),
 		Runs:        make(map[string]*SampleConfigRun),
+		Triggers:    make(map[string]*SampleConfigTrigger),
 	}
 
 	for _, f := range c.SampleConfigFiles {

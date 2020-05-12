@@ -6,6 +6,7 @@ import (
 
 	"github.com/puppetlabs/nebula-tasks/pkg/authenticate"
 	"github.com/puppetlabs/nebula-tasks/pkg/manager/builder"
+	mlog "github.com/puppetlabs/nebula-tasks/pkg/manager/log"
 	"github.com/puppetlabs/nebula-tasks/pkg/manager/memory"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/opt"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"
@@ -23,6 +24,7 @@ var _ middleware.Authenticator = &Authenticator{}
 
 func (a *Authenticator) Authenticate(r *http.Request) (*middleware.Credential, error) {
 	mgrs := builder.NewMetadataBuilder()
+	mgrs.SetEvents(mlog.EventManager)
 
 	auth := authenticate.NewAuthenticator(
 		authenticate.NewHTTPAuthorizationHeaderIntermediary(r),

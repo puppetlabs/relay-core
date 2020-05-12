@@ -371,6 +371,7 @@ github.com/puppetlabs/horsehead/v2/instrumentation/metrics/delegates
 github.com/puppetlabs/horsehead/v2/instrumentation/metrics/internal/noop
 github.com/puppetlabs/horsehead/v2/instrumentation/metrics/internal/prometheus
 github.com/puppetlabs/horsehead/v2/instrumentation/metrics/server
+github.com/puppetlabs/horsehead/v2/jsonutil
 github.com/puppetlabs/horsehead/v2/lifecycle
 github.com/puppetlabs/horsehead/v2/lifecycle/errors
 github.com/puppetlabs/horsehead/v2/logging

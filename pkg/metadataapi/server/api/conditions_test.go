@@ -92,10 +92,10 @@ func TestGetConditions(t *testing.T) {
 
 			tokenMap := tokenGenerator.GenerateAll(ctx, sc)
 
-			previousTaskToken, found := tokenMap.Get("test", "previous-task")
+			previousTaskToken, found := tokenMap.ForStep("test", "previous-task")
 			require.True(t, found)
 
-			currentTaskToken, found := tokenMap.Get("test", "current-task")
+			currentTaskToken, found := tokenMap.ForStep("test", "current-task")
 			require.True(t, found)
 
 			h := api.NewHandler(sample.NewAuthenticator(sc, tokenGenerator.Key()))

@@ -13,16 +13,22 @@ import (
 	"gopkg.in/square/go-jose.v2/jwt"
 )
 
-type tokenEntry struct {
+type stepTokenEntry struct {
 	runID, stepName string
 }
 
 type TokenMap struct {
-	m map[tokenEntry]string
+	steps    map[stepTokenEntry]string
+	triggers map[string]string
 }
 
-func (tm *TokenMap) Get(runID, stepName string) (tok string, found bool) {
-	tok, found = tm.m[tokenEntry{runID, stepName}]
+func (tm *TokenMap) ForStep(runID, stepName string) (tok string, found bool) {
+	tok, found = tm.steps[stepTokenEntry{runID, stepName}]
+	return
+}
+
+func (tm *TokenMap) ForTrigger(triggerName string) (tok string, found bool) {
+	tok, found = tm.triggers[triggerName]
 	return
 }
 
@@ -36,8 +42,9 @@ func (tg *TokenGenerator) Key() interface{} {
 }
 
 func (tg *TokenGenerator) GenerateAll(ctx context.Context, sc *opt.SampleConfig) *TokenMap {
-	tm := &TokenMap{
-		m: make(map[tokenEntry]string),
+	m := &TokenMap{
+		steps:    make(map[stepTokenEntry]string),
+		triggers: make(map[string]string),
 	}
 
 	for id, run := range sc.Runs {
@@ -60,12 +67,32 @@ func (tg *TokenGenerator) GenerateAll(ctx context.Context, sc *opt.SampleConfig)
 				log().Error("failed to generate token for step", "run-id", rm.ID, "step-name", sm.Name, "error", err)
 			}
 
-			tm.m[tokenEntry{rm.ID, sm.Name}] = string(tok)
+			m.steps[stepTokenEntry{rm.ID, sm.Name}] = string(tok)
 			log().Info("generated JWT for step", "run-id", rm.ID, "step-name", sm.Name, "token", string(tok))
 		}
 	}
 
-	return tm
+	for name := range sc.Triggers {
+		tm := &model.Trigger{Name: name}
+
+		claims := &authenticate.Claims{
+			Claims: &jwt.Claims{
+				Audience: jwt.Audience{authenticate.MetadataAPIAudienceV1},
+				Subject:  fmt.Sprintf(path.Join(tm.Type().Plural, tm.Hash().HexEncoding())),
+			},
+			RelayName: tm.Name,
+		}
+
+		tok, err := tg.issuer.Issue(ctx, claims)
+		if err != nil {
+			log().Error("failed to generate token for trigger", "trigger-name", tm.Name, "error", err)
+		}
+
+		m.triggers[tm.Name] = string(tok)
+		log().Info("generated JWT for trigger", "trigger-name", tm.Name, "token", string(tok))
+	}
+
+	return m
 }
 
 func NewHS256TokenGenerator(key []byte) (*TokenGenerator, error) {
