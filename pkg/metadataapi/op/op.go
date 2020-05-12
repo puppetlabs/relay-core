@@ -167,8 +167,8 @@ func NewForKubernetes(ctx context.Context, cfg *config.MetadataServerConfig) (*D
 }
 
 type developmentPreConfig struct {
-	Secrets      map[string]string            `yaml:"secrets"`
-	Connections  map[string]map[string]string `yaml:"connections"`
+	Secrets      map[string]string                 `yaml:"secrets"`
+	Connections  map[string]map[string]interface{} `yaml:"connections"`
 	TaskMetadata map[string]struct {
 		Name string `yaml:"name"`
 	} `yaml:"taskMetadata"`

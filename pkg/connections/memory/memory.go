@@ -9,7 +9,7 @@ import (
 )
 
 type ConnectionsManager struct {
-	data map[string]map[string]string
+	data map[string]map[string]interface{}
 }
 
 func (m ConnectionsManager) Get(ctx context.Context, typ, name string) (*connections.Connection, errors.Error) {
@@ -21,7 +21,7 @@ func (m ConnectionsManager) Get(ctx context.Context, typ, name string) (*connect
 	return &connections.Connection{Spec: data}, nil
 }
 
-func New(conns map[string]map[string]string) *ConnectionsManager {
+func New(conns map[string]map[string]interface{}) *ConnectionsManager {
 	return &ConnectionsManager{
 		data: conns,
 	}

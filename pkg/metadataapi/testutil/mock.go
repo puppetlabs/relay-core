@@ -89,7 +89,7 @@ func MockTask(t *testing.T, cfg MockTaskConfig) []runtime.Object {
 
 type MockManagerFactoryConfig struct {
 	SecretData       map[string]string
-	ConnectionData   map[string]map[string]string
+	ConnectionData   map[string]map[string]interface{}
 	ConditionalsData map[string]string
 	Namespace        string
 	K8sResources     []runtime.Object

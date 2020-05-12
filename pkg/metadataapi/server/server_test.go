@@ -15,6 +15,7 @@ import (
 	"github.com/puppetlabs/nebula-sdk/pkg/outputs"
 	"github.com/puppetlabs/nebula-sdk/pkg/secrets"
 	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/evaluate"
+	sdktestutil "github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/testutil"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -261,7 +262,11 @@ func TestServerSpecsHandler(t *testing.T) {
 				"super-output":      map[string]string{"$type": "Output", "name": "test-output-key", "taskName": previousTask.Name},
 				"structured-output": map[string]string{"$type": "Output", "name": "test-structured-output-key", "taskName": previousTask.Name},
 				"super-connection":  map[string]string{"$type": "Connection", "type": "aws", "name": "test-aws-connection"},
-				"super-normal":      "test-normal-value",
+				"connection-merge": sdktestutil.JSONInvocation("merge", []interface{}{
+					map[string]interface{}{"$type": "Connection", "type": "aws", "name": "test-aws-connection"},
+					map[string]interface{}{"merge": "me"},
+				}),
+				"super-normal": "test-normal-value",
 			},
 		}
 	)
@@ -274,7 +279,7 @@ func TestServerSpecsHandler(t *testing.T) {
 		SecretData: map[string]string{
 			"test-secret-key": "test-secret-value",
 		},
-		ConnectionData: map[string]map[string]string{
+		ConnectionData: map[string]map[string]interface{}{
 			"aws/test-aws-connection": {
 				"accessKeyID":     "testaccesskey",
 				"secretAccessKey": "testsecretaccesskey",
@@ -333,6 +338,11 @@ func TestServerSpecsHandler(t *testing.T) {
 				"super-connection": map[string]interface{}{
 					"accessKeyID":     "testaccesskey",
 					"secretAccessKey": "testsecretaccesskey",
+				},
+				"connection-merge": map[string]interface{}{
+					"accessKeyID":     "testaccesskey",
+					"secretAccessKey": "testsecretaccesskey",
+					"merge":           "me",
 				},
 				"super-normal": "test-normal-value",
 			},

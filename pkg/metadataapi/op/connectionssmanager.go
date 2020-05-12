@@ -27,7 +27,7 @@ func (m EncodingConnectionsManager) Get(ctx context.Context, typ, name string) (
 	}
 
 	for k, v := range conn.Spec {
-		decoded, derr := transfer.DecodeFromTransfer(v)
+		decoded, derr := transfer.DecodeFromTransfer(v.(string))
 		if derr != nil {
 			return nil, errors.NewConnectionsValueDecodingError().WithCause(derr)
 		}

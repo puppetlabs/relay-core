@@ -40,7 +40,7 @@ func (cm *ConnectionsManager) Get(ctx context.Context, typ, name string) (*conne
 		return nil, errors.NewConnectionsGetError().WithCause(err).Bug()
 	}
 
-	conn := &connections.Connection{Spec: make(map[string]string)}
+	conn := &connections.Connection{Spec: make(map[string]interface{})}
 
 	for _, sec := range resp {
 		conn.Spec[sec.Key] = sec.Value
