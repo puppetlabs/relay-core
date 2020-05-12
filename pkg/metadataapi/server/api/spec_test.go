@@ -86,7 +86,7 @@ func TestGetSpec(t *testing.T) {
 
 	tokenMap := tokenGenerator.GenerateAll(ctx, sc)
 
-	currentTaskToken, found := tokenMap.Get("test", "current-task")
+	currentTaskToken, found := tokenMap.ForStep("test", "current-task")
 	require.True(t, found)
 
 	h := api.NewHandler(sample.NewAuthenticator(sc, tokenGenerator.Key()))

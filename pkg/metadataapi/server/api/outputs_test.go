@@ -37,7 +37,7 @@ func TestPutGetOutput(t *testing.T) {
 
 	tokenMap := tokenGenerator.GenerateAll(ctx, sc)
 
-	testTaskToken, found := tokenMap.Get("test", "test-task")
+	testTaskToken, found := tokenMap.ForStep("test", "test-task")
 	require.True(t, found)
 
 	h := api.NewHandler(sample.NewAuthenticator(sc, tokenGenerator.Key()))

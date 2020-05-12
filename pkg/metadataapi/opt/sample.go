@@ -53,10 +53,13 @@ type SampleConfigRun struct {
 	Steps map[string]*SampleConfigStep `yaml:"steps"`
 }
 
+type SampleConfigTrigger struct{}
+
 type SampleConfig struct {
-	Connections SampleConfigConnections     `yaml:"connections"`
-	Secrets     map[string]string           `yaml:"secrets"`
-	Runs        map[string]*SampleConfigRun `yaml:"runs"`
+	Connections SampleConfigConnections         `yaml:"connections"`
+	Secrets     map[string]string               `yaml:"secrets"`
+	Runs        map[string]*SampleConfigRun     `yaml:"runs"`
+	Triggers    map[string]*SampleConfigTrigger `yaml:"triggers"`
 }
 
 func (sc *SampleConfig) AppendTo(other *SampleConfig) {
@@ -70,5 +73,9 @@ func (sc *SampleConfig) AppendTo(other *SampleConfig) {
 
 	for id, run := range sc.Runs {
 		other.Runs[id] = run
+	}
+
+	for name, trigger := range sc.Triggers {
+		other.Triggers[name] = trigger
 	}
 }

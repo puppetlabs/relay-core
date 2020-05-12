@@ -8,6 +8,7 @@ import (
 	"github.com/gorilla/mux"
 	vaultapi "github.com/hashicorp/vault/api"
 	"github.com/puppetlabs/nebula-tasks/pkg/authenticate"
+	"github.com/puppetlabs/nebula-tasks/pkg/manager/api"
 	"github.com/puppetlabs/nebula-tasks/pkg/manager/builder"
 	"github.com/puppetlabs/nebula-tasks/pkg/manager/configmap"
 	"github.com/puppetlabs/nebula-tasks/pkg/manager/vault"
@@ -141,6 +142,10 @@ func (ka *KubernetesAuthenticator) injector(mgrs *builder.MetadataBuilder) authe
 			// default rejection manager.
 			mgrs.SetStepOutputs(configmap.NewStepOutputManager(step, mutableMap))
 		})
+
+		if claims.RelayEventAPIURL != nil {
+			mgrs.SetEvents(api.NewEventManager(action, claims.RelayEventAPIURL.URL.String(), claims.RelayEventAPIToken))
+		}
 
 		mgrs.SetConditions(configmap.NewConditionManager(action, immutableMap))
 		mgrs.SetSpec(configmap.NewSpecManager(action, immutableMap))
