@@ -27,11 +27,16 @@ type accessGranter struct {
 func (ag accessGranter) GrantAccessForPaths(_ context.Context, secretPaths map[string]string) (map[string]*secrets.AccessGrant, error) {
 	grants := make(map[string]*secrets.AccessGrant)
 	pol := []string{}
-	polTemplate := `path "%s/*" { capabilities = ["read", "list"] }`
+
+	policyTemplate := `path "%s/*" { capabilities = ["%s"] }`
 
 	for k, p := range secretPaths {
-		scopedPath := vaultDataPath(ag.dataMount, p)
-		pol = append(pol, fmt.Sprintf(polTemplate, scopedPath))
+		dataPath := path.Join(ag.dataMount, "data", p)
+		metadataPath := path.Join(ag.dataMount, "metadata", p)
+
+		pol = append(pol, fmt.Sprintf(policyTemplate, dataPath, "read"))
+		pol = append(pol, fmt.Sprintf(policyTemplate, metadataPath, "list"))
+
 		grants[k] = &secrets.AccessGrant{
 			BackendAddr: ag.client.Address(),
 			MountPath:   ag.dataMount,
@@ -131,10 +136,6 @@ func NewVaultAuth(cfg *Config) (*VaultAuth, error) {
 		authMountPath: authMountPath,
 		engineMount:   engineMount,
 	}, nil
-}
-
-func vaultDataPath(engineMount, tail string) string {
-	return path.Join(engineMount, "data", tail)
 }
 
 func vaultAuthPath(authMount, tail string) string {
