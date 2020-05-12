@@ -74,7 +74,14 @@ func (h *specHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			} else if err != nil {
 				return nil, err
 			}
-			return c.Spec, nil
+
+			var resolved = make(map[string]interface{})
+
+			for k, v := range c.Spec {
+				resolved[k] = v.Data
+			}
+
+			return resolved, nil
 		})),
 		evaluate.WithLanguage(lang),
 	)

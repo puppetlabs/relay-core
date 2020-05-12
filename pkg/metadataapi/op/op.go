@@ -127,14 +127,9 @@ func NewForKubernetes(ctx context.Context, cfg *config.MetadataServerConfig) (*D
 	}
 
 	if _, ok := grants["connections"]; !ok {
-		// TODO remove this once connections is fully merged into staging
-		grants["connections"] = &secrets.AccessGrant{
-			BackendAddr: grants["workflows"].BackendAddr,
-			MountPath:   "/todo",
-			ScopedPath:  "/todo",
-		}
-		// return nil, errors.NewServerVaultGrantNotFound("connections")
+		return nil, errors.NewServerVaultGrantNotFound("connections")
 	}
+
 	forConns, err := vault.NewVaultWithKubernetesAuth(ctx, grants["connections"], &vault.Config{
 		Addr:                       grants["connections"].BackendAddr,
 		K8sAuthMountPath:           cfg.VaultAuthMountPath,
@@ -157,7 +152,7 @@ func NewForKubernetes(ctx context.Context, cfg *config.MetadataServerConfig) (*D
 
 	return &DefaultManagerFactory{
 		sm:  NewEncodingSecretManager(sm),
-		cm:  NewEncodingConnectionManager(cm),
+		cm:  cm,
 		om:  om,
 		stm: NewEncodeDecodingStateManager(stm),
 		mm:  mm,
@@ -208,7 +203,7 @@ func NewForDev(ctx context.Context, cfg *config.MetadataServerConfig) (*DefaultM
 
 	return &DefaultManagerFactory{
 		sm:  NewEncodingSecretManager(sm),
-		cm:  NewEncodingConnectionManager(cm),
+		cm:  cm,
 		om:  om,
 		stm: NewEncodeDecodingStateManager(stm),
 		mm:  mm,
