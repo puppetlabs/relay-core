@@ -47,8 +47,10 @@ func (cm *ConnectionsManager) Get(ctx context.Context, typ, name string) (*conne
 	for _, sec := range resp {
 		var val transfer.JSONInterface
 		if err := json.Unmarshal([]byte(sec.Value), &val); err != nil {
-			conn.Spec[sec.Key] = val
+			return nil, errors.NewConnectionsValueDecodingError().WithCause(err).Bug()
 		}
+
+		conn.Spec[sec.Key] = val
 	}
 
 	return conn, nil
