@@ -8,7 +8,6 @@ import (
 	tekton "github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -100,17 +99,12 @@ func (ki *KubernetesIntermediary) next(ctx context.Context, state *Authenticatio
 		// pods. Let's check the owner and try to pull it for its annotation.
 		//
 		// TODO: Implement this in Tekton and remove this entire block.
-		owner := metav1.GetControllerOf(&pod)
-		if owner == nil {
-			return nil, nil, ErrNotFound
-		}
 
-		gvk := schema.FromAPIVersionAndKind(owner.APIVersion, owner.Kind)
-		if gvk.Group != "tekton.dev" || gvk.Kind != "TaskRun" {
-			return nil, nil, ErrNotFound
-		}
+		// XXX: This assumes that Tasks and Conditions have the same name. This
+		// is true for us, but not for Tekton generally.
+		name := pod.GetLabels()["tekton.dev/pipelineTask"]
 
-		tr, err := ki.client.TektonV1beta1().TaskRuns(ns.GetName()).Get(owner.Name, metav1.GetOptions{})
+		tr, err := ki.client.TektonV1alpha1().Conditions(ns.GetName()).Get(name, metav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			return nil, nil, ErrNotFound
 		} else if err != nil {

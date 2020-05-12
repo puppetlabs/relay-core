@@ -11,7 +11,7 @@ import (
 	"github.com/puppetlabs/nebula-tasks/pkg/authenticate"
 	"github.com/puppetlabs/nebula-tasks/pkg/util/testutil"
 	"github.com/stretchr/testify/require"
-	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	tektonv1alpha1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
 	"gopkg.in/square/go-jose.v2/jwt"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,10 +21,10 @@ import (
 func TestKubernetesIntermediary(t *testing.T) {
 	ctx := context.Background()
 
-	tr := &tektonv1beta1.TaskRun{
+	cond := &tektonv1alpha1.Condition{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "my-condition-namespace",
-			Name:      "task-run-xyz",
+			Name:      "my-task",
 			Annotations: map[string]string{
 				authenticate.KubernetesTokenAnnotation:   "my-tekton-auth-token",
 				authenticate.KubernetesSubjectAnnotation: "my-tekton-test-subject",
@@ -69,8 +69,8 @@ func TestKubernetesIntermediary(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "my-condition-namespace",
 				Name:      "tekton-condition-pod",
-				OwnerReferences: []metav1.OwnerReference{
-					*metav1.NewControllerRef(tr, tektonv1beta1.SchemeGroupVersion.WithKind("TaskRun")),
+				Labels: map[string]string{
+					"tekton.dev/pipelineTask": "my-task",
 				},
 			},
 			Status: corev1.PodStatus{
@@ -81,7 +81,7 @@ func TestKubernetesIntermediary(t *testing.T) {
 
 	kc := &authenticate.KubernetesInterface{
 		Interface:       testutil.NewMockKubernetesClient(objs...),
-		TektonInterface: testutil.NewMockTektonKubernetesClient(tr),
+		TektonInterface: testutil.NewMockTektonKubernetesClient(cond),
 	}
 
 	tests := []struct {
