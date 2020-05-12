@@ -23,9 +23,9 @@ const (
 	logUploadAnnotationPrefix = "nebula.puppet.com/log-archive-"
 )
 
-type podAndTaskName struct {
-	PodName  string
-	TaskName string
+type podAndTaskRunName struct {
+	PodName     string
+	TaskRunName string
 }
 
 type Reconciler struct {
@@ -141,19 +141,17 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 }
 
 func (r *Reconciler) uploadLogs(ctx context.Context, wr *obj.WorkflowRun, plr *obj.PipelineRun) {
-	for _, pt := range extractPodAndTaskNamesFromPipelineRun(plr.Object) {
-		annotation := logUploadAnnotationPrefix + pt.TaskName
+	for _, pt := range extractPodAndTaskRunNamesFromPipelineRun(plr.Object) {
+		annotation := logUploadAnnotationPrefix + pt.TaskRunName
 		if _, ok := wr.Object.GetAnnotations()[annotation]; ok {
 			continue
 		}
 
-		containerName := "step-" + pt.TaskName
-		logName, err := r.uploadLog(ctx, plr.Key.Namespace, pt.PodName, containerName)
+		logName, err := r.uploadLog(ctx, plr.Key.Namespace, pt.PodName, "step-step")
 		if err != nil {
-			klog.Warningf("Failed to upload log for pod=%s/%s container=%s %+v",
+			klog.Warningf("Failed to upload log for pod=%s/%s %+v",
 				plr.Key.Namespace,
 				pt.PodName,
-				containerName,
 				err)
 			continue
 		}
@@ -191,9 +189,9 @@ func (r *Reconciler) uploadLog(ctx context.Context, namespace string, podName st
 	return key, nil
 }
 
-func extractPodAndTaskNamesFromPipelineRun(plr *tekv1beta1.PipelineRun) []podAndTaskName {
-	var result []podAndTaskName
-	for _, taskRun := range plr.Status.TaskRuns {
+func extractPodAndTaskRunNamesFromPipelineRun(plr *tekv1beta1.PipelineRun) []podAndTaskRunName {
+	var result []podAndTaskRunName
+	for taskRunName, taskRun := range plr.Status.TaskRuns {
 		if nil == taskRun {
 			continue
 		}
@@ -213,9 +211,9 @@ func extractPodAndTaskNamesFromPipelineRun(plr *tekv1beta1.PipelineRun) []podAnd
 		if !init {
 			continue
 		}
-		result = append(result, podAndTaskName{
-			PodName:  taskRun.Status.PodName,
-			TaskName: taskRun.PipelineTaskName,
+		result = append(result, podAndTaskRunName{
+			PodName:     taskRun.Status.PodName,
+			TaskRunName: taskRunName,
 		})
 	}
 	return result
