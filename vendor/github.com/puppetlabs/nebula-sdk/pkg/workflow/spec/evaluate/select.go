@@ -25,7 +25,9 @@ func variableSelector(e *Evaluator, r *Result) func(path gval.Evaluables) gval.E
 					nv = pv.Value
 					return nil
 				})
-				if err != nil {
+				if ferr, ok := err.(*jsonpath.ForcePropagation); ok {
+					return nil, ferr.Cause
+				} else if err != nil {
 					return nil, err
 				} else if nv == nil {
 					return nil, nil
@@ -46,7 +48,7 @@ func variableVisitor(e *Evaluator, r *Result) jsonpath.VariableVisitor {
 				// Expand just this value without recursing.
 				nr, err := e.evaluate(ctx, pv.Value, 1)
 				if err != nil {
-					return err
+					return &jsonpath.ForcePropagation{Cause: err}
 				} else if !nr.Complete() {
 					r.extends(nr)
 					return nil

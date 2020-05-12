@@ -89,7 +89,7 @@ func MockTask(t *testing.T, cfg MockTaskConfig) []runtime.Object {
 
 type MockManagerFactoryConfig struct {
 	SecretData       map[string]string
-	ConnectionData   map[string]map[string]string
+	ConnectionData   map[string]map[string]interface{}
 	ConditionalsData map[string]string
 	Namespace        string
 	K8sResources     []runtime.Object
@@ -148,7 +148,7 @@ func NewMockManagerFactory(t *testing.T, cfg MockManagerFactoryConfig) MockManag
 
 	return MockManagerFactory{
 		sm:  op.NewEncodingSecretManager(sm),
-		cm:  op.NewEncodingConnectionManager(cm),
+		cm:  cm,
 		om:  om,
 		stm: op.NewEncodeDecodingStateManager(stm),
 		cdm: cdm,

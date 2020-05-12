@@ -2,8 +2,10 @@ package vault
 
 import (
 	"context"
+	"encoding/json"
 	"path"
 
+	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
 	"github.com/puppetlabs/nebula-tasks/pkg/connections"
 	"github.com/puppetlabs/nebula-tasks/pkg/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/secrets/vault"
@@ -40,10 +42,13 @@ func (cm *ConnectionsManager) Get(ctx context.Context, typ, name string) (*conne
 		return nil, errors.NewConnectionsGetError().WithCause(err).Bug()
 	}
 
-	conn := &connections.Connection{Spec: make(map[string]string)}
+	conn := &connections.Connection{Spec: make(map[string]transfer.JSONInterface)}
 
 	for _, sec := range resp {
-		conn.Spec[sec.Key] = sec.Value
+		var val transfer.JSONInterface
+		if err := json.Unmarshal([]byte(sec.Value), &val); err != nil {
+			conn.Spec[sec.Key] = val
+		}
 	}
 
 	return conn, nil
