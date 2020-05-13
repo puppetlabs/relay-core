@@ -68,6 +68,9 @@ type WorkflowRunStatusSummary struct {
 	Status string `json:"status"`
 
 	// +optional
+	LogKey string `json:"logKey,omitempty"`
+
+	// +optional
 	StartTime *metav1.Time `json:"startTime,omitempty"`
 
 	// +optional

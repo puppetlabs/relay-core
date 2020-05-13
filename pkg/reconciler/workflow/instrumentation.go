@@ -6,9 +6,8 @@ import (
 )
 
 const (
-	metricWorkflowRunStartUpDuration                   = "workflow_run_startup_duration"
-	metricWorkflowRunWaitForMetadataAPIServiceDuration = "workflow_run_wait_for_metadata_api_service_duration"
-	metricWorkflowRunLogUploadDuration                 = "workflow_run_log_upload_duration"
+	metricWorkflowRunStartUpDuration   = "workflow_run_startup_duration"
+	metricWorkflowRunLogUploadDuration = "workflow_run_log_upload_duration"
 )
 
 type controllerObservations struct {
@@ -33,11 +32,6 @@ func (c *controllerObservations) trackDurationWithOutcome(metric string, fn func
 func newControllerObservations(mets *metrics.Metrics) *controllerObservations {
 	mets.MustRegisterTimer(metricWorkflowRunStartUpDuration, collectors.TimerOptions{
 		Description: "duration of fully starting a workflow run",
-		Labels:      []string{"outcome"},
-	})
-
-	mets.MustRegisterTimer(metricWorkflowRunWaitForMetadataAPIServiceDuration, collectors.TimerOptions{
-		Description: "time spent waiting for the metadata api service to be available",
 		Labels:      []string{"outcome"},
 	})
 

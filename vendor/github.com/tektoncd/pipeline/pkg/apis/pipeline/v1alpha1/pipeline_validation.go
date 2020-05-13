@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"github.com/tektoncd/pipeline/pkg/apis/validate"
 	"github.com/tektoncd/pipeline/pkg/list"
 	"github.com/tektoncd/pipeline/pkg/reconciler/pipeline/dag"
@@ -43,6 +42,13 @@ func (p *Pipeline) Validate(ctx context.Context) *apis.FieldError {
 }
 
 func validateDeclaredResources(ps *PipelineSpec) error {
+	encountered := map[string]struct{}{}
+	for _, r := range ps.Resources {
+		if _, ok := encountered[r.Name]; ok {
+			return fmt.Errorf("resource with name %q appears more than once", r.Name)
+		}
+		encountered[r.Name] = struct{}{}
+	}
 	required := []string{}
 	for _, t := range ps.Tasks {
 		if t.Resources != nil {
@@ -129,25 +135,11 @@ func validateGraph(tasks []PipelineTask) error {
 	return nil
 }
 
-// validateParamResults ensure that task result variables are properly configured
-func validateParamResults(tasks []PipelineTask) error {
-	for _, task := range tasks {
-		for _, param := range task.Params {
-			if v1beta1.LooksLikeContainsResultRefs(param) {
-				if _, err := v1beta1.NewResultRefs(param); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	return nil
-}
-
 // Validate checks that taskNames in the Pipeline are valid and that the graph
 // of Tasks expressed in the Pipeline makes sense.
 func (ps *PipelineSpec) Validate(ctx context.Context) *apis.FieldError {
 	if equality.Semantic.DeepEqual(ps, &PipelineSpec{}) {
-		return apis.ErrMissingField(apis.CurrentField)
+		return apis.ErrGeneric("expected at least one, got none", "spec.description", "spec.params", "spec.resources", "spec.tasks", "spec.workspaces")
 	}
 
 	// Names cannot be duplicated
@@ -205,10 +197,6 @@ func (ps *PipelineSpec) Validate(ctx context.Context) *apis.FieldError {
 	// Validate the pipeline task graph
 	if err := validateGraph(ps.Tasks); err != nil {
 		return apis.ErrInvalidValue(err.Error(), "spec.tasks")
-	}
-
-	if err := validateParamResults(ps.Tasks); err != nil {
-		return apis.ErrInvalidValue(err.Error(), "spec.tasks.params.value")
 	}
 
 	// The parameter variables should be valid
