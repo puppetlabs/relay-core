@@ -18,6 +18,8 @@ import (
 	_ "github.com/puppetlabs/nebula-libs/storage/file/v2"
 	_ "github.com/puppetlabs/nebula-libs/storage/gcs/v2"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
+	"github.com/puppetlabs/nebula-tasks/pkg/controller/tenant"
+	"github.com/puppetlabs/nebula-tasks/pkg/controller/trigger"
 	"github.com/puppetlabs/nebula-tasks/pkg/controller/workflow"
 	"github.com/puppetlabs/nebula-tasks/pkg/dependency"
 	"gopkg.in/square/go-jose.v2"
@@ -138,6 +140,14 @@ func main() {
 	}
 
 	if err := workflow.Add(dm); err != nil {
+		log.Fatal("Could not add all controllers to operator manager", err)
+	}
+
+	if err := tenant.Add(dm); err != nil {
+		log.Fatal("Could not add all controllers to operator manager", err)
+	}
+
+	if err := trigger.Add(dm); err != nil {
 		log.Fatal("Could not add all controllers to operator manager", err)
 	}
 

@@ -5,17 +5,11 @@ import (
 	"strings"
 
 	nebulav1 "github.com/puppetlabs/nebula-tasks/pkg/apis/nebula.puppet.com/v1"
+	"github.com/puppetlabs/nebula-tasks/pkg/model"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-)
-
-const (
-	Shebang = "#!"
-
-	DefaultTaskImage       = "alpine:latest"
-	DefaultTaskInterpreter = Shebang + "/bin/sh"
 )
 
 type Task struct {
@@ -49,7 +43,7 @@ func NewTask(key client.ObjectKey) *Task {
 func ConfigureTask(ctx context.Context, t *Task, pd *PipelineDeps, ws *nebulav1.WorkflowStep) error {
 	image := ws.Image
 	if image == "" {
-		image = DefaultTaskImage
+		image = model.DefaultImage
 	}
 
 	step := tektonv1beta1.Step{
@@ -74,8 +68,8 @@ func ConfigureTask(ctx context.Context, t *Task, pd *PipelineDeps, ws *nebulav1.
 
 	if len(ws.Input) > 0 {
 		script := strings.Join(ws.Input, "\n")
-		if !strings.HasPrefix(script, Shebang) {
-			script = DefaultTaskInterpreter + "\n" + script
+		if !strings.HasPrefix(script, model.Shebang) {
+			script = model.DefaultInterpreter + "\n" + script
 		}
 
 		step.Script = script

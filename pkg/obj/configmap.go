@@ -44,6 +44,34 @@ func NewConfigMap(key client.ObjectKey) *ConfigMap {
 	}
 }
 
+func ConfigureImmutableConfigMapForTrigger(ctx context.Context, cm *ConfigMap, wt *WebhookTrigger) error {
+	// This implementation manages the underlying object, so no need to retrieve
+	// it later.
+	lcm := configmap.NewLocalConfigMap(cm.Object)
+
+	ev := evaluate.NewEvaluator()
+
+	if len(wt.Object.Spec.Spec) > 0 {
+		r, err := ev.EvaluateAll(ctx, wt.Object.Spec.Spec.Value())
+		if err != nil {
+			return err
+		}
+
+		if _, err := configmap.NewSpecManager(ModelTrigger(wt), lcm).Set(ctx, r.Value.(map[string]interface{})); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func ConfigureMutableConfigMapForTrigger(ctx context.Context, cm *ConfigMap, wt *WebhookTrigger) error {
+	lcm := configmap.NewLocalConfigMap(cm.Object)
+	configmap.NewStateManager(ModelTrigger(wt), lcm)
+
+	return nil
+}
+
 func ConfigureImmutableConfigMap(ctx context.Context, cm *ConfigMap, wr *WorkflowRun) error {
 	// This implementation manages the underlying object, so no need to retrieve
 	// it later.

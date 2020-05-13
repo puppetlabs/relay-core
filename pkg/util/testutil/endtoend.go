@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/puppetlabs/nebula-tasks/pkg/reconciler/workflow/obj"
+	"github.com/puppetlabs/nebula-tasks/pkg/obj"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -90,6 +90,7 @@ func doEndToEndEnvironment(fn func(e *EndToEndEnvironment), opts ...EndToEndEnvi
 	viper.SetDefault("tekton_pipeline_version", DefaultTektonPipelineVersion)
 	viper.SetDefault("knative_serving_version", DefaultKnativeServingVersion)
 	viper.SetDefault("disabled", false)
+	viper.SetDefault("install_environment", true)
 
 	if viper.GetBool("disabled") {
 		return false, nil
@@ -181,9 +182,11 @@ func doEndToEndEnvironment(fn func(e *EndToEndEnvironment), opts ...EndToEndEnvi
 		TektonInterface:         tkc,
 	}
 
-	for _, opt := range opts {
-		if err := opt(ctx, e); err != nil {
-			return true, err
+	if viper.GetBool("install_environment") {
+		for _, opt := range opts {
+			if err := opt(ctx, e); err != nil {
+				return true, err
+			}
 		}
 	}
 

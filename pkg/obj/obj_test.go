@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/puppetlabs/nebula-tasks/pkg/reconciler/workflow/obj"
+	"github.com/puppetlabs/nebula-tasks/pkg/obj"
 	"github.com/puppetlabs/nebula-tasks/pkg/util/testutil"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
