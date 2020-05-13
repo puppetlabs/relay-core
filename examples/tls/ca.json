@@ -1,0 +1,16 @@
+{
+  "CN": "Puppet Relay Core Test CA",
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+      "C": "US",
+      "ST": "Oregon",
+      "L": "Portland",
+      "O": "Puppet",
+      "OU": "Relay"
+    }
+  ]
+}

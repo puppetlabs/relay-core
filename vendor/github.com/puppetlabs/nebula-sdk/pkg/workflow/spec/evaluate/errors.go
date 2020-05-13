@@ -3,12 +3,21 @@ package evaluate
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 )
 
 var (
 	ErrUnsupportedLanguage = errors.New("evaluate: unsupported language")
 )
+
+type UnsupportedValueError struct {
+	Type reflect.Type
+}
+
+func (e *UnsupportedValueError) Error() string {
+	return fmt.Sprintf("could not evaluate a value of type %s, must be a JSON-compatible type", e.Type)
+}
 
 type InvalidTypeError struct {
 	Type  string
