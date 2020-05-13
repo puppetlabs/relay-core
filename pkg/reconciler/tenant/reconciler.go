@@ -7,6 +7,7 @@ import (
 
 	relayv1beta1 "github.com/puppetlabs/nebula-tasks/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/nebula-tasks/pkg/dependency"
+	"github.com/puppetlabs/nebula-tasks/pkg/model"
 	"github.com/puppetlabs/nebula-tasks/pkg/obj"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -71,6 +72,8 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 		return ctrl.Result{}, nil
 	}
 
+	tn.Object.Status.ObservedGeneration = tn.Object.Generation
+
 	tnsc := relayv1beta1.TenantCondition{
 		Condition: relayv1beta1.Condition{
 			Status:             corev1.ConditionTrue,
@@ -100,7 +103,7 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 			Message:            err.Error(),
 		}
 
-		if err := tn.Persist(ctx, r.Client); err != nil {
+		if err := tn.PersistStatus(ctx, r.Client); err != nil {
 			return ctrl.Result{}, err
 		}
 
@@ -109,7 +112,7 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 
 	tn.Object.Status.Conditions = []relayv1beta1.TenantCondition{tnsc, tnc}
 
-	if err := tn.Persist(ctx, r.Client); err != nil {
+	if err := tn.PersistStatus(ctx, r.Client); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -134,7 +137,9 @@ func applyNamespace(ctx context.Context, cl client.Client, tenant *obj.Tenant) (
 		tenant.Own(ctx, ns)
 	}
 
+	ns.Label(ctx, model.RelayControllerTenantWorkflowLabel, "true")
 	ns.LabelAnnotateFrom(ctx, md)
+
 	if err := ns.Persist(ctx, cl); err != nil {
 		return nil, err
 	}

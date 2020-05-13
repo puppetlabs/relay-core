@@ -17,19 +17,10 @@ type WebhookTrigger struct {
 	Object *relayv1beta1.WebhookTrigger
 }
 
-var _ Persister = &WebhookTrigger{}
 var _ Loader = &WebhookTrigger{}
 
-func (wt *WebhookTrigger) Persist(ctx context.Context, cl client.Client) error {
-	if err := CreateOrUpdate(ctx, cl, wt.Key, wt.Object); err != nil {
-		return err
-	}
-
-	if err := cl.Status().Update(ctx, wt.Object); err != nil {
-		return err
-	}
-
-	return nil
+func (wt *WebhookTrigger) PersistStatus(ctx context.Context, cl client.Client) error {
+	return cl.Status().Update(ctx, wt.Object)
 }
 
 func (wt *WebhookTrigger) Load(ctx context.Context, cl client.Client) (bool, error) {

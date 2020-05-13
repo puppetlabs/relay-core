@@ -104,6 +104,8 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 		return ctrl.Result{}, fmt.Errorf("failed to apply dependencies: %+v", err)
 	}
 
+	wt.Object.Status.ObservedGeneration = wt.Object.Generation
+
 	wtc := relayv1beta1.WebhookTriggerCondition{
 		Condition: relayv1beta1.Condition{
 			Status:             corev1.ConditionTrue,
@@ -124,7 +126,7 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 		Type: relayv1beta1.WebhookTriggerServiceReady,
 	}
 
-	kns, err := obj.ApplyServing(ctx, r.Client, wt, wtd)
+	kns, err := obj.ApplyKnativeService(ctx, r.Client, wt, wtd)
 	if err != nil {
 		wtsc.Condition = relayv1beta1.Condition{
 			Status:             corev1.ConditionFalse,
@@ -133,7 +135,7 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 			Message:            err.Error(),
 		}
 
-		if err := wt.Persist(ctx, r.Client); err != nil {
+		if err := wt.PersistStatus(ctx, r.Client); err != nil {
 			return ctrl.Result{}, err
 		}
 
@@ -165,7 +167,7 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 
 	wt.Object.Status.Conditions = []relayv1beta1.WebhookTriggerCondition{wtc, wtsc}
 
-	if err := wt.Persist(ctx, r.Client); err != nil {
+	if err := wt.PersistStatus(ctx, r.Client); err != nil {
 		return ctrl.Result{}, err
 	}
 

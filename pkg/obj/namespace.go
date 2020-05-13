@@ -30,6 +30,10 @@ func (n *Namespace) Owned(ctx context.Context, ref *metav1.OwnerReference) {
 	Own(&n.Object.ObjectMeta, ref)
 }
 
+func (n *Namespace) Label(ctx context.Context, name, value string) {
+	Label(&n.Object.ObjectMeta, name, value)
+}
+
 func (n *Namespace) LabelAnnotateFrom(ctx context.Context, from metav1.ObjectMeta) {
 	CopyLabelsAndAnnotations(&n.Object.ObjectMeta, from)
 }

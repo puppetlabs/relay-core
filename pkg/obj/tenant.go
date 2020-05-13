@@ -17,19 +17,10 @@ type Tenant struct {
 	Object *relayv1beta1.Tenant
 }
 
-var _ Persister = &Tenant{}
 var _ Loader = &Tenant{}
 
-func (t *Tenant) Persist(ctx context.Context, cl client.Client) error {
-	if err := CreateOrUpdate(ctx, cl, t.Key, t.Object); err != nil {
-		return err
-	}
-
-	if err := cl.Status().Update(ctx, t.Object); err != nil {
-		return err
-	}
-
-	return nil
+func (t *Tenant) PersistStatus(ctx context.Context, cl client.Client) error {
+	return cl.Status().Update(ctx, t.Object)
 }
 
 func (t *Tenant) Load(ctx context.Context, cl client.Client) (bool, error) {

@@ -13,6 +13,8 @@ const (
 	RelayVaultEngineMountAnnotation    = "relay.sh/vault-engine-mount"
 	RelayVaultSecretPathAnnotation     = "relay.sh/vault-secret-path"
 	RelayVaultConnectionPathAnnotation = "relay.sh/vault-connection-path"
+
+	RelayControllerTenantWorkflowLabel = "controller.relay.sh/tenant-workload"
 )
 
 // MetadataManagers are the managers used by actions accessing the metadata
