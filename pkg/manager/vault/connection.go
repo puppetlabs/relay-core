@@ -23,7 +23,7 @@ func (m *ConnectionManager) Get(ctx context.Context, typ, name string) (*model.C
 		return nil, err
 	}
 
-	attrs := make(map[string]string, len(keys))
+	attrs := make(map[string]interface{}, len(keys))
 	for _, key := range keys {
 		value, err := m.client.In(connectionID, key).ReadString(ctx)
 		if err == model.ErrNotFound {

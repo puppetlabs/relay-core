@@ -19,7 +19,7 @@ func TestConnectionManager(t *testing.T) {
 		id := uuid.New().String()
 
 		// Write data.
-		attrs := map[string]string{
+		attrs := map[string]interface{}{
 			"foo": "bar",
 			"baz": "quux",
 		}

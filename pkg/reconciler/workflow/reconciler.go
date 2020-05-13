@@ -137,7 +137,7 @@ func (r *Reconciler) uploadLogs(ctx context.Context, wr *obj.WorkflowRun, plr *o
 
 		// TODO: This should support retries, possibly to different log
 		// endpoints?
-		if tr.Status.GetCondition(apis.ConditionSucceeded).IsUnknown() {
+		if cond := tr.Status.GetCondition(apis.ConditionSucceeded); cond == nil || cond.IsUnknown() {
 			continue
 		}
 

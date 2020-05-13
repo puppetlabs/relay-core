@@ -1001,12 +1001,12 @@ github.com/puppetlabs/nebula-libs/storage/file/v2 v2.0.0 h1:NE2F6IF6m99cfY6H/cs5
 github.com/puppetlabs/nebula-libs/storage/file/v2 v2.0.0/go.mod h1:LIc6Noslj53YQ54ze6gW09LXpBlpmikJ5RAPvDPSAn4=
 github.com/puppetlabs/nebula-libs/storage/gcs/v2 v2.0.0 h1:U7nFTBwzt1SBDBt2WjWvlRHesqqCGYtohqcapwleK2Q=
 github.com/puppetlabs/nebula-libs/storage/gcs/v2 v2.0.0/go.mod h1:La6Fd+xP5r9TOoiYgdsiD5es6HkGdUEOvjF5QI1XFxo=
-github.com/puppetlabs/nebula-sdk v1.12.2 h1:wS2o5zCjWFOMxtwMSziDKGceCuTv68JJznKO5hrkp9U=
-github.com/puppetlabs/nebula-sdk v1.12.2/go.mod h1:4q0Mwh5cT0g3EodFkfFNAk8wJwec4eN2+5Xn5DxEiPc=
+github.com/puppetlabs/nebula-sdk v1.12.3 h1:objHEylqkZnjYH9bcmsxy1VUug2RkvxULx4D0jpg+bc=
+github.com/puppetlabs/nebula-sdk v1.12.3/go.mod h1:w1VaKrNPTGooK1YDqQQWLUxGihC4YpemN4Rb627NAyU=
 github.com/puppetlabs/paesslerag-gval v1.0.2-0.20191119012647-d2c694821b5b h1:L3KBXqsUZK0OsVAN6DQ99OzI18BvtP+uVtX0oTjCxhQ=
 github.com/puppetlabs/paesslerag-gval v1.0.2-0.20191119012647-d2c694821b5b/go.mod h1:+fTpFaf5D42b+LP12OkDl9tYbLdn36H+fvBauW4KIR4=
-github.com/puppetlabs/paesslerag-jsonpath v0.1.2-0.20191119013138-25b86105f641 h1:qGAe9FVzhkLON7icGlVWmvHFAAQQYJFczZRl7mlv00Y=
-github.com/puppetlabs/paesslerag-jsonpath v0.1.2-0.20191119013138-25b86105f641/go.mod h1:fU2lLssuZDiOPlZS0sPObg4WPO1Cg1QSGJD3QTbjH7g=
+github.com/puppetlabs/paesslerag-jsonpath v0.1.2-0.20200512062544-1e26d7ca225e h1:fWEPaND52rBrkqNIwEcNEdIE9Z42tPqrMaMdxM74QEM=
+github.com/puppetlabs/paesslerag-jsonpath v0.1.2-0.20200512062544-1e26d7ca225e/go.mod h1:fU2lLssuZDiOPlZS0sPObg4WPO1Cg1QSGJD3QTbjH7g=
 github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a/go.mod h1:bCqnVzQkZxMG4s8nGwiZ5l3QUCyqpo9Y+/ZMZ9VjZe4=
 github.com/rcrowley/go-metrics v0.0.0-20190706150252-9beb055b7962/go.mod h1:bCqnVzQkZxMG4s8nGwiZ5l3QUCyqpo9Y+/ZMZ9VjZe4=
 github.com/reflect/raymond v0.0.0-20190227215356-5fa3955f4a50 h1:tQC2Xbytchkj88dqeRQeuvfG4mDSKU/r5ovo+16XJ2I=

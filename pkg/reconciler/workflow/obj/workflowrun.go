@@ -240,25 +240,25 @@ func ConfigureWorkflowRun(wr *WorkflowRun, pr *PipelineRun) {
 }
 
 func workflowRunStatus(status duckv1beta1.Status) WorkflowRunStatus {
-	for _, cs := range status.Conditions {
-		switch cs.Type {
-		case apis.ConditionSucceeded:
-			switch cs.Status {
-			case corev1.ConditionUnknown:
-				return WorkflowRunStatusInProgress
-			case corev1.ConditionTrue:
-				return WorkflowRunStatusSuccess
-			case corev1.ConditionFalse:
-				if cs.Reason == resources.ReasonConditionCheckFailed {
-					return WorkflowRunStatusSkipped
-				}
-				if cs.Reason == resources.ReasonTimedOut {
-					return WorkflowRunStatusTimedOut
-				}
-				return WorkflowRunStatusFailure
-			}
-		}
+	cs := status.GetCondition(apis.ConditionSucceeded)
+	if cs == nil {
+		return WorkflowRunStatusPending
 	}
 
-	return WorkflowRunStatusPending
+	switch cs.Status {
+	case corev1.ConditionUnknown:
+		return WorkflowRunStatusInProgress
+	case corev1.ConditionTrue:
+		return WorkflowRunStatusSuccess
+	case corev1.ConditionFalse:
+		if cs.Reason == resources.ReasonConditionCheckFailed {
+			return WorkflowRunStatusSkipped
+		}
+		if cs.Reason == resources.ReasonTimedOut {
+			return WorkflowRunStatusTimedOut
+		}
+		return WorkflowRunStatusFailure
+	default:
+		return WorkflowRunStatusPending
+	}
 }

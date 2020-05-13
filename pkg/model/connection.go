@@ -5,7 +5,7 @@ import "context"
 type Connection struct {
 	Type       string
 	Name       string
-	Attributes map[string]string
+	Attributes map[string]interface{}
 }
 
 type ConnectionManager interface {

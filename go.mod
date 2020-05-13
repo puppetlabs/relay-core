@@ -25,7 +25,7 @@ require (
 	github.com/puppetlabs/horsehead/v2 v2.7.0
 	github.com/puppetlabs/nebula-libs/storage/file/v2 v2.0.0
 	github.com/puppetlabs/nebula-libs/storage/gcs/v2 v2.0.0
-	github.com/puppetlabs/nebula-sdk v1.12.2
+	github.com/puppetlabs/nebula-sdk v1.12.3
 	github.com/spf13/viper v1.3.2
 	github.com/stretchr/testify v1.5.1
 	github.com/tektoncd/pipeline v0.12.0

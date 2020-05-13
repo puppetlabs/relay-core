@@ -276,7 +276,7 @@ func VariableSelector(visitor VariableVisitor) func(path gval.Evaluables) gval.E
 						return combine(c, value{wildcards: [][]string{pv.Path}, value: pv.Value})
 					})
 				default:
-					err = fmt.Errorf("unknown variable type %T", t)
+					err = &ForcePropagation{Cause: fmt.Errorf("unknown variable type %T", t)}
 				}
 				return r, err == nil, err
 			}

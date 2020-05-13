@@ -10,6 +10,7 @@ import (
 
 	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/evaluate"
 	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/serialize"
+	sdktestutil "github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/testutil"
 	"github.com/puppetlabs/nebula-tasks/pkg/manager/memory"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/opt"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/sample"
@@ -24,7 +25,7 @@ func TestGetSpec(t *testing.T) {
 	require.NoError(t, err)
 
 	sc := &opt.SampleConfig{
-		Connections: map[memory.ConnectionKey]map[string]string{
+		Connections: map[memory.ConnectionKey]map[string]interface{}{
 			memory.ConnectionKey{Type: "aws", Name: "test-aws-connection"}: {
 				"accessKeyID":     "testaccesskey",
 				"secretAccessKey": "testsecretaccesskey",
@@ -48,31 +49,22 @@ func TestGetSpec(t *testing.T) {
 					"current-task": &opt.SampleConfigStep{
 						Spec: opt.SampleConfigSpec{
 							"superSecret": serialize.YAMLTree{
-								Tree: map[string]interface{}{
-									"$type": "Secret",
-									"name":  "test-secret-key",
-								},
+								Tree: sdktestutil.JSONSecret("test-secret-key"),
 							},
 							"superOutput": serialize.YAMLTree{
-								Tree: map[string]interface{}{
-									"$type": "Output",
-									"from":  "previous-task",
-									"name":  "test-output-key",
-								},
+								Tree: sdktestutil.JSONOutput("previous-task", "test-output-key"),
 							},
 							"structuredOutput": serialize.YAMLTree{
-								Tree: map[string]interface{}{
-									"$type": "Output",
-									"from":  "previous-task",
-									"name":  "test-structured-output-key",
-								},
+								Tree: sdktestutil.JSONOutput("previous-task", "test-structured-output-key"),
 							},
 							"superConnection": serialize.YAMLTree{
-								Tree: map[string]interface{}{
-									"$type": "Connection",
-									"type":  "aws",
-									"name":  "test-aws-connection",
-								},
+								Tree: sdktestutil.JSONConnection("aws", "test-aws-connection"),
+							},
+							"mergedConnection": serialize.YAMLTree{
+								Tree: sdktestutil.JSONInvocation("merge", []interface{}{
+									sdktestutil.JSONConnection("aws", "test-aws-connection"),
+									map[string]interface{}{"merge": "me"},
+								}),
 							},
 							"superNormal": serialize.YAMLTree{
 								Tree: "test-normal-value",
@@ -112,6 +104,11 @@ func TestGetSpec(t *testing.T) {
 		"superConnection": map[string]interface{}{
 			"accessKeyID":     "testaccesskey",
 			"secretAccessKey": "testsecretaccesskey",
+		},
+		"mergedConnection": map[string]interface{}{
+			"accessKeyID":     "testaccesskey",
+			"secretAccessKey": "testsecretaccesskey",
+			"merge":           "me",
 		},
 		"superNormal": "test-normal-value",
 	}, r.Value.Data)

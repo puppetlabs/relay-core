@@ -11,7 +11,7 @@ type ConnectionKey struct {
 }
 
 type ConnectionManager struct {
-	connections map[ConnectionKey]map[string]string
+	connections map[ConnectionKey]map[string]interface{}
 }
 
 var _ model.ConnectionManager = &ConnectionManager{}
@@ -29,7 +29,7 @@ func (cm *ConnectionManager) Get(ctx context.Context, typ, name string) (*model.
 	}, nil
 }
 
-func NewConnectionManager(m map[ConnectionKey]map[string]string) *ConnectionManager {
+func NewConnectionManager(m map[ConnectionKey]map[string]interface{}) *ConnectionManager {
 	return &ConnectionManager{
 		connections: m,
 	}

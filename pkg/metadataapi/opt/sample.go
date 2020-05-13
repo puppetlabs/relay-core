@@ -9,10 +9,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type SampleConfigConnections map[memory.ConnectionKey]map[string]string
+type SampleConfigConnections map[memory.ConnectionKey]map[string]interface{}
 
 func (scc *SampleConfigConnections) UnmarshalYAML(value *yaml.Node) error {
-	var m map[string]map[string]string
+	var m map[string]map[string]interface{}
 	if err := value.Decode(&m); err != nil {
 		return err
 	}

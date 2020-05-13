@@ -367,7 +367,7 @@ func (e *Evaluator) evaluateInvocation(ctx context.Context, im map[string]interf
 	return &Result{Value: v}, nil
 }
 
-func (e *Evaluator) evaluate(ctx context.Context, v interface{}, depth int) (*Result, error) {
+func (e *Evaluator) evaluateUnchecked(ctx context.Context, v interface{}, depth int) (*Result, error) {
 	if depth == 0 {
 		return &Result{Value: v}, nil
 	}
@@ -428,6 +428,21 @@ func (e *Evaluator) evaluate(ctx context.Context, v interface{}, depth int) (*Re
 		return r, nil
 	default:
 		return &Result{Value: v}, nil
+	}
+}
+
+func (e *Evaluator) evaluate(ctx context.Context, v interface{}, depth int) (*Result, error) {
+	candidate, err := e.evaluateUnchecked(ctx, v, depth)
+	if err != nil {
+		return nil, err
+	}
+
+	switch candidate.Value.(type) {
+	// Valid JSON types per https://golang.org/pkg/encoding/json/:
+	case bool, float64, string, []interface{}, map[string]interface{}, nil:
+		return candidate, nil
+	default:
+		return nil, &UnsupportedValueError{Type: reflect.TypeOf(candidate.Value)}
 	}
 }
 
