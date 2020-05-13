@@ -45,19 +45,10 @@ type WorkflowRun struct {
 	Object *nebulav1.WorkflowRun
 }
 
-var _ Persister = &WorkflowRun{}
 var _ Loader = &WorkflowRun{}
 
-func (wr *WorkflowRun) Persist(ctx context.Context, cl client.Client) error {
-	if err := cl.Status().Update(ctx, wr.Object); err != nil {
-		return err
-	}
-
-	if err := CreateOrUpdate(ctx, cl, wr.Key, wr.Object); err != nil {
-		return err
-	}
-
-	return nil
+func (wr *WorkflowRun) PersistStatus(ctx context.Context, cl client.Client) error {
+	return cl.Status().Update(ctx, wr.Object)
 }
 
 func (wr *WorkflowRun) Load(ctx context.Context, cl client.Client) (bool, error) {
@@ -180,8 +171,13 @@ func ConfigureWorkflowRun(wr *WorkflowRun, pr *PipelineRun) {
 		wr.Object.Status.CompletionTime = then
 	}
 
-	wr.Object.Status.Steps = make(map[string]nebulav1.WorkflowRunStatusSummary)
-	wr.Object.Status.Conditions = make(map[string]nebulav1.WorkflowRunStatusSummary)
+	if wr.Object.Status.Steps == nil {
+		wr.Object.Status.Steps = make(map[string]nebulav1.WorkflowRunStatusSummary)
+	}
+
+	if wr.Object.Status.Conditions == nil {
+		wr.Object.Status.Conditions = make(map[string]nebulav1.WorkflowRunStatusSummary)
+	}
 
 	// These are status information organized by task name since we don't yet
 	// have the step names.
@@ -202,6 +198,11 @@ func ConfigureWorkflowRun(wr *WorkflowRun, pr *PipelineRun) {
 		stepSummary, found := summariesByTaskName.steps[taskName]
 		if !found {
 			stepSummary.Status = string(WorkflowRunStatusPending)
+		}
+
+		// Retain any existing log record.
+		if wr.Object.Status.Steps[step.Name].LogKey != "" {
+			stepSummary.LogKey = wr.Object.Status.Steps[step.Name].LogKey
 		}
 
 		wr.Object.Status.Steps[step.Name] = stepSummary

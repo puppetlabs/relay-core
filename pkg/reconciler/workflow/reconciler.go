@@ -9,24 +9,14 @@ import (
 	"github.com/puppetlabs/nebula-tasks/pkg/authenticate"
 	"github.com/puppetlabs/nebula-tasks/pkg/dependency"
 	"github.com/puppetlabs/nebula-tasks/pkg/reconciler/workflow/obj"
-	tekv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/klog"
+	"knative.dev/pkg/apis"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-const (
-	// PipelineRun annotation indicating the log upload location
-	logUploadAnnotationPrefix = "nebula.puppet.com/log-archive-"
-)
-
-type podAndTaskRunName struct {
-	PodName     string
-	TaskRunName string
-}
 
 type Reconciler struct {
 	*dependency.DependencyManager
@@ -120,20 +110,17 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 		return ctrl.Result{}, err
 	}
 
-	if pr.IsComplete() {
-		// Upload the logs that are not defined on the PipelineRun record...
-		err := r.metrics.trackDurationWithOutcome(metricWorkflowRunLogUploadDuration, func() error {
-			r.uploadLogs(ctx, wr, pr)
-			return nil
-		})
-		if err != nil {
-			klog.Warning(err)
-		}
+	err = r.metrics.trackDurationWithOutcome(metricWorkflowRunLogUploadDuration, func() error {
+		r.uploadLogs(ctx, wr, pr)
+		return nil
+	})
+	if err != nil {
+		klog.Warning(err)
 	}
 
 	obj.ConfigureWorkflowRun(wr, pr)
 
-	if err := wr.Persist(ctx, r.Client); err != nil {
+	if err := wr.PersistStatus(ctx, r.Client); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to persist WorkflowRun: %+v", err)
 	}
 
@@ -141,22 +128,44 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 }
 
 func (r *Reconciler) uploadLogs(ctx context.Context, wr *obj.WorkflowRun, plr *obj.PipelineRun) {
-	for _, pt := range extractPodAndTaskRunNamesFromPipelineRun(plr.Object) {
-		annotation := logUploadAnnotationPrefix + pt.TaskRunName
-		if _, ok := wr.Object.GetAnnotations()[annotation]; ok {
+	podNames := make(map[string]string)
+
+	for name, tr := range plr.Object.Status.TaskRuns {
+		if tr.Status == nil {
 			continue
 		}
 
-		logName, err := r.uploadLog(ctx, plr.Key.Namespace, pt.PodName, "step-step")
+		// TODO: This should support retries, possibly to different log
+		// endpoints?
+		if tr.Status.GetCondition(apis.ConditionSucceeded).IsUnknown() {
+			continue
+		}
+
+		podNames[name] = tr.Status.PodName
+	}
+
+	for name, step := range wr.Object.Status.Steps {
+		if step.LogKey != "" {
+			// Already uploaded.
+			continue
+		}
+
+		podName, found := podNames[step.Name]
+		if !found {
+			// Not done yet.
+			klog.Infof("WorkflowRun %s step %q is still progressing, waiting to upload logs", wr.Key, name)
+			continue
+		}
+
+		klog.Infof("WorkflowRun %s step %q is complete, uploading logs for pod %s", wr.Key, name, podName)
+
+		logKey, err := r.uploadLog(ctx, plr.Key.Namespace, podName, "step-step")
 		if err != nil {
-			klog.Warningf("Failed to upload log for pod=%s/%s %+v",
-				plr.Key.Namespace,
-				pt.PodName,
-				err)
-			continue
+			klog.Warningf("failed to upload log for WorkflowRun %s step %q: %+v", wr.Key, name, err)
 		}
 
-		obj.Annotate(&wr.Object.ObjectMeta, annotation, logName)
+		step.LogKey = logKey
+		wr.Object.Status.Steps[name] = step
 	}
 }
 
@@ -187,34 +196,4 @@ func (r *Reconciler) uploadLog(ctx context.Context, namespace string, podName st
 	}
 
 	return key, nil
-}
-
-func extractPodAndTaskRunNamesFromPipelineRun(plr *tekv1beta1.PipelineRun) []podAndTaskRunName {
-	var result []podAndTaskRunName
-	for taskRunName, taskRun := range plr.Status.TaskRuns {
-		if nil == taskRun {
-			continue
-		}
-		if nil == taskRun.Status {
-			continue
-		}
-		// Ensure the pod got initialized:
-		init := false
-		for _, step := range taskRun.Status.Steps {
-			if step.Name != taskRun.PipelineTaskName {
-				continue
-			}
-			if nil != step.Terminated || nil != step.Running {
-				init = true
-			}
-		}
-		if !init {
-			continue
-		}
-		result = append(result, podAndTaskRunName{
-			PodName:     taskRun.Status.PodName,
-			TaskRunName: taskRunName,
-		})
-	}
-	return result
 }
