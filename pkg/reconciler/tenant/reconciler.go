@@ -137,7 +137,7 @@ func applyNamespace(ctx context.Context, cl client.Client, tenant *obj.Tenant) (
 		tenant.Own(ctx, ns)
 	}
 
-	ns.Label(ctx, model.RelayControllerTenantWorkflowLabel, "true")
+	ns.Label(ctx, model.RelayControllerTenantWorkloadLabel, "true")
 	ns.LabelAnnotateFrom(ctx, md)
 
 	if err := ns.Persist(ctx, cl); err != nil {
