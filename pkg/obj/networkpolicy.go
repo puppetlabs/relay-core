@@ -59,7 +59,6 @@ func NewNetworkPolicy(key client.ObjectKey) *NetworkPolicy {
 }
 
 type networkPolicyOptions struct {
-	podSelector             metav1.LabelSelector
 	deniedIPBlocks          []string
 	systemNamespaceSelector metav1.LabelSelector
 	metadataAPIPodSelector  metav1.LabelSelector
@@ -67,12 +66,6 @@ type networkPolicyOptions struct {
 }
 
 type NetworkPolicyOption func(opts *networkPolicyOptions)
-
-func NetworkPolicyWithPodSelector(selector metav1.LabelSelector) NetworkPolicyOption {
-	return func(opts *networkPolicyOptions) {
-		opts.podSelector = selector
-	}
-}
 
 func NetworkPolicyWithDeniedIPBlocks(blocks []string) NetworkPolicyOption {
 	return func(opts *networkPolicyOptions) {
@@ -98,10 +91,45 @@ func NetworkPolicyWithMetadataAPIPort(port int) NetworkPolicyOption {
 	}
 }
 
-func ConfigureNetworkPolicy(np *NetworkPolicy, opts ...NetworkPolicyOption) {
+func ConfigureNetworkPolicyForTenant(np *NetworkPolicy) {
+	// The default tenant policy blocks all traffic. Additional policies are
+	// additive.
+	np.Object.Spec = networkingv1.NetworkPolicySpec{
+		PolicyTypes: []networkingv1.PolicyType{
+			networkingv1.PolicyTypeIngress,
+			networkingv1.PolicyTypeEgress,
+		},
+	}
+}
+
+func ConfigureNetworkPolicyForWorkflowRun(np *NetworkPolicy, wr *WorkflowRun, opts ...NetworkPolicyOption) {
+	np.Object.Spec = baseTenantWorkloadNetworkPolicySpec(wr.PodSelector(), opts)
+}
+
+func ConfigureNetworkPolicyForWebhookTrigger(np *NetworkPolicy, wt *WebhookTrigger, opts ...NetworkPolicyOption) {
+	np.Object.Spec = baseTenantWorkloadNetworkPolicySpec(wt.PodSelector(), opts)
+
+	// Allow ingress from the defined upstream.
+	np.Object.Spec.Ingress = append(np.Object.Spec.Ingress, networkingv1.NetworkPolicyIngressRule{
+		From: []networkingv1.NetworkPolicyPeer{
+			{
+				NamespaceSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"nebula.puppet.com/network-policy.webhook-gateway": "true",
+					},
+				},
+				PodSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"nebula.puppet.com/network-policy.webhook-gateway": "true",
+					},
+				},
+			},
+		},
+	})
+}
+
+func baseTenantWorkloadNetworkPolicySpec(podSelector metav1.LabelSelector, opts []NetworkPolicyOption) networkingv1.NetworkPolicySpec {
 	npo := &networkPolicyOptions{
-		// Empty pod selector matches all pods.
-		podSelector:    metav1.LabelSelector{},
 		deniedIPBlocks: DefaultNetworkPolicyDeniedIPBlocks,
 		systemNamespaceSelector: metav1.LabelSelector{
 			MatchLabels: map[string]string{
@@ -121,11 +149,12 @@ func ConfigureNetworkPolicy(np *NetworkPolicy, opts ...NetworkPolicyOption) {
 		opt(npo)
 	}
 
-	np.Object.Spec = networkingv1.NetworkPolicySpec{
-		PodSelector: npo.podSelector,
-		PolicyTypes: []networkingv1.PolicyType{"Ingress", "Egress"},
-		// We omit ingress to deny inbound traffic. Nothing should be connecting
-		// to task pods.
+	return networkingv1.NetworkPolicySpec{
+		PodSelector: podSelector,
+		PolicyTypes: []networkingv1.PolicyType{
+			networkingv1.PolicyTypeIngress,
+			networkingv1.PolicyTypeEgress,
+		},
 		Ingress: []networkingv1.NetworkPolicyIngressRule{},
 		Egress: []networkingv1.NetworkPolicyEgressRule{
 			{

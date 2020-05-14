@@ -3,6 +3,7 @@ package obj
 import (
 	"context"
 
+	"github.com/puppetlabs/nebula-tasks/pkg/model"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -68,14 +69,14 @@ func NewKnativeService(key client.ObjectKey) *KnativeService {
 	}
 }
 
-func ApplyKnativeService(ctx context.Context, cl client.Client, wt *WebhookTrigger, wtd *WebhookTriggerDeps) (*KnativeService, error) {
-	s := NewKnativeService(client.ObjectKey{Name: wt.Object.Name, Namespace: wt.Object.Namespace})
+func ApplyKnativeService(ctx context.Context, cl client.Client, wtd *WebhookTriggerDeps) (*KnativeService, error) {
+	s := NewKnativeService(wtd.WebhookTrigger.Key)
 
 	if _, err := s.Load(ctx, cl); err != nil {
 		return nil, err
 	}
 
-	if err := ConfigureKnativeService(ctx, s, wt, wtd); err != nil {
+	if err := ConfigureKnativeService(ctx, s, wtd); err != nil {
 		return nil, err
 	}
 
@@ -86,13 +87,14 @@ func ApplyKnativeService(ctx context.Context, cl client.Client, wt *WebhookTrigg
 	return s, nil
 }
 
-func ConfigureKnativeService(ctx context.Context, s *KnativeService, wt *WebhookTrigger, wtd *WebhookTriggerDeps) error {
+func ConfigureKnativeService(ctx context.Context, s *KnativeService, wtd *WebhookTriggerDeps) error {
 	// FIXME This should be configurable
 	s.Annotate(ctx, AmbassadorIdAnnotation, AmbassadorId)
 	s.Label(ctx, KnativeServiceVisibilityLabel, KnativeServiceVisibilityClusterLocal)
-	s.LabelAnnotateFrom(ctx, wt.Object.ObjectMeta)
+	s.Label(ctx, model.RelayControllerWebhookTriggerIDLabel, wtd.WebhookTrigger.Key.Name)
+	s.LabelAnnotateFrom(ctx, wtd.WebhookTrigger.Object.ObjectMeta)
 
-	wt.Own(ctx, s)
+	wtd.WebhookTrigger.Own(ctx, s)
 
 	s.Object.Spec = servingv1.ServiceSpec{
 		ConfigurationSpec: servingv1.ConfigurationSpec{
@@ -102,8 +104,8 @@ func ConfigureKnativeService(ctx context.Context, s *KnativeService, wt *Webhook
 						ServiceAccountName: wtd.SystemServiceAccount.Key.Name,
 						Containers: []corev1.Container{
 							{
-								Name:            wt.Object.Name,
-								Image:           wt.Object.Spec.Image,
+								Name:            wtd.WebhookTrigger.Object.Name,
+								Image:           wtd.WebhookTrigger.Object.Spec.Image,
 								ImagePullPolicy: corev1.PullAlways,
 								Env: []corev1.EnvVar{
 									{

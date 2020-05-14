@@ -7,7 +7,6 @@ import (
 
 	relayv1beta1 "github.com/puppetlabs/nebula-tasks/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/nebula-tasks/pkg/dependency"
-	"github.com/puppetlabs/nebula-tasks/pkg/model"
 	"github.com/puppetlabs/nebula-tasks/pkg/obj"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -94,8 +93,7 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 		Type: relayv1beta1.TenantReady,
 	}
 
-	_, err = applyNamespace(ctx, r.Client, tn)
-	if err != nil {
+	if _, err = obj.ApplyTenantDeps(ctx, r.Client, tn); err != nil {
 		tnsc.Condition = relayv1beta1.Condition{
 			Status:             corev1.ConditionFalse,
 			LastTransitionTime: metav1.Time{Time: time.Now()},
@@ -117,32 +115,4 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 	}
 
 	return ctrl.Result{}, nil
-}
-
-func applyNamespace(ctx context.Context, cl client.Client, tenant *obj.Tenant) (*obj.Namespace, error) {
-	md := tenant.Object.Spec.DeepCopy().NamespaceTemplate.Metadata
-
-	if md.Name == "" {
-		return nil, nil
-	}
-
-	ns := obj.NewNamespace(md.Name)
-
-	found, err := ns.Load(ctx, cl)
-	if err != nil {
-		return nil, err
-	}
-
-	if !found {
-		tenant.Own(ctx, ns)
-	}
-
-	ns.Label(ctx, model.RelayControllerTenantWorkloadLabel, "true")
-	ns.LabelAnnotateFrom(ctx, md)
-
-	if err := ns.Persist(ctx, cl); err != nil {
-		return nil, err
-	}
-
-	return ns, nil
 }

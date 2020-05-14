@@ -7,6 +7,7 @@ import (
 	"github.com/puppetlabs/horsehead/v2/graph"
 	"github.com/puppetlabs/horsehead/v2/graph/traverse"
 	nebulav1 "github.com/puppetlabs/nebula-tasks/pkg/apis/nebula.puppet.com/v1"
+	"github.com/puppetlabs/nebula-tasks/pkg/model"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"github.com/tektoncd/pipeline/pkg/reconciler/pipelinerun/resources"
 	corev1 "k8s.io/api/core/v1"
@@ -51,6 +52,14 @@ func (wr *WorkflowRun) Load(ctx context.Context, cl client.Client) (bool, error)
 
 func (wr *WorkflowRun) Own(ctx context.Context, other Ownable) {
 	other.Owned(ctx, metav1.NewControllerRef(wr.Object, WorkflowRunKind))
+}
+
+func (wr *WorkflowRun) PodSelector() metav1.LabelSelector {
+	return metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			model.RelayControllerWorkflowRunIDLabel: wr.Key.Name,
+		},
+	}
 }
 
 func (wr *WorkflowRun) IsCancelled() bool {

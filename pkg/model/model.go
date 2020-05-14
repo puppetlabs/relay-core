@@ -14,7 +14,9 @@ const (
 	RelayVaultSecretPathAnnotation     = "relay.sh/vault-secret-path"
 	RelayVaultConnectionPathAnnotation = "relay.sh/vault-connection-path"
 
-	RelayControllerTenantWorkloadLabel = "controller.relay.sh/tenant-workload"
+	RelayControllerTenantWorkloadLabel   = "controller.relay.sh/tenant-workload"
+	RelayControllerWorkflowRunIDLabel    = "controller.relay.sh/run-id"
+	RelayControllerWebhookTriggerIDLabel = "controller.relay.sh/webhook-trigger-id"
 )
 
 // MetadataManagers are the managers used by actions accessing the metadata
