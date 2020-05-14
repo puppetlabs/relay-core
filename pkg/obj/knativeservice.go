@@ -91,7 +91,6 @@ func ConfigureKnativeService(ctx context.Context, s *KnativeService, wtd *Webhoo
 	// FIXME This should be configurable
 	s.Annotate(ctx, AmbassadorIdAnnotation, AmbassadorId)
 	s.Label(ctx, KnativeServiceVisibilityLabel, KnativeServiceVisibilityClusterLocal)
-	s.Label(ctx, model.RelayControllerWebhookTriggerIDLabel, wtd.WebhookTrigger.Key.Name)
 	s.LabelAnnotateFrom(ctx, wtd.WebhookTrigger.Object.ObjectMeta)
 
 	wtd.WebhookTrigger.Own(ctx, s)
@@ -99,6 +98,11 @@ func ConfigureKnativeService(ctx context.Context, s *KnativeService, wtd *Webhoo
 	s.Object.Spec = servingv1.ServiceSpec{
 		ConfigurationSpec: servingv1.ConfigurationSpec{
 			Template: servingv1.RevisionTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						model.RelayControllerWebhookTriggerIDLabel: wtd.WebhookTrigger.Key.Name,
+					},
+				},
 				Spec: servingv1.RevisionSpec{
 					PodSpec: corev1.PodSpec{
 						ServiceAccountName: wtd.SystemServiceAccount.Key.Name,
@@ -121,7 +125,7 @@ func ConfigureKnativeService(ctx context.Context, s *KnativeService, wtd *Webhoo
 		},
 	}
 
-	if err := wtd.AnnotateTriggerToken(ctx, &s.Object.ObjectMeta); err != nil {
+	if err := wtd.AnnotateTriggerToken(ctx, &s.Object.Spec.ConfigurationSpec.Template.ObjectMeta); err != nil {
 		return err
 	}
 

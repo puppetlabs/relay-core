@@ -19,6 +19,8 @@ type UnmanagedTenantDeps struct {
 	Namespace *Namespace
 }
 
+var _ TenantDeps = &UnmanagedTenantDeps{}
+
 func (utd *UnmanagedTenantDeps) Persist(ctx context.Context, cl client.Client) error {
 	return nil
 }
@@ -29,14 +31,14 @@ func (utd *UnmanagedTenantDeps) Load(ctx context.Context, cl client.Client) (boo
 
 func (utd *UnmanagedTenantDeps) configure(ctx context.Context) {}
 
-var _ TenantDeps = &UnmanagedTenantDeps{}
-
 type ManagedTenantDeps struct {
 	Tenant *Tenant
 
 	Namespace     *Namespace
 	NetworkPolicy *NetworkPolicy
 }
+
+var _ TenantDeps = &ManagedTenantDeps{}
 
 func (mtd *ManagedTenantDeps) Persist(ctx context.Context, cl client.Client) error {
 	ps := []Persister{
