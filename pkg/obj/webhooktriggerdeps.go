@@ -132,12 +132,12 @@ func (wtd *WebhookTriggerDeps) AnnotateTriggerToken(ctx context.Context, target 
 	return nil
 }
 
-type WebhookTriggerDepsOption func(wt *WebhookTriggerDeps)
+type WebhookTriggerDepsOption func(wtd *WebhookTriggerDeps)
 
 func WebhookTriggerDepsWithSourceSystemImagePullSecret(key client.ObjectKey) WebhookTriggerDepsOption {
-	return func(pd *WebhookTriggerDeps) {
-		pd.SourceSystemImagePullSecret = NewImagePullSecret(key)
-		pd.TargetSystemImagePullSecret = NewImagePullSecret(SuffixObjectKey(key, "system"))
+	return func(wtd *WebhookTriggerDeps) {
+		wtd.SourceSystemImagePullSecret = NewImagePullSecret(key)
+		wtd.TargetSystemImagePullSecret = NewImagePullSecret(SuffixObjectKey(wtd.WebhookTrigger.Key, "system"))
 	}
 }
 
