@@ -3,6 +3,7 @@ package obj
 import (
 	"context"
 
+	"github.com/puppetlabs/nebula-tasks/pkg/model"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -54,6 +55,10 @@ func (pr *PipelineRun) Owned(ctx context.Context, ref *metav1.OwnerReference) {
 	Own(&pr.Object.ObjectMeta, ref)
 }
 
+func (pr *PipelineRun) Label(ctx context.Context, name, value string) {
+	Label(&pr.Object.ObjectMeta, name, value)
+}
+
 func (pr *PipelineRun) LabelAnnotateFrom(ctx context.Context, from metav1.ObjectMeta) {
 	CopyLabelsAndAnnotations(&pr.Object.ObjectMeta, from)
 }
@@ -87,6 +92,7 @@ func NewPipelineRun(p *Pipeline) *PipelineRun {
 
 func ConfigurePipelineRun(ctx context.Context, pr *PipelineRun) {
 	pr.Pipeline.Deps.WorkflowRun.Own(ctx, pr)
+	pr.Label(ctx, model.RelayControllerWorkflowRunIDLabel, pr.Pipeline.Deps.WorkflowRun.Key.Name)
 
 	sans := make([]tektonv1beta1.PipelineRunSpecServiceAccountName, len(pr.Pipeline.Object.Spec.Tasks))
 	for i, pt := range pr.Pipeline.Object.Spec.Tasks {

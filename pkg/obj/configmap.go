@@ -44,7 +44,7 @@ func NewConfigMap(key client.ObjectKey) *ConfigMap {
 	}
 }
 
-func ConfigureImmutableConfigMapForTrigger(ctx context.Context, cm *ConfigMap, wt *WebhookTrigger) error {
+func ConfigureImmutableConfigMapForWebhookTrigger(ctx context.Context, cm *ConfigMap, wt *WebhookTrigger) error {
 	// This implementation manages the underlying object, so no need to retrieve
 	// it later.
 	lcm := configmap.NewLocalConfigMap(cm.Object)
@@ -65,14 +65,7 @@ func ConfigureImmutableConfigMapForTrigger(ctx context.Context, cm *ConfigMap, w
 	return nil
 }
 
-func ConfigureMutableConfigMapForTrigger(ctx context.Context, cm *ConfigMap, wt *WebhookTrigger) error {
-	lcm := configmap.NewLocalConfigMap(cm.Object)
-	configmap.NewStateManager(ModelTrigger(wt), lcm)
-
-	return nil
-}
-
-func ConfigureImmutableConfigMap(ctx context.Context, cm *ConfigMap, wr *WorkflowRun) error {
+func ConfigureImmutableConfigMapForWorkflowRun(ctx context.Context, cm *ConfigMap, wr *WorkflowRun) error {
 	// This implementation manages the underlying object, so no need to retrieve
 	// it later.
 	lcm := configmap.NewLocalConfigMap(cm.Object)
@@ -119,7 +112,7 @@ func ConfigureImmutableConfigMap(ctx context.Context, cm *ConfigMap, wr *Workflo
 	return nil
 }
 
-func ConfigureMutableConfigMap(ctx context.Context, cm *ConfigMap, wr *WorkflowRun) error {
+func ConfigureMutableConfigMapForWorkflowRun(ctx context.Context, cm *ConfigMap, wr *WorkflowRun) error {
 	lcm := configmap.NewLocalConfigMap(cm.Object)
 
 	for stepName, state := range wr.Object.State.Steps {

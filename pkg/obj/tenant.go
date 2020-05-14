@@ -31,6 +31,10 @@ func (t *Tenant) Own(ctx context.Context, other Ownable) {
 	other.Owned(ctx, metav1.NewControllerRef(t.Object, TenantKind))
 }
 
+func (t *Tenant) Managed() bool {
+	return t.Object.Spec.NamespaceTemplate.Metadata.GetName() != ""
+}
+
 func NewTenant(key client.ObjectKey) *Tenant {
 	return &Tenant{
 		Key:    key,

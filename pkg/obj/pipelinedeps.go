@@ -22,10 +22,11 @@ type PipelineDeps struct {
 
 	Namespace *Namespace
 
-	// TODO: These belong at the Tenant as they should apply to the whole
+	// TODO: This belongs at the Tenant as it should apply to the whole
 	// namespace.
+	LimitRange *LimitRange
+
 	NetworkPolicy *NetworkPolicy
-	LimitRange    *LimitRange
 
 	ImmutableConfigMap *ConfigMap
 	MutableConfigMap   *ConfigMap
@@ -47,8 +48,8 @@ var _ Loader = &PipelineDeps{}
 
 func (pd *PipelineDeps) Persist(ctx context.Context, cl client.Client) error {
 	ps := []Persister{
-		pd.NetworkPolicy,
 		pd.LimitRange,
+		pd.NetworkPolicy,
 		pd.ImmutableConfigMap,
 		pd.MutableConfigMap,
 		pd.MetadataAPIServiceAccount,
@@ -71,8 +72,8 @@ func (pd *PipelineDeps) Persist(ctx context.Context, cl client.Client) error {
 func (pd *PipelineDeps) Load(ctx context.Context, cl client.Client) (bool, error) {
 	return Loaders{
 		RequiredLoader{pd.Namespace},
-		pd.NetworkPolicy,
 		pd.LimitRange,
+		pd.NetworkPolicy,
 		pd.ImmutableConfigMap,
 		pd.MutableConfigMap,
 		pd.MetadataAPIServiceAccount,
@@ -157,8 +158,9 @@ func NewPipelineDeps(wr *WorkflowRun, issuer authenticate.Issuer, metadataAPIURL
 
 		Namespace: NewNamespace(key.Namespace),
 
+		LimitRange: NewLimitRange(key),
+
 		NetworkPolicy: NewNetworkPolicy(key),
-		LimitRange:    NewLimitRange(key),
 
 		ImmutableConfigMap: NewConfigMap(SuffixObjectKey(key, "immutable")),
 		MutableConfigMap:   NewConfigMap(SuffixObjectKey(key, "mutable")),
@@ -182,8 +184,8 @@ func NewPipelineDeps(wr *WorkflowRun, issuer authenticate.Issuer, metadataAPIURL
 
 func ConfigurePipelineDeps(ctx context.Context, pd *PipelineDeps) error {
 	os := []Ownable{
-		pd.NetworkPolicy,
 		pd.LimitRange,
+		pd.NetworkPolicy,
 		pd.ImmutableConfigMap,
 		pd.MutableConfigMap,
 		pd.MetadataAPIServiceAccount,
@@ -209,13 +211,14 @@ func ConfigurePipelineDeps(ctx context.Context, pd *PipelineDeps) error {
 		laf.LabelAnnotateFrom(ctx, pd.WorkflowRun.Object.ObjectMeta)
 	}
 
-	ConfigureNetworkPolicy(pd.NetworkPolicy)
 	ConfigureLimitRange(pd.LimitRange)
 
-	if err := ConfigureImmutableConfigMap(ctx, pd.ImmutableConfigMap, pd.WorkflowRun); err != nil {
+	ConfigureNetworkPolicyForWorkflowRun(pd.NetworkPolicy, pd.WorkflowRun)
+
+	if err := ConfigureImmutableConfigMapForWorkflowRun(ctx, pd.ImmutableConfigMap, pd.WorkflowRun); err != nil {
 		return err
 	}
-	if err := ConfigureMutableConfigMap(ctx, pd.MutableConfigMap, pd.WorkflowRun); err != nil {
+	if err := ConfigureMutableConfigMapForWorkflowRun(ctx, pd.MutableConfigMap, pd.WorkflowRun); err != nil {
 		return err
 	}
 

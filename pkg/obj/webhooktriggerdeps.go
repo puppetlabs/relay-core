@@ -20,10 +20,11 @@ type WebhookTriggerDeps struct {
 
 	Namespace *Namespace
 
-	// TODO: These belong at the Tenant as they should apply to the whole
+	// TODO: This belongs at the Tenant as it should apply to the whole
 	// namespace.
+	LimitRange *LimitRange
+
 	NetworkPolicy *NetworkPolicy
-	LimitRange    *LimitRange
 
 	ImmutableConfigMap *ConfigMap
 	MutableConfigMap   *ConfigMap
@@ -43,8 +44,8 @@ var _ Loader = &WebhookTriggerDeps{}
 
 func (wtd *WebhookTriggerDeps) Persist(ctx context.Context, cl client.Client) error {
 	ps := []Persister{
-		wtd.NetworkPolicy,
 		wtd.LimitRange,
+		wtd.NetworkPolicy,
 		wtd.ImmutableConfigMap,
 		wtd.MutableConfigMap,
 		wtd.MetadataAPIServiceAccount,
@@ -66,8 +67,8 @@ func (wtd *WebhookTriggerDeps) Persist(ctx context.Context, cl client.Client) er
 func (wtd *WebhookTriggerDeps) Load(ctx context.Context, cl client.Client) (bool, error) {
 	return Loaders{
 		RequiredLoader{wtd.Namespace},
-		wtd.NetworkPolicy,
 		wtd.LimitRange,
+		wtd.NetworkPolicy,
 		wtd.ImmutableConfigMap,
 		wtd.MutableConfigMap,
 		wtd.MetadataAPIServiceAccount,
@@ -150,8 +151,9 @@ func NewWebhookTriggerDeps(wt *WebhookTrigger, issuer authenticate.Issuer, metad
 
 		Namespace: NewNamespace(key.Namespace),
 
+		LimitRange: NewLimitRange(key),
+
 		NetworkPolicy: NewNetworkPolicy(key),
-		LimitRange:    NewLimitRange(key),
 
 		ImmutableConfigMap: NewConfigMap(SuffixObjectKey(key, "immutable")),
 		MutableConfigMap:   NewConfigMap(SuffixObjectKey(key, "mutable")),
@@ -173,8 +175,8 @@ func NewWebhookTriggerDeps(wt *WebhookTrigger, issuer authenticate.Issuer, metad
 
 func ConfigureTriggerDeps(ctx context.Context, wtd *WebhookTriggerDeps) error {
 	os := []Ownable{
-		wtd.NetworkPolicy,
 		wtd.LimitRange,
+		wtd.NetworkPolicy,
 		wtd.ImmutableConfigMap,
 		wtd.MetadataAPIServiceAccount,
 		wtd.MetadataAPIRole,
@@ -197,14 +199,11 @@ func ConfigureTriggerDeps(ctx context.Context, wtd *WebhookTriggerDeps) error {
 		laf.LabelAnnotateFrom(ctx, wtd.WebhookTrigger.Object.ObjectMeta)
 	}
 
-	ConfigureNetworkPolicy(wtd.NetworkPolicy)
 	ConfigureLimitRange(wtd.LimitRange)
 
-	if err := ConfigureImmutableConfigMapForTrigger(ctx, wtd.ImmutableConfigMap, wtd.WebhookTrigger); err != nil {
-		return err
-	}
+	ConfigureNetworkPolicyForWebhookTrigger(wtd.NetworkPolicy, wtd.WebhookTrigger)
 
-	if err := ConfigureMutableConfigMapForTrigger(ctx, wtd.MutableConfigMap, wtd.WebhookTrigger); err != nil {
+	if err := ConfigureImmutableConfigMapForWebhookTrigger(ctx, wtd.ImmutableConfigMap, wtd.WebhookTrigger); err != nil {
 		return err
 	}
 

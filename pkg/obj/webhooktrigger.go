@@ -4,6 +4,7 @@ import (
 	"context"
 
 	relayv1beta1 "github.com/puppetlabs/nebula-tasks/pkg/apis/relay.sh/v1beta1"
+	"github.com/puppetlabs/nebula-tasks/pkg/model"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -29,6 +30,14 @@ func (wt *WebhookTrigger) Load(ctx context.Context, cl client.Client) (bool, err
 
 func (wt *WebhookTrigger) Own(ctx context.Context, other Ownable) {
 	other.Owned(ctx, metav1.NewControllerRef(wt.Object, WebhookTriggerKind))
+}
+
+func (wt *WebhookTrigger) PodSelector() metav1.LabelSelector {
+	return metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			model.RelayControllerWebhookTriggerIDLabel: wt.Key.Name,
+		},
+	}
 }
 
 func NewWebhookTrigger(key client.ObjectKey) *WebhookTrigger {

@@ -126,7 +126,7 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 		Type: relayv1beta1.WebhookTriggerServiceReady,
 	}
 
-	kns, err := obj.ApplyKnativeService(ctx, r.Client, wt, wtd)
+	kns, err := obj.ApplyKnativeService(ctx, r.Client, wtd)
 	if err != nil {
 		wtsc.Condition = relayv1beta1.Condition{
 			Status:             corev1.ConditionFalse,
