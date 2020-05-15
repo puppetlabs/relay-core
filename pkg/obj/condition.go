@@ -7,7 +7,6 @@ import (
 	tektonv1alpha1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -56,8 +55,8 @@ func (c *Condition) Load(ctx context.Context, cl client.Client) (bool, error) {
 	return GetIgnoreNotFound(ctx, cl, c.Key, c.Object)
 }
 
-func (c *Condition) Owned(ctx context.Context, ref *metav1.OwnerReference) {
-	Own(&c.Object.ObjectMeta, ref)
+func (c *Condition) Owned(ctx context.Context, owner Owner) error {
+	return Own(c.Object, owner)
 }
 
 func NewCondition(key client.ObjectKey) *Condition {
@@ -126,10 +125,14 @@ func (cs *Conditions) Load(ctx context.Context, cl client.Client) (bool, error) 
 	return all, nil
 }
 
-func (cs *Conditions) Owned(ctx context.Context, ref *metav1.OwnerReference) {
+func (cs *Conditions) Owned(ctx context.Context, owner Owner) error {
 	for _, cond := range cs.List {
-		cond.Owned(ctx, ref)
+		if err := cond.Owned(ctx, owner); err != nil {
+			return err
+		}
 	}
+
+	return nil
 }
 
 func (cs *Conditions) GetByStepName(stepName string) (*Condition, bool) {
@@ -162,7 +165,9 @@ func NewConditions(pd *PipelineDeps) *Conditions {
 }
 
 func ConfigureConditions(ctx context.Context, cs *Conditions) error {
-	cs.Deps.WorkflowRun.Own(ctx, cs)
+	if err := cs.Deps.WorkflowRun.Own(ctx, cs); err != nil {
+		return err
+	}
 
 	for _, ws := range cs.Deps.WorkflowRun.Object.Spec.Workflow.Steps {
 		cond, found := cs.GetByStepName(ws.Name)

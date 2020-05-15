@@ -47,8 +47,8 @@ func (np *NetworkPolicy) Load(ctx context.Context, cl client.Client) (bool, erro
 	return GetIgnoreNotFound(ctx, cl, np.Key, np.Object)
 }
 
-func (np *NetworkPolicy) Owned(ctx context.Context, ref *metav1.OwnerReference) {
-	Own(&np.Object.ObjectMeta, ref)
+func (np *NetworkPolicy) Owned(ctx context.Context, owner Owner) error {
+	return Own(np.Object, owner)
 }
 
 func NewNetworkPolicy(key client.ObjectKey) *NetworkPolicy {

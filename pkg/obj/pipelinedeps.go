@@ -196,7 +196,9 @@ func ConfigurePipelineDeps(ctx context.Context, pd *PipelineDeps) error {
 		pd.SystemServiceAccount,
 	}
 	for _, o := range os {
-		pd.WorkflowRun.Own(ctx, o)
+		if err := pd.WorkflowRun.Own(ctx, o); err != nil {
+			return err
+		}
 	}
 
 	lafs := []LabelAnnotatableFrom{

@@ -10,6 +10,7 @@ import (
 type TenantDeps interface {
 	Persister
 	Loader
+	Deleter
 
 	configure(ctx context.Context)
 }
@@ -27,6 +28,10 @@ func (utd *UnmanagedTenantDeps) Persist(ctx context.Context, cl client.Client) e
 
 func (utd *UnmanagedTenantDeps) Load(ctx context.Context, cl client.Client) (bool, error) {
 	return RequiredLoader{utd.Namespace}.Load(ctx, cl)
+}
+
+func (utd *UnmanagedTenantDeps) Delete(ctx context.Context, cl client.Client) (bool, error) {
+	return true, nil
 }
 
 func (utd *UnmanagedTenantDeps) configure(ctx context.Context) {}
@@ -62,14 +67,17 @@ func (mtd *ManagedTenantDeps) Load(ctx context.Context, cl client.Client) (bool,
 	}.Load(ctx, cl)
 }
 
+func (mtd *ManagedTenantDeps) Delete(ctx context.Context, cl client.Client) (bool, error) {
+	if DependencyOf(mtd.Namespace.Object.ObjectMeta, mtd.Tenant.Object.ObjectMeta) {
+		return mtd.Namespace.Delete(ctx, cl)
+	}
+
+	return true, nil
+}
+
 func (mtd *ManagedTenantDeps) configure(ctx context.Context) {
-	os := []Ownable{
-		mtd.Namespace,
-		mtd.NetworkPolicy,
-	}
-	for _, o := range os {
-		mtd.Tenant.Own(ctx, o)
-	}
+	SetDependencyOf(&mtd.Namespace.Object.ObjectMeta, mtd.Tenant.Object.ObjectMeta)
+	SetDependencyOf(&mtd.NetworkPolicy.Object.ObjectMeta, mtd.Tenant.Object.ObjectMeta)
 
 	mtd.Namespace.Label(ctx, model.RelayControllerTenantWorkloadLabel, "true")
 	mtd.Namespace.LabelAnnotateFrom(ctx, mtd.Tenant.Object.Spec.NamespaceTemplate.Metadata)

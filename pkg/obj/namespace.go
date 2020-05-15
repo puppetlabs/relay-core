@@ -15,7 +15,7 @@ type Namespace struct {
 
 var _ Persister = &Namespace{}
 var _ Loader = &Namespace{}
-var _ Ownable = &Namespace{}
+var _ Deleter = &Namespace{}
 var _ LabelAnnotatableFrom = &Namespace{}
 
 func (n *Namespace) Persist(ctx context.Context, cl client.Client) error {
@@ -26,8 +26,8 @@ func (n *Namespace) Load(ctx context.Context, cl client.Client) (bool, error) {
 	return GetIgnoreNotFound(ctx, cl, client.ObjectKey{Name: n.Name}, n.Object)
 }
 
-func (n *Namespace) Owned(ctx context.Context, ref *metav1.OwnerReference) {
-	Own(&n.Object.ObjectMeta, ref)
+func (n *Namespace) Delete(ctx context.Context, cl client.Client) (bool, error) {
+	return DeleteIgnoreNotFound(ctx, cl, n.Object)
 }
 
 func (n *Namespace) Label(ctx context.Context, name, value string) {

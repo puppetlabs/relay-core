@@ -53,8 +53,8 @@ func (p *Pipeline) Load(ctx context.Context, cl client.Client) (bool, error) {
 	return all, nil
 }
 
-func (p *Pipeline) Owned(ctx context.Context, ref *metav1.OwnerReference) {
-	Own(&p.Object.ObjectMeta, ref)
+func (p *Pipeline) Owned(ctx context.Context, owner Owner) error {
+	return Own(p.Object, owner)
 }
 
 func (p *Pipeline) LabelAnnotateFrom(ctx context.Context, from metav1.ObjectMeta) {

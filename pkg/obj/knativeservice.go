@@ -3,6 +3,7 @@ package obj
 import (
 	"context"
 
+	"github.com/puppetlabs/nebula-tasks/pkg/authenticate"
 	"github.com/puppetlabs/nebula-tasks/pkg/model"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,8 +47,8 @@ func (ks *KnativeService) Load(ctx context.Context, cl client.Client) (bool, err
 	return GetIgnoreNotFound(ctx, cl, ks.Key, ks.Object)
 }
 
-func (ks *KnativeService) Owned(ctx context.Context, ref *metav1.OwnerReference) {
-	Own(&ks.Object.ObjectMeta, ref)
+func (ks *KnativeService) Owned(ctx context.Context, owner Owner) error {
+	return Own(ks.Object, owner)
 }
 
 func (ks *KnativeService) Label(ctx context.Context, name, value string) {
@@ -93,7 +94,9 @@ func ConfigureKnativeService(ctx context.Context, s *KnativeService, wtd *Webhoo
 	s.Label(ctx, KnativeServiceVisibilityLabel, KnativeServiceVisibilityClusterLocal)
 	s.LabelAnnotateFrom(ctx, wtd.WebhookTrigger.Object.ObjectMeta)
 
-	wtd.WebhookTrigger.Own(ctx, s)
+	if err := wtd.WebhookTrigger.Own(ctx, s); err != nil {
+		return err
+	}
 
 	s.Object.Spec = servingv1.ServiceSpec{
 		ConfigurationSpec: servingv1.ConfigurationSpec{
@@ -101,6 +104,11 @@ func ConfigureKnativeService(ctx context.Context, s *KnativeService, wtd *Webhoo
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						model.RelayControllerWebhookTriggerIDLabel: wtd.WebhookTrigger.Key.Name,
+					},
+					// Keep any existing token annotations.
+					Annotations: map[string]string{
+						authenticate.KubernetesTokenAnnotation:   s.Object.Spec.ConfigurationSpec.Template.ObjectMeta.Annotations[authenticate.KubernetesTokenAnnotation],
+						authenticate.KubernetesSubjectAnnotation: s.Object.Spec.ConfigurationSpec.Template.ObjectMeta.Annotations[authenticate.KubernetesSubjectAnnotation],
 					},
 				},
 				Spec: servingv1.RevisionSpec{

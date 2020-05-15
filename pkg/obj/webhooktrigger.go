@@ -28,8 +28,8 @@ func (wt *WebhookTrigger) Load(ctx context.Context, cl client.Client) (bool, err
 	return GetIgnoreNotFound(ctx, cl, wt.Key, wt.Object)
 }
 
-func (wt *WebhookTrigger) Own(ctx context.Context, other Ownable) {
-	other.Owned(ctx, metav1.NewControllerRef(wt.Object, WebhookTriggerKind))
+func (wt *WebhookTrigger) Own(ctx context.Context, other Ownable) error {
+	return other.Owned(ctx, Owner{GVK: WebhookTriggerKind, Object: wt.Object})
 }
 
 func (wt *WebhookTrigger) PodSelector() metav1.LabelSelector {

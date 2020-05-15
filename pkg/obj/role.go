@@ -26,8 +26,8 @@ func (r *Role) Load(ctx context.Context, cl client.Client) (bool, error) {
 	return GetIgnoreNotFound(ctx, cl, r.Key, r.Object)
 }
 
-func (r *Role) Owned(ctx context.Context, ref *metav1.OwnerReference) {
-	Own(&r.Object.ObjectMeta, ref)
+func (r *Role) Owned(ctx context.Context, owner Owner) error {
+	return Own(r.Object, owner)
 }
 
 func (r *Role) LabelAnnotateFrom(ctx context.Context, from metav1.ObjectMeta) {

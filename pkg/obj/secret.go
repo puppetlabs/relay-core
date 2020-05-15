@@ -5,7 +5,6 @@ import (
 	"errors"
 
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -41,8 +40,8 @@ func (ips *ImagePullSecret) Load(ctx context.Context, cl client.Client) (bool, e
 	return ok, nil
 }
 
-func (ips *ImagePullSecret) Owned(ctx context.Context, ref *metav1.OwnerReference) {
-	Own(&ips.Object.ObjectMeta, ref)
+func (ips *ImagePullSecret) Owned(ctx context.Context, owner Owner) error {
+	return Own(ips.Object, owner)
 }
 
 func NewImagePullSecret(key client.ObjectKey) *ImagePullSecret {

@@ -29,8 +29,8 @@ func (cm *ConfigMap) Load(ctx context.Context, cl client.Client) (bool, error) {
 	return GetIgnoreNotFound(ctx, cl, cm.Key, cm.Object)
 }
 
-func (cm *ConfigMap) Owned(ctx context.Context, ref *metav1.OwnerReference) {
-	Own(&cm.Object.ObjectMeta, ref)
+func (cm *ConfigMap) Owned(ctx context.Context, owner Owner) error {
+	return Own(cm.Object, owner)
 }
 
 func (cm *ConfigMap) LabelAnnotateFrom(ctx context.Context, from metav1.ObjectMeta) {

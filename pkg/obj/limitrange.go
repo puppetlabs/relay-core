@@ -5,7 +5,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -26,8 +25,8 @@ func (lr *LimitRange) Load(ctx context.Context, cl client.Client) (bool, error) 
 	return GetIgnoreNotFound(ctx, cl, lr.Key, lr.Object)
 }
 
-func (lr *LimitRange) Owned(ctx context.Context, ref *metav1.OwnerReference) {
-	Own(&lr.Object.ObjectMeta, ref)
+func (lr *LimitRange) Owned(ctx context.Context, owner Owner) error {
+	return Own(lr.Object, owner)
 }
 
 func NewLimitRange(key client.ObjectKey) *LimitRange {

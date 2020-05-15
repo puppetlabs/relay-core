@@ -185,7 +185,9 @@ func ConfigureTriggerDeps(ctx context.Context, wtd *WebhookTriggerDeps) error {
 		wtd.SystemServiceAccount,
 	}
 	for _, o := range os {
-		wtd.WebhookTrigger.Own(ctx, o)
+		if err := wtd.WebhookTrigger.Own(ctx, o); err != nil {
+			return err
+		}
 	}
 
 	lafs := []LabelAnnotatableFrom{

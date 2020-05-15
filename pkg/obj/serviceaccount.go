@@ -86,8 +86,8 @@ func (sa *ServiceAccount) loadDefaultTokenSecret(ctx context.Context, cl client.
 	return nil
 }
 
-func (sa *ServiceAccount) Owned(ctx context.Context, ref *metav1.OwnerReference) {
-	Own(&sa.Object.ObjectMeta, ref)
+func (sa *ServiceAccount) Owned(ctx context.Context, owner Owner) error {
+	return Own(sa.Object, owner)
 }
 
 func (sa *ServiceAccount) LabelAnnotateFrom(ctx context.Context, from metav1.ObjectMeta) {

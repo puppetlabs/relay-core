@@ -4,7 +4,6 @@ import (
 	"context"
 
 	rbacv1 "k8s.io/api/rbac/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -25,8 +24,8 @@ func (rb *RoleBinding) Load(ctx context.Context, cl client.Client) (bool, error)
 	return GetIgnoreNotFound(ctx, cl, rb.Key, rb.Object)
 }
 
-func (rb *RoleBinding) Owned(ctx context.Context, ref *metav1.OwnerReference) {
-	Own(&rb.Object.ObjectMeta, ref)
+func (rb *RoleBinding) Owned(ctx context.Context, owner Owner) error {
+	return Own(rb.Object, owner)
 }
 
 func NewRoleBinding(key client.ObjectKey) *RoleBinding {

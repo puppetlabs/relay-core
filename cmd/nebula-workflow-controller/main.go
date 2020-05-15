@@ -143,7 +143,7 @@ func main() {
 		log.Fatal("Could not add all controllers to operator manager", err)
 	}
 
-	if err := tenant.Add(dm); err != nil {
+	if err := tenant.Add(dm.Manager, cfg); err != nil {
 		log.Fatal("Could not add all controllers to operator manager", err)
 	}
 

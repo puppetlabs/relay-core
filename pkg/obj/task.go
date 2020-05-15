@@ -8,7 +8,6 @@ import (
 	"github.com/puppetlabs/nebula-tasks/pkg/model"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -29,8 +28,8 @@ func (t *Task) Load(ctx context.Context, cl client.Client) (bool, error) {
 	return GetIgnoreNotFound(ctx, cl, t.Key, t.Object)
 }
 
-func (t *Task) Owned(ctx context.Context, ref *metav1.OwnerReference) {
-	Own(&t.Object.ObjectMeta, ref)
+func (t *Task) Owned(ctx context.Context, owner Owner) error {
+	return Own(t.Object, owner)
 }
 
 func NewTask(key client.ObjectKey) *Task {
@@ -126,10 +125,14 @@ func (ts *Tasks) Load(ctx context.Context, cl client.Client) (bool, error) {
 	return all, nil
 }
 
-func (ts *Tasks) Owned(ctx context.Context, ref *metav1.OwnerReference) {
+func (ts *Tasks) Owned(ctx context.Context, owner Owner) error {
 	for _, t := range ts.List {
-		t.Owned(ctx, ref)
+		if err := t.Owned(ctx, owner); err != nil {
+			return err
+		}
 	}
+
+	return nil
 }
 
 func NewTasks(pd *PipelineDeps) *Tasks {
@@ -146,7 +149,9 @@ func NewTasks(pd *PipelineDeps) *Tasks {
 }
 
 func ConfigureTasks(ctx context.Context, ts *Tasks) error {
-	ts.Deps.WorkflowRun.Own(ctx, ts)
+	if err := ts.Deps.WorkflowRun.Own(ctx, ts); err != nil {
+		return err
+	}
 
 	for i, ws := range ts.Deps.WorkflowRun.Object.Spec.Workflow.Steps {
 		if err := ConfigureTask(ctx, ts.List[i], ts.Deps, ws); err != nil {

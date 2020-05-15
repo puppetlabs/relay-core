@@ -6,6 +6,8 @@ import (
 	"reflect"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -78,20 +80,29 @@ func (ls Loaders) Load(ctx context.Context, cl client.Client) (bool, error) {
 	return all, nil
 }
 
+type Deleter interface {
+	Delete(ctx context.Context, cl client.Client) (bool, error)
+}
+
+type Owner struct {
+	GVK    schema.GroupVersionKind
+	Object runtime.Object
+}
+
 type Ownable interface {
-	Owned(ctx context.Context, ref *metav1.OwnerReference)
+	Owned(ctx context.Context, owner Owner) error
 }
 
 type IgnoreNilOwnable struct {
 	Ownable
 }
 
-func (ino IgnoreNilOwnable) Owned(ctx context.Context, ref *metav1.OwnerReference) {
+func (ino IgnoreNilOwnable) Owned(ctx context.Context, owner Owner) error {
 	if ino.Ownable == nil || reflect.ValueOf(ino.Ownable).IsNil() {
-		return
+		return nil
 	}
 
-	ino.Ownable.Owned(ctx, ref)
+	return ino.Ownable.Owned(ctx, owner)
 }
 
 type LabelAnnotatableFrom interface {
@@ -108,4 +119,10 @@ func (inlaf IgnoreNilLabelAnnotatableFrom) LabelAnnotateFrom(ctx context.Context
 	}
 
 	inlaf.LabelAnnotateFrom(ctx, from)
+}
+
+type Finalizable interface {
+	Finalizing() bool
+	AddFinalizer(ctx context.Context, name string) bool
+	RemoveFinalizer(ctx context.Context, name string) bool
 }

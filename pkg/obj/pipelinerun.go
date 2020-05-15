@@ -51,8 +51,8 @@ func (pr *PipelineRun) Load(ctx context.Context, cl client.Client) (bool, error)
 	return GetIgnoreNotFound(ctx, cl, pr.Key, pr.Object)
 }
 
-func (pr *PipelineRun) Owned(ctx context.Context, ref *metav1.OwnerReference) {
-	Own(&pr.Object.ObjectMeta, ref)
+func (pr *PipelineRun) Owned(ctx context.Context, owner Owner) error {
+	return Own(pr.Object, owner)
 }
 
 func (pr *PipelineRun) Label(ctx context.Context, name, value string) {
@@ -90,8 +90,11 @@ func NewPipelineRun(p *Pipeline) *PipelineRun {
 	}
 }
 
-func ConfigurePipelineRun(ctx context.Context, pr *PipelineRun) {
-	pr.Pipeline.Deps.WorkflowRun.Own(ctx, pr)
+func ConfigurePipelineRun(ctx context.Context, pr *PipelineRun) error {
+	if err := pr.Pipeline.Deps.WorkflowRun.Own(ctx, pr); err != nil {
+		return err
+	}
+
 	pr.Label(ctx, model.RelayControllerWorkflowRunIDLabel, pr.Pipeline.Deps.WorkflowRun.Key.Name)
 
 	sans := make([]tektonv1beta1.PipelineRunSpecServiceAccountName, len(pr.Pipeline.Object.Spec.Tasks))
@@ -119,6 +122,8 @@ func ConfigurePipelineRun(ctx context.Context, pr *PipelineRun) {
 	if pr.Pipeline.Deps.WorkflowRun.IsCancelled() {
 		pr.Object.Spec.Status = tektonv1beta1.PipelineRunSpecStatusCancelled
 	}
+
+	return nil
 }
 
 func ApplyPipelineRun(ctx context.Context, cl client.Client, p *Pipeline) (*PipelineRun, error) {
@@ -129,7 +134,10 @@ func ApplyPipelineRun(ctx context.Context, cl client.Client, p *Pipeline) (*Pipe
 	}
 
 	pr.LabelAnnotateFrom(ctx, p.Object.ObjectMeta)
-	ConfigurePipelineRun(ctx, pr)
+
+	if err := ConfigurePipelineRun(ctx, pr); err != nil {
+		return nil, err
+	}
 
 	if err := pr.Persist(ctx, cl); err != nil {
 		return nil, err

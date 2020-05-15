@@ -50,8 +50,8 @@ func (wr *WorkflowRun) Load(ctx context.Context, cl client.Client) (bool, error)
 	return GetIgnoreNotFound(ctx, cl, wr.Key, wr.Object)
 }
 
-func (wr *WorkflowRun) Own(ctx context.Context, other Ownable) {
-	other.Owned(ctx, metav1.NewControllerRef(wr.Object, WorkflowRunKind))
+func (wr *WorkflowRun) Own(ctx context.Context, other Ownable) error {
+	return other.Owned(ctx, Owner{GVK: WorkflowRunKind, Object: wr.Object})
 }
 
 func (wr *WorkflowRun) PodSelector() metav1.LabelSelector {

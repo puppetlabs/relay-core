@@ -53,8 +53,7 @@ type DependencyManager struct {
 
 func NewDependencyManager(cfg *config.WorkflowControllerConfig, kcc *rest.Config, vc *vaultapi.Client, jwtSigner jose.Signer, bs storage.BlobStore, mets *metrics.Metrics) (*DependencyManager, error) {
 	mgr, err := ctrl.NewManager(kcc, ctrl.Options{
-		Namespace: cfg.Namespace,
-		Scheme:    Scheme,
+		Scheme: Scheme,
 	})
 	if err != nil {
 		log.Fatal("Unable to create new manager", err)
