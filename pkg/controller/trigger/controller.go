@@ -8,7 +8,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -16,7 +15,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler, o controller.Options) erro
 	return ctrl.NewControllerManagedBy(mgr).
 		WithOptions(o).
 		For(&relayv1beta1.WebhookTrigger{}).
-		WithEventFilter(predicate.GenerationChangedPredicate{}).
 		Owns(&servingv1.Service{}).
 		Complete(r)
 }
