@@ -3,52 +3,72 @@ package obj
 import (
 	"context"
 
+	relayv1beta1 "github.com/puppetlabs/nebula-tasks/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/nebula-tasks/pkg/model"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type TenantDeps interface {
-	Persister
-	Loader
-	Deleter
-
-	configure(ctx context.Context)
+type APITriggerEventSink struct {
+	Sink        *relayv1beta1.APITriggerEventSink
+	TokenSecret *OpaqueSecret
 }
 
-type UnmanagedTenantDeps struct {
-	Tenant    *Tenant
-	Namespace *Namespace
+var _ Loader = &APITriggerEventSink{}
+
+func (tes *APITriggerEventSink) Load(ctx context.Context, cl client.Client) (bool, error) {
+	return RequiredLoader{IgnoreNilLoader{tes.TokenSecret}}.Load(ctx, cl)
 }
 
-var _ TenantDeps = &UnmanagedTenantDeps{}
-
-func (utd *UnmanagedTenantDeps) Persist(ctx context.Context, cl client.Client) error {
-	return nil
+func (tes *APITriggerEventSink) URL() string {
+	return tes.Sink.URL
 }
 
-func (utd *UnmanagedTenantDeps) Load(ctx context.Context, cl client.Client) (bool, error) {
-	return RequiredLoader{utd.Namespace}.Load(ctx, cl)
+func (tes *APITriggerEventSink) Token() (string, bool) {
+	if tes.Sink.Token != "" {
+		return tes.Sink.Token, true
+	} else if tes.TokenSecret != nil {
+		return tes.TokenSecret.Data(tes.Sink.TokenFrom.SecretKeyRef.Key)
+	}
+
+	return "", false
 }
 
-func (utd *UnmanagedTenantDeps) Delete(ctx context.Context, cl client.Client) (bool, error) {
-	return true, nil
+func NewAPITriggerEventSink(namespace string, sink *relayv1beta1.APITriggerEventSink) *APITriggerEventSink {
+	tes := &APITriggerEventSink{
+		Sink: sink,
+	}
+
+	if sink.TokenFrom != nil && sink.TokenFrom.SecretKeyRef != nil {
+		tes.TokenSecret = NewOpaqueSecret(client.ObjectKey{
+			Namespace: namespace,
+			Name:      sink.TokenFrom.SecretKeyRef.Name,
+		})
+	}
+
+	return tes
 }
 
-func (utd *UnmanagedTenantDeps) configure(ctx context.Context) {}
-
-type ManagedTenantDeps struct {
+type TenantDeps struct {
 	Tenant *Tenant
 
 	Namespace     *Namespace
 	NetworkPolicy *NetworkPolicy
+
+	APITriggerEventSink *APITriggerEventSink
 }
 
-var _ TenantDeps = &ManagedTenantDeps{}
+var _ Persister = &TenantDeps{}
+var _ Loader = &TenantDeps{}
+var _ Deleter = &TenantDeps{}
 
-func (mtd *ManagedTenantDeps) Persist(ctx context.Context, cl client.Client) error {
+func (td *TenantDeps) Persist(ctx context.Context, cl client.Client) error {
+	if !td.Tenant.Managed() {
+		return nil
+	}
+
 	ps := []Persister{
-		mtd.Namespace,
-		mtd.NetworkPolicy,
+		td.Namespace,
+		td.NetworkPolicy,
 	}
 
 	for _, p := range ps {
@@ -60,54 +80,66 @@ func (mtd *ManagedTenantDeps) Persist(ctx context.Context, cl client.Client) err
 	return nil
 }
 
-func (mtd *ManagedTenantDeps) Load(ctx context.Context, cl client.Client) (bool, error) {
-	return Loaders{
-		mtd.Namespace,
-		mtd.NetworkPolicy,
-	}.Load(ctx, cl)
+func (td *TenantDeps) Load(ctx context.Context, cl client.Client) (bool, error) {
+	loaders := Loaders{RequiredLoader{IgnoreNilLoader{td.APITriggerEventSink}}}
+
+	if !td.Tenant.Managed() {
+		loaders = append(loaders, RequiredLoader{td.Namespace})
+	} else {
+		loaders = append(loaders, td.Namespace, td.NetworkPolicy)
+	}
+
+	return loaders.Load(ctx, cl)
 }
 
-func (mtd *ManagedTenantDeps) Delete(ctx context.Context, cl client.Client) (bool, error) {
-	if DependencyOf(mtd.Namespace.Object.ObjectMeta, mtd.Tenant.Object.ObjectMeta) {
-		return mtd.Namespace.Delete(ctx, cl)
+func (td *TenantDeps) Delete(ctx context.Context, cl client.Client) (bool, error) {
+	if !td.Tenant.Managed() {
+		return true, nil
+	}
+
+	if DependencyOf(td.Namespace.Object.ObjectMeta, td.Tenant.Object.ObjectMeta) {
+		return td.Namespace.Delete(ctx, cl)
 	}
 
 	return true, nil
 }
 
-func (mtd *ManagedTenantDeps) configure(ctx context.Context) {
-	SetDependencyOf(&mtd.Namespace.Object.ObjectMeta, mtd.Tenant.Object.ObjectMeta)
-	SetDependencyOf(&mtd.NetworkPolicy.Object.ObjectMeta, mtd.Tenant.Object.ObjectMeta)
-
-	mtd.Namespace.Label(ctx, model.RelayControllerTenantWorkloadLabel, "true")
-	mtd.Namespace.LabelAnnotateFrom(ctx, mtd.Tenant.Object.Spec.NamespaceTemplate.Metadata)
-
-	ConfigureNetworkPolicyForTenant(mtd.NetworkPolicy)
-}
-
-func NewTenantDeps(t *Tenant) TenantDeps {
-	if !t.Managed() {
-		return &UnmanagedTenantDeps{
-			Tenant:    t,
-			Namespace: NewNamespace(t.Key.Namespace),
-		}
-	}
-
-	ns := t.Object.Spec.NamespaceTemplate.Metadata.GetName()
-
-	return &ManagedTenantDeps{
+func NewTenantDeps(t *Tenant) *TenantDeps {
+	td := &TenantDeps{
 		Tenant: t,
-
-		Namespace:     NewNamespace(ns),
-		NetworkPolicy: NewNetworkPolicy(client.ObjectKey{Namespace: ns, Name: t.Key.Name}),
 	}
+
+	if !t.Managed() {
+		td.Namespace = NewNamespace(t.Key.Namespace)
+	} else {
+		ns := t.Object.Spec.NamespaceTemplate.Metadata.GetName()
+
+		td.Namespace = NewNamespace(ns)
+		td.NetworkPolicy = NewNetworkPolicy(client.ObjectKey{Namespace: ns, Name: t.Key.Name})
+	}
+
+	if sink := t.Object.Spec.TriggerEventSink.API; sink != nil {
+		td.APITriggerEventSink = NewAPITriggerEventSink(td.Namespace.Name, sink)
+	}
+
+	return td
 }
 
-func ConfigureTenantDeps(ctx context.Context, td TenantDeps) {
-	td.configure(ctx)
+func ConfigureTenantDeps(ctx context.Context, td *TenantDeps) {
+	if !td.Tenant.Managed() {
+		return
+	}
+
+	SetDependencyOf(&td.Namespace.Object.ObjectMeta, td.Tenant.Object.ObjectMeta)
+	SetDependencyOf(&td.NetworkPolicy.Object.ObjectMeta, td.Tenant.Object.ObjectMeta)
+
+	td.Namespace.Label(ctx, model.RelayControllerTenantWorkloadLabel, "true")
+	td.Namespace.LabelAnnotateFrom(ctx, td.Tenant.Object.Spec.NamespaceTemplate.Metadata)
+
+	ConfigureNetworkPolicyForTenant(td.NetworkPolicy)
 }
 
-func ApplyTenantDeps(ctx context.Context, cl client.Client, t *Tenant) (TenantDeps, error) {
+func ApplyTenantDeps(ctx context.Context, cl client.Client, t *Tenant) (*TenantDeps, error) {
 	td := NewTenantDeps(t)
 
 	if _, err := td.Load(ctx, cl); err != nil {
@@ -121,4 +153,16 @@ func ApplyTenantDeps(ctx context.Context, cl client.Client, t *Tenant) (TenantDe
 	}
 
 	return td, nil
+}
+
+type TenantDepsResult struct {
+	TenantDeps *TenantDeps
+	Error      error
+}
+
+func AsTenantDepsResult(td *TenantDeps, err error) *TenantDepsResult {
+	return &TenantDepsResult{
+		TenantDeps: td,
+		Error:      err,
+	}
 }

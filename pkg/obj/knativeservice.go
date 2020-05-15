@@ -70,24 +70,6 @@ func NewKnativeService(key client.ObjectKey) *KnativeService {
 	}
 }
 
-func ApplyKnativeService(ctx context.Context, cl client.Client, wtd *WebhookTriggerDeps) (*KnativeService, error) {
-	s := NewKnativeService(wtd.WebhookTrigger.Key)
-
-	if _, err := s.Load(ctx, cl); err != nil {
-		return nil, err
-	}
-
-	if err := ConfigureKnativeService(ctx, s, wtd); err != nil {
-		return nil, err
-	}
-
-	if err := s.Persist(ctx, cl); err != nil {
-		return nil, err
-	}
-
-	return s, nil
-}
-
 func ConfigureKnativeService(ctx context.Context, s *KnativeService, wtd *WebhookTriggerDeps) error {
 	// FIXME This should be configurable
 	s.Annotate(ctx, AmbassadorIdAnnotation, AmbassadorId)
@@ -138,4 +120,34 @@ func ConfigureKnativeService(ctx context.Context, s *KnativeService, wtd *Webhoo
 	}
 
 	return nil
+}
+
+func ApplyKnativeService(ctx context.Context, cl client.Client, wtd *WebhookTriggerDeps) (*KnativeService, error) {
+	s := NewKnativeService(wtd.WebhookTrigger.Key)
+
+	if _, err := s.Load(ctx, cl); err != nil {
+		return nil, err
+	}
+
+	if err := ConfigureKnativeService(ctx, s, wtd); err != nil {
+		return nil, err
+	}
+
+	if err := s.Persist(ctx, cl); err != nil {
+		return nil, err
+	}
+
+	return s, nil
+}
+
+type KnativeServiceResult struct {
+	KnativeService *KnativeService
+	Error          error
+}
+
+func AsKnativeServiceResult(ks *KnativeService, err error) *KnativeServiceResult {
+	return &KnativeServiceResult{
+		KnativeService: ks,
+		Error:          err,
+	}
 }

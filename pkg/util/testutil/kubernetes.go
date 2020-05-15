@@ -19,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -114,7 +115,7 @@ func filterListPods(tracker testing.ObjectTracker) testing.ReactionFunc {
 	}
 }
 
-func ParseKubernetesManifest(r io.ReadCloser) ([]runtime.Object, error) {
+func ParseKubernetesManifest(mapper meta.RESTMapper, namespace string, r io.ReadCloser) ([]runtime.Object, error) {
 	decoder := yaml.NewDocumentDecoder(r)
 	defer decoder.Close()
 
@@ -162,12 +163,12 @@ func ParseKubernetesManifest(r io.ReadCloser) ([]runtime.Object, error) {
 			continue
 		}
 
-		obj, _, err := deserializer.Decode(b, nil, nil)
+		obj, gvk, err := deserializer.Decode(b, nil, nil)
 		if err != nil {
 			return nil, err
 		}
 
-		applyKubernetesManifestFixups(obj)
+		applyKubernetesManifestFixups(mapper, namespace, obj, gvk)
 
 		objs = append(objs, obj)
 	}
@@ -175,7 +176,11 @@ func ParseKubernetesManifest(r io.ReadCloser) ([]runtime.Object, error) {
 	return objs, nil
 }
 
-func applyKubernetesManifestFixups(obj runtime.Object) {
+func applyKubernetesManifestFixups(mapper meta.RESTMapper, namespace string, obj runtime.Object, gvk *schema.GroupVersionKind) {
+	if namespace != "" {
+		applyKubernetesDefaultNamespace(mapper, namespace, obj, gvk)
+	}
+
 	switch t := obj.(type) {
 	case *appsv1.Deployment:
 		// SSA has marked "protocol" is required but basically everyone expects
@@ -201,8 +206,32 @@ func applyKubernetesManifestFixups(obj runtime.Object) {
 	}
 }
 
-func ParseApplyKubernetesManifest(ctx context.Context, cl client.Client, r io.ReadCloser) ([]runtime.Object, error) {
-	objs, err := ParseKubernetesManifest(r)
+func applyKubernetesDefaultNamespace(mapper meta.RESTMapper, namespace string, obj runtime.Object, gvk *schema.GroupVersionKind) {
+	accessor, err := meta.Accessor(obj)
+	if err != nil {
+		return
+	}
+
+	// Namespace already set?
+	if accessor.GetNamespace() != "" {
+		return
+	}
+
+	mapping, err := mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+	if err != nil {
+		return
+	}
+
+	// Does this resource even take a namespace?
+	if mapping.Scope.Name() != meta.RESTScopeNameNamespace {
+		return
+	}
+
+	accessor.SetNamespace(namespace)
+}
+
+func ParseApplyKubernetesManifest(ctx context.Context, cl client.Client, mapper meta.RESTMapper, namespace string, r io.ReadCloser) ([]runtime.Object, error) {
+	objs, err := ParseKubernetesManifest(mapper, namespace, r)
 	if err != nil {
 		return nil, err
 	}
@@ -247,4 +276,15 @@ func WaitForServicesToBeReady(ctx context.Context, cl client.Client, namespace s
 	}
 
 	return nil
+}
+
+func SetKubernetesEnvVar(target *[]corev1.EnvVar, name, value string) {
+	for i, ev := range *target {
+		if ev.Name == name {
+			(*target)[i].Value = value
+			return
+		}
+	}
+
+	*target = append(*target, corev1.EnvVar{Name: name, Value: value})
 }

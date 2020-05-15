@@ -17,21 +17,25 @@ import (
 	"github.com/stretchr/testify/require"
 	tekton "github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
 
 const (
 	DefaultTektonPipelineVersion = "0.12.0"
 	DefaultKnativeServingVersion = "0.13.0"
+	DefaultAmbassadorVersion     = "1.4.3"
 )
 
 type EndToEndEnvironment struct {
 	RESTConfig              *rest.Config
+	RESTMapper              meta.RESTMapper
 	ControllerRuntimeClient client.Client
 	Interface               kubernetes.Interface
 	TektonInterface         tekton.Interface
@@ -63,14 +67,21 @@ func EndToEndEnvironmentWithTekton(ctx context.Context, e *EndToEndEnvironment) 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
-	return doInstallTektonPipeline(ctx, e.ControllerRuntimeClient, viper.GetString("tekton_pipeline_version"))
+	return doInstallTektonPipeline(ctx, e.ControllerRuntimeClient, e.RESTMapper, viper.GetString("tekton_pipeline_version"))
 }
 
 func EndToEndEnvironmentWithKnative(ctx context.Context, e *EndToEndEnvironment) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
-	return doInstallKnativeServing(ctx, e.ControllerRuntimeClient, viper.GetString("knative_serving_version"))
+	return doInstallKnativeServing(ctx, e.ControllerRuntimeClient, e.RESTMapper, viper.GetString("knative_serving_version"))
+}
+
+func EndToEndEnvironmentWithAmbassador(ctx context.Context, e *EndToEndEnvironment) error {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+
+	return doInstallAmbassador(ctx, e.ControllerRuntimeClient, e.RESTMapper, viper.GetString("ambassador_version"))
 }
 
 var _ EndToEndEnvironmentOption = EndToEndEnvironmentWithTekton
@@ -89,6 +100,7 @@ func doEndToEndEnvironment(fn func(e *EndToEndEnvironment), opts ...EndToEndEnvi
 	viper.SetDefault("label_nodes", false)
 	viper.SetDefault("tekton_pipeline_version", DefaultTektonPipelineVersion)
 	viper.SetDefault("knative_serving_version", DefaultKnativeServingVersion)
+	viper.SetDefault("ambassador_version", DefaultAmbassadorVersion)
 	viper.SetDefault("disabled", false)
 	viper.SetDefault("install_environment", true)
 
@@ -141,8 +153,14 @@ func doEndToEndEnvironment(fn func(e *EndToEndEnvironment), opts ...EndToEndEnvi
 
 	log.Println("connected to Kubernetes cluster", cfg.Host)
 
+	mapper, err := apiutil.NewDynamicRESTMapper(cfg)
+	if err != nil {
+		return true, fmt.Errorf("failed to configure client resource discovery: %+v", err)
+	}
+
 	client, err := client.New(cfg, client.Options{
 		Scheme: TestScheme,
+		Mapper: mapper,
 	})
 	if err != nil {
 		return true, fmt.Errorf("failed to configure client: %+v", err)
@@ -177,6 +195,7 @@ func doEndToEndEnvironment(fn func(e *EndToEndEnvironment), opts ...EndToEndEnvi
 
 	e := &EndToEndEnvironment{
 		RESTConfig:              cfg,
+		RESTMapper:              mapper,
 		ControllerRuntimeClient: client,
 		Interface:               ifc,
 		TektonInterface:         tkc,

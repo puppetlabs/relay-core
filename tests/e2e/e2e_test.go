@@ -10,7 +10,13 @@ import (
 var e2e *testutil.EndToEndEnvironment
 
 func TestMain(m *testing.M) {
-	os.Exit(testutil.RunEndToEnd(m, func(e *testutil.EndToEndEnvironment) {
-		e2e = e
-	}, testutil.EndToEndEnvironmentWithTekton, testutil.EndToEndEnvironmentWithKnative))
+	os.Exit(testutil.RunEndToEnd(
+		m,
+		func(e *testutil.EndToEndEnvironment) {
+			e2e = e
+		},
+		testutil.EndToEndEnvironmentWithTekton,
+		testutil.EndToEndEnvironmentWithKnative,
+		testutil.EndToEndEnvironmentWithAmbassador,
+	))
 }
