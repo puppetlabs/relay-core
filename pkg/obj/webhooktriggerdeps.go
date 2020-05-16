@@ -75,8 +75,7 @@ func (wtd *WebhookTriggerDeps) Load(ctx context.Context, cl client.Client) (bool
 }
 
 func (wtd *WebhookTriggerDeps) AnnotateTriggerToken(ctx context.Context, target *metav1.ObjectMeta) error {
-	if _, found := target.Annotations[authenticate.KubernetesTokenAnnotation]; found {
-		// We only add this once and exactly once per run per target.
+	if tok := target.Annotations[authenticate.KubernetesTokenAnnotation]; tok != "" {
 		return nil
 	}
 
@@ -92,10 +91,10 @@ func (wtd *WebhookTriggerDeps) AnnotateTriggerToken(ctx context.Context, target 
 
 	claims := &authenticate.Claims{
 		Claims: &jwt.Claims{
-			Issuer:    authenticate.ControllerIssuer,
-			Audience:  jwt.Audience{authenticate.MetadataAPIAudienceV1},
-			Subject:   path.Join(mt.Type().Plural, mt.Hash().HexEncoding()),
-			Expiry:    jwt.NewNumericDate(now.Add(1*time.Hour + 5*time.Minute)),
+			Issuer:   authenticate.ControllerIssuer,
+			Audience: jwt.Audience{authenticate.MetadataAPIAudienceV1},
+			Subject:  path.Join(mt.Type().Plural, mt.Hash().HexEncoding()),
+			// TODO: Do we want any expiry on these?
 			NotBefore: jwt.NewNumericDate(now),
 			IssuedAt:  jwt.NewNumericDate(now),
 		},

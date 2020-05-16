@@ -3,6 +3,7 @@ package tenant
 import (
 	relayv1beta1 "github.com/puppetlabs/nebula-tasks/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
+	"github.com/puppetlabs/nebula-tasks/pkg/reconciler/filter"
 	"github.com/puppetlabs/nebula-tasks/pkg/reconciler/tenant"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -13,10 +14,12 @@ import (
 
 func add(mgr manager.Manager, r reconcile.Reconciler, cfg *config.WorkflowControllerConfig) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		WithOptions(controller.Options{MaxConcurrentReconciles: cfg.MaxConcurrentReconciles}).
+		WithOptions(controller.Options{
+			MaxConcurrentReconciles: cfg.MaxConcurrentReconciles,
+		}).
 		For(&relayv1beta1.Tenant{}).
 		WithEventFilter(predicate.GenerationChangedPredicate{}).
-		Complete(r)
+		Complete(filter.NewNamespaceFilterReconciler(cfg.Namespace, r))
 }
 
 func Add(mgr manager.Manager, cfg *config.WorkflowControllerConfig) error {

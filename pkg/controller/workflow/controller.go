@@ -2,7 +2,9 @@ package workflow
 
 import (
 	nebulav1 "github.com/puppetlabs/nebula-tasks/pkg/apis/nebula.puppet.com/v1"
+	"github.com/puppetlabs/nebula-tasks/pkg/config"
 	"github.com/puppetlabs/nebula-tasks/pkg/dependency"
+	"github.com/puppetlabs/nebula-tasks/pkg/reconciler/filter"
 	"github.com/puppetlabs/nebula-tasks/pkg/reconciler/workflow"
 	tekv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -11,17 +13,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-func add(mgr manager.Manager, r reconcile.Reconciler, o controller.Options) error {
+func add(mgr manager.Manager, r reconcile.Reconciler, cfg *config.WorkflowControllerConfig) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		WithOptions(o).
+		WithOptions(controller.Options{
+			MaxConcurrentReconciles: cfg.MaxConcurrentReconciles,
+		}).
 		For(&nebulav1.WorkflowRun{}).
 		Owns(&tekv1beta1.PipelineRun{}).
-		Complete(r)
+		Complete(filter.NewNamespaceFilterReconciler(cfg.Namespace, r))
 }
 
 func Add(dm *dependency.DependencyManager) error {
-	o := controller.Options{
-		MaxConcurrentReconciles: dm.Config.MaxConcurrentReconciles,
-	}
-	return add(dm.Manager, workflow.NewReconciler(dm), o)
+	return add(dm.Manager, workflow.NewReconciler(dm), dm.Config)
 }

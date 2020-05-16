@@ -2,7 +2,9 @@ package trigger
 
 import (
 	relayv1beta1 "github.com/puppetlabs/nebula-tasks/pkg/apis/relay.sh/v1beta1"
+	"github.com/puppetlabs/nebula-tasks/pkg/config"
 	"github.com/puppetlabs/nebula-tasks/pkg/dependency"
+	"github.com/puppetlabs/nebula-tasks/pkg/reconciler/filter"
 	"github.com/puppetlabs/nebula-tasks/pkg/reconciler/trigger"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -11,17 +13,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-func add(mgr manager.Manager, r reconcile.Reconciler, o controller.Options) error {
+func add(mgr manager.Manager, r reconcile.Reconciler, cfg *config.WorkflowControllerConfig) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		WithOptions(o).
+		WithOptions(controller.Options{
+			MaxConcurrentReconciles: cfg.MaxConcurrentReconciles,
+		}).
 		For(&relayv1beta1.WebhookTrigger{}).
 		Owns(&servingv1.Service{}).
-		Complete(r)
+		Complete(filter.NewNamespaceFilterReconciler(cfg.Namespace, r))
 }
 
 func Add(dm *dependency.DependencyManager) error {
-	o := controller.Options{
-		MaxConcurrentReconciles: dm.Config.MaxConcurrentReconciles,
-	}
-	return add(dm.Manager, trigger.NewReconciler(dm), o)
+	return add(dm.Manager, trigger.NewReconciler(dm), dm.Config)
 }

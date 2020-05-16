@@ -12,12 +12,12 @@ import (
 )
 
 const (
-	AmbassadorIdAnnotation        = "getambassador.io/ambassador-id"
+	AmbassadorIDAnnotation        = "getambassador.io/ambassador-id"
 	KnativeServiceVisibilityLabel = "serving.knative.dev/visibility"
 )
 
 const (
-	AmbassadorId                         = "webhook"
+	AmbassadorID                         = "webhook"
 	KnativeServiceVisibilityClusterLocal = "cluster-local"
 )
 
@@ -72,7 +72,7 @@ func NewKnativeService(key client.ObjectKey) *KnativeService {
 
 func ConfigureKnativeService(ctx context.Context, s *KnativeService, wtd *WebhookTriggerDeps) error {
 	// FIXME This should be configurable
-	s.Annotate(ctx, AmbassadorIdAnnotation, AmbassadorId)
+	s.Annotate(ctx, AmbassadorIDAnnotation, AmbassadorID)
 	s.Label(ctx, KnativeServiceVisibilityLabel, KnativeServiceVisibilityClusterLocal)
 	s.LabelAnnotateFrom(ctx, wtd.WebhookTrigger.Object.ObjectMeta)
 
