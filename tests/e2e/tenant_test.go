@@ -99,5 +99,8 @@ func TestTenantFinalizer(t *testing.T) {
 
 			return retry.RetryTransient(fmt.Errorf("waiting for namespace to terminate"))
 		}))
+
+		// Wait for deletion.
+		require.NoError(t, testutil.WaitForObjectDeletion(ctx, e2e.ControllerRuntimeClient, tenant))
 	})
 }

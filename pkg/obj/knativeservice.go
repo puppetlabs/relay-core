@@ -3,6 +3,7 @@ package obj
 import (
 	"context"
 
+	relayv1beta1 "github.com/puppetlabs/nebula-tasks/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/nebula-tasks/pkg/authenticate"
 	"github.com/puppetlabs/nebula-tasks/pkg/model"
 	corev1 "k8s.io/api/core/v1"
@@ -76,9 +77,15 @@ func ConfigureKnativeService(ctx context.Context, s *KnativeService, wtd *Webhoo
 	s.Label(ctx, KnativeServiceVisibilityLabel, KnativeServiceVisibilityClusterLocal)
 	s.LabelAnnotateFrom(ctx, wtd.WebhookTrigger.Object.ObjectMeta)
 
-	if err := wtd.WebhookTrigger.Own(ctx, s); err != nil {
+	// Owned by the owner ConfigMap so we only have to worry about deleting one
+	// thing.
+	if err := wtd.OwnerConfigMap.Own(ctx, s); err != nil {
 		return err
 	}
+
+	// We also set this as a dependency of the webhook trigger so that changes
+	// to the service will propagate back using our event handler.
+	SetDependencyOf(&s.Object.ObjectMeta, Owner{Object: wtd.WebhookTrigger.Object, GVK: relayv1beta1.WebhookTriggerKind})
 
 	container := corev1.Container{
 		Name:            wtd.WebhookTrigger.Object.Name,
@@ -133,7 +140,10 @@ func ConfigureKnativeService(ctx context.Context, s *KnativeService, wtd *Webhoo
 }
 
 func ApplyKnativeService(ctx context.Context, cl client.Client, wtd *WebhookTriggerDeps) (*KnativeService, error) {
-	s := NewKnativeService(wtd.WebhookTrigger.Key)
+	s := NewKnativeService(client.ObjectKey{
+		Namespace: wtd.TenantDeps.Namespace.Name,
+		Name:      wtd.WebhookTrigger.Key.Name,
+	})
 
 	if _, err := s.Load(ctx, cl); err != nil {
 		return nil, err

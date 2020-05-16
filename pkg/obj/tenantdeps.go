@@ -53,6 +53,7 @@ type TenantDeps struct {
 
 	Namespace     *Namespace
 	NetworkPolicy *NetworkPolicy
+	LimitRange    *LimitRange
 
 	APITriggerEventSink *APITriggerEventSink
 }
@@ -69,6 +70,7 @@ func (td *TenantDeps) Persist(ctx context.Context, cl client.Client) error {
 	ps := []Persister{
 		td.Namespace,
 		td.NetworkPolicy,
+		td.LimitRange,
 	}
 
 	for _, p := range ps {
@@ -86,7 +88,7 @@ func (td *TenantDeps) Load(ctx context.Context, cl client.Client) (bool, error) 
 	if !td.Tenant.Managed() {
 		loaders = append(loaders, RequiredLoader{td.Namespace})
 	} else {
-		loaders = append(loaders, td.Namespace, td.NetworkPolicy)
+		loaders = append(loaders, td.Namespace, td.NetworkPolicy, td.LimitRange)
 	}
 
 	return loaders.Load(ctx, cl)
@@ -97,7 +99,13 @@ func (td *TenantDeps) Delete(ctx context.Context, cl client.Client) (bool, error
 		return true, nil
 	}
 
-	if DependencyOf(td.Namespace.Object.ObjectMeta, td.Tenant.Object.ObjectMeta) {
+	if td.Namespace.Object.GetUID() == "" {
+		return true, nil
+	}
+
+	if ok, err := IsDependencyOf(td.Namespace.Object.ObjectMeta, Owner{Object: td.Tenant.Object, GVK: relayv1beta1.TenantKind}); err != nil {
+		return false, err
+	} else if ok {
 		return td.Namespace.Delete(ctx, cl)
 	}
 
@@ -116,6 +124,7 @@ func NewTenantDeps(t *Tenant) *TenantDeps {
 
 		td.Namespace = NewNamespace(ns)
 		td.NetworkPolicy = NewNetworkPolicy(client.ObjectKey{Namespace: ns, Name: t.Key.Name})
+		td.LimitRange = NewLimitRange(client.ObjectKey{Namespace: ns, Name: t.Key.Name})
 	}
 
 	if sink := t.Object.Spec.TriggerEventSink.API; sink != nil {
@@ -130,13 +139,14 @@ func ConfigureTenantDeps(ctx context.Context, td *TenantDeps) {
 		return
 	}
 
-	SetDependencyOf(&td.Namespace.Object.ObjectMeta, td.Tenant.Object.ObjectMeta)
-	SetDependencyOf(&td.NetworkPolicy.Object.ObjectMeta, td.Tenant.Object.ObjectMeta)
+	SetDependencyOf(&td.Namespace.Object.ObjectMeta, Owner{Object: td.Tenant.Object, GVK: relayv1beta1.TenantKind})
+	SetDependencyOf(&td.NetworkPolicy.Object.ObjectMeta, Owner{Object: td.Tenant.Object, GVK: relayv1beta1.TenantKind})
 
 	td.Namespace.Label(ctx, model.RelayControllerTenantWorkloadLabel, "true")
 	td.Namespace.LabelAnnotateFrom(ctx, td.Tenant.Object.Spec.NamespaceTemplate.Metadata)
 
 	ConfigureNetworkPolicyForTenant(td.NetworkPolicy)
+	ConfigureLimitRange(td.LimitRange)
 }
 
 func ApplyTenantDeps(ctx context.Context, cl client.Client, t *Tenant) (*TenantDeps, error) {

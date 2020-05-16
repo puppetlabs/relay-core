@@ -18,27 +18,37 @@ const (
 	WebhookTriggerStatusReasonError = "Error"
 )
 
-var (
-	WebhookTriggerKind = relayv1beta1.SchemeGroupVersion.WithKind("WebhookTrigger")
-)
-
 type WebhookTrigger struct {
 	Key    client.ObjectKey
 	Object *relayv1beta1.WebhookTrigger
 }
 
+var _ Persister = &WebhookTrigger{}
+var _ Finalizable = &WebhookTrigger{}
 var _ Loader = &WebhookTrigger{}
+
+func (wt *WebhookTrigger) Persist(ctx context.Context, cl client.Client) error {
+	return CreateOrUpdate(ctx, cl, wt.Key, wt.Object)
+}
 
 func (wt *WebhookTrigger) PersistStatus(ctx context.Context, cl client.Client) error {
 	return cl.Status().Update(ctx, wt.Object)
 }
 
-func (wt *WebhookTrigger) Load(ctx context.Context, cl client.Client) (bool, error) {
-	return GetIgnoreNotFound(ctx, cl, wt.Key, wt.Object)
+func (wt *WebhookTrigger) Finalizing() bool {
+	return !wt.Object.GetDeletionTimestamp().IsZero()
 }
 
-func (wt *WebhookTrigger) Own(ctx context.Context, other Ownable) error {
-	return other.Owned(ctx, Owner{GVK: WebhookTriggerKind, Object: wt.Object})
+func (wt *WebhookTrigger) AddFinalizer(ctx context.Context, name string) bool {
+	return AddFinalizer(&wt.Object.ObjectMeta, name)
+}
+
+func (wt *WebhookTrigger) RemoveFinalizer(ctx context.Context, name string) bool {
+	return RemoveFinalizer(&wt.Object.ObjectMeta, name)
+}
+
+func (wt *WebhookTrigger) Load(ctx context.Context, cl client.Client) (bool, error) {
+	return GetIgnoreNotFound(ctx, cl, wt.Key, wt.Object)
 }
 
 func (wt *WebhookTrigger) PodSelector() metav1.LabelSelector {
@@ -64,7 +74,7 @@ func ConfigureWebhookTrigger(wt *WebhookTrigger, ksr *KnativeServiceResult) {
 	}
 
 	for _, cond := range wt.Object.Status.Conditions {
-		conds[cond.Type] = &cond.Condition
+		*conds[cond.Type] = cond.Condition
 	}
 
 	// Update with data from Knative service.

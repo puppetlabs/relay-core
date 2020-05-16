@@ -83,18 +83,25 @@ func TestWebhookTriggerServesResponse(t *testing.T) {
 
 			tn := &relayv1beta1.Tenant{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "my-tenant-id",
+					Name:      "my-tenant",
 					Namespace: ns.GetName(),
 				},
 				Spec: relayv1beta1.TenantSpec{
 					NamespaceTemplate: relayv1beta1.NamespaceTemplate{
 						Metadata: metav1.ObjectMeta{
-							Name: "my-tenant",
+							Name: fmt.Sprintf("%s-child", ns.GetName()),
 						},
 					},
 				},
 			}
 			require.NoError(t, e2e.ControllerRuntimeClient.Create(ctx, tn))
+			defer func() {
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+
+				require.NoError(t, e2e.ControllerRuntimeClient.Delete(ctx, tn))
+				require.NoError(t, testutil.WaitForObjectDeletion(ctx, e2e.ControllerRuntimeClient, tn))
+			}()
 
 			// Wait for TenantReady.
 			require.NoError(t, retry.Retry(ctx, 500*time.Millisecond, func() *retry.RetryError {
@@ -131,11 +138,18 @@ func TestWebhookTriggerServesResponse(t *testing.T) {
 						"-text", "Hello, Relay!",
 					},
 					TenantRef: corev1.LocalObjectReference{
-						Name: "my-tenant-id",
+						Name: tn.GetName(),
 					},
 				},
 			}
 			require.NoError(t, e2e.ControllerRuntimeClient.Create(ctx, wt))
+			defer func() {
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+
+				require.NoError(t, e2e.ControllerRuntimeClient.Delete(ctx, wt))
+				require.NoError(t, testutil.WaitForObjectDeletion(ctx, e2e.ControllerRuntimeClient, wt))
+			}()
 
 			// Wait for trigger to settle in Knative and pull its URL.
 			var targetURL string

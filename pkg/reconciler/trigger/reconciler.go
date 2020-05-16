@@ -14,6 +14,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const FinalizerName = "webhooktrigger.finalizers.controller.relay.sh"
+
 type Reconciler struct {
 	*dependency.DependencyManager
 
@@ -69,22 +71,29 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 		return ctrl.Result{}, nil
 	}
 
-	if ts := wt.Object.GetDeletionTimestamp(); ts != nil && !ts.IsZero() {
-		return ctrl.Result{}, nil
+	deps := obj.NewWebhookTriggerDeps(wt, r.issuer, r.Config.MetadataAPIURL)
+	if _, err := deps.Load(ctx, r.Client); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to load dependencies: %+v", err)
 	}
 
-	wtd, err := obj.ApplyTriggerDeps(
-		ctx,
-		r.Client,
-		wt,
-		r.issuer,
-		r.Config.MetadataAPIURL,
-	)
-	if err != nil {
+	finalized, err := obj.Finalize(ctx, r.Client, FinalizerName, wt, func() error {
+		_, err := deps.Delete(ctx, r.Client)
+		return err
+	})
+	if err != nil || finalized {
+		return ctrl.Result{}, err
+	}
+
+	if err := obj.ConfigureWebhookTriggerDeps(ctx, deps); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to configure dependencies: %+v", err)
+	}
+
+	if err := deps.Persist(ctx, r.Client); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to apply dependencies: %+v", err)
 	}
 
-	ksr := obj.AsKnativeServiceResult(obj.ApplyKnativeService(ctx, r.Client, wtd))
+	ksr := obj.AsKnativeServiceResult(obj.ApplyKnativeService(ctx, r.Client, deps))
+
 	obj.ConfigureWebhookTrigger(wt, ksr)
 
 	if err := wt.PersistStatus(ctx, r.Client); err != nil {

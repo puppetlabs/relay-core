@@ -11,6 +11,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+var (
+	ConfigMapKind = corev1.SchemeGroupVersion.WithKind("ConfigMap")
+)
+
 type ConfigMap struct {
 	Key    client.ObjectKey
 	Object *corev1.ConfigMap
@@ -18,6 +22,7 @@ type ConfigMap struct {
 
 var _ Persister = &ConfigMap{}
 var _ Loader = &ConfigMap{}
+var _ Deleter = &ConfigMap{}
 var _ Ownable = &ConfigMap{}
 var _ LabelAnnotatableFrom = &ConfigMap{}
 
@@ -29,8 +34,16 @@ func (cm *ConfigMap) Load(ctx context.Context, cl client.Client) (bool, error) {
 	return GetIgnoreNotFound(ctx, cl, cm.Key, cm.Object)
 }
 
+func (cm *ConfigMap) Delete(ctx context.Context, cl client.Client) (bool, error) {
+	return DeleteIgnoreNotFound(ctx, cl, cm.Object)
+}
+
 func (cm *ConfigMap) Owned(ctx context.Context, owner Owner) error {
 	return Own(cm.Object, owner)
+}
+
+func (cm *ConfigMap) Own(ctx context.Context, other Ownable) error {
+	return other.Owned(ctx, Owner{GVK: ConfigMapKind, Object: cm.Object})
 }
 
 func (cm *ConfigMap) LabelAnnotateFrom(ctx context.Context, from metav1.ObjectMeta) {
@@ -57,7 +70,7 @@ func ConfigureImmutableConfigMapForWebhookTrigger(ctx context.Context, cm *Confi
 			return err
 		}
 
-		if _, err := configmap.NewSpecManager(ModelTrigger(wt), lcm).Set(ctx, r.Value.(map[string]interface{})); err != nil {
+		if _, err := configmap.NewSpecManager(ModelWebhookTrigger(wt), lcm).Set(ctx, r.Value.(map[string]interface{})); err != nil {
 			return err
 		}
 	}

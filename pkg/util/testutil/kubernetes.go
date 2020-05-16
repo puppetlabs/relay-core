@@ -16,6 +16,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -280,6 +281,23 @@ func WaitForServicesToBeReady(ctx context.Context, cl client.Client, namespace s
 	}
 
 	return nil
+}
+
+func WaitForObjectDeletion(ctx context.Context, cl client.Client, obj runtime.Object) error {
+	key, err := client.ObjectKeyFromObject(obj)
+	if err != nil {
+		return err
+	}
+
+	return retry.Retry(ctx, 1*time.Second, func() *retry.RetryError {
+		if err := cl.Get(ctx, key, obj); errors.IsNotFound(err) {
+			return retry.RetryPermanent(nil)
+		} else if err != nil {
+			return retry.RetryPermanent(err)
+		}
+
+		return retry.RetryTransient(fmt.Errorf("waiting for deletion of %T %s", obj, key))
+	})
 }
 
 func SetKubernetesEnvVar(target *[]corev1.EnvVar, name, value string) {

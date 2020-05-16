@@ -3,6 +3,7 @@ package trigger
 import (
 	relayv1beta1 "github.com/puppetlabs/nebula-tasks/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
+	"github.com/puppetlabs/nebula-tasks/pkg/controller/handler"
 	"github.com/puppetlabs/nebula-tasks/pkg/dependency"
 	"github.com/puppetlabs/nebula-tasks/pkg/reconciler/filter"
 	"github.com/puppetlabs/nebula-tasks/pkg/reconciler/trigger"
@@ -11,6 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 func add(mgr manager.Manager, r reconcile.Reconciler, cfg *config.WorkflowControllerConfig) error {
@@ -19,7 +21,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler, cfg *config.WorkflowContro
 			MaxConcurrentReconciles: cfg.MaxConcurrentReconciles,
 		}).
 		For(&relayv1beta1.WebhookTrigger{}).
-		Owns(&servingv1.Service{}).
+		Watches(&source.Kind{Type: &servingv1.Service{}}, &handler.EnqueueRequestForAnnotatedDependent{OwnerType: &relayv1beta1.WebhookTrigger{}}).
 		Complete(filter.NewNamespaceFilterReconciler(cfg.Namespace, r))
 }
 

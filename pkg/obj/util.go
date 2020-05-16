@@ -2,7 +2,7 @@ package obj
 
 import (
 	"context"
-	"errors"
+	"encoding/json"
 	"fmt"
 
 	nebulav1 "github.com/puppetlabs/nebula-tasks/pkg/apis/nebula.puppet.com/v1"
@@ -12,6 +12,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -20,9 +22,16 @@ const (
 	ManagedByLabelValue = "relay.sh"
 )
 
-var (
-	ErrOwnerInOtherNamespace = errors.New("obj: owner is in a different namespace than object")
-)
+type OwnerInOtherNamespaceError struct {
+	Owner     Owner
+	OwnerKey  client.ObjectKey
+	Target    runtime.Object
+	TargetKey client.ObjectKey
+}
+
+func (e *OwnerInOtherNamespaceError) Error() string {
+	return fmt.Sprintf("obj: owner %T %s is in a different namespace than %T %s", e.Owner.Object, e.OwnerKey, e.Target, e.TargetKey)
+}
 
 func CreateOrUpdate(ctx context.Context, cl client.Client, key client.ObjectKey, obj runtime.Object) error {
 	accessor, err := meta.Accessor(obj)
@@ -44,6 +53,8 @@ func CreateOrUpdate(ctx context.Context, cl client.Client, key client.ObjectKey,
 
 func GetIgnoreNotFound(ctx context.Context, cl client.Client, key client.ObjectKey, obj runtime.Object) (bool, error) {
 	if err := cl.Get(ctx, key, obj); k8serrors.IsNotFound(err) {
+		klog.V(2).Infof("object %T %s not found", obj, key)
+
 		accessor, err := meta.Accessor(obj)
 		if err != nil {
 			return false, err
@@ -99,16 +110,58 @@ func RemoveFinalizer(target *metav1.ObjectMeta, name string) bool {
 	return true
 }
 
-func SetDependencyOf(target *metav1.ObjectMeta, owner metav1.ObjectMeta) {
-	Annotate(target, model.RelayControllerDependencyOfAnnotation, client.ObjectKey{Namespace: owner.GetNamespace(), Name: owner.GetName()}.String())
-	Annotate(target, model.RelayControllerDependencyOfUIDAnnotation, string(owner.GetUID()))
+type DependencyOf struct {
+	APIVersion string    `json:"apiVersion"`
+	Kind       string    `json:"kind"`
+	Namespace  string    `json:"namespace,omitempty"`
+	Name       string    `json:"name"`
+	UID        types.UID `json:"uid"`
 }
 
-func DependencyOf(target, owner metav1.ObjectMeta) bool {
-	annotations := target.GetAnnotations()
+func SetDependencyOf(target *metav1.ObjectMeta, owner Owner) error {
+	accessor, err := meta.Accessor(owner.Object)
+	if err != nil {
+		return err
+	}
 
-	return annotations[model.RelayControllerDependencyOfAnnotation] == client.ObjectKey{Namespace: owner.GetNamespace(), Name: owner.GetName()}.String() &&
-		annotations[model.RelayControllerDependencyOfUIDAnnotation] == string(owner.GetUID())
+	annotation, err := json.Marshal(DependencyOf{
+		APIVersion: owner.GVK.GroupVersion().Identifier(),
+		Kind:       owner.GVK.Kind,
+		Namespace:  accessor.GetNamespace(),
+		Name:       accessor.GetName(),
+		UID:        accessor.GetUID(),
+	})
+	if err != nil {
+		return err
+	}
+
+	Annotate(target, model.RelayControllerDependencyOfAnnotation, string(annotation))
+	return nil
+}
+
+func IsDependencyOf(target metav1.ObjectMeta, owner Owner) (bool, error) {
+	annotation := target.GetAnnotations()[model.RelayControllerDependencyOfAnnotation]
+	if annotation == "" {
+		return false, nil
+	}
+
+	var dep DependencyOf
+	if err := json.Unmarshal([]byte(annotation), &dep); err != nil {
+		return false, err
+	}
+
+	depGroupVersion, _ := schema.ParseGroupVersion(dep.APIVersion)
+
+	if owner.GVK.Kind != dep.Kind || owner.GVK.GroupVersion() != depGroupVersion {
+		return false, nil
+	}
+
+	accessor, err := meta.Accessor(owner.Object)
+	if err != nil {
+		return false, err
+	}
+
+	return accessor.GetUID() == dep.UID && accessor.GetNamespace() == dep.Namespace && accessor.GetName() == dep.Name, nil
 }
 
 func Annotate(target *metav1.ObjectMeta, name, value string) {
@@ -149,7 +202,12 @@ func Own(target runtime.Object, owner Owner) error {
 	}
 
 	if targetAccessor.GetNamespace() != ownerAccessor.GetNamespace() {
-		return ErrOwnerInOtherNamespace
+		return &OwnerInOtherNamespaceError{
+			Owner:     owner,
+			OwnerKey:  client.ObjectKey{Namespace: ownerAccessor.GetNamespace(), Name: ownerAccessor.GetName()},
+			Target:    target,
+			TargetKey: client.ObjectKey{Namespace: targetAccessor.GetNamespace(), Name: targetAccessor.GetName()},
+		}
 	}
 
 	targetLabels := targetAccessor.GetLabels()
@@ -195,7 +253,7 @@ func ModelStep(wr *WorkflowRun, step *nebulav1.WorkflowStep) *model.Step {
 	return ModelStepFromName(wr, step.Name)
 }
 
-func ModelTrigger(wt *WebhookTrigger) *model.Trigger {
+func ModelWebhookTrigger(wt *WebhookTrigger) *model.Trigger {
 	return &model.Trigger{
 		Name: wt.Key.Name,
 	}

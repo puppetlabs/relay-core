@@ -20,18 +20,14 @@ const (
 	TenantStatusReasonError = "Error"
 )
 
-var (
-	TenantKind = relayv1beta1.SchemeGroupVersion.WithKind("Tenant")
-)
-
 type Tenant struct {
 	Key    client.ObjectKey
 	Object *relayv1beta1.Tenant
 }
 
-var _ Loader = &Tenant{}
 var _ Persister = &Tenant{}
 var _ Finalizable = &Tenant{}
+var _ Loader = &Tenant{}
 
 func (t *Tenant) Persist(ctx context.Context, cl client.Client) error {
 	return CreateOrUpdate(ctx, cl, t.Key, t.Object)
@@ -55,10 +51,6 @@ func (t *Tenant) RemoveFinalizer(ctx context.Context, name string) bool {
 
 func (t *Tenant) Load(ctx context.Context, cl client.Client) (bool, error) {
 	return GetIgnoreNotFound(ctx, cl, t.Key, t.Object)
-}
-
-func (t *Tenant) Own(ctx context.Context, other Ownable) error {
-	return other.Owned(ctx, Owner{GVK: TenantKind, Object: t.Object})
 }
 
 func (t *Tenant) Managed() bool {
@@ -163,4 +155,22 @@ func ConfigureTenant(t *Tenant, td *TenantDepsResult) {
 			Status: corev1.ConditionUnknown,
 		}
 	})
+
+	t.Object.Status = relayv1beta1.TenantStatus{
+		ObservedGeneration: t.Object.GetGeneration(),
+		Conditions: []relayv1beta1.TenantCondition{
+			{
+				Condition: *conds[relayv1beta1.TenantNamespaceReady],
+				Type:      relayv1beta1.TenantNamespaceReady,
+			},
+			{
+				Condition: *conds[relayv1beta1.TenantEventSinkReady],
+				Type:      relayv1beta1.TenantEventSinkReady,
+			},
+			{
+				Condition: *conds[relayv1beta1.TenantReady],
+				Type:      relayv1beta1.TenantReady,
+			},
+		},
+	}
 }

@@ -14,8 +14,7 @@ const (
 	RelayVaultSecretPathAnnotation     = "relay.sh/vault-secret-path"
 	RelayVaultConnectionPathAnnotation = "relay.sh/vault-connection-path"
 
-	RelayControllerDependencyOfAnnotation    = "controller.relay.sh/dependency-of"
-	RelayControllerDependencyOfUIDAnnotation = "controller.relay.sh/dependency-of-uid"
+	RelayControllerDependencyOfAnnotation = "controller.relay.sh/dependency-of"
 
 	RelayControllerTenantWorkloadLabel   = "controller.relay.sh/tenant-workload"
 	RelayControllerWorkflowRunIDLabel    = "controller.relay.sh/run-id"

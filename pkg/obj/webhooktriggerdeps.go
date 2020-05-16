@@ -6,6 +6,8 @@ import (
 	"path"
 	"time"
 
+	"github.com/puppetlabs/horsehead/v2/jsonutil"
+	relayv1beta1 "github.com/puppetlabs/nebula-tasks/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/nebula-tasks/pkg/authenticate"
 	"github.com/puppetlabs/nebula-tasks/pkg/model"
 	"gopkg.in/square/go-jose.v2/jwt"
@@ -16,12 +18,12 @@ import (
 type WebhookTriggerDeps struct {
 	WebhookTrigger *WebhookTrigger
 	Issuer         authenticate.Issuer
+	Tenant         *Tenant
+	TenantDeps     *TenantDeps
 
-	Namespace *Namespace
-
-	// TODO: This belongs at the Tenant as it should apply to the whole
-	// namespace.
-	LimitRange *LimitRange
+	// OwnerConfigMap is a stub object that allows us to aggregate ownership of
+	// the other objects created by these dependencies in the tenant namespace.
+	OwnerConfigMap *ConfigMap
 
 	NetworkPolicy *NetworkPolicy
 
@@ -38,10 +40,11 @@ type WebhookTriggerDeps struct {
 
 var _ Persister = &WebhookTriggerDeps{}
 var _ Loader = &WebhookTriggerDeps{}
+var _ Deleter = &WebhookTriggerDeps{}
 
 func (wtd *WebhookTriggerDeps) Persist(ctx context.Context, cl client.Client) error {
 	ps := []Persister{
-		wtd.LimitRange,
+		wtd.OwnerConfigMap,
 		wtd.NetworkPolicy,
 		wtd.ImmutableConfigMap,
 		wtd.MutableConfigMap,
@@ -61,9 +64,36 @@ func (wtd *WebhookTriggerDeps) Persist(ctx context.Context, cl client.Client) er
 }
 
 func (wtd *WebhookTriggerDeps) Load(ctx context.Context, cl client.Client) (bool, error) {
+	// Load tenant and tenant dependencies first so that we can resolve
+	// everything else.
+	if _, err := (RequiredLoader{wtd.Tenant}).Load(ctx, cl); err != nil {
+		return false, err
+	}
+
+	wtd.TenantDeps = NewTenantDeps(wtd.Tenant)
+
+	if _, err := (RequiredLoader{wtd.TenantDeps}).Load(ctx, cl); err != nil {
+		return false, err
+	}
+
+	// Key will be our webhook trigger name *in* the tenant namespace.
+	key := client.ObjectKey{Namespace: wtd.TenantDeps.Namespace.Name, Name: wtd.WebhookTrigger.Key.Name}
+
+	wtd.OwnerConfigMap = NewConfigMap(SuffixObjectKey(key, "owner"))
+
+	wtd.NetworkPolicy = NewNetworkPolicy(key)
+
+	wtd.ImmutableConfigMap = NewConfigMap(SuffixObjectKey(key, "immutable"))
+	wtd.MutableConfigMap = NewConfigMap(SuffixObjectKey(key, "mutable"))
+
+	wtd.MetadataAPIServiceAccount = NewServiceAccount(SuffixObjectKey(key, "metadata-api"))
+	wtd.MetadataAPIRole = NewRole(SuffixObjectKey(key, "metadata-api"))
+	wtd.MetadataAPIRoleBinding = NewRoleBinding(SuffixObjectKey(key, "metadata-api"))
+
+	wtd.KnativeServiceAccount = NewServiceAccount(SuffixObjectKey(key, "knative"))
+
 	return Loaders{
-		RequiredLoader{wtd.Namespace},
-		wtd.LimitRange,
+		wtd.OwnerConfigMap,
 		wtd.NetworkPolicy,
 		wtd.ImmutableConfigMap,
 		wtd.MutableConfigMap,
@@ -74,12 +104,26 @@ func (wtd *WebhookTriggerDeps) Load(ctx context.Context, cl client.Client) (bool
 	}.Load(ctx, cl)
 }
 
+func (wtd *WebhookTriggerDeps) Delete(ctx context.Context, cl client.Client) (bool, error) {
+	if wtd.OwnerConfigMap == nil || wtd.OwnerConfigMap.Object.GetUID() == "" {
+		return true, nil
+	}
+
+	if ok, err := IsDependencyOf(wtd.OwnerConfigMap.Object.ObjectMeta, Owner{Object: wtd.WebhookTrigger.Object, GVK: relayv1beta1.WebhookTriggerKind}); err != nil {
+		return false, err
+	} else if ok {
+		return wtd.OwnerConfigMap.Delete(ctx, cl)
+	}
+
+	return true, nil
+}
+
 func (wtd *WebhookTriggerDeps) AnnotateTriggerToken(ctx context.Context, target *metav1.ObjectMeta) error {
 	if tok := target.Annotations[authenticate.KubernetesTokenAnnotation]; tok != "" {
 		return nil
 	}
 
-	mt := ModelTrigger(wtd.WebhookTrigger)
+	mt := ModelWebhookTrigger(wtd.WebhookTrigger)
 	now := time.Now()
 
 	sat, err := wtd.MetadataAPIServiceAccount.DefaultTokenSecret.Token()
@@ -99,8 +143,8 @@ func (wtd *WebhookTriggerDeps) AnnotateTriggerToken(ctx context.Context, target 
 			IssuedAt:  jwt.NewNumericDate(now),
 		},
 
-		KubernetesNamespaceName:       wtd.Namespace.Name,
-		KubernetesNamespaceUID:        string(wtd.Namespace.Object.GetUID()),
+		KubernetesNamespaceName:       wtd.TenantDeps.Namespace.Name,
+		KubernetesNamespaceUID:        string(wtd.TenantDeps.Namespace.Object.GetUID()),
 		KubernetesServiceAccountToken: sat,
 
 		RelayDomainID: annotations[model.RelayDomainIDAnnotation],
@@ -113,6 +157,13 @@ func (wtd *WebhookTriggerDeps) AnnotateTriggerToken(ctx context.Context, target 
 		RelayVaultEnginePath:     annotations[model.RelayVaultEngineMountAnnotation],
 		RelayVaultSecretPath:     annotations[model.RelayVaultSecretPathAnnotation],
 		RelayVaultConnectionPath: annotations[model.RelayVaultConnectionPathAnnotation],
+	}
+
+	if sink := wtd.TenantDeps.APITriggerEventSink; sink != nil {
+		if u, _ := url.Parse(sink.URL()); u != nil {
+			claims.RelayEventAPIURL = &jsonutil.URL{URL: u}
+			claims.RelayEventAPIToken, _ = sink.Token()
+		}
 	}
 
 	tok, err := wtd.Issuer.Issue(ctx, claims)
@@ -133,27 +184,17 @@ func NewWebhookTriggerDeps(wt *WebhookTrigger, issuer authenticate.Issuer, metad
 		WebhookTrigger: wt,
 		Issuer:         issuer,
 
-		Namespace: NewNamespace(key.Namespace),
+		Tenant: NewTenant(client.ObjectKey{Namespace: key.Namespace, Name: wt.Object.Spec.TenantRef.Name}),
 
-		LimitRange: NewLimitRange(key),
-
-		NetworkPolicy: NewNetworkPolicy(key),
-
-		ImmutableConfigMap: NewConfigMap(SuffixObjectKey(key, "immutable")),
-		MutableConfigMap:   NewConfigMap(SuffixObjectKey(key, "mutable")),
-
-		MetadataAPIURL:            metadataAPIURL,
-		MetadataAPIServiceAccount: NewServiceAccount(SuffixObjectKey(key, "metadata-api")),
-		MetadataAPIRole:           NewRole(SuffixObjectKey(key, "metadata-api")),
-		MetadataAPIRoleBinding:    NewRoleBinding(SuffixObjectKey(key, "metadata-api")),
-
-		KnativeServiceAccount: NewServiceAccount(SuffixObjectKey(key, "knative")),
+		MetadataAPIURL: metadataAPIURL,
 	}
 }
 
-func ConfigureTriggerDeps(ctx context.Context, wtd *WebhookTriggerDeps) error {
+func ConfigureWebhookTriggerDeps(ctx context.Context, wtd *WebhookTriggerDeps) error {
+	// Set up the owner config map as the target for the finalizer.
+	SetDependencyOf(&wtd.OwnerConfigMap.Object.ObjectMeta, Owner{Object: wtd.WebhookTrigger.Object, GVK: relayv1beta1.WebhookTriggerKind})
+
 	os := []Ownable{
-		wtd.LimitRange,
 		wtd.NetworkPolicy,
 		wtd.ImmutableConfigMap,
 		wtd.MetadataAPIServiceAccount,
@@ -162,7 +203,7 @@ func ConfigureTriggerDeps(ctx context.Context, wtd *WebhookTriggerDeps) error {
 		wtd.KnativeServiceAccount,
 	}
 	for _, o := range os {
-		if err := wtd.WebhookTrigger.Own(ctx, o); err != nil {
+		if err := wtd.OwnerConfigMap.Own(ctx, o); err != nil {
 			return err
 		}
 	}
@@ -177,8 +218,6 @@ func ConfigureTriggerDeps(ctx context.Context, wtd *WebhookTriggerDeps) error {
 	for _, laf := range lafs {
 		laf.LabelAnnotateFrom(ctx, wtd.WebhookTrigger.Object.ObjectMeta)
 	}
-
-	ConfigureLimitRange(wtd.LimitRange)
 
 	ConfigureNetworkPolicyForWebhookTrigger(wtd.NetworkPolicy, wtd.WebhookTrigger)
 
@@ -195,14 +234,14 @@ func ConfigureTriggerDeps(ctx context.Context, wtd *WebhookTriggerDeps) error {
 	return nil
 }
 
-func ApplyTriggerDeps(ctx context.Context, cl client.Client, wt *WebhookTrigger, issuer authenticate.Issuer, metadataAPIURL *url.URL) (*WebhookTriggerDeps, error) {
+func ApplyWebhookTriggerDeps(ctx context.Context, cl client.Client, wt *WebhookTrigger, issuer authenticate.Issuer, metadataAPIURL *url.URL) (*WebhookTriggerDeps, error) {
 	deps := NewWebhookTriggerDeps(wt, issuer, metadataAPIURL)
 
 	if _, err := deps.Load(ctx, cl); err != nil {
 		return nil, err
 	}
 
-	if err := ConfigureTriggerDeps(ctx, deps); err != nil {
+	if err := ConfigureWebhookTriggerDeps(ctx, deps); err != nil {
 		return nil, err
 	}
 
