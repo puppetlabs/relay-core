@@ -27,12 +27,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
 
-const (
-	DefaultTektonPipelineVersion = "0.12.0"
-	DefaultKnativeServingVersion = "0.13.0"
-	DefaultAmbassadorVersion     = "1.4.3"
-)
-
 type EndToEndEnvironment struct {
 	RESTConfig              *rest.Config
 	RESTMapper              meta.RESTMapper
@@ -67,21 +61,21 @@ func EndToEndEnvironmentWithTekton(ctx context.Context, e *EndToEndEnvironment) 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
-	return doInstallTektonPipeline(ctx, e.ControllerRuntimeClient, viper.GetString("tekton_pipeline_version"))
+	return doInstallTektonPipeline(ctx, e.ControllerRuntimeClient)
 }
 
 func EndToEndEnvironmentWithKnative(ctx context.Context, e *EndToEndEnvironment) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
-	return doInstallKnativeServing(ctx, e.ControllerRuntimeClient, viper.GetString("knative_serving_version"))
+	return doInstallKnativeServing(ctx, e.ControllerRuntimeClient)
 }
 
 func EndToEndEnvironmentWithAmbassador(ctx context.Context, e *EndToEndEnvironment) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
-	return doInstallAmbassador(ctx, e.ControllerRuntimeClient, e.RESTMapper, viper.GetString("ambassador_version"))
+	return doInstallAmbassador(ctx, e.ControllerRuntimeClient, e.RESTMapper)
 }
 
 var _ EndToEndEnvironmentOption = EndToEndEnvironmentWithTekton
@@ -98,9 +92,6 @@ func doEndToEndEnvironment(fn func(e *EndToEndEnvironment), opts ...EndToEndEnvi
 	viper.AutomaticEnv()
 
 	viper.SetDefault("label_nodes", false)
-	viper.SetDefault("tekton_pipeline_version", DefaultTektonPipelineVersion)
-	viper.SetDefault("knative_serving_version", DefaultKnativeServingVersion)
-	viper.SetDefault("ambassador_version", DefaultAmbassadorVersion)
 	viper.SetDefault("disabled", false)
 	viper.SetDefault("install_environment", true)
 

@@ -32,10 +32,10 @@ func doInstallKubernetesManifest(ctx context.Context, cl client.Client, pattern 
 	return nil
 }
 
-func doInstall(ctx context.Context, cl client.Client, namespace, name, version string, patchers ...ParseKubernetesManifestPatcherFunc) error {
+func doInstall(ctx context.Context, cl client.Client, namespace, name string, patchers ...ParseKubernetesManifestPatcherFunc) error {
 	requested := time.Now()
 
-	pattern := fmt.Sprintf("fixtures/%s/*-v%s-*.yaml", name, version)
+	pattern := fmt.Sprintf("fixtures/%s/*.yaml", name)
 	err := doInstallKubernetesManifest(ctx, cl, pattern, patchers...)
 	if err != nil {
 		return err
