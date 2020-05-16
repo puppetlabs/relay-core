@@ -13,6 +13,6 @@ func TestInstallTektonPipeline(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		defer cancel()
 
-		testutil.InstallTektonPipeline(t, ctx, e2e.ControllerRuntimeClient, e2e.RESTMapper, testutil.DefaultTektonPipelineVersion)
+		testutil.InstallTektonPipeline(t, ctx, e2e.ControllerRuntimeClient, testutil.DefaultTektonPipelineVersion)
 	})
 }

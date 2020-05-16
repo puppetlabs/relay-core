@@ -13,6 +13,6 @@ func TestInstallKnativeServing(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		defer cancel()
 
-		testutil.InstallKnativeServing(t, ctx, e2e.ControllerRuntimeClient, e2e.RESTMapper, testutil.DefaultKnativeServingVersion)
+		testutil.InstallKnativeServing(t, ctx, e2e.ControllerRuntimeClient, testutil.DefaultKnativeServingVersion)
 	})
 }

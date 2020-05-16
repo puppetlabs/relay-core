@@ -115,7 +115,11 @@ func filterListPods(tracker testing.ObjectTracker) testing.ReactionFunc {
 	}
 }
 
-func ParseKubernetesManifest(mapper meta.RESTMapper, namespace string, r io.ReadCloser) ([]runtime.Object, error) {
+type ParseKubernetesManifestPatcherFunc func(obj runtime.Object, gvk *schema.GroupVersionKind)
+
+func ParseKubernetesManifest(r io.ReadCloser, patchers ...ParseKubernetesManifestPatcherFunc) ([]runtime.Object, error) {
+	patchers = append(patchers, KubernetesFixupPatcher)
+
 	decoder := yaml.NewDocumentDecoder(r)
 	defer decoder.Close()
 
@@ -168,7 +172,9 @@ func ParseKubernetesManifest(mapper meta.RESTMapper, namespace string, r io.Read
 			return nil, err
 		}
 
-		applyKubernetesManifestFixups(mapper, namespace, obj, gvk)
+		for _, patcher := range patchers {
+			patcher(obj, gvk)
+		}
 
 		objs = append(objs, obj)
 	}
@@ -176,11 +182,7 @@ func ParseKubernetesManifest(mapper meta.RESTMapper, namespace string, r io.Read
 	return objs, nil
 }
 
-func applyKubernetesManifestFixups(mapper meta.RESTMapper, namespace string, obj runtime.Object, gvk *schema.GroupVersionKind) {
-	if namespace != "" {
-		applyKubernetesDefaultNamespace(mapper, namespace, obj, gvk)
-	}
-
+func KubernetesFixupPatcher(obj runtime.Object, gvk *schema.GroupVersionKind) {
 	switch t := obj.(type) {
 	case *appsv1.Deployment:
 		// SSA has marked "protocol" is required but basically everyone expects
@@ -206,32 +208,34 @@ func applyKubernetesManifestFixups(mapper meta.RESTMapper, namespace string, obj
 	}
 }
 
-func applyKubernetesDefaultNamespace(mapper meta.RESTMapper, namespace string, obj runtime.Object, gvk *schema.GroupVersionKind) {
-	accessor, err := meta.Accessor(obj)
-	if err != nil {
-		return
-	}
+func KubernetesDefaultNamespacePatcher(mapper meta.RESTMapper, namespace string) ParseKubernetesManifestPatcherFunc {
+	return func(obj runtime.Object, gvk *schema.GroupVersionKind) {
+		accessor, err := meta.Accessor(obj)
+		if err != nil {
+			return
+		}
 
-	// Namespace already set?
-	if accessor.GetNamespace() != "" {
-		return
-	}
+		// Namespace already set?
+		if accessor.GetNamespace() != "" {
+			return
+		}
 
-	mapping, err := mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
-	if err != nil {
-		return
-	}
+		mapping, err := mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+		if err != nil {
+			return
+		}
 
-	// Does this resource even take a namespace?
-	if mapping.Scope.Name() != meta.RESTScopeNameNamespace {
-		return
-	}
+		// Does this resource even take a namespace?
+		if mapping.Scope.Name() != meta.RESTScopeNameNamespace {
+			return
+		}
 
-	accessor.SetNamespace(namespace)
+		accessor.SetNamespace(namespace)
+	}
 }
 
-func ParseApplyKubernetesManifest(ctx context.Context, cl client.Client, mapper meta.RESTMapper, namespace string, r io.ReadCloser) ([]runtime.Object, error) {
-	objs, err := ParseKubernetesManifest(mapper, namespace, r)
+func ParseApplyKubernetesManifest(ctx context.Context, cl client.Client, r io.ReadCloser, patchers ...ParseKubernetesManifestPatcherFunc) ([]runtime.Object, error) {
+	objs, err := ParseKubernetesManifest(r, patchers...)
 	if err != nil {
 		return nil, err
 	}

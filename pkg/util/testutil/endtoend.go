@@ -67,14 +67,14 @@ func EndToEndEnvironmentWithTekton(ctx context.Context, e *EndToEndEnvironment) 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
-	return doInstallTektonPipeline(ctx, e.ControllerRuntimeClient, e.RESTMapper, viper.GetString("tekton_pipeline_version"))
+	return doInstallTektonPipeline(ctx, e.ControllerRuntimeClient, viper.GetString("tekton_pipeline_version"))
 }
 
 func EndToEndEnvironmentWithKnative(ctx context.Context, e *EndToEndEnvironment) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
-	return doInstallKnativeServing(ctx, e.ControllerRuntimeClient, e.RESTMapper, viper.GetString("knative_serving_version"))
+	return doInstallKnativeServing(ctx, e.ControllerRuntimeClient, viper.GetString("knative_serving_version"))
 }
 
 func EndToEndEnvironmentWithAmbassador(ctx context.Context, e *EndToEndEnvironment) error {
