@@ -11,6 +11,7 @@ require (
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.3
 	github.com/hashicorp/go-retryablehttp v0.6.2
+	github.com/hashicorp/go-version v1.2.0
 	github.com/hashicorp/vault v1.4.1
 	github.com/hashicorp/vault-plugin-auth-jwt v0.6.2
 	github.com/hashicorp/vault-plugin-secrets-kv v0.5.5

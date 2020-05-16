@@ -228,7 +228,7 @@ func ConfigurePipelineDeps(ctx context.Context, pd *PipelineDeps) error {
 	ConfigureMetadataAPIRole(pd.MetadataAPIRole, pd.ImmutableConfigMap, pd.MutableConfigMap)
 	ConfigureMetadataAPIRoleBinding(pd.MetadataAPIRoleBinding, pd.MetadataAPIServiceAccount, pd.MetadataAPIRole)
 
-	ConfigurePipelineServiceAccount(pd.PipelineServiceAccount)
+	ConfigureUntrustedServiceAccount(pd.PipelineServiceAccount)
 
 	{
 		var opts []SystemServiceAccountOption

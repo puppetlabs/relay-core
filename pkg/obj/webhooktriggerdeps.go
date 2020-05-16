@@ -9,7 +9,6 @@ import (
 	"github.com/puppetlabs/nebula-tasks/pkg/authenticate"
 	"github.com/puppetlabs/nebula-tasks/pkg/model"
 	"gopkg.in/square/go-jose.v2/jwt"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -34,9 +33,7 @@ type WebhookTriggerDeps struct {
 	MetadataAPIRole           *Role
 	MetadataAPIRoleBinding    *RoleBinding
 
-	SourceSystemImagePullSecret *ImagePullSecret
-	TargetSystemImagePullSecret *ImagePullSecret
-	SystemServiceAccount        *ServiceAccount
+	KnativeServiceAccount *ServiceAccount
 }
 
 var _ Persister = &WebhookTriggerDeps{}
@@ -51,8 +48,7 @@ func (wtd *WebhookTriggerDeps) Persist(ctx context.Context, cl client.Client) er
 		wtd.MetadataAPIServiceAccount,
 		wtd.MetadataAPIRole,
 		wtd.MetadataAPIRoleBinding,
-		IgnoreNilPersister{wtd.TargetSystemImagePullSecret},
-		wtd.SystemServiceAccount,
+		wtd.KnativeServiceAccount,
 	}
 
 	for _, p := range ps {
@@ -74,9 +70,7 @@ func (wtd *WebhookTriggerDeps) Load(ctx context.Context, cl client.Client) (bool
 		wtd.MetadataAPIServiceAccount,
 		wtd.MetadataAPIRole,
 		wtd.MetadataAPIRoleBinding,
-		RequiredLoader{IgnoreNilLoader{wtd.SourceSystemImagePullSecret}},
-		IgnoreNilLoader{wtd.TargetSystemImagePullSecret},
-		wtd.SystemServiceAccount,
+		wtd.KnativeServiceAccount,
 	}.Load(ctx, cl)
 }
 
@@ -133,19 +127,10 @@ func (wtd *WebhookTriggerDeps) AnnotateTriggerToken(ctx context.Context, target 
 	return nil
 }
 
-type WebhookTriggerDepsOption func(wtd *WebhookTriggerDeps)
-
-func WebhookTriggerDepsWithSourceSystemImagePullSecret(key client.ObjectKey) WebhookTriggerDepsOption {
-	return func(wtd *WebhookTriggerDeps) {
-		wtd.SourceSystemImagePullSecret = NewImagePullSecret(key)
-		wtd.TargetSystemImagePullSecret = NewImagePullSecret(SuffixObjectKey(wtd.WebhookTrigger.Key, "system"))
-	}
-}
-
-func NewWebhookTriggerDeps(wt *WebhookTrigger, issuer authenticate.Issuer, metadataAPIURL *url.URL, opts ...WebhookTriggerDepsOption) *WebhookTriggerDeps {
+func NewWebhookTriggerDeps(wt *WebhookTrigger, issuer authenticate.Issuer, metadataAPIURL *url.URL) *WebhookTriggerDeps {
 	key := wt.Key
 
-	pd := &WebhookTriggerDeps{
+	return &WebhookTriggerDeps{
 		WebhookTrigger: wt,
 		Issuer:         issuer,
 
@@ -163,14 +148,8 @@ func NewWebhookTriggerDeps(wt *WebhookTrigger, issuer authenticate.Issuer, metad
 		MetadataAPIRole:           NewRole(SuffixObjectKey(key, "metadata-api")),
 		MetadataAPIRoleBinding:    NewRoleBinding(SuffixObjectKey(key, "metadata-api")),
 
-		SystemServiceAccount: NewServiceAccount(SuffixObjectKey(key, "system")),
+		KnativeServiceAccount: NewServiceAccount(SuffixObjectKey(key, "knative")),
 	}
-
-	for _, opt := range opts {
-		opt(pd)
-	}
-
-	return pd
 }
 
 func ConfigureTriggerDeps(ctx context.Context, wtd *WebhookTriggerDeps) error {
@@ -181,8 +160,7 @@ func ConfigureTriggerDeps(ctx context.Context, wtd *WebhookTriggerDeps) error {
 		wtd.MetadataAPIServiceAccount,
 		wtd.MetadataAPIRole,
 		wtd.MetadataAPIRoleBinding,
-		IgnoreNilOwnable{wtd.TargetSystemImagePullSecret},
-		wtd.SystemServiceAccount,
+		wtd.KnativeServiceAccount,
 	}
 	for _, o := range os {
 		if err := wtd.WebhookTrigger.Own(ctx, o); err != nil {
@@ -195,7 +173,7 @@ func ConfigureTriggerDeps(ctx context.Context, wtd *WebhookTriggerDeps) error {
 		wtd.MutableConfigMap,
 		wtd.MetadataAPIServiceAccount,
 		wtd.MetadataAPIRole,
-		wtd.SystemServiceAccount,
+		wtd.KnativeServiceAccount,
 	}
 	for _, laf := range lafs {
 		laf.LabelAnnotateFrom(ctx, wtd.WebhookTrigger.Object.ObjectMeta)
@@ -213,21 +191,13 @@ func ConfigureTriggerDeps(ctx context.Context, wtd *WebhookTriggerDeps) error {
 	ConfigureMetadataAPIRole(wtd.MetadataAPIRole, wtd.ImmutableConfigMap, wtd.MutableConfigMap)
 	ConfigureMetadataAPIRoleBinding(wtd.MetadataAPIRoleBinding, wtd.MetadataAPIServiceAccount, wtd.MetadataAPIRole)
 
-	{
-		var opts []SystemServiceAccountOption
-		if wtd.SourceSystemImagePullSecret != nil {
-			ConfigureImagePullSecret(wtd.TargetSystemImagePullSecret, wtd.SourceSystemImagePullSecret)
-			opts = append(opts, SystemServiceAccountWithImagePullSecret(corev1.LocalObjectReference{Name: wtd.TargetSystemImagePullSecret.Key.Name}))
-		}
-
-		ConfigureSystemServiceAccount(wtd.SystemServiceAccount, opts...)
-	}
+	ConfigureUntrustedServiceAccount(wtd.KnativeServiceAccount)
 
 	return nil
 }
 
-func ApplyTriggerDeps(ctx context.Context, cl client.Client, wt *WebhookTrigger, issuer authenticate.Issuer, metadataAPIURL *url.URL, opts ...WebhookTriggerDepsOption) (*WebhookTriggerDeps, error) {
-	deps := NewWebhookTriggerDeps(wt, issuer, metadataAPIURL, opts...)
+func ApplyTriggerDeps(ctx context.Context, cl client.Client, wt *WebhookTrigger, issuer authenticate.Issuer, metadataAPIURL *url.URL) (*WebhookTriggerDeps, error) {
+	deps := NewWebhookTriggerDeps(wt, issuer, metadataAPIURL)
 
 	if _, err := deps.Load(ctx, cl); err != nil {
 		return nil, err

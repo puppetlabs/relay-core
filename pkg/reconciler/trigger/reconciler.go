@@ -79,7 +79,6 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 		wt,
 		r.issuer,
 		r.Config.MetadataAPIURL,
-		obj.WebhookTriggerDepsWithSourceSystemImagePullSecret(r.Config.ImagePullSecretKey()),
 	)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to apply dependencies: %+v", err)

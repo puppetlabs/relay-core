@@ -80,43 +80,53 @@ func ConfigureKnativeService(ctx context.Context, s *KnativeService, wtd *Webhoo
 		return err
 	}
 
-	s.Object.Spec = servingv1.ServiceSpec{
-		ConfigurationSpec: servingv1.ConfigurationSpec{
-			Template: servingv1.RevisionTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						model.RelayControllerWebhookTriggerIDLabel: wtd.WebhookTrigger.Key.Name,
-					},
-					// Keep any existing token annotations.
-					Annotations: map[string]string{
-						authenticate.KubernetesTokenAnnotation:   s.Object.Spec.ConfigurationSpec.Template.ObjectMeta.Annotations[authenticate.KubernetesTokenAnnotation],
-						authenticate.KubernetesSubjectAnnotation: s.Object.Spec.ConfigurationSpec.Template.ObjectMeta.Annotations[authenticate.KubernetesSubjectAnnotation],
-					},
-				},
-				Spec: servingv1.RevisionSpec{
-					PodSpec: corev1.PodSpec{
-						ServiceAccountName: wtd.SystemServiceAccount.Key.Name,
-						Containers: []corev1.Container{
-							{
-								Name:            wtd.WebhookTrigger.Object.Name,
-								Image:           wtd.WebhookTrigger.Object.Spec.Image,
-								ImagePullPolicy: corev1.PullAlways,
-								Env: []corev1.EnvVar{
-									{
-										Name:  "METADATA_API_URL",
-										Value: wtd.MetadataAPIURL.String(),
-									},
-								},
-							},
-						},
-					},
-				},
+	container := corev1.Container{
+		Name:            wtd.WebhookTrigger.Object.Name,
+		Image:           wtd.WebhookTrigger.Object.Spec.Image,
+		ImagePullPolicy: corev1.PullAlways,
+		Env: []corev1.EnvVar{
+			{
+				Name:  "METADATA_API_URL",
+				Value: wtd.MetadataAPIURL.String(),
 			},
 		},
 	}
 
-	if err := wtd.AnnotateTriggerToken(ctx, &s.Object.Spec.ConfigurationSpec.Template.ObjectMeta); err != nil {
+	if command := wtd.WebhookTrigger.Object.Spec.Command; command != "" {
+		container.Command = []string{command}
+	}
+
+	if args := wtd.WebhookTrigger.Object.Spec.Args; len(args) > 0 {
+		container.Args = args
+	}
+
+	template := servingv1.RevisionTemplateSpec{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{
+				model.RelayControllerWebhookTriggerIDLabel: wtd.WebhookTrigger.Key.Name,
+			},
+			// Keep any existing token annotations.
+			Annotations: map[string]string{
+				authenticate.KubernetesTokenAnnotation:   s.Object.Spec.ConfigurationSpec.Template.ObjectMeta.Annotations[authenticate.KubernetesTokenAnnotation],
+				authenticate.KubernetesSubjectAnnotation: s.Object.Spec.ConfigurationSpec.Template.ObjectMeta.Annotations[authenticate.KubernetesSubjectAnnotation],
+			},
+		},
+		Spec: servingv1.RevisionSpec{
+			PodSpec: corev1.PodSpec{
+				ServiceAccountName: wtd.KnativeServiceAccount.Key.Name,
+				Containers:         []corev1.Container{container},
+			},
+		},
+	}
+
+	if err := wtd.AnnotateTriggerToken(ctx, &template.ObjectMeta); err != nil {
 		return err
+	}
+
+	s.Object.Spec = servingv1.ServiceSpec{
+		ConfigurationSpec: servingv1.ConfigurationSpec{
+			Template: template,
+		},
 	}
 
 	return nil

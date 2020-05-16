@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	goversion "github.com/hashicorp/go-version"
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -12,6 +13,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+var MinimumAmbassadorVersion = goversion.Must(goversion.NewVersion("1.5.0"))
+
+const AmbassadorTestImage = "gcr.io/nebula-contrib/ambassador:git-v1.4.2-75-g00e350c11"
 
 func doInstallAmbassador(ctx context.Context, cl client.Client, mapper meta.RESTMapper, version string) error {
 	ns := &corev1.Namespace{
@@ -37,6 +42,13 @@ func doInstallAmbassador(ctx context.Context, cl client.Client, mapper meta.REST
 	for i, c := range copy.Spec.Template.Spec.Containers {
 		if c.Name != "ambassador" {
 			continue
+		}
+
+		// XXX: Remove this after upstream release v1.5.0! Gross!
+		if goversion.Must(goversion.NewVersion(version)).LessThan(MinimumAmbassadorVersion) {
+			// We have to swap out the image with our own image to get the
+			// behavior we want.
+			c.Image = AmbassadorTestImage
 		}
 
 		SetKubernetesEnvVar(&c.Env, "AMBASSADOR_ID", "webhook")

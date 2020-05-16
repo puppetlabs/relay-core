@@ -107,9 +107,9 @@ func ConfigureMetadataAPIServiceAccount(sa *ServiceAccount) {
 	sa.Object.AutomountServiceAccountToken = func(b bool) *bool { return &b }(false)
 }
 
-func ConfigurePipelineServiceAccount(sa *ServiceAccount) {
-	// This is the default service account used for Tekton tasks. It has no
-	// permissions.
+func ConfigureUntrustedServiceAccount(sa *ServiceAccount) {
+	// This is the default service account used for Tekton tasks and Knative
+	// services. It has no permissions.
 	sa.Object.AutomountServiceAccountToken = func(b bool) *bool { return &b }(false)
 }
 
