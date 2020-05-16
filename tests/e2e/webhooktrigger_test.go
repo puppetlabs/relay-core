@@ -29,14 +29,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const (
-	RequestTargetURLTemplate = `
-apk --no-cache add curl || exit 1
-exec curl -vv %s`
-)
-
 func TestWebhookTriggerServesResponse(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
 	testutil.WithVault(t, func(vcfg *testutil.Vault) {
@@ -181,7 +175,7 @@ func TestWebhookTriggerServesResponse(t *testing.T) {
 				metav1.ObjectMeta{
 					Namespace: ns.GetName(),
 				},
-				fmt.Sprintf(RequestTargetURLTemplate, targetURL),
+				fmt.Sprintf("exec wget -q -O - %s", targetURL),
 			)
 			assert.Equal(t, 0, code, "unexpected error from script: standard output:\n%s\n\nstandard error:\n%s", stdout, stderr)
 			assert.Contains(t, stdout, "Hello, Relay!")
