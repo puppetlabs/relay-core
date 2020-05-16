@@ -66,8 +66,8 @@ func NewCondition(key client.ObjectKey) *Condition {
 	}
 }
 
-func ConfigureCondition(ctx context.Context, c *Condition, pd *PipelineDeps, ws *nebulav1.WorkflowStep) error {
-	if err := pd.AnnotateStepToken(ctx, &c.Object.ObjectMeta, ws); err != nil {
+func ConfigureCondition(ctx context.Context, c *Condition, wrd *WorkflowRunDeps, ws *nebulav1.WorkflowStep) error {
+	if err := wrd.AnnotateStepToken(ctx, &c.Object.ObjectMeta, ws); err != nil {
 		return err
 	}
 
@@ -79,7 +79,7 @@ func ConfigureCondition(ctx context.Context, c *Condition, pd *PipelineDeps, ws 
 				Env: []corev1.EnvVar{
 					{
 						Name:  "METADATA_API_URL",
-						Value: pd.MetadataAPIURL.String(),
+						Value: wrd.MetadataAPIURL.String(),
 					},
 				},
 			},
@@ -91,7 +91,7 @@ func ConfigureCondition(ctx context.Context, c *Condition, pd *PipelineDeps, ws 
 }
 
 type Conditions struct {
-	Deps *PipelineDeps
+	Deps *WorkflowRunDeps
 	List []*Condition
 	idx  map[string]int
 }
@@ -144,19 +144,19 @@ func (cs *Conditions) GetByStepName(stepName string) (*Condition, bool) {
 	return cs.List[idx], true
 }
 
-func NewConditions(pd *PipelineDeps) *Conditions {
+func NewConditions(wrd *WorkflowRunDeps) *Conditions {
 	cs := &Conditions{
-		Deps: pd,
+		Deps: wrd,
 		idx:  make(map[string]int),
 	}
 
 	var i int
-	for _, ws := range pd.WorkflowRun.Object.Spec.Workflow.Steps {
+	for _, ws := range wrd.WorkflowRun.Object.Spec.Workflow.Steps {
 		if ws.When.Value() == nil {
 			continue
 		}
 
-		cs.List = append(cs.List, NewCondition(ModelStepObjectKey(pd.WorkflowRun.Key, ModelStep(pd.WorkflowRun, ws))))
+		cs.List = append(cs.List, NewCondition(ModelStepObjectKey(wrd.WorkflowRun.Key, ModelStep(wrd.WorkflowRun, ws))))
 		cs.idx[ws.Name] = i
 		i++
 	}

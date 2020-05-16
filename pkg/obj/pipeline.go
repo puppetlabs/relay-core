@@ -9,7 +9,7 @@ import (
 )
 
 type Pipeline struct {
-	Deps *PipelineDeps
+	Deps *WorkflowRunDeps
 
 	Key    client.ObjectKey
 	Object *tektonv1beta1.Pipeline
@@ -61,14 +61,14 @@ func (p *Pipeline) LabelAnnotateFrom(ctx context.Context, from metav1.ObjectMeta
 	CopyLabelsAndAnnotations(&p.Object.ObjectMeta, from)
 }
 
-func NewPipeline(pd *PipelineDeps) *Pipeline {
+func NewPipeline(wrd *WorkflowRunDeps) *Pipeline {
 	return &Pipeline{
-		Deps:   pd,
-		Key:    pd.WorkflowRun.Key,
+		Deps:   wrd,
+		Key:    wrd.WorkflowRun.Key,
 		Object: &tektonv1beta1.Pipeline{},
 
-		Tasks:      NewTasks(pd),
-		Conditions: NewConditions(pd),
+		Tasks:      NewTasks(wrd),
+		Conditions: NewConditions(wrd),
 	}
 }
 
@@ -111,7 +111,7 @@ func ConfigurePipeline(ctx context.Context, p *Pipeline) error {
 	return nil
 }
 
-func ApplyPipeline(ctx context.Context, cl client.Client, deps *PipelineDeps) (*Pipeline, error) {
+func ApplyPipeline(ctx context.Context, cl client.Client, deps *WorkflowRunDeps) (*Pipeline, error) {
 	p := NewPipeline(deps)
 
 	if _, err := p.Load(ctx, cl); err != nil {

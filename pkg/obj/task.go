@@ -39,7 +39,7 @@ func NewTask(key client.ObjectKey) *Task {
 	}
 }
 
-func ConfigureTask(ctx context.Context, t *Task, pd *PipelineDeps, ws *nebulav1.WorkflowStep) error {
+func ConfigureTask(ctx context.Context, t *Task, wrd *WorkflowRunDeps, ws *nebulav1.WorkflowStep) error {
 	image := ws.Image
 	if image == "" {
 		image = model.DefaultImage
@@ -53,7 +53,7 @@ func ConfigureTask(ctx context.Context, t *Task, pd *PipelineDeps, ws *nebulav1.
 			Env: []corev1.EnvVar{
 				{
 					Name:  "METADATA_API_URL",
-					Value: pd.MetadataAPIURL.String(),
+					Value: wrd.MetadataAPIURL.String(),
 				},
 			},
 			SecurityContext: &corev1.SecurityContext{
@@ -82,7 +82,7 @@ func ConfigureTask(ctx context.Context, t *Task, pd *PipelineDeps, ws *nebulav1.
 		}
 	}
 
-	if err := pd.AnnotateStepToken(ctx, &t.Object.ObjectMeta, ws); err != nil {
+	if err := wrd.AnnotateStepToken(ctx, &t.Object.ObjectMeta, ws); err != nil {
 		return err
 	}
 
@@ -92,7 +92,7 @@ func ConfigureTask(ctx context.Context, t *Task, pd *PipelineDeps, ws *nebulav1.
 }
 
 type Tasks struct {
-	Deps *PipelineDeps
+	Deps *WorkflowRunDeps
 	List []*Task
 }
 
@@ -135,14 +135,14 @@ func (ts *Tasks) Owned(ctx context.Context, owner Owner) error {
 	return nil
 }
 
-func NewTasks(pd *PipelineDeps) *Tasks {
+func NewTasks(wrd *WorkflowRunDeps) *Tasks {
 	ts := &Tasks{
-		Deps: pd,
-		List: make([]*Task, len(pd.WorkflowRun.Object.Spec.Workflow.Steps)),
+		Deps: wrd,
+		List: make([]*Task, len(wrd.WorkflowRun.Object.Spec.Workflow.Steps)),
 	}
 
-	for i, ws := range pd.WorkflowRun.Object.Spec.Workflow.Steps {
-		ts.List[i] = NewTask(ModelStepObjectKey(pd.WorkflowRun.Key, ModelStep(pd.WorkflowRun, ws)))
+	for i, ws := range wrd.WorkflowRun.Object.Spec.Workflow.Steps {
+		ts.List[i] = NewTask(ModelStepObjectKey(wrd.WorkflowRun.Key, ModelStep(wrd.WorkflowRun, ws)))
 	}
 
 	return ts

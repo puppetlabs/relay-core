@@ -18,7 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func TestPipelineDepsConfigureAnnotate(t *testing.T) {
+func TestWorkflowRunDepsConfigureAnnotate(t *testing.T) {
 	ctx := context.Background()
 
 	WithTestNamespace(t, ctx, func(namespace *obj.Namespace) {
@@ -51,7 +51,7 @@ func TestPipelineDepsConfigureAnnotate(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, ok)
 
-		deps, err := obj.ApplyPipelineDeps(
+		deps, err := obj.ApplyWorkflowRunDeps(
 			ctx,
 			cl,
 			run,
