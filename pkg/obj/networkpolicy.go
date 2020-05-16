@@ -118,11 +118,6 @@ func ConfigureNetworkPolicyForWebhookTrigger(np *NetworkPolicy, wt *WebhookTrigg
 						"nebula.puppet.com/network-policy.webhook-gateway": "true",
 					},
 				},
-				PodSelector: &metav1.LabelSelector{
-					MatchLabels: map[string]string{
-						"nebula.puppet.com/network-policy.webhook-gateway": "true",
-					},
-				},
 			},
 		},
 	})
