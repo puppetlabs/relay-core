@@ -254,8 +254,13 @@ func ModelStep(wr *WorkflowRun, step *nebulav1.WorkflowStep) *model.Step {
 }
 
 func ModelWebhookTrigger(wt *WebhookTrigger) *model.Trigger {
+	name := wt.Object.Spec.Name
+	if name == "" {
+		name = wt.Key.Name
+	}
+
 	return &model.Trigger{
-		Name: wt.Key.Name,
+		Name: name,
 	}
 }
 

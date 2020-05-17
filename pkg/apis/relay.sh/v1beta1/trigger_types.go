@@ -23,6 +23,12 @@ type WebhookTriggerSpec struct {
 	// TenantRef selects the tenant to apply this trigger to.
 	TenantRef corev1.LocalObjectReference `json:"tenantRef"`
 
+	// Name is a friendly name for this webhook trigger used for authentication
+	// and reporting.
+	//
+	// +optional
+	Name string `json:"name,omitempty"`
+
 	// Image is the Docker image to run when this webhook receives an event.
 	Image string `json:"image"`
 

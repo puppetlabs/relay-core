@@ -114,8 +114,9 @@ func ConfigureKnativeService(ctx context.Context, s *KnativeService, wtd *Webhoo
 			},
 			// Keep any existing token annotations.
 			Annotations: map[string]string{
-				authenticate.KubernetesTokenAnnotation:   s.Object.Spec.ConfigurationSpec.Template.ObjectMeta.Annotations[authenticate.KubernetesTokenAnnotation],
-				authenticate.KubernetesSubjectAnnotation: s.Object.Spec.ConfigurationSpec.Template.ObjectMeta.Annotations[authenticate.KubernetesSubjectAnnotation],
+				model.RelayControllerTokenHashAnnotation: s.Object.Spec.ConfigurationSpec.Template.GetAnnotations()[model.RelayControllerTokenHashAnnotation],
+				authenticate.KubernetesTokenAnnotation:   s.Object.Spec.ConfigurationSpec.Template.GetAnnotations()[authenticate.KubernetesTokenAnnotation],
+				authenticate.KubernetesSubjectAnnotation: s.Object.Spec.ConfigurationSpec.Template.GetAnnotations()[authenticate.KubernetesSubjectAnnotation],
 			},
 		},
 		Spec: servingv1.RevisionSpec{

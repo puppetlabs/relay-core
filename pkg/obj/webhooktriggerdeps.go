@@ -2,6 +2,7 @@ package obj
 
 import (
 	"context"
+	"crypto/sha256"
 	"net/url"
 	"path"
 	"time"
@@ -10,6 +11,7 @@ import (
 	relayv1beta1 "github.com/puppetlabs/nebula-tasks/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/nebula-tasks/pkg/authenticate"
 	"github.com/puppetlabs/nebula-tasks/pkg/model"
+	"github.com/puppetlabs/nebula-tasks/pkg/util/hashutil"
 	"gopkg.in/square/go-jose.v2/jwt"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -43,8 +45,26 @@ var _ Loader = &WebhookTriggerDeps{}
 var _ Deleter = &WebhookTriggerDeps{}
 
 func (wtd *WebhookTriggerDeps) Persist(ctx context.Context, cl client.Client) error {
+	// Must have the owner UID before assigning ownership.
+	if err := wtd.OwnerConfigMap.Persist(ctx, cl); err != nil {
+		return err
+	}
+
+	os := []Ownable{
+		wtd.NetworkPolicy,
+		wtd.ImmutableConfigMap,
+		wtd.MetadataAPIServiceAccount,
+		wtd.MetadataAPIRole,
+		wtd.MetadataAPIRoleBinding,
+		wtd.KnativeServiceAccount,
+	}
+	for _, o := range os {
+		if err := wtd.OwnerConfigMap.Own(ctx, o); err != nil {
+			return err
+		}
+	}
+
 	ps := []Persister{
-		wtd.OwnerConfigMap,
 		wtd.NetworkPolicy,
 		wtd.ImmutableConfigMap,
 		wtd.MutableConfigMap,
@@ -119,12 +139,21 @@ func (wtd *WebhookTriggerDeps) Delete(ctx context.Context, cl client.Client) (bo
 }
 
 func (wtd *WebhookTriggerDeps) AnnotateTriggerToken(ctx context.Context, target *metav1.ObjectMeta) error {
-	if tok := target.Annotations[authenticate.KubernetesTokenAnnotation]; tok != "" {
-		return nil
-	}
+	idh := hashutil.NewStructuredHash(sha256.New)
 
 	mt := ModelWebhookTrigger(wtd.WebhookTrigger)
 	now := time.Now()
+
+	claims := &authenticate.Claims{
+		Claims: &jwt.Claims{
+			Issuer:    authenticate.ControllerIssuer,
+			Audience:  jwt.Audience{authenticate.MetadataAPIAudienceV1},
+			Subject:   path.Join(mt.Type().Plural, mt.Hash().HexEncoding()),
+			NotBefore: jwt.NewNumericDate(now),
+			IssuedAt:  jwt.NewNumericDate(now),
+		},
+	}
+	idh.Set("subject", claims.Subject)
 
 	sat, err := wtd.MetadataAPIServiceAccount.DefaultTokenSecret.Token()
 	if err != nil {
@@ -133,46 +162,43 @@ func (wtd *WebhookTriggerDeps) AnnotateTriggerToken(ctx context.Context, target 
 
 	annotations := wtd.WebhookTrigger.Object.GetAnnotations()
 
-	claims := &authenticate.Claims{
-		Claims: &jwt.Claims{
-			Issuer:   authenticate.ControllerIssuer,
-			Audience: jwt.Audience{authenticate.MetadataAPIAudienceV1},
-			Subject:  path.Join(mt.Type().Plural, mt.Hash().HexEncoding()),
-			// TODO: Do we want any expiry on these?
-			NotBefore: jwt.NewNumericDate(now),
-			IssuedAt:  jwt.NewNumericDate(now),
-		},
+	claims.KubernetesNamespaceName = wtd.TenantDeps.Namespace.Name
+	claims.KubernetesNamespaceUID = string(wtd.TenantDeps.Namespace.Object.GetUID())
+	claims.KubernetesServiceAccountToken = sat
 
-		KubernetesNamespaceName:       wtd.TenantDeps.Namespace.Name,
-		KubernetesNamespaceUID:        string(wtd.TenantDeps.Namespace.Object.GetUID()),
-		KubernetesServiceAccountToken: sat,
+	claims.RelayDomainID = annotations[model.RelayDomainIDAnnotation]
+	claims.RelayTenantID = annotations[model.RelayTenantIDAnnotation]
+	claims.RelayName = mt.Name
+	idh.Set("parents", claims.RelayDomainID, claims.RelayTenantID)
 
-		RelayDomainID: annotations[model.RelayDomainIDAnnotation],
-		RelayTenantID: annotations[model.RelayTenantIDAnnotation],
-		RelayName:     mt.Name,
+	claims.RelayKubernetesImmutableConfigMapName = wtd.ImmutableConfigMap.Key.Name
+	claims.RelayKubernetesMutableConfigMapName = wtd.MutableConfigMap.Key.Name
 
-		RelayKubernetesImmutableConfigMapName: wtd.ImmutableConfigMap.Key.Name,
-		RelayKubernetesMutableConfigMapName:   wtd.MutableConfigMap.Key.Name,
-
-		RelayVaultEnginePath:     annotations[model.RelayVaultEngineMountAnnotation],
-		RelayVaultSecretPath:     annotations[model.RelayVaultSecretPathAnnotation],
-		RelayVaultConnectionPath: annotations[model.RelayVaultConnectionPathAnnotation],
-	}
+	claims.RelayVaultEnginePath = annotations[model.RelayVaultEngineMountAnnotation]
+	claims.RelayVaultSecretPath = annotations[model.RelayVaultSecretPathAnnotation]
+	claims.RelayVaultConnectionPath = annotations[model.RelayVaultConnectionPathAnnotation]
+	idh.Set("vault", claims.RelayVaultEnginePath, claims.RelayVaultSecretPath, claims.RelayVaultConnectionPath)
 
 	if sink := wtd.TenantDeps.APITriggerEventSink; sink != nil {
 		if u, _ := url.Parse(sink.URL()); u != nil {
 			claims.RelayEventAPIURL = &jsonutil.URL{URL: u}
 			claims.RelayEventAPIToken, _ = sink.Token()
+			idh.Set("event", claims.RelayEventAPIURL.String(), claims.RelayEventAPIToken)
 		}
 	}
 
-	tok, err := wtd.Issuer.Issue(ctx, claims)
-	if err != nil {
+	if h, err := idh.Sum(); err != nil {
 		return err
-	}
+	} else if enc := h.HexEncoding(); enc != target.GetAnnotations()[model.RelayControllerTokenHashAnnotation] {
+		tok, err := wtd.Issuer.Issue(ctx, claims)
+		if err != nil {
+			return err
+		}
 
-	Annotate(target, authenticate.KubernetesTokenAnnotation, string(tok))
-	Annotate(target, authenticate.KubernetesSubjectAnnotation, claims.Subject)
+		Annotate(target, model.RelayControllerTokenHashAnnotation, enc)
+		Annotate(target, authenticate.KubernetesTokenAnnotation, string(tok))
+		Annotate(target, authenticate.KubernetesSubjectAnnotation, claims.Subject)
+	}
 
 	return nil
 }
@@ -193,20 +219,6 @@ func NewWebhookTriggerDeps(wt *WebhookTrigger, issuer authenticate.Issuer, metad
 func ConfigureWebhookTriggerDeps(ctx context.Context, wtd *WebhookTriggerDeps) error {
 	// Set up the owner config map as the target for the finalizer.
 	SetDependencyOf(&wtd.OwnerConfigMap.Object.ObjectMeta, Owner{Object: wtd.WebhookTrigger.Object, GVK: relayv1beta1.WebhookTriggerKind})
-
-	os := []Ownable{
-		wtd.NetworkPolicy,
-		wtd.ImmutableConfigMap,
-		wtd.MetadataAPIServiceAccount,
-		wtd.MetadataAPIRole,
-		wtd.MetadataAPIRoleBinding,
-		wtd.KnativeServiceAccount,
-	}
-	for _, o := range os {
-		if err := wtd.OwnerConfigMap.Own(ctx, o); err != nil {
-			return err
-		}
-	}
 
 	lafs := []LabelAnnotatableFrom{
 		wtd.ImmutableConfigMap,

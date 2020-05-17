@@ -3,7 +3,6 @@ package obj_test
 import (
 	"context"
 	"encoding/json"
-	"net/url"
 	"path"
 	"testing"
 
@@ -51,18 +50,7 @@ func TestWorkflowRunDepsConfigureAnnotate(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, ok)
 
-		deps, err := obj.ApplyWorkflowRunDeps(
-			ctx,
-			cl,
-			run,
-			authenticate.IssuerFunc(func(ctx context.Context, claims *authenticate.Claims) (authenticate.Raw, error) {
-				tok, err := json.Marshal(claims)
-				require.NoError(t, err)
-
-				return authenticate.Raw(tok), nil
-			}),
-			&url.URL{Scheme: "https", Host: "metadata-api.example.com"},
-		)
+		deps, err := obj.ApplyWorkflowRunDeps(ctx, cl, run, TestIssuer, TestMetadataAPIURL)
 		require.NoError(t, err)
 
 		ws := run.Object.Spec.Workflow.Steps[0]

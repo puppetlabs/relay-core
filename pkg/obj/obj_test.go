@@ -2,9 +2,12 @@ package obj_test
 
 import (
 	"context"
+	"encoding/json"
+	"net/url"
 	"os"
 	"testing"
 
+	"github.com/puppetlabs/nebula-tasks/pkg/authenticate"
 	"github.com/puppetlabs/nebula-tasks/pkg/obj"
 	"github.com/puppetlabs/nebula-tasks/pkg/util/testutil"
 	"github.com/stretchr/testify/require"
@@ -13,6 +16,18 @@ import (
 )
 
 var e2e *testutil.EndToEndEnvironment
+
+var (
+	TestIssuer = authenticate.IssuerFunc(func(ctx context.Context, claims *authenticate.Claims) (authenticate.Raw, error) {
+		tok, err := json.Marshal(claims)
+		if err != nil {
+			return nil, err
+		}
+
+		return authenticate.Raw(tok), nil
+	})
+	TestMetadataAPIURL = &url.URL{Scheme: "http", Host: "stub.example.com"}
+)
 
 func Client(t *testing.T) client.Client {
 	require.NotNil(t, e2e)
