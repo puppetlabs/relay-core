@@ -51,6 +51,18 @@ func (wt *WebhookTrigger) Load(ctx context.Context, cl client.Client) (bool, err
 	return GetIgnoreNotFound(ctx, cl, wt.Key, wt.Object)
 }
 
+func (wt *WebhookTrigger) Ready() bool {
+	for _, cond := range wt.Object.Status.Conditions {
+		if cond.Type != relayv1beta1.WebhookTriggerReady {
+			continue
+		}
+
+		return cond.Status == corev1.ConditionTrue
+	}
+
+	return false
+}
+
 func (wt *WebhookTrigger) PodSelector() metav1.LabelSelector {
 	return metav1.LabelSelector{
 		MatchLabels: map[string]string{

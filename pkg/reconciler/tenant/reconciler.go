@@ -3,6 +3,7 @@ package tenant
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
 	"github.com/puppetlabs/nebula-tasks/pkg/obj"
@@ -67,6 +68,10 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 
 	if err := tn.PersistStatus(ctx, r.Client); err != nil {
 		return ctrl.Result{}, err
+	}
+
+	if !tn.Ready() {
+		return ctrl.Result{RequeueAfter: 2 * time.Minute}, nil
 	}
 
 	return ctrl.Result{}, nil

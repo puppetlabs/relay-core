@@ -16,7 +16,7 @@ type APITriggerEventSink struct {
 var _ Loader = &APITriggerEventSink{}
 
 func (tes *APITriggerEventSink) Load(ctx context.Context, cl client.Client) (bool, error) {
-	return RequiredLoader{IgnoreNilLoader{tes.TokenSecret}}.Load(ctx, cl)
+	return IgnoreNilLoader{tes.TokenSecret}.Load(ctx, cl)
 }
 
 func (tes *APITriggerEventSink) URL() string {
@@ -83,7 +83,7 @@ func (td *TenantDeps) Persist(ctx context.Context, cl client.Client) error {
 }
 
 func (td *TenantDeps) Load(ctx context.Context, cl client.Client) (bool, error) {
-	loaders := Loaders{RequiredLoader{IgnoreNilLoader{td.APITriggerEventSink}}}
+	loaders := Loaders{IgnoreNilLoader{td.APITriggerEventSink}}
 
 	if !td.Tenant.Managed() {
 		loaders = append(loaders, RequiredLoader{td.Namespace})

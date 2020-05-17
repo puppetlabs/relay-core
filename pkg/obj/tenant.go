@@ -57,6 +57,18 @@ func (t *Tenant) Managed() bool {
 	return t.Object.Spec.NamespaceTemplate.Metadata.GetName() != ""
 }
 
+func (t *Tenant) Ready() bool {
+	for _, cond := range t.Object.Status.Conditions {
+		if cond.Type != relayv1beta1.TenantReady {
+			continue
+		}
+
+		return cond.Status == corev1.ConditionTrue
+	}
+
+	return false
+}
+
 func NewTenant(key client.ObjectKey) *Tenant {
 	return &Tenant{
 		Key:    key,

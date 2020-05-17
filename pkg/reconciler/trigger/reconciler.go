@@ -3,6 +3,7 @@ package trigger
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/puppetlabs/nebula-tasks/pkg/authenticate"
 	"github.com/puppetlabs/nebula-tasks/pkg/dependency"
@@ -98,6 +99,10 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 
 	if err := wt.PersistStatus(ctx, r.Client); err != nil {
 		return ctrl.Result{}, err
+	}
+
+	if !wt.Ready() {
+		return ctrl.Result{RequeueAfter: 2 * time.Minute}, nil
 	}
 
 	return ctrl.Result{}, nil
