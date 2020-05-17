@@ -192,3 +192,71 @@ func TestTenantAPITriggerEventSinkWithSecret(t *testing.T) {
 		}))
 	})
 }
+
+func TestTenantAPITriggerEventSinkWithNamespaceAndSecret(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	WithConfig(t, ctx, []ConfigOption{
+		ConfigWithTenantReconciler,
+	}, func(cfg *Config) {
+		child := fmt.Sprintf("%s-child", cfg.Namespace.GetName())
+
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: cfg.Namespace.GetName(),
+				Name:      "my-test-tenant",
+			},
+			StringData: map[string]string{
+				"token": "test",
+			},
+		}
+		require.NoError(t, e2e.ControllerRuntimeClient.Create(ctx, secret))
+
+		tenant := &relayv1beta1.Tenant{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: cfg.Namespace.GetName(),
+				Name:      "my-test-tenant",
+			},
+			Spec: relayv1beta1.TenantSpec{
+				NamespaceTemplate: relayv1beta1.NamespaceTemplate{
+					Metadata: metav1.ObjectMeta{
+						Name: child,
+					},
+				},
+				TriggerEventSink: relayv1beta1.TriggerEventSink{
+					API: &relayv1beta1.APITriggerEventSink{
+						URL: "http://stub.example.com",
+						TokenFrom: &relayv1beta1.APITokenSource{
+							SecretKeyRef: &relayv1beta1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: secret.GetName(),
+								},
+								Key: "token",
+							},
+						},
+					},
+				},
+			},
+		}
+		require.NoError(t, e2e.ControllerRuntimeClient.Create(ctx, tenant))
+
+		// Wait for tenant to reconcile.
+		require.NoError(t, retry.Retry(ctx, 500*time.Millisecond, func() *retry.RetryError {
+			if err := e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{
+				Namespace: tenant.GetNamespace(),
+				Name:      tenant.GetName(),
+			}, tenant); err != nil {
+				return retry.RetryPermanent(err)
+			}
+
+			for _, cond := range tenant.Status.Conditions {
+				if cond.Type == relayv1beta1.TenantReady && cond.Status == corev1.ConditionTrue {
+					return retry.RetryPermanent(nil)
+				}
+			}
+
+			return retry.RetryTransient(fmt.Errorf("waiting for tenant to reconcile"))
+		}))
+	})
+}

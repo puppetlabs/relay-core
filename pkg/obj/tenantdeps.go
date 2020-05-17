@@ -128,7 +128,7 @@ func NewTenantDeps(t *Tenant) *TenantDeps {
 	}
 
 	if sink := t.Object.Spec.TriggerEventSink.API; sink != nil {
-		td.APITriggerEventSink = NewAPITriggerEventSink(td.Namespace.Name, sink)
+		td.APITriggerEventSink = NewAPITriggerEventSink(td.Tenant.Key.Namespace, sink)
 	}
 
 	return td
