@@ -10,18 +10,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func doInstallKubernetesManifest(ctx context.Context, cl client.Client, pattern string) error {
+func doInstallKubernetesManifest(ctx context.Context, cl client.Client, pattern string, patchers ...ParseKubernetesManifestPatcherFunc) error {
 	files, err := getFixtures(pattern)
 	if err != nil {
 		return err
 	}
 
 	for _, file := range files {
+		log.Printf("applying manifest %s", file)
+
 		reader, err := os.Open(file)
 		if err != nil {
 			return err
 		}
-		if _, err := ParseApplyKubernetesManifest(ctx, cl, reader); err != nil {
+
+		if _, err := ParseApplyKubernetesManifest(ctx, cl, reader, patchers...); err != nil {
 			return err
 		}
 	}
@@ -29,11 +32,11 @@ func doInstallKubernetesManifest(ctx context.Context, cl client.Client, pattern 
 	return nil
 }
 
-func doInstall(ctx context.Context, cl client.Client, name, namespace, version string) error {
+func doInstall(ctx context.Context, cl client.Client, namespace, name string, patchers ...ParseKubernetesManifestPatcherFunc) error {
 	requested := time.Now()
 
-	pattern := fmt.Sprintf("fixtures/%s/*-v%s-*.yaml", name, version)
-	err := doInstallKubernetesManifest(ctx, cl, pattern)
+	pattern := fmt.Sprintf("fixtures/%s/*.yaml", name)
+	err := doInstallKubernetesManifest(ctx, cl, pattern, patchers...)
 	if err != nil {
 		return err
 	}

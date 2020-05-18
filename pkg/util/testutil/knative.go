@@ -8,10 +8,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func doInstallKnativeServing(ctx context.Context, cl client.Client, version string) error {
-	return doInstall(ctx, cl, "knative", "knative-serving", version)
+func doInstallKnativeServing(ctx context.Context, cl client.Client) error {
+	return doInstall(ctx, cl, "knative-serving", "knative")
 }
 
-func InstallKnativeServing(t *testing.T, ctx context.Context, cl client.Client, version string) {
-	require.NoError(t, doInstallKnativeServing(ctx, cl, version))
+func InstallKnativeServing(t *testing.T, ctx context.Context, cl client.Client) {
+	require.NoError(t, doInstallKnativeServing(ctx, cl))
 }

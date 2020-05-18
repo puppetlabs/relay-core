@@ -8,7 +8,7 @@ import (
 	"github.com/puppetlabs/horsehead/v2/storage"
 	"github.com/puppetlabs/nebula-tasks/pkg/authenticate"
 	"github.com/puppetlabs/nebula-tasks/pkg/dependency"
-	"github.com/puppetlabs/nebula-tasks/pkg/reconciler/workflow/obj"
+	"github.com/puppetlabs/nebula-tasks/pkg/obj"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -80,13 +80,13 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 	err = r.metrics.trackDurationWithOutcome(metricWorkflowRunStartUpDuration, func() error {
 		// Configure and save all the infrastructure bits needed to create a
 		// Pipeline.
-		deps, err := obj.ApplyPipelineDeps(
+		deps, err := obj.ApplyWorkflowRunDeps(
 			ctx,
 			r.Client,
 			wr,
 			r.issuer,
 			r.Config.MetadataAPIURL,
-			obj.PipelineDepsWithSourceSystemImagePullSecret(r.Config.ImagePullSecretKey()),
+			obj.WorkflowRunDepsWithSourceSystemImagePullSecret(r.Config.ImagePullSecretKey()),
 		)
 		if err != nil {
 			return fmt.Errorf("failed to apply dependencies: %+v", err)
