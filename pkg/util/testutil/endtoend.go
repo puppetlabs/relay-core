@@ -10,13 +10,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/puppetlabs/nebula-tasks/pkg/obj"
+	"github.com/puppetlabs/nebula-tasks/pkg/util/retry"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	tekton "github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -36,9 +36,23 @@ type EndToEndEnvironment struct {
 }
 
 func (e *EndToEndEnvironment) WithTestNamespace(t *testing.T, ctx context.Context, fn func(ns *corev1.Namespace)) {
+	namePrefix := strings.Map(func(r rune) rune {
+		if r >= 'A' && r <= 'Z' {
+			return r | 0x20
+		} else if (r >= '0' && r <= '9') || (r >= 'a' && r <= 'z') {
+			return r
+		}
+
+		return '-'
+	}, t.Name())
+	if len(namePrefix) > 28 {
+		// Leave some room for names added to the end within tests.
+		namePrefix = namePrefix[:28]
+	}
+
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: fmt.Sprintf("relay-e2e-%s", uuid.New()),
+			GenerateName: fmt.Sprintf("relay-e2e-%s-", namePrefix),
 			Labels: map[string]string{
 				"testing.relay.sh/harness": "end-to-end",
 			},
@@ -51,6 +65,18 @@ func (e *EndToEndEnvironment) WithTestNamespace(t *testing.T, ctx context.Contex
 
 		assert.NoError(t, e.ControllerRuntimeClient.Delete(ctx, ns))
 	}()
+
+	// Wait for default service account to be populated.
+	require.NoError(t, retry.Retry(ctx, 500*time.Millisecond, func() *retry.RetryError {
+		sa := &corev1.ServiceAccount{}
+		if err := e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Namespace: ns.GetName(), Name: "default"}, sa); errors.IsNotFound(err) {
+			return retry.RetryTransient(fmt.Errorf("waiting for service account"))
+		} else if err != nil {
+			return retry.RetryPermanent(err)
+		}
+
+		return retry.RetryPermanent(nil)
+	}))
 
 	fn(ns)
 }
@@ -91,7 +117,6 @@ func doEndToEndEnvironment(fn func(e *EndToEndEnvironment), opts ...EndToEndEnvi
 	viper.SetEnvPrefix("relay_test_e2e")
 	viper.AutomaticEnv()
 
-	viper.SetDefault("label_nodes", false)
 	viper.SetDefault("disabled", false)
 	viper.SetDefault("install_environment", true)
 
@@ -155,23 +180,6 @@ func doEndToEndEnvironment(fn func(e *EndToEndEnvironment), opts ...EndToEndEnvi
 	})
 	if err != nil {
 		return true, fmt.Errorf("failed to configure client: %+v", err)
-	}
-
-	if viper.GetBool("label_nodes") {
-		nodes := &corev1.NodeList{}
-		if err := client.List(ctx, nodes); err != nil {
-			return true, fmt.Errorf("failed to list nodes to label: %+v", err)
-		}
-
-		for _, node := range nodes.Items {
-			for name, value := range obj.PipelineRunPodNodeSelector {
-				node.GetLabels()[name] = value
-			}
-
-			if err := client.Update(ctx, &node); err != nil {
-				return true, fmt.Errorf("failed to update node %s: %+v", node.GetName(), err)
-			}
-		}
 	}
 
 	ifc, err := kubernetes.NewForConfig(cfg)

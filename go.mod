@@ -26,6 +26,7 @@ require (
 	github.com/puppetlabs/nebula-libs/storage/file/v2 v2.0.0
 	github.com/puppetlabs/nebula-libs/storage/gcs/v2 v2.0.0
 	github.com/puppetlabs/nebula-sdk v1.12.3
+	github.com/rancher/remotedialer v0.2.5
 	github.com/spf13/viper v1.3.2
 	github.com/stretchr/testify v1.5.1
 	github.com/tektoncd/pipeline v0.12.0
@@ -40,6 +41,6 @@ require (
 	knative.dev/caching v0.0.0-20200116200605-67bca2c83dfa
 	knative.dev/pkg v0.0.0-20200306230727-a56a6ea3fa56
 	knative.dev/serving v0.13.0
-	sigs.k8s.io/controller-runtime v0.5.0
+	sigs.k8s.io/controller-runtime v0.5.2
 	sigs.k8s.io/controller-tools v0.2.8
 )

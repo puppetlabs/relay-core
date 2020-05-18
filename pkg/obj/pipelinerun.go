@@ -5,30 +5,8 @@ import (
 
 	"github.com/puppetlabs/nebula-tasks/pkg/model"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-)
-
-var (
-	PipelineRunPodNodeSelector = map[string]string{
-		"nebula.puppet.com/scheduling.customer-ready": "true",
-	}
-	PipelineRunPodTolerations = []corev1.Toleration{
-		{
-			Key:    "nebula.puppet.com/scheduling.customer-workload",
-			Value:  "true",
-			Effect: corev1.TaintEffectNoSchedule,
-		},
-	}
-	PipelineRunPodDNSPolicy = func(p corev1.DNSPolicy) *corev1.DNSPolicy { return &p }(corev1.DNSNone)
-	PipelineRunPodDNSConfig = &corev1.PodDNSConfig{
-		Nameservers: []string{
-			"1.1.1.1",
-			"1.0.0.1",
-			"8.8.8.8",
-		},
-	}
 )
 
 type PipelineRun struct {
@@ -110,12 +88,6 @@ func ConfigurePipelineRun(ctx context.Context, pr *PipelineRun) error {
 		ServiceAccountNames: sans,
 		PipelineRef: &tektonv1beta1.PipelineRef{
 			Name: pr.Pipeline.Key.Name,
-		},
-		PodTemplate: &tektonv1beta1.PodTemplate{
-			NodeSelector: PipelineRunPodNodeSelector,
-			Tolerations:  PipelineRunPodTolerations,
-			DNSPolicy:    PipelineRunPodDNSPolicy,
-			DNSConfig:    PipelineRunPodDNSConfig,
 		},
 	}
 

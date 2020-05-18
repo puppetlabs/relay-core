@@ -316,7 +316,8 @@ func doConfigCleanup(t *testing.T, cfg *Config, next func()) {
 
 func WithConfig(t *testing.T, ctx context.Context, opts []ConfigOption, fn func(cfg *Config)) {
 	mgr, err := ctrl.NewManager(e2e.RESTConfig, ctrl.Options{
-		Scheme: testutil.TestScheme,
+		Scheme:             testutil.TestScheme,
+		MetricsBindAddress: "0",
 	})
 	require.NoError(t, err)
 

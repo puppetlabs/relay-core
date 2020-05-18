@@ -55,6 +55,8 @@ func NewDependencyManager(cfg *config.WorkflowControllerConfig, kcc *rest.Config
 	mgr, err := ctrl.NewManager(kcc, ctrl.Options{
 		Scheme:             Scheme,
 		MetricsBindAddress: "0",
+		Port:               cfg.WebhookServerPort,
+		CertDir:            cfg.WebhookServerKeyDir,
 	})
 	if err != nil {
 		log.Fatal("Unable to create new manager", err)
