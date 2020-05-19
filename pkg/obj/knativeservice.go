@@ -87,26 +87,6 @@ func ConfigureKnativeService(ctx context.Context, s *KnativeService, wtd *Webhoo
 	// to the service will propagate back using our event handler.
 	SetDependencyOf(&s.Object.ObjectMeta, Owner{Object: wtd.WebhookTrigger.Object, GVK: relayv1beta1.WebhookTriggerKind})
 
-	container := corev1.Container{
-		Name:            wtd.WebhookTrigger.Object.Name,
-		Image:           wtd.WebhookTrigger.Object.Spec.Image,
-		ImagePullPolicy: corev1.PullAlways,
-		Env: []corev1.EnvVar{
-			{
-				Name:  "METADATA_API_URL",
-				Value: wtd.MetadataAPIURL.String(),
-			},
-		},
-	}
-
-	if command := wtd.WebhookTrigger.Object.Spec.Command; command != "" {
-		container.Command = []string{command}
-	}
-
-	if args := wtd.WebhookTrigger.Object.Spec.Args; len(args) > 0 {
-		container.Args = args
-	}
-
 	template := servingv1.RevisionTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
@@ -122,10 +102,69 @@ func ConfigureKnativeService(ctx context.Context, s *KnativeService, wtd *Webhoo
 		Spec: servingv1.RevisionSpec{
 			PodSpec: corev1.PodSpec{
 				ServiceAccountName: wtd.KnativeServiceAccount.Key.Name,
-				Containers:         []corev1.Container{container},
 			},
 		},
 	}
+
+	image := wtd.WebhookTrigger.Object.Spec.Image
+	if image == "" {
+		// Theoretically someone could write some socat action and use the
+		// Alpine image, so we leave this here for consistency.
+		image = model.DefaultImage
+	}
+
+	container := corev1.Container{
+		Name:            wtd.WebhookTrigger.Object.Name,
+		Image:           image,
+		ImagePullPolicy: corev1.PullAlways,
+		Env: []corev1.EnvVar{
+			{
+				Name:  "METADATA_API_URL",
+				Value: wtd.MetadataAPIURL.String(),
+			},
+		},
+	}
+
+	if len(wtd.WebhookTrigger.Object.Spec.Input) > 0 {
+		tm := ModelWebhookTrigger(wtd.WebhookTrigger)
+
+		template.Spec.PodSpec.Volumes = append(template.Spec.PodSpec.Volumes, corev1.Volume{
+			Name: "config",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: wtd.ImmutableConfigMap.Key.Name,
+					},
+					Items: []corev1.KeyToPath{
+						{
+							Key:  scriptConfigMapKey(tm),
+							Path: "input-script",
+							Mode: func(i int32) *int32 { return &i }(0755),
+						},
+					},
+				},
+			},
+		})
+
+		container.VolumeMounts = []corev1.VolumeMount{
+			{
+				Name:      "config",
+				ReadOnly:  true,
+				MountPath: "/var/run/puppet/relay/config",
+			},
+		}
+		container.Command = []string{"/var/run/puppet/relay/config/input-script"}
+	} else {
+		if command := wtd.WebhookTrigger.Object.Spec.Command; command != "" {
+			container.Command = []string{command}
+		}
+
+		if args := wtd.WebhookTrigger.Object.Spec.Args; len(args) > 0 {
+			container.Args = args
+		}
+	}
+
+	template.Spec.PodSpec.Containers = []corev1.Container{container}
 
 	if err := wtd.AnnotateTriggerToken(ctx, &template.ObjectMeta); err != nil {
 		return err
