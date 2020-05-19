@@ -2,7 +2,6 @@ package obj
 
 import (
 	"context"
-	"strings"
 
 	nebulav1 "github.com/puppetlabs/nebula-tasks/pkg/apis/nebula.puppet.com/v1"
 	"github.com/puppetlabs/nebula-tasks/pkg/model"
@@ -66,12 +65,7 @@ func ConfigureTask(ctx context.Context, t *Task, wrd *WorkflowRunDeps, ws *nebul
 	}
 
 	if len(ws.Input) > 0 {
-		script := strings.Join(ws.Input, "\n")
-		if !strings.HasPrefix(script, model.Shebang) {
-			script = model.DefaultInterpreter + "\n" + script
-		}
-
-		step.Script = script
+		step.Script = model.ScriptForInput(ws.Input)
 	} else {
 		if len(ws.Command) > 0 {
 			step.Container.Command = []string{ws.Command}

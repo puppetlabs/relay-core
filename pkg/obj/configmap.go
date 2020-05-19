@@ -2,10 +2,12 @@ package obj
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/evaluate"
 	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/resolve"
 	"github.com/puppetlabs/nebula-tasks/pkg/manager/configmap"
+	"github.com/puppetlabs/nebula-tasks/pkg/model"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -58,6 +60,8 @@ func NewConfigMap(key client.ObjectKey) *ConfigMap {
 }
 
 func ConfigureImmutableConfigMapForWebhookTrigger(ctx context.Context, cm *ConfigMap, wt *WebhookTrigger) error {
+	tm := ModelWebhookTrigger(wt)
+
 	// This implementation manages the underlying object, so no need to retrieve
 	// it later.
 	lcm := configmap.NewLocalConfigMap(cm.Object)
@@ -70,7 +74,15 @@ func ConfigureImmutableConfigMapForWebhookTrigger(ctx context.Context, cm *Confi
 			return err
 		}
 
-		if _, err := configmap.NewSpecManager(ModelWebhookTrigger(wt), lcm).Set(ctx, r.Value.(map[string]interface{})); err != nil {
+		if _, err := configmap.NewSpecManager(tm, lcm).Set(ctx, r.Value.(map[string]interface{})); err != nil {
+			return err
+		}
+	}
+
+	if len(wt.Object.Spec.Input) > 0 {
+		if _, err := configmap.MutateConfigMap(ctx, lcm, func(cm *corev1.ConfigMap) {
+			cm.Data[scriptConfigMapKey(tm)] = model.ScriptForInput(wt.Object.Spec.Input)
+		}); err != nil {
 			return err
 		}
 	}
@@ -139,4 +151,8 @@ func ConfigureMutableConfigMapForWorkflowRun(ctx context.Context, cm *ConfigMap,
 	}
 
 	return nil
+}
+
+func scriptConfigMapKey(action model.Action) string {
+	return fmt.Sprintf("%s.%s.script", action.Type().Plural, action.Hash())
 }

@@ -1,10 +1,7 @@
 package model
 
 const (
-	Shebang = "#!"
-
-	DefaultImage       = "alpine:latest"
-	DefaultInterpreter = Shebang + "/bin/sh"
+	DefaultImage = "alpine:latest"
 )
 
 const (

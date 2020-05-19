@@ -16,6 +16,8 @@ type WorkflowControllerConfig struct {
 	MetadataAPIURL          *url.URL
 	VaultTransitPath        string
 	VaultTransitKey         string
+	WebhookServerPort       int
+	WebhookServerKeyDir     string
 }
 
 func (c *WorkflowControllerConfig) ImagePullSecretKey() client.ObjectKey {
