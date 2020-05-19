@@ -220,6 +220,7 @@ func WithAuthentication(a Authenticator) mux.MiddlewareFunc {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			cred, err := a.Authenticate(r)
 			if err != nil {
+				log(r.Context()).Error("failed to authenticate client", "error", err)
 				http.Error(w, "500 internal server error", http.StatusInternalServerError)
 			} else if cred == nil {
 				http.Error(w, "401 unauthorized", http.StatusUnauthorized)
