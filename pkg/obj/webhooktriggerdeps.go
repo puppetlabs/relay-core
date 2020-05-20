@@ -3,6 +3,7 @@ package obj
 import (
 	"context"
 	"crypto/sha256"
+	"math"
 	"net/url"
 	"path"
 	"time"
@@ -15,6 +16,13 @@ import (
 	"gopkg.in/square/go-jose.v2/jwt"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+var (
+	// Go dates start at year 1, UNIX dates start at year 1970, so this is the
+	// difference between 1970 and 1 in seconds. This constant exists as
+	// `unixToInternal` in the Go standard library time package.
+	maxUsableTime = time.Unix(math.MaxInt64-62135596800, 999999999)
 )
 
 type WebhookTriggerDeps struct {
@@ -146,8 +154,14 @@ func (wtd *WebhookTriggerDeps) AnnotateTriggerToken(ctx context.Context, target 
 
 	claims := &authenticate.Claims{
 		Claims: &jwt.Claims{
-			Issuer:    authenticate.ControllerIssuer,
-			Audience:  jwt.Audience{authenticate.MetadataAPIAudienceV1},
+			Issuer:   authenticate.ControllerIssuer,
+			Audience: jwt.Audience{authenticate.MetadataAPIAudienceV1},
+			// When used with Vault, if no expiry is specified, their
+			// authenticator will default to a 5 minute expiration. We want
+			// these tokens to be indefinite (we'll rotate the issuer if
+			// anything bad happens since it's only used internally), so we set
+			// the expiration to the maximum possible value.
+			Expiry:    jwt.NewNumericDate(maxUsableTime),
 			Subject:   path.Join(mt.Type().Plural, mt.Hash().HexEncoding()),
 			NotBefore: jwt.NewNumericDate(now),
 			IssuedAt:  jwt.NewNumericDate(now),
