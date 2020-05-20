@@ -17,7 +17,10 @@ import (
 	"github.com/puppetlabs/horsehead/v2/storage"
 	_ "github.com/puppetlabs/nebula-libs/storage/file/v2"
 	_ "github.com/puppetlabs/nebula-libs/storage/gcs/v2"
+	"github.com/puppetlabs/nebula-tasks/pkg/admission"
 	"github.com/puppetlabs/nebula-tasks/pkg/config"
+	"github.com/puppetlabs/nebula-tasks/pkg/controller/tenant"
+	"github.com/puppetlabs/nebula-tasks/pkg/controller/trigger"
 	"github.com/puppetlabs/nebula-tasks/pkg/controller/workflow"
 	"github.com/puppetlabs/nebula-tasks/pkg/dependency"
 	"gopkg.in/square/go-jose.v2"
@@ -25,6 +28,7 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 func main() {
@@ -44,6 +48,8 @@ func main() {
 	vaultTransitPath := fs.String("vault-transit-path", "transit", "path to the Vault secrets engine to use for encrypting step tokens")
 	vaultTransitKey := fs.String("vault-transit-key", "metadata-api", "the Vault transit key to use")
 	metadataAPIURLStr := fs.String("metadata-api-url", "", "URL to the metadata API")
+	webhookServerPort := fs.Int("webhook-server-port", 443, "the port to listen on for webhook requests")
+	webhookServerKeyDir := fs.String("webhook-server-key-dir", "", "path to a directory containing two files, tls.key and tls.crt, to secure the webhook server")
 
 	fs.Parse(os.Args[1:])
 
@@ -63,6 +69,10 @@ func main() {
 	blobStore, err := storage.NewBlobStore(*storageUrl)
 	if err != nil {
 		log.Fatal("Error initializing the storage client from the -storage-addr", err)
+	}
+
+	if *webhookServerKeyDir == "" {
+		log.Fatal("The webhook server key directory -webhook-server-key-dir must be specified")
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -130,6 +140,8 @@ func main() {
 		MetadataAPIURL:          metadataAPIURL,
 		VaultTransitPath:        *vaultTransitPath,
 		VaultTransitKey:         *vaultTransitKey,
+		WebhookServerPort:       *webhookServerPort,
+		WebhookServerKeyDir:     *webhookServerKeyDir,
 	}
 
 	dm, err := dependency.NewDependencyManager(cfg, kcc, vc, jwtSigner, blobStore, mets)
@@ -140,6 +152,16 @@ func main() {
 	if err := workflow.Add(dm); err != nil {
 		log.Fatal("Could not add all controllers to operator manager", err)
 	}
+
+	if err := tenant.Add(dm.Manager, cfg); err != nil {
+		log.Fatal("Could not add all controllers to operator manager", err)
+	}
+
+	if err := trigger.Add(dm); err != nil {
+		log.Fatal("Could not add all controllers to operator manager", err)
+	}
+
+	dm.Manager.GetWebhookServer().Register("/mutate/pod-enforcement", &webhook.Admission{Handler: admission.NewPodEnforcementHandler()})
 
 	if err := dm.Manager.Start(signals.SetupSignalHandler()); err != nil {
 		log.Fatal("Manager exited non-zero", err)

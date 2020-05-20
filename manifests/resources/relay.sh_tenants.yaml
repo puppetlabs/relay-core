@@ -47,6 +47,7 @@ spec:
                     values are automatically generated. \n Labels from the tenant
                     are automatically propagated onto the created namespace."
                   type: object
+                  x-kubernetes-preserve-unknown-fields: true
               type: object
             triggerEventSink:
               description: TriggerEventSink represents the destination for events

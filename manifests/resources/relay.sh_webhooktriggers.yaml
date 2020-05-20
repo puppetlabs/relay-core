@@ -55,6 +55,10 @@ spec:
               items:
                 type: string
               type: array
+            name:
+              description: Name is a friendly name for this webhook trigger used for
+                authentication and reporting.
+              type: string
             spec:
               additionalProperties:
                 description: Unstructured is arbitrary JSON data, which may also include

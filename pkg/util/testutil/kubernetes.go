@@ -16,9 +16,11 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -114,7 +116,11 @@ func filterListPods(tracker testing.ObjectTracker) testing.ReactionFunc {
 	}
 }
 
-func ParseKubernetesManifest(r io.ReadCloser) ([]runtime.Object, error) {
+type ParseKubernetesManifestPatcherFunc func(obj runtime.Object, gvk *schema.GroupVersionKind)
+
+func ParseKubernetesManifest(r io.ReadCloser, patchers ...ParseKubernetesManifestPatcherFunc) ([]runtime.Object, error) {
+	patchers = append(patchers, KubernetesFixupPatcher)
+
 	decoder := yaml.NewDocumentDecoder(r)
 	defer decoder.Close()
 
@@ -162,12 +168,14 @@ func ParseKubernetesManifest(r io.ReadCloser) ([]runtime.Object, error) {
 			continue
 		}
 
-		obj, _, err := deserializer.Decode(b, nil, nil)
+		obj, gvk, err := deserializer.Decode(b, nil, nil)
 		if err != nil {
 			return nil, err
 		}
 
-		applyKubernetesManifestFixups(obj)
+		for _, patcher := range patchers {
+			patcher(obj, gvk)
+		}
 
 		objs = append(objs, obj)
 	}
@@ -175,7 +183,7 @@ func ParseKubernetesManifest(r io.ReadCloser) ([]runtime.Object, error) {
 	return objs, nil
 }
 
-func applyKubernetesManifestFixups(obj runtime.Object) {
+func KubernetesFixupPatcher(obj runtime.Object, gvk *schema.GroupVersionKind) {
 	switch t := obj.(type) {
 	case *appsv1.Deployment:
 		// SSA has marked "protocol" is required but basically everyone expects
@@ -201,8 +209,34 @@ func applyKubernetesManifestFixups(obj runtime.Object) {
 	}
 }
 
-func ParseApplyKubernetesManifest(ctx context.Context, cl client.Client, r io.ReadCloser) ([]runtime.Object, error) {
-	objs, err := ParseKubernetesManifest(r)
+func KubernetesDefaultNamespacePatcher(mapper meta.RESTMapper, namespace string) ParseKubernetesManifestPatcherFunc {
+	return func(obj runtime.Object, gvk *schema.GroupVersionKind) {
+		accessor, err := meta.Accessor(obj)
+		if err != nil {
+			return
+		}
+
+		// Namespace already set?
+		if accessor.GetNamespace() != "" {
+			return
+		}
+
+		mapping, err := mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+		if err != nil {
+			return
+		}
+
+		// Does this resource even take a namespace?
+		if mapping.Scope.Name() != meta.RESTScopeNameNamespace {
+			return
+		}
+
+		accessor.SetNamespace(namespace)
+	}
+}
+
+func ParseApplyKubernetesManifest(ctx context.Context, cl client.Client, r io.ReadCloser, patchers ...ParseKubernetesManifestPatcherFunc) ([]runtime.Object, error) {
+	objs, err := ParseKubernetesManifest(r, patchers...)
 	if err != nil {
 		return nil, err
 	}
@@ -247,4 +281,32 @@ func WaitForServicesToBeReady(ctx context.Context, cl client.Client, namespace s
 	}
 
 	return nil
+}
+
+func WaitForObjectDeletion(ctx context.Context, cl client.Client, obj runtime.Object) error {
+	key, err := client.ObjectKeyFromObject(obj)
+	if err != nil {
+		return err
+	}
+
+	return retry.Retry(ctx, 1*time.Second, func() *retry.RetryError {
+		if err := cl.Get(ctx, key, obj); errors.IsNotFound(err) {
+			return retry.RetryPermanent(nil)
+		} else if err != nil {
+			return retry.RetryPermanent(err)
+		}
+
+		return retry.RetryTransient(fmt.Errorf("waiting for deletion of %T %s", obj, key))
+	})
+}
+
+func SetKubernetesEnvVar(target *[]corev1.EnvVar, name, value string) {
+	for i, ev := range *target {
+		if ev.Name == name {
+			(*target)[i].Value = value
+			return
+		}
+	}
+
+	*target = append(*target, corev1.EnvVar{Name: name, Value: value})
 }
