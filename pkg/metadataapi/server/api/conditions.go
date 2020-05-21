@@ -40,24 +40,6 @@ func (s *Server) GetConditions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Not being complete means there are unresolved "expressions" for this tree. These can include
-	// parameters, outputs and secrets.
-	if !rv.Complete() {
-		uerr, ok := rv.Unresolvable.AsError().(*evaluate.UnresolvableError)
-		if !ok {
-			// This should never happen.
-			utilapi.WriteError(ctx, w, errors.NewModelReadError().WithCause(uerr).Bug())
-		}
-
-		causes := make([]string, len(uerr.Causes))
-		for i, cause := range uerr.Causes {
-			causes[i] = cause.Error()
-		}
-
-		utilapi.WriteError(ctx, w, errors.NewExpressionUnresolvableError(causes))
-		return
-	}
-
 	var failed bool
 
 check:
@@ -68,8 +50,11 @@ check:
 		for _, cond := range vt {
 			result, ok := cond.(bool)
 			if !ok {
-				utilapi.WriteError(ctx, w, errors.NewConditionTypeError(fmt.Sprintf("%T", vt)))
-				return
+				if rv.Complete() {
+					utilapi.WriteError(ctx, w, errors.NewConditionTypeError(fmt.Sprintf("%T", cond)))
+					return
+				}
+				continue
 			}
 
 			if !result {
@@ -87,10 +72,30 @@ check:
 	if failed {
 		resp.Success = false
 		resp.Message = "one or more conditions failed"
-	} else {
-		resp.Success = true
-		resp.Message = "all checks passed"
+		utilapi.WriteObjectOK(ctx, w, resp)
+		return
 	}
+
+	// Not being complete means there are unresolved "expressions" for this tree. These can include
+	// parameters, outputs, secrets, etc.
+	if !rv.Complete() {
+		uerr, ok := rv.Unresolvable.AsError().(*evaluate.UnresolvableError)
+		if !ok {
+			// This should never happen.
+			utilapi.WriteError(ctx, w, errors.NewModelReadError().WithCause(uerr).Bug())
+		}
+
+		causes := make([]string, len(uerr.Causes))
+		for i, cause := range uerr.Causes {
+			causes[i] = cause.Error()
+		}
+
+		utilapi.WriteError(ctx, w, errors.NewExpressionUnresolvableError(causes))
+		return
+	}
+
+	resp.Success = true
+	resp.Message = "all checks passed"
 
 	utilapi.WriteObjectOK(ctx, w, resp)
 }
