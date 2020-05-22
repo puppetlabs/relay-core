@@ -39,12 +39,12 @@ func (vti *VaultTransitIntermediary) Next(ctx context.Context, state *Authentica
 	if err != nil {
 		return nil, err
 	} else if secret == nil {
-		return nil, ErrNotFound
+		return nil, &NotFoundError{Reason: "vault: transit: no secret data in response (bug?)"}
 	}
 
 	encoded, ok := secret.Data["plaintext"].(string)
 	if !ok {
-		return nil, ErrNotFound
+		return nil, &NotFoundError{Reason: "vault: transit: plaintext missing from secret data (bug?)"}
 	}
 
 	plaintext, err := base64.StdEncoding.DecodeString(encoded)
@@ -190,7 +190,7 @@ func (vr *VaultResolver) Resolve(ctx context.Context, state *Authentication, raw
 	if err != nil {
 		return nil, err
 	} else if secret == nil || secret.Auth == nil {
-		return nil, ErrNotFound
+		return nil, &NotFoundError{Reason: "vault: resolver: no authentication information in response"}
 	}
 
 	client.SetToken(secret.Auth.ClientToken)
