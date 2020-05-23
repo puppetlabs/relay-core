@@ -23,14 +23,14 @@ func TestHTTPAuthorizationHeaderIntermediary(t *testing.T) {
 		},
 		{
 			AuthorizationHeader: "Basic Zm9vOmJhcg==",
-			ExpectedError:       authenticate.ErrNotFound,
+			ExpectedError:       &authenticate.NotFoundError{Reason: "http: username not empty"},
 		},
 		{
 			AuthorizationHeader: "Basic Om15LXRva2Vu",
 			ExpectedRaw:         authenticate.Raw("my-token"),
 		},
 		{
-			ExpectedError: authenticate.ErrNotFound,
+			ExpectedError: &authenticate.NotFoundError{Reason: "http: neither Basic nor Bearer authentication present"},
 		},
 	}
 	for _, test := range tests {

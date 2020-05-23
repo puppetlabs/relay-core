@@ -59,7 +59,7 @@ var _ Intermediary = &KubernetesIntermediary{}
 
 func (ki *KubernetesIntermediary) next(ctx context.Context, state *Authentication) (Raw, *KubernetesIntermediaryMetadata, error) {
 	if len(ki.ip) == 0 || ki.ip.IsUnspecified() {
-		return nil, nil, ErrNotFound
+		return nil, nil, &NotFoundError{Reason: "kubernetes: no IP address to look up"}
 	}
 
 	pods, err := ki.client.CoreV1().Pods("").List(metav1.ListOptions{
@@ -73,20 +73,20 @@ func (ki *KubernetesIntermediary) next(ctx context.Context, state *Authenticatio
 	case 0:
 		// Perhaps not a valid source IP.
 		// TODO: Security incident?
-		return nil, nil, ErrNotFound
+		return nil, nil, &NotFoundError{Reason: fmt.Sprintf("kubernetes: no pod found with IP %s", ki.ip)}
 	case 1:
 		// Only acceptable case.
 	default:
 		// Multiple pods with the same IP? This is just nonsense and we'll throw
 		// out the request.
-		return nil, nil, ErrNotFound
+		return nil, nil, &NotFoundError{Reason: fmt.Sprintf("kubernetes: multiple pods found with IP %s (bug?)", ki.ip)}
 	}
 
 	pod := pods.Items[0]
 
 	ns, err := ki.client.CoreV1().Namespaces().Get(pod.GetNamespace(), metav1.GetOptions{})
 	if errors.IsNotFound(err) {
-		return nil, nil, ErrNotFound
+		return nil, nil, &NotFoundError{Reason: "kubernetes: namespace of requesting pod no longer exists"}
 	} else if err != nil {
 		return nil, nil, err
 	}
@@ -106,7 +106,7 @@ func (ki *KubernetesIntermediary) next(ctx context.Context, state *Authenticatio
 
 		tr, err := ki.client.TektonV1alpha1().Conditions(ns.GetName()).Get(name, metav1.GetOptions{})
 		if errors.IsNotFound(err) {
-			return nil, nil, ErrNotFound
+			return nil, nil, &NotFoundError{Reason: "kubernetes: Tekton condition of requesting pod does not exist"}
 		} else if err != nil {
 			return nil, nil, err
 		}
@@ -116,7 +116,7 @@ func (ki *KubernetesIntermediary) next(ctx context.Context, state *Authenticatio
 
 		tok, found = tr.GetAnnotations()[KubernetesTokenAnnotation]
 		if !found || tok == "" {
-			return nil, nil, ErrNotFound
+			return nil, nil, &NotFoundError{Reason: "kubernetes: subject and token annotation not present on pod or Tekton condition"}
 		}
 	}
 
@@ -127,18 +127,30 @@ func (ki *KubernetesIntermediary) next(ctx context.Context, state *Authenticatio
 	// Namespace validation.
 	state.AddValidator(ValidatorFunc(func(ctx context.Context, claims *Claims) (bool, error) {
 		if claims.KubernetesNamespaceUID == "" {
+			log(ctx).Warn("kubernetes: no namespace UID in claims")
 			return false, nil
 		}
 
-		return md.NamespaceUID == types.UID(claims.KubernetesNamespaceUID), nil
+		r := md.NamespaceUID == types.UID(claims.KubernetesNamespaceUID)
+		if !r {
+			log(ctx).Warn("kubernetes: namespace UID of claim does not match namespace UID of pod", "claim-namespace-uid", claims.KubernetesNamespaceUID, "pod-namespace-uid", md.NamespaceUID)
+		}
+
+		return r, nil
 	}))
 
 	state.AddValidator(ValidatorFunc(func(ctx context.Context, claims *Claims) (bool, error) {
 		if claims.Subject == "" {
+			log(ctx).Warn("kubernetes: no subject in claims")
 			return false, nil
 		}
 
-		return subject == claims.Subject, nil
+		r := subject == claims.Subject
+		if !r {
+			log(ctx).Warn("kubernetes: subject of claim does not match subject annotation of pod", "claim-subject", claims.Subject, "pod-subject-annotation", subject)
+		}
+
+		return r, nil
 	}))
 
 	return Raw(tok), md, nil

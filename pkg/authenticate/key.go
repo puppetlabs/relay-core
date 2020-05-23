@@ -19,17 +19,17 @@ func (kr *KeyResolver) Resolve(ctx context.Context, state *Authentication, raw R
 	if err != nil {
 		// This class of errors basically just means that the JWT itself is
 		// malformed.
-		return nil, ErrNotFound
+		return nil, &NotFoundError{Reason: "key: JWT parse error", Causes: []error{err}}
 	}
 
 	claims := &Claims{}
 	if err := tok.Claims(kr.key, claims); err != nil {
 		// And this class of error means that the token isn't valid per the key.
-		return nil, ErrNotFound
+		return nil, &NotFoundError{Reason: "key: could not validate JWT signature", Causes: []error{err}}
 	}
 
 	if err := claims.Validate(kr.expectation); err != nil {
-		return nil, ErrNotFound
+		return nil, &NotFoundError{Reason: "key: could not validate JWT claims", Causes: []error{err}}
 	}
 
 	return claims, nil

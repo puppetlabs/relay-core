@@ -15,7 +15,7 @@ var _ Intermediary = &HTTPAuthorizationHeaderIntermediary{}
 func (hi *HTTPAuthorizationHeaderIntermediary) Next(ctx context.Context, state *Authentication) (Raw, error) {
 	if username, password, ok := hi.r.BasicAuth(); ok {
 		if username != "" {
-			return nil, ErrNotFound
+			return nil, &NotFoundError{Reason: "http: username not empty"}
 		}
 
 		return Raw(password), nil
@@ -23,7 +23,7 @@ func (hi *HTTPAuthorizationHeaderIntermediary) Next(ctx context.Context, state *
 		return Raw(token), nil
 	}
 
-	return nil, ErrNotFound
+	return nil, &NotFoundError{Reason: "http: neither Basic nor Bearer authentication present"}
 }
 
 func NewHTTPAuthorizationHeaderIntermediary(r *http.Request) *HTTPAuthorizationHeaderIntermediary {

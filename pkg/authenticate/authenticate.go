@@ -46,14 +46,16 @@ func (a *Authenticator) Authenticate(ctx context.Context) (bool, error) {
 	state := NewInitializedAuthentication(&validators, &injectors)
 
 	raw, err := a.intermediary.Next(ctx, state)
-	if err == ErrNotFound {
+	if _, ok := err.(*NotFoundError); ok {
+		log(ctx).Warn("authentication failed in intermediary", "error", err)
 		return false, nil
 	} else if err != nil {
 		return false, err
 	}
 
 	claims, err := a.resolver.Resolve(ctx, state, raw)
-	if err == ErrNotFound {
+	if _, ok := err.(*NotFoundError); ok {
+		log(ctx).Warn("authentication failed in resolver", "error", err)
 		return false, nil
 	} else if err != nil {
 		return false, err
@@ -62,6 +64,7 @@ func (a *Authenticator) Authenticate(ctx context.Context) (bool, error) {
 	// Always validate action for a claim. A malformed claim that cannot
 	// recreate an action exactly should not be accepted.
 	if claims.Action() == nil {
+		log(ctx).Warn("authentication failed because claim did not contain a valid action reference")
 		return false, nil
 	}
 
