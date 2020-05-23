@@ -103,7 +103,10 @@ func filterListPods(tracker testing.ObjectTracker) testing.ReactionFunc {
 
 		keep := 0
 		for _, pod := range pods.Items {
-			if !la.GetListRestrictions().Fields.Matches(fields.Set{"status.podIP": pod.Status.PodIP}) {
+			if !la.GetListRestrictions().Fields.Matches(fields.Set{
+				"status.podIP": pod.Status.PodIP,
+				"status.phase": string(pod.Status.Phase),
+			}) {
 				continue
 			}
 

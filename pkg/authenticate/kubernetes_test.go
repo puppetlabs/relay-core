@@ -46,7 +46,21 @@ func TestKubernetesIntermediary(t *testing.T) {
 		&corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "my-test-namespace",
-				Name:      "pod-a",
+				Name:      "pod-a-1",
+				Annotations: map[string]string{
+					authenticate.KubernetesTokenAnnotation:   "my-previous-auth-token",
+					authenticate.KubernetesSubjectAnnotation: "my-previous-test-subject",
+				},
+			},
+			Status: corev1.PodStatus{
+				PodIP: "10.20.30.40",
+				Phase: corev1.PodSucceeded,
+			},
+		},
+		&corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "my-test-namespace",
+				Name:      "pod-a-2",
 				Annotations: map[string]string{
 					authenticate.KubernetesTokenAnnotation:   "my-auth-token",
 					authenticate.KubernetesSubjectAnnotation: "my-test-subject",
@@ -54,6 +68,7 @@ func TestKubernetesIntermediary(t *testing.T) {
 			},
 			Status: corev1.PodStatus{
 				PodIP: "10.20.30.40",
+				Phase: corev1.PodRunning,
 			},
 		},
 		&corev1.Pod{
@@ -63,6 +78,7 @@ func TestKubernetesIntermediary(t *testing.T) {
 			},
 			Status: corev1.PodStatus{
 				PodIP: "10.20.30.41",
+				Phase: corev1.PodRunning,
 			},
 		},
 		&corev1.Pod{
@@ -75,6 +91,7 @@ func TestKubernetesIntermediary(t *testing.T) {
 			},
 			Status: corev1.PodStatus{
 				PodIP: "10.20.30.42",
+				Phase: corev1.PodRunning,
 			},
 		},
 	}
@@ -136,6 +153,7 @@ func TestKubernetesIntermediaryChain(t *testing.T) {
 			},
 			Status: corev1.PodStatus{
 				PodIP: "10.20.30.40",
+				Phase: corev1.PodRunning,
 			},
 		},
 	}
@@ -217,6 +235,7 @@ func TestKubernetesIntermediaryChainToVault(t *testing.T) {
 				},
 				Status: corev1.PodStatus{
 					PodIP: "10.20.30.40",
+					Phase: corev1.PodRunning,
 				},
 			},
 		}

@@ -108,7 +108,7 @@ func TestWorkflowRun(t *testing.T) {
 		pod := &corev1.Pod{}
 		require.NoError(t, retry.Retry(ctx, 500*time.Millisecond, func() *retry.RetryError {
 			pods := &corev1.PodList{}
-			if err := e2e.ControllerRuntimeClient.List(ctx, pods, client.MatchingLabels{
+			if err := e2e.ControllerRuntimeClient.List(ctx, pods, client.InNamespace(cfg.Namespace.GetName()), client.MatchingLabels{
 				// TODO: We shouldn't really hardcode this.
 				"tekton.dev/task": (&model.Step{Run: model.Run{ID: wr.Spec.Name}, Name: "my-test-step"}).Hash().HexEncoding(),
 			}); err != nil {
@@ -122,6 +122,8 @@ func TestWorkflowRun(t *testing.T) {
 			pod = &pods.Items[0]
 			if pod.Status.PodIP == "" {
 				return retry.RetryTransient(fmt.Errorf("waiting for pod IP"))
+			} else if pod.Status.Phase == corev1.PodPending {
+				return retry.RetryTransient(fmt.Errorf("waiting for pod to start"))
 			}
 
 			return retry.RetryPermanent(nil)

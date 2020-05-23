@@ -6,8 +6,10 @@ import (
 	"net"
 
 	tekton "github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -63,7 +65,10 @@ func (ki *KubernetesIntermediary) next(ctx context.Context, state *Authenticatio
 	}
 
 	pods, err := ki.client.CoreV1().Pods("").List(metav1.ListOptions{
-		FieldSelector: fmt.Sprintf("status.podIP=%s", ki.ip),
+		FieldSelector: fields.Set{
+			"status.podIP": ki.ip.String(),
+			"status.phase": string(corev1.PodRunning),
+		}.String(),
 	})
 	if err != nil {
 		return nil, nil, err
