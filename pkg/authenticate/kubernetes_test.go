@@ -95,7 +95,7 @@ func TestKubernetesIntermediary(t *testing.T) {
 		},
 		{
 			IP:            "10.20.30.41",
-			ExpectedError: authenticate.ErrNotFound,
+			ExpectedError: &authenticate.NotFoundError{Reason: "kubernetes: Tekton condition of requesting pod does not exist"},
 		},
 		{
 			IP:          "10.20.30.42",
@@ -103,7 +103,7 @@ func TestKubernetesIntermediary(t *testing.T) {
 		},
 		{
 			IP:            "10.20.30.43",
-			ExpectedError: authenticate.ErrNotFound,
+			ExpectedError: &authenticate.NotFoundError{Reason: "kubernetes: no pod found with IP 10.20.30.43"},
 		},
 	}
 	for _, test := range tests {

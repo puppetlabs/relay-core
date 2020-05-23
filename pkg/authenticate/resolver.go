@@ -1,6 +1,9 @@
 package authenticate
 
-import "context"
+import (
+	"context"
+	"fmt"
+)
 
 // A Resolver finds the claims associated with a token.
 type Resolver interface {
@@ -30,6 +33,8 @@ func (ar *AnyResolver) Resolve(ctx context.Context, state *Authentication, raw R
 		return ar.delegates[0].Resolve(ctx, state, raw)
 	}
 
+	var causes []error
+
 	for _, delegate := range ar.delegates {
 		// Temporary state that will be propagated back on success.
 		var validators []Validator
@@ -37,7 +42,8 @@ func (ar *AnyResolver) Resolve(ctx context.Context, state *Authentication, raw R
 		ts := NewInitializedAuthentication(&validators, &injectors)
 
 		claims, err := delegate.Resolve(ctx, ts, raw)
-		if err == ErrNotFound {
+		if _, ok := err.(*NotFoundError); ok {
+			causes = append(causes, err)
 			continue
 		} else if err != nil {
 			return nil, err
@@ -54,7 +60,10 @@ func (ar *AnyResolver) Resolve(ctx context.Context, state *Authentication, raw R
 		return claims, nil
 	}
 
-	return nil, ErrNotFound
+	return nil, &NotFoundError{
+		Reason: fmt.Sprintf("none of the %d available resolvers authenticated this token", len(ar.delegates)),
+		Causes: causes,
+	}
 }
 
 func NewAnyResolver(delegates []Resolver) *AnyResolver {

@@ -33,7 +33,7 @@ func TestAnyResolver(t *testing.T) {
 				return nil
 			}))
 
-			return nil, authenticate.ErrNotFound
+			return nil, &authenticate.NotFoundError{}
 		}),
 
 		// Resolver that should succeed.

@@ -72,6 +72,44 @@ func TestGetConditions(t *testing.T) {
 				`resolve: parameter "param1" could not be found`,
 			}),
 		},
+		{
+			Name: "Condition type error",
+			Conditions: []interface{}{
+				"foobar",
+				"fubar",
+			},
+			ExpectedError: errors.NewConditionTypeError(
+				`string`,
+			),
+		},
+		{
+			Name: "Short-circuit failure ordering variant 1 (failure first)",
+			Conditions: []interface{}{
+				sdktestutil.JSONInvocation("equals", []interface{}{
+					sdktestutil.JSONOutput("previous-task", "output1"),
+					"fubar",
+				}),
+				sdktestutil.JSONInvocation("equals", []interface{}{
+					sdktestutil.JSONParameter("param1"),
+					"fubar",
+				}),
+			},
+			ExpectedSuccess: false,
+		},
+		{
+			Name: "Short-circuit failure ordering variant 2 (unresolvable first)",
+			Conditions: []interface{}{
+				sdktestutil.JSONInvocation("equals", []interface{}{
+					sdktestutil.JSONParameter("param1"),
+					"fubar",
+				}),
+				sdktestutil.JSONInvocation("equals", []interface{}{
+					sdktestutil.JSONOutput("previous-task", "output1"),
+					"fubar",
+				}),
+			},
+			ExpectedSuccess: false,
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
