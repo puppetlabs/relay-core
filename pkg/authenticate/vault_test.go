@@ -7,12 +7,20 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
+	"log"
+	"math"
+	"runtime"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	vaultapi "github.com/hashicorp/vault/api"
+	"github.com/inconshreveable/log15"
+	"github.com/puppetlabs/horsehead/v2/logging"
+	"github.com/puppetlabs/horsehead/v2/scheduler"
 	"github.com/puppetlabs/nebula-tasks/pkg/authenticate"
 	"github.com/puppetlabs/nebula-tasks/pkg/util/testutil"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/square/go-jose.v2"
 	"gopkg.in/square/go-jose.v2/jwt"
@@ -143,5 +151,73 @@ func TestVaultResolver(t *testing.T) {
 		claims, err := resolver.Resolve(ctx, authenticate.NewAuthentication(), authenticate.Raw(tok))
 		require.NoError(t, err)
 		require.Equal(t, "foo", claims.Subject)
+	})
+}
+
+func TestVaultResolverEphemeralPorts(t *testing.T) {
+	// This test checks whether the Vault resolver uses all available ports when
+	// receiving tens of thousands of requests quickly on the same TCP
+	// connection tuple (<server-addr>, <server-port>, <client-addr>, X) where X
+	// is the chosen ephemeral port for the outbound connection.
+
+	// This time is related to the number of requests being issued to avoid the
+	// case where connections stuck in TIME_WAIT actually start to free up
+	// during the test.
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+
+	// TODO(NF): I observe different behavior on loopback vs. other link types
+	// (including dummy link). Figure out why this is.
+	testutil.WithVaultServerOnAddress(t, "127.0.0.1:0", func(addr, token string) {
+		resolver := authenticate.NewStubConfigVaultResolver(addr, "auth/jwt-test")
+
+		logging.SetLevel(log15.LvlInfo)
+		defer logging.SetLevel(log15.LvlDebug)
+
+		// You can't exit (t.FailNow, etc.) from inside a Goroutine so we use
+		// one of our schedulers to collect errors for us instead.
+		var pool scheduler.StartedLifecycle
+
+		var num uint32
+		proc := scheduler.SchedulableFunc(func(ctx context.Context, er scheduler.ErrorReporter) {
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+				}
+
+				if pn := atomic.AddUint32(&num, 1); pn > math.MaxUint16 {
+					pool.Close()
+					return
+				} else if pn%10000 == 0 {
+					log.Printf("issuing request #%d", pn)
+				}
+
+				// We don't actually care about whether the server accepts our
+				// credentials, we just want to bombard it with requests.
+				_, err := resolver.Resolve(ctx, authenticate.NewAuthentication(), authenticate.Raw("test"))
+
+				// Expect a response error. Anything else (e.g. what we're
+				// mainly looking for, EADDRNOTAVAIL), will come back as a
+				// different type.
+				if rerr, ok := err.(*vaultapi.ResponseError); !ok || rerr.StatusCode >= 500 {
+					er.Put(err)
+				}
+			}
+		})
+
+		concurrency := 8
+		if runtime.NumCPU() > concurrency {
+			concurrency = runtime.NumCPU()
+		}
+
+		pool = scheduler.NewScheduler(scheduler.NManySchedulable(concurrency, proc)).
+			WithErrorBehavior(scheduler.ErrorBehaviorTerminate).
+			Start(scheduler.LifecycleStartOptions{})
+
+		require.NoError(t, scheduler.WaitContext(ctx, pool))
+		assert.Len(t, pool.Errs(), 0)
+		assert.True(t, num > math.MaxUint16, "only %d requests issued", num)
 	})
 }
