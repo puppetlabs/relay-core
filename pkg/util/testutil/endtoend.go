@@ -216,7 +216,7 @@ func WithEndToEndEnvironment(t *testing.T, fn func(e *EndToEndEnvironment), opts
 	enabled, err := doEndToEndEnvironment(fn, opts...)
 	require.NoError(t, err)
 	if !enabled {
-		log.Println("end-to-end tests disabled by configuration")
+		t.Log("end-to-end tests disabled by configuration")
 	}
 }
 

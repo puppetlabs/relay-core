@@ -7,6 +7,8 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"net"
+	"net/url"
 	"path"
 	"testing"
 	"text/template"
@@ -24,7 +26,7 @@ import (
 	"gopkg.in/square/go-jose.v2"
 )
 
-func WithVaultServer(t *testing.T, fn func(addr, token string)) {
+func WithVaultServerOnAddress(t *testing.T, addr string, fn func(addr, token string)) {
 	core, _, token := vault.TestCoreUnsealedWithConfig(t, &vault.CoreConfig{
 		LogicalBackends: map[string]logical.Factory{
 			"kv":      kv.Factory,
@@ -36,10 +38,18 @@ func WithVaultServer(t *testing.T, fn func(addr, token string)) {
 		EnableUI:  false,
 		EnableRaw: false,
 	})
-	ln, addr := http.TestServer(t, core)
+
+	ln, err := net.Listen("tcp", addr)
+	require.NoError(t, err)
 	defer ln.Close()
 
+	addr = (&url.URL{Scheme: "http", Host: ln.Addr().String()}).String()
+	http.TestServerWithListener(t, ln, addr, core)
 	fn(addr, token)
+}
+
+func WithVaultServer(t *testing.T, fn func(addr, token string)) {
+	WithVaultServerOnAddress(t, "127.0.0.1:0", fn)
 }
 
 func WithVaultClient(t *testing.T, fn func(client *api.Client)) {

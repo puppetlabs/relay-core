@@ -28,6 +28,8 @@ github.com/armon/go-radix
 github.com/beorn7/perks/quantile
 # github.com/bgentry/speakeasy v0.1.0
 github.com/bgentry/speakeasy
+# github.com/certifi/gocertifi v0.0.0-20180118203423-deb3ae2ef261
+github.com/certifi/gocertifi
 # github.com/cespare/xxhash/v2 v2.1.1
 github.com/cespare/xxhash/v2
 # github.com/coreos/go-oidc v2.1.0+incompatible
@@ -51,6 +53,8 @@ github.com/fatih/structs
 github.com/fsnotify/fsnotify
 # github.com/generikvault/gvalstrings v0.0.0-20180926130504-471f38f0112a
 github.com/generikvault/gvalstrings
+# github.com/getsentry/raven-go v0.2.0
+github.com/getsentry/raven-go
 # github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 github.com/ghodss/yaml
 # github.com/go-logr/logr v0.1.0
@@ -370,6 +374,10 @@ github.com/puppetlabs/horsehead/v2/graph
 github.com/puppetlabs/horsehead/v2/graph/traverse
 github.com/puppetlabs/horsehead/v2/httputil/api
 github.com/puppetlabs/horsehead/v2/httputil/errors
+github.com/puppetlabs/horsehead/v2/instrumentation/alerts
+github.com/puppetlabs/horsehead/v2/instrumentation/alerts/internal/httputil
+github.com/puppetlabs/horsehead/v2/instrumentation/alerts/internal/noop
+github.com/puppetlabs/horsehead/v2/instrumentation/alerts/internal/sentry
 github.com/puppetlabs/horsehead/v2/instrumentation/alerts/trackers
 github.com/puppetlabs/horsehead/v2/instrumentation/errors
 github.com/puppetlabs/horsehead/v2/instrumentation/metrics
@@ -387,6 +395,8 @@ github.com/puppetlabs/horsehead/v2/mainutil
 github.com/puppetlabs/horsehead/v2/netutil
 github.com/puppetlabs/horsehead/v2/netutil/errors
 github.com/puppetlabs/horsehead/v2/request
+github.com/puppetlabs/horsehead/v2/scheduler
+github.com/puppetlabs/horsehead/v2/scheduler/errors
 github.com/puppetlabs/horsehead/v2/storage
 # github.com/puppetlabs/nebula-libs/storage/file/v2 v2.0.0
 github.com/puppetlabs/nebula-libs/storage/file/v2

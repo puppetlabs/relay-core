@@ -10,6 +10,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20191002201903-404acd9df4cc // indirect
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.3
+	github.com/hashicorp/go-cleanhttp v0.5.1
 	github.com/hashicorp/go-retryablehttp v0.6.2
 	github.com/hashicorp/vault v1.4.1
 	github.com/hashicorp/vault-plugin-auth-jwt v0.6.2
