@@ -8,6 +8,7 @@ import (
 	"path"
 	"time"
 
+	"github.com/hashicorp/go-cleanhttp"
 	"github.com/hashicorp/go-retryablehttp"
 	vaultapi "github.com/hashicorp/vault/api"
 	"gopkg.in/square/go-jose.v2/jwt"
@@ -253,10 +254,34 @@ func NewVaultResolver(cfg *vaultapi.Config, path string, opts ...VaultResolverOp
 
 func NewStubConfigVaultResolver(addr, path string, opts ...VaultResolverOption) *VaultResolver {
 	// This is similar to the Vault default config but doesn't look in the
-	// environment for anything and uses the regular Go library HTTP client.
+	// environment for anything.
+	ht := cleanhttp.DefaultPooledTransport()
+
+	// Since we have a single target address here, we're ideally going to
+	// customize the transport to allow a lot of idle connections to it. Since
+	// the resolver runs for each incoming request we want to prevent defunct
+	// connections from piling up in TIME_WAIT but also not have to deal with
+	// the overhead of opening a new connection for every request.
+	//
+	// The settings I'd like to use look something like:
+	//   ht.MaxIdleConns = 1024
+	//   ht.MaxIdleConnsPerHost = 1024
+	//   ht.MaxConnsPerHost = 1024
+	// However, these actually make the test case worse (or just as bad?). It
+	// seems that some of the connections don't get reused... not sure if this
+	// is a client bug or misunderstanding of how the options are supposed to
+	// work.
+	//
+	// So we'll do this the blunt way and, for now, disable keep-alives
+	// altogether:
+	ht.DisableKeepAlives = true
+	ht.MaxIdleConnsPerHost = -1
+
 	cfg := &vaultapi.Config{
-		Address:    addr,
-		HttpClient: &http.Client{},
+		Address: addr,
+		HttpClient: &http.Client{
+			Transport: ht,
+		},
 		Timeout:    60 * time.Second,
 		Backoff:    retryablehttp.LinearJitterBackoff,
 		MaxRetries: 2,
