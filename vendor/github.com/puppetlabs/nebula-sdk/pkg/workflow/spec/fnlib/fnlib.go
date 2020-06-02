@@ -4,12 +4,13 @@ import "github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/fn"
 
 var (
 	library = map[string]fn.Descriptor{
-		"append":        appendDescriptor,
-		"concat":        concatDescriptor,
-		"equals":        equalsDescriptor,
-		"jsonUnmarshal": jsonUnmarshalDescriptor,
-		"merge":         mergeDescriptor,
-		"notEquals":     notEqualsDescriptor,
+		"append":          appendDescriptor,
+		"concat":          concatDescriptor,
+		"convertMarkdown": convertMarkdownDescriptor,
+		"equals":          equalsDescriptor,
+		"jsonUnmarshal":   jsonUnmarshalDescriptor,
+		"merge":           mergeDescriptor,
+		"notEquals":       notEqualsDescriptor,
 	}
 )
 
