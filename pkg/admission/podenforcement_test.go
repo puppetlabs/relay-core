@@ -46,6 +46,12 @@ func TestPodEnforcementHandler(t *testing.T) {
 		e2e = e
 	})
 
+	// Assume we're skipping this test if we do not have a valid environment
+	// This does not currently have access to the enabled flag
+	if e2e == nil {
+		t.SkipNow()
+	}
+
 	mgr, err := manager.New(e2e.RESTConfig, manager.Options{
 		Scheme:             testutil.TestScheme,
 		MetricsBindAddress: "0",
