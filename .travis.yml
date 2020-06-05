@@ -11,9 +11,10 @@ jobs:
   include:
   - stage: test
     before_script:
-    - go get sigs.k8s.io/kind
+    - curl -Lo ./kind "https://kind.sigs.k8s.io/dl/v0.8.1/kind-linux-amd64"
+    - chmod +x ./kind
     - export KUBECONFIG=/tmp/kubeconfig-kind
-    - kind create cluster
+    - ./kind create cluster
     script:
     - RELAY_TEST_E2E_KUBECONFIG="${KUBECONFIG}" ./scripts/ci test
   - stage: build

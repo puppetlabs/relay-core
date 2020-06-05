@@ -441,6 +441,10 @@ func (e *Evaluator) evaluate(ctx context.Context, v interface{}, depth int) (*Re
 	// Valid JSON types per https://golang.org/pkg/encoding/json/:
 	case bool, float64, string, []interface{}, map[string]interface{}, nil:
 		return candidate, nil
+	// We support a set of additional YAML scalar(-ish) types decoded by
+	// gopkg.in/yaml.v3.
+	case int, int64, uint, uint64, time.Time:
+		return candidate, nil
 	default:
 		return nil, &UnsupportedValueError{Type: reflect.TypeOf(candidate.Value)}
 	}
