@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/evaluate"
 	nebulav1 "github.com/puppetlabs/nebula-tasks/pkg/apis/nebula.puppet.com/v1"
 	relayv1beta1 "github.com/puppetlabs/nebula-tasks/pkg/apis/relay.sh/v1beta1"
+	"github.com/puppetlabs/nebula-tasks/pkg/expr/evaluate"
 	"github.com/puppetlabs/nebula-tasks/pkg/model"
 	"github.com/puppetlabs/nebula-tasks/pkg/obj"
 	"github.com/puppetlabs/nebula-tasks/pkg/util/retry"

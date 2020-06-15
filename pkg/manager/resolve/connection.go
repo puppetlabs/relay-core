@@ -3,7 +3,7 @@ package resolve
 import (
 	"context"
 
-	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/resolve"
+	"github.com/puppetlabs/nebula-tasks/pkg/expr/resolve"
 	"github.com/puppetlabs/nebula-tasks/pkg/model"
 )
 

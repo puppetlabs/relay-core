@@ -1,0 +1,8 @@
+version: "1.0"
+description: description
+
+steps:
+- name: publish
+  image: "alpine:latest"
+  input:
+  - echo "thisisbasicallyamakefile"

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/serialize"
+	"github.com/puppetlabs/nebula-tasks/pkg/expr/serialize"
 	"github.com/puppetlabs/nebula-tasks/pkg/manager/memory"
 	"gopkg.in/yaml.v3"
 )

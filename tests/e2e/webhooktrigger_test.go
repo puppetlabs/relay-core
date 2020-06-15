@@ -12,8 +12,8 @@ import (
 	"time"
 
 	_ "github.com/puppetlabs/nebula-libs/storage/file/v2"
-	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/evaluate"
 	relayv1beta1 "github.com/puppetlabs/nebula-tasks/pkg/apis/relay.sh/v1beta1"
+	"github.com/puppetlabs/nebula-tasks/pkg/expr/evaluate"
 	"github.com/puppetlabs/nebula-tasks/pkg/model"
 	"github.com/puppetlabs/nebula-tasks/pkg/util/retry"
 	"github.com/puppetlabs/nebula-tasks/pkg/util/testutil"

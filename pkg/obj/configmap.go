@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/evaluate"
-	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/resolve"
+	"github.com/puppetlabs/nebula-tasks/pkg/expr/evaluate"
+	"github.com/puppetlabs/nebula-tasks/pkg/expr/resolve"
 	"github.com/puppetlabs/nebula-tasks/pkg/manager/configmap"
 	"github.com/puppetlabs/nebula-tasks/pkg/model"
 	corev1 "k8s.io/api/core/v1"

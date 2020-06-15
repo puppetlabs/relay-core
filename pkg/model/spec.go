@@ -3,7 +3,7 @@ package model
 import (
 	"context"
 
-	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/parse"
+	"github.com/puppetlabs/nebula-tasks/pkg/expr/parse"
 )
 
 type Spec struct {

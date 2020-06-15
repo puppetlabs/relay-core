@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/parse"
+	"github.com/puppetlabs/nebula-tasks/pkg/expr/parse"
 	"github.com/puppetlabs/nebula-tasks/pkg/model"
 )
 
