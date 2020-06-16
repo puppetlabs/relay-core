@@ -166,6 +166,7 @@ func TestPodEnforcementHandler(t *testing.T) {
 			assert.Equal(t, admission.PodTolerations, pod.Spec.Tolerations)
 			assert.Equal(t, admission.PodDNSPolicy, pod.Spec.DNSPolicy)
 			assert.Equal(t, admission.PodDNSConfig, pod.Spec.DNSConfig)
+			// assert.Equal(t, admission.PodRuntimeClassName, pod.Spec.RuntimeClassName)
 		})
 	})
 }

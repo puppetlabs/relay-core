@@ -19,6 +19,11 @@ var (
 			Value:  "true",
 			Effect: corev1.TaintEffectNoSchedule,
 		},
+		{
+			Key:    "sandbox.gke.io/runtime",
+			Value:  "gvisor",
+			Effect: corev1.TaintEffectNoSchedule,
+		},
 	}
 	PodDNSPolicy = corev1.DNSNone
 	PodDNSConfig = &corev1.PodDNSConfig{
@@ -28,6 +33,7 @@ var (
 			"8.8.8.8",
 		},
 	}
+	// PodRuntimeClassName = "gvisor"
 )
 
 type PodEnforcementHandler struct {
@@ -47,6 +53,7 @@ func (peh *PodEnforcementHandler) Handle(ctx context.Context, req admission.Requ
 	pod.Spec.Tolerations = PodTolerations
 	pod.Spec.DNSPolicy = PodDNSPolicy
 	pod.Spec.DNSConfig = PodDNSConfig
+	// pod.Spec.RuntimeClassName = &PodRuntimeClassName
 
 	b, err := json.Marshal(pod)
 	if err != nil {
