@@ -50,6 +50,7 @@ func main() {
 	metadataAPIURLStr := fs.String("metadata-api-url", "", "URL to the metadata API")
 	webhookServerPort := fs.Int("webhook-server-port", 443, "the port to listen on for webhook requests")
 	webhookServerKeyDir := fs.String("webhook-server-key-dir", "", "path to a directory containing two files, tls.key and tls.crt, to secure the webhook server")
+	tenantSandboxing := fs.Bool("tenant-sandboxing", false, "enables gVisor sandbox for tenant pods")
 
 	fs.Parse(os.Args[1:])
 
@@ -161,7 +162,11 @@ func main() {
 		log.Fatal("Could not add all controllers to operator manager", err)
 	}
 
-	dm.Manager.GetWebhookServer().Register("/mutate/pod-enforcement", &webhook.Admission{Handler: admission.NewPodEnforcementHandler()})
+	dm.Manager.GetWebhookServer().Register("/mutate/pod-enforcement", &webhook.Admission{
+		Handler: admission.NewPodEnforcementHandler(
+			admission.PodEnforcementHandlerWithSandboxing(*tenantSandboxing),
+		),
+	})
 
 	if err := dm.Manager.Start(signals.SetupSignalHandler()); err != nil {
 		log.Fatal("Manager exited non-zero", err)
