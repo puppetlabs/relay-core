@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	utilapi "github.com/puppetlabs/horsehead/v2/httputil/api"
-	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/evaluate"
+	"github.com/puppetlabs/nebula-tasks/pkg/expr/evaluate"
 	"github.com/puppetlabs/nebula-tasks/pkg/manager/resolve"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"

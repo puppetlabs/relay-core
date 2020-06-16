@@ -7,10 +7,15 @@ import (
 
 	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
 	utilapi "github.com/puppetlabs/horsehead/v2/httputil/api"
-	"github.com/puppetlabs/nebula-sdk/pkg/outputs"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"
 )
+
+type GetOutputResponseEnvelope struct {
+	TaskName string                 `json:"task_name"`
+	Key      string                 `json:"key"`
+	Value    transfer.JSONInterface `json:"value"`
+}
 
 func (s *Server) GetOutput(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -27,7 +32,7 @@ func (s *Server) GetOutput(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	env := &outputs.Output{
+	env := &GetOutputResponseEnvelope{
 		TaskName: output.Step.Name,
 		Key:      output.Name,
 		Value:    transfer.JSONInterface{Data: output.Value},

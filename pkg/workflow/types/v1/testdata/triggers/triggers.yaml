@@ -1,0 +1,39 @@
+apiVersion: v1
+
+parameters:
+  dockerTagName:
+    description: The repository tag to deploy
+
+triggers:
+- name: schedule
+  source:
+    type: schedule
+    schedule: '* * * * */5'
+  binding:
+    parameters:
+      dockerTagName: latest
+- name: push
+  source:
+    type: push
+    schema:
+      foo:
+        type: string
+  binding:
+    parameters:
+      dockerTagName: !Data foo
+- name: webhook
+  source:
+    type: webhook
+    image: projectnebula/dockerhub-push-trigger
+  when: !Fn.matchesRegex [!Data tag, '^production-']
+  binding:
+    parameters:
+      dockerTagName: !Data tag
+
+steps:
+- name: execute
+  image: projectnebula/core
+  input:
+  - echo $( ni get .tagToDeploy )
+  spec:
+    tagToDeploy: !Parameter dockerTagName

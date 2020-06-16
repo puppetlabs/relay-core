@@ -1,0 +1,6 @@
+version: 1.0
+description: description
+
+variables:
+  - name: value
+

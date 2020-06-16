@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/puppetlabs/nebula-sdk/pkg/outputs"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/opt"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/sample"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/api"
@@ -60,7 +59,7 @@ func TestPutGetOutput(t *testing.T) {
 	h.ServeHTTP(resp, req)
 	require.Equal(t, http.StatusOK, resp.Result().StatusCode)
 
-	var out outputs.Output
+	var out api.GetOutputResponseEnvelope
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&out))
 	require.Equal(t, "foo", out.Key)
 	require.Equal(t, "test-task", out.TaskName)

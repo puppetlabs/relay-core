@@ -8,9 +8,9 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/evaluate"
-	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/serialize"
-	sdktestutil "github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/testutil"
+	"github.com/puppetlabs/nebula-tasks/pkg/expr/evaluate"
+	"github.com/puppetlabs/nebula-tasks/pkg/expr/serialize"
+	sdktestutil "github.com/puppetlabs/nebula-tasks/pkg/expr/testutil"
 	"github.com/puppetlabs/nebula-tasks/pkg/manager/memory"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/opt"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/sample"

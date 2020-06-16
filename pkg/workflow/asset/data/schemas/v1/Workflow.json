@@ -1,0 +1,257 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Workflow",
+  "description": "A project nebula workflow definition",
+  "type": "object",
+  "properties": {
+    "apiVersion": {
+      "type": "string",
+      "description": "Nebula workflow schema version",
+      "enum": [
+        "v1"
+      ]
+    },
+    "kind": {
+      "type": "string",
+      "description": "Nebula schema type",
+      "enum": [
+        "Workflow"
+      ]
+    },
+    "description": {
+      "type": "string",
+      "description": "An optional user-provided workflow description"
+    },
+    "parameters": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/Parameter"
+      }
+    },
+    "steps": {
+      "type": "array",
+      "description": "List of workflow steps",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/definitions/Step"
+      }
+    },
+    "triggers": {
+      "type": "array",
+      "description": "List of workflow triggers",
+      "items": {
+        "$ref": "#/definitions/Trigger"
+      }
+    }
+  },
+  "required": [
+    "steps"
+  ],
+  "definitions": {
+    "SchemaField": {
+      "type": "object",
+      "description": "A descriptor of typed information",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "A value type"
+        }
+      },
+      "required": ["type"]
+    },
+    "Expression": {
+      "description": "An expression evaluated by the backend"
+    },
+    "Parameter": {
+      "type": "object",
+      "description": "A workflow parameter definition",
+      "properties": {
+        "default": {
+          "description": "Default parameter value"
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional parameter description"
+        }
+      }
+    },
+    "Step": {
+      "type": "object",
+      "description": "A workflow step definition",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Unique workflow step name"
+        },
+        "dependsOn": {
+          "description": "Step dependencies",
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ]
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "oneOf": [
+        { "$ref": "#/definitions/ContainerStep" },
+        { "$ref": "#/definitions/ApprovalStep" }
+      ]
+    },
+    "ContainerMixin": {
+      "properties": {
+        "image": {
+          "type": "string",
+          "description": "Docker image for step execution"
+        },
+        "command": {
+          "type": "string",
+          "description": "Command to issue"
+        },
+        "args": {
+          "type": "array",
+          "description": "Command arguments",
+          "items": {
+            "type": "string"
+          }
+        },
+        "inputFile": {
+          "type": "string",
+          "description": "The relative path to an file to use for the input script"
+        },
+        "input": {
+          "type": "array",
+          "description": "Input script to execute",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "image"
+      ]
+    },
+    "ContainerStep": {
+      "properties": {
+        "type": {
+          "const": "container"
+        }
+      },
+      "allOf": [
+        { "$ref": "#/definitions/ContainerMixin" }
+      ]
+    },
+    "ApprovalStep": {
+      "properties": {
+        "type": {
+          "const": "approval"
+        }
+      },
+      "required": ["type"]
+    },
+    "Trigger": {
+      "type": "object",
+      "description": "A workflow trigger definition",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Unique workflow trigger name"
+        },
+        "source": {
+          "$ref": "#/definitions/TriggerSource"
+        },
+        "binding": {
+          "$ref": "#/definitions/TriggerBinding"
+        },
+        "when": {
+          "$ref": "#/definitions/Expression"
+        }
+      },
+      "required": [
+        "name",
+        "source"
+      ]
+    },
+    "TriggerSource": {
+      "type": "object",
+      "description": "A workflow trigger source definition",
+      "oneOf": [
+        { "$ref": "#/definitions/ScheduleTriggerSource" },
+        { "$ref": "#/definitions/PushTriggerSource" },
+        { "$ref": "#/definitions/WebhookTriggerSource" }
+      ]
+    },
+    "ScheduleTriggerSource": {
+      "type": "object",
+      "description": "A schedule trigger source definition",
+      "properties": {
+        "type": {
+          "const": "schedule"
+        },
+        "schedule": {
+          "type": "string",
+          "description": "The frequency to invoke this trigger expressed in the cron syntax"
+        }
+      },
+      "required": [
+        "type",
+        "schedule"
+      ]
+    },
+    "PushTriggerSource": {
+      "type": "object",
+      "description": "A push trigger source definition",
+      "properties": {
+        "type": {
+          "const": "push"
+        },
+        "schema": {
+          "type": "object",
+          "description": "An optional schema to enforce on submitted event data",
+          "additionalProperties": {
+            "$ref": "#/definitions/SchemaField"
+          }
+        }
+      },
+      "required": [
+        "type"
+      ]
+    },
+    "WebhookTriggerSource": {
+      "type": "object",
+      "description": "A webhook trigger source definition",
+      "properties": {
+        "type": {
+          "const": "webhook"
+        }
+      },
+      "allOf": [
+        { "$ref": "#/definitions/ContainerMixin" }
+      ],
+      "required": ["type"]
+    },
+    "TriggerBinding": {
+      "type": "object",
+      "description": "A trigger binding definition",
+      "properties": {
+        "parameters": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/Expression"
+          }
+        }
+      },
+      "required": [
+        "parameters"
+      ]
+    }
+  }
+}

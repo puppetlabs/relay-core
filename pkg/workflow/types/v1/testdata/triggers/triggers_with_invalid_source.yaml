@@ -1,0 +1,13 @@
+apiVersion: v1
+
+triggers:
+- name: schedule
+  source:
+    type: schedule
+- name: webhook
+  source:
+    type: webhook
+
+steps:
+- name: execute
+  image: projectnebula/core

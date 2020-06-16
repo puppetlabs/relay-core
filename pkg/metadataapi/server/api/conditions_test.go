@@ -9,9 +9,9 @@ import (
 	"testing"
 
 	"github.com/puppetlabs/errawr-go/v2/pkg/errawr"
-	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/parse"
-	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/serialize"
-	sdktestutil "github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/testutil"
+	"github.com/puppetlabs/nebula-tasks/pkg/expr/parse"
+	"github.com/puppetlabs/nebula-tasks/pkg/expr/serialize"
+	exprtestutil "github.com/puppetlabs/nebula-tasks/pkg/expr/testutil"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/opt"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/sample"
@@ -35,12 +35,12 @@ func TestGetConditions(t *testing.T) {
 		{
 			Name: "Success",
 			Conditions: []interface{}{
-				sdktestutil.JSONInvocation("equals", []interface{}{
-					sdktestutil.JSONOutput("previous-task", "output1"),
+				exprtestutil.JSONInvocation("equals", []interface{}{
+					exprtestutil.JSONOutput("previous-task", "output1"),
 					"foobar",
 				}),
-				sdktestutil.JSONInvocation("notEquals", []interface{}{
-					sdktestutil.JSONOutput("previous-task", "output1"),
+				exprtestutil.JSONInvocation("notEquals", []interface{}{
+					exprtestutil.JSONOutput("previous-task", "output1"),
 					"barfoo",
 				}),
 			},
@@ -49,12 +49,12 @@ func TestGetConditions(t *testing.T) {
 		{
 			Name: "Failure",
 			Conditions: []interface{}{
-				sdktestutil.JSONInvocation("equals", []interface{}{
-					sdktestutil.JSONOutput("previous-task", "output1"),
+				exprtestutil.JSONInvocation("equals", []interface{}{
+					exprtestutil.JSONOutput("previous-task", "output1"),
 					"foobar",
 				}),
-				sdktestutil.JSONInvocation("notEquals", []interface{}{
-					sdktestutil.JSONOutput("previous-task", "output1"),
+				exprtestutil.JSONInvocation("notEquals", []interface{}{
+					exprtestutil.JSONOutput("previous-task", "output1"),
 					"foobar",
 				}),
 			},
@@ -63,8 +63,8 @@ func TestGetConditions(t *testing.T) {
 		{
 			Name: "Resolution error",
 			Conditions: []interface{}{
-				sdktestutil.JSONInvocation("equals", []interface{}{
-					sdktestutil.JSONParameter("param1"),
+				exprtestutil.JSONInvocation("equals", []interface{}{
+					exprtestutil.JSONParameter("param1"),
 					"foobar",
 				}),
 			},
@@ -85,12 +85,12 @@ func TestGetConditions(t *testing.T) {
 		{
 			Name: "Short-circuit failure ordering variant 1 (failure first)",
 			Conditions: []interface{}{
-				sdktestutil.JSONInvocation("equals", []interface{}{
-					sdktestutil.JSONOutput("previous-task", "output1"),
+				exprtestutil.JSONInvocation("equals", []interface{}{
+					exprtestutil.JSONOutput("previous-task", "output1"),
 					"fubar",
 				}),
-				sdktestutil.JSONInvocation("equals", []interface{}{
-					sdktestutil.JSONParameter("param1"),
+				exprtestutil.JSONInvocation("equals", []interface{}{
+					exprtestutil.JSONParameter("param1"),
 					"fubar",
 				}),
 			},
@@ -99,12 +99,12 @@ func TestGetConditions(t *testing.T) {
 		{
 			Name: "Short-circuit failure ordering variant 2 (unresolvable first)",
 			Conditions: []interface{}{
-				sdktestutil.JSONInvocation("equals", []interface{}{
-					sdktestutil.JSONParameter("param1"),
+				exprtestutil.JSONInvocation("equals", []interface{}{
+					exprtestutil.JSONParameter("param1"),
 					"fubar",
 				}),
-				sdktestutil.JSONInvocation("equals", []interface{}{
-					sdktestutil.JSONOutput("previous-task", "output1"),
+				exprtestutil.JSONInvocation("equals", []interface{}{
+					exprtestutil.JSONOutput("previous-task", "output1"),
 					"fubar",
 				}),
 			},

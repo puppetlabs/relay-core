@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/puppetlabs/errawr-go/v2/pkg/errawr"
-	"github.com/puppetlabs/nebula-sdk/pkg/secrets"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/errors"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/opt"
 	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/sample"
@@ -74,7 +73,7 @@ func TestGetSecret(t *testing.T) {
 			if test.ExpectedError == nil {
 				require.Equal(t, http.StatusOK, resp.Result().StatusCode)
 
-				var env secrets.Secret
+				var env api.GetSecretResponseEnvelope
 				require.NoError(t, json.NewDecoder(resp.Result().Body).Decode(&env))
 
 				b, err := env.Value.Decode()
