@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/puppetlabs/nebula-tasks/pkg/util/retry"
+	"github.com/puppetlabs/relay-core/pkg/util/retry"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"

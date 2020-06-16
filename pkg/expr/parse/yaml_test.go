@@ -7,8 +7,8 @@ import (
 	"testing"
 	"unicode"
 
-	"github.com/puppetlabs/nebula-tasks/pkg/expr/parse"
-	"github.com/puppetlabs/nebula-tasks/pkg/expr/testutil"
+	"github.com/puppetlabs/relay-core/pkg/expr/parse"
+	"github.com/puppetlabs/relay-core/pkg/expr/testutil"
 	"github.com/stretchr/testify/require"
 )
 

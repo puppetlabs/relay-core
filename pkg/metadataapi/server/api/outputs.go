@@ -7,8 +7,8 @@ import (
 
 	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
 	utilapi "github.com/puppetlabs/horsehead/v2/httputil/api"
-	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/errors"
-	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"
+	"github.com/puppetlabs/relay-core/pkg/metadataapi/errors"
+	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/middleware"
 )
 
 type GetOutputResponseEnvelope struct {

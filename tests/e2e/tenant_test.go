@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	relayv1beta1 "github.com/puppetlabs/nebula-tasks/pkg/apis/relay.sh/v1beta1"
-	"github.com/puppetlabs/nebula-tasks/pkg/obj"
-	"github.com/puppetlabs/nebula-tasks/pkg/util/retry"
+	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
+	"github.com/puppetlabs/relay-core/pkg/obj"
+	"github.com/puppetlabs/relay-core/pkg/util/retry"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"

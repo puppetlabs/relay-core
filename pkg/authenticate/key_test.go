@@ -6,10 +6,10 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/puppetlabs/nebula-tasks/pkg/authenticate"
+	"github.com/puppetlabs/relay-core/pkg/authenticate"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
-	"gopkg.in/square/go-jose.v2"
+	jose "gopkg.in/square/go-jose.v2"
 	"gopkg.in/square/go-jose.v2/jwt"
 )
 

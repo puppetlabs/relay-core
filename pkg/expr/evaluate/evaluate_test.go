@@ -8,11 +8,11 @@ import (
 	"testing"
 
 	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
-	"github.com/puppetlabs/nebula-tasks/pkg/expr/evaluate"
-	"github.com/puppetlabs/nebula-tasks/pkg/expr/fn"
-	"github.com/puppetlabs/nebula-tasks/pkg/expr/parse"
-	"github.com/puppetlabs/nebula-tasks/pkg/expr/resolve"
-	"github.com/puppetlabs/nebula-tasks/pkg/expr/testutil"
+	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
+	"github.com/puppetlabs/relay-core/pkg/expr/fn"
+	"github.com/puppetlabs/relay-core/pkg/expr/parse"
+	"github.com/puppetlabs/relay-core/pkg/expr/resolve"
+	"github.com/puppetlabs/relay-core/pkg/expr/testutil"
 	"github.com/stretchr/testify/require"
 )
 

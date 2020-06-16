@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/puppetlabs/nebula-tasks/pkg/dependency"
-	"github.com/puppetlabs/nebula-tasks/pkg/util/retry"
+	"github.com/puppetlabs/relay-core/pkg/dependency"
+	"github.com/puppetlabs/relay-core/pkg/util/retry"
 	tekton "github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
 	tektonfake "github.com/tektoncd/pipeline/pkg/client/clientset/versioned/fake"
 	appsv1 "k8s.io/api/apps/v1"

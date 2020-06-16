@@ -9,12 +9,12 @@ import (
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
-	"github.com/puppetlabs/nebula-tasks/pkg/expr/fn"
-	"github.com/puppetlabs/nebula-tasks/pkg/expr/parse"
-	"github.com/puppetlabs/nebula-tasks/pkg/expr/resolve"
-	"github.com/puppetlabs/nebula-tasks/pkg/util/jsonpath"
 	gval "github.com/puppetlabs/paesslerag-gval"
 	gvaljsonpath "github.com/puppetlabs/paesslerag-jsonpath"
+	"github.com/puppetlabs/relay-core/pkg/expr/fn"
+	"github.com/puppetlabs/relay-core/pkg/expr/parse"
+	"github.com/puppetlabs/relay-core/pkg/expr/resolve"
+	"github.com/puppetlabs/relay-core/pkg/util/jsonpath"
 )
 
 type Language int

@@ -5,7 +5,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	nebulapuppetcom "github.com/puppetlabs/nebula-tasks/pkg/apis/nebula.puppet.com"
+	nebulapuppetcom "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com"
 )
 
 var SchemeGroupVersion = schema.GroupVersion{Group: nebulapuppetcom.GroupName, Version: "v1"}

@@ -3,7 +3,7 @@ package convert
 import (
 	"github.com/gomarkdown/markdown"
 	"github.com/gomarkdown/markdown/html"
-	"github.com/puppetlabs/nebula-tasks/pkg/expr/convert/render/jira"
+	"github.com/puppetlabs/relay-core/pkg/expr/convert/render/jira"
 )
 
 type ConvertType string

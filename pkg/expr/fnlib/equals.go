@@ -4,7 +4,7 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/puppetlabs/nebula-tasks/pkg/expr/fn"
+	"github.com/puppetlabs/relay-core/pkg/expr/fn"
 )
 
 var (

@@ -3,8 +3,8 @@ package resolve
 import (
 	"context"
 
-	"github.com/puppetlabs/nebula-tasks/pkg/expr/resolve"
-	"github.com/puppetlabs/nebula-tasks/pkg/model"
+	"github.com/puppetlabs/relay-core/pkg/expr/resolve"
+	"github.com/puppetlabs/relay-core/pkg/model"
 )
 
 type SecretTypeResolver struct {

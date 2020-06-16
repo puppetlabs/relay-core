@@ -1,4 +1,4 @@
-module github.com/puppetlabs/nebula-tasks
+module github.com/puppetlabs/relay-core
 
 go 1.13
 

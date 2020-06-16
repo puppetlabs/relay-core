@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/puppetlabs/nebula-tasks/pkg/util/testutil"
+	"github.com/puppetlabs/relay-core/pkg/util/testutil"
 )
 
 func TestInstallAmbassador(t *testing.T) {

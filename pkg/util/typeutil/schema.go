@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/xeipuuv/gojsonschema"
-	"gopkg.in/yaml.v3"
+	yaml "gopkg.in/yaml.v3"
 )
 
 func ValidateYAMLString(schema *gojsonschema.Schema, data string) error {

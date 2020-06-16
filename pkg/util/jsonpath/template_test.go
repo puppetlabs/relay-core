@@ -24,7 +24,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/puppetlabs/nebula-tasks/pkg/util/jsonpath"
+	"github.com/puppetlabs/relay-core/pkg/util/jsonpath"
 	"github.com/stretchr/testify/require"
 )
 

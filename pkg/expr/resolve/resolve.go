@@ -3,7 +3,7 @@ package resolve
 import (
 	"context"
 
-	"github.com/puppetlabs/nebula-tasks/pkg/expr/fn"
+	"github.com/puppetlabs/relay-core/pkg/expr/fn"
 )
 
 type DataTypeResolver interface {

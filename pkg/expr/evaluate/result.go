@@ -4,7 +4,7 @@ import (
 	"sort"
 
 	"github.com/puppetlabs/horsehead/v2/datastructure"
-	"github.com/puppetlabs/nebula-tasks/pkg/expr/resolve"
+	"github.com/puppetlabs/relay-core/pkg/expr/resolve"
 )
 
 type UnresolvableData struct {

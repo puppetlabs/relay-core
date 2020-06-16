@@ -57,7 +57,7 @@ func (r *Renderer) text(w io.Writer, text *ast.Text) {
 		r := regexp.MustCompile("(^|\\s+)(-\\s*-\\s*-)(\\s+|$)")
 		md := r.ReplaceAllString(string(text.Literal), "\n----\n")
 		md = strings.TrimPrefix(md, "%%% ")
-		md =strings.TrimSuffix(md, " %%%")
+		md = strings.TrimSuffix(md, " %%%")
 
 		w.Write([]byte(md))
 	}

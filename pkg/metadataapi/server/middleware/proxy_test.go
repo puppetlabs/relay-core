@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"
+	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/middleware"
 	"github.com/stretchr/testify/require"
 )
 

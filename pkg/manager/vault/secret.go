@@ -3,7 +3,7 @@ package vault
 import (
 	"context"
 
-	"github.com/puppetlabs/nebula-tasks/pkg/model"
+	"github.com/puppetlabs/relay-core/pkg/model"
 )
 
 type SecretManager struct {

@@ -6,8 +6,8 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/puppetlabs/errawr-go/v2/pkg/errawr"
 	utilapi "github.com/puppetlabs/horsehead/v2/httputil/api"
-	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/api"
-	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"
+	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/api"
+	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/middleware"
 )
 
 type Server struct {

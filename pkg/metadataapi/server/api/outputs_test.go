@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/opt"
-	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/sample"
-	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/api"
+	"github.com/puppetlabs/relay-core/pkg/metadataapi/opt"
+	"github.com/puppetlabs/relay-core/pkg/metadataapi/sample"
+	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/api"
 	"github.com/stretchr/testify/require"
 )
 

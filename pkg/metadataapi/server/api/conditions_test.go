@@ -9,14 +9,14 @@ import (
 	"testing"
 
 	"github.com/puppetlabs/errawr-go/v2/pkg/errawr"
-	"github.com/puppetlabs/nebula-tasks/pkg/expr/parse"
-	"github.com/puppetlabs/nebula-tasks/pkg/expr/serialize"
-	exprtestutil "github.com/puppetlabs/nebula-tasks/pkg/expr/testutil"
-	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/errors"
-	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/opt"
-	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/sample"
-	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/api"
-	"github.com/puppetlabs/nebula-tasks/pkg/util/testutil"
+	"github.com/puppetlabs/relay-core/pkg/expr/parse"
+	"github.com/puppetlabs/relay-core/pkg/expr/serialize"
+	exprtestutil "github.com/puppetlabs/relay-core/pkg/expr/testutil"
+	"github.com/puppetlabs/relay-core/pkg/metadataapi/errors"
+	"github.com/puppetlabs/relay-core/pkg/metadataapi/opt"
+	"github.com/puppetlabs/relay-core/pkg/metadataapi/sample"
+	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/api"
+	"github.com/puppetlabs/relay-core/pkg/util/testutil"
 	"github.com/stretchr/testify/require"
 )
 

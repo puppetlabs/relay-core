@@ -6,5 +6,5 @@ cd "$(dirname "$0")"/..
 
 NEBULA_TASKS_REPO_BASE="${NEBULA_TASKS_REPO_BASE:-gcr.io/nebula-235818}"
 
-docker build -f ./cmd/nebula-workflow-controller/Dockerfile -t "${NEBULA_TASKS_REPO_BASE}/nebula-workflow-controller:${VERSION}" .
+docker build -f ./cmd/relay-operator/Dockerfile -t "${NEBULA_TASKS_REPO_BASE}/relay-operator:${VERSION}" .
 docker build -f ./cmd/relay-metadata-api/Dockerfile -t "${NEBULA_TASKS_REPO_BASE}/relay-metadata-api:${VERSION}" .

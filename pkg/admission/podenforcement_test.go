@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/puppetlabs/nebula-tasks/pkg/admission"
-	"github.com/puppetlabs/nebula-tasks/pkg/util/testutil"
+	"github.com/puppetlabs/relay-core/pkg/admission"
+	"github.com/puppetlabs/relay-core/pkg/util/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"

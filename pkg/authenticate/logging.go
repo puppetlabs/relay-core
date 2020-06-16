@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	logger = logging.Builder().At("nebula-tasks", "pkg", "authenticate")
+	logger = logging.Builder().At("relay-core", "pkg", "authenticate")
 )
 
 func log(ctx context.Context) logging.Logger {

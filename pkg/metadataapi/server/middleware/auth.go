@@ -7,12 +7,12 @@ import (
 
 	"github.com/gorilla/mux"
 	vaultapi "github.com/hashicorp/vault/api"
-	"github.com/puppetlabs/nebula-tasks/pkg/authenticate"
-	"github.com/puppetlabs/nebula-tasks/pkg/manager/api"
-	"github.com/puppetlabs/nebula-tasks/pkg/manager/builder"
-	"github.com/puppetlabs/nebula-tasks/pkg/manager/configmap"
-	"github.com/puppetlabs/nebula-tasks/pkg/manager/vault"
-	"github.com/puppetlabs/nebula-tasks/pkg/model"
+	"github.com/puppetlabs/relay-core/pkg/authenticate"
+	"github.com/puppetlabs/relay-core/pkg/manager/api"
+	"github.com/puppetlabs/relay-core/pkg/manager/builder"
+	"github.com/puppetlabs/relay-core/pkg/manager/configmap"
+	"github.com/puppetlabs/relay-core/pkg/manager/vault"
+	"github.com/puppetlabs/relay-core/pkg/model"
 	"k8s.io/client-go/kubernetes"
 )
 

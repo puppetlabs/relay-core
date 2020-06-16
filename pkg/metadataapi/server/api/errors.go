@@ -1,8 +1,8 @@
 package api
 
 import (
-	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/errors"
-	"github.com/puppetlabs/nebula-tasks/pkg/model"
+	"github.com/puppetlabs/relay-core/pkg/metadataapi/errors"
+	"github.com/puppetlabs/relay-core/pkg/model"
 )
 
 func ModelReadError(err error) errors.Error {

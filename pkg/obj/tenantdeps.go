@@ -3,8 +3,8 @@ package obj
 import (
 	"context"
 
-	relayv1beta1 "github.com/puppetlabs/nebula-tasks/pkg/apis/relay.sh/v1beta1"
-	"github.com/puppetlabs/nebula-tasks/pkg/model"
+	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
+	"github.com/puppetlabs/relay-core/pkg/model"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/puppetlabs/nebula-tasks/pkg/expr/fnlib"
+	"github.com/puppetlabs/relay-core/pkg/expr/fnlib"
 	"github.com/stretchr/testify/require"
 )
 

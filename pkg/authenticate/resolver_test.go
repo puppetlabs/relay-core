@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/puppetlabs/nebula-tasks/pkg/authenticate"
+	"github.com/puppetlabs/relay-core/pkg/authenticate"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/square/go-jose.v2/jwt"

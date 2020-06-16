@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/puppetlabs/nebula-tasks/pkg/expr/serialize"
+	"github.com/puppetlabs/relay-core/pkg/expr/serialize"
 	"github.com/stretchr/testify/require"
 )
 

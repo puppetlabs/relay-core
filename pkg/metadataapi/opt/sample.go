@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/puppetlabs/nebula-tasks/pkg/expr/serialize"
-	"github.com/puppetlabs/nebula-tasks/pkg/manager/memory"
-	"gopkg.in/yaml.v3"
+	"github.com/puppetlabs/relay-core/pkg/expr/serialize"
+	"github.com/puppetlabs/relay-core/pkg/manager/memory"
+	yaml "gopkg.in/yaml.v3"
 )
 
 type SampleConfigConnections map[memory.ConnectionKey]map[string]interface{}
