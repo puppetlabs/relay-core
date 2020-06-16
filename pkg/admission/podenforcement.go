@@ -33,11 +33,12 @@ var (
 			"8.8.8.8",
 		},
 	}
-	// PodRuntimeClassName = "gvisor"
+	PodSandboxRuntimeClassName = "gvisor"
 )
 
 type PodEnforcementHandler struct {
-	decoder *admission.Decoder
+	sandboxed bool
+	decoder   *admission.Decoder
 }
 
 var _ admission.Handler = &PodEnforcementHandler{}
@@ -53,7 +54,10 @@ func (peh *PodEnforcementHandler) Handle(ctx context.Context, req admission.Requ
 	pod.Spec.Tolerations = PodTolerations
 	pod.Spec.DNSPolicy = PodDNSPolicy
 	pod.Spec.DNSConfig = PodDNSConfig
-	// pod.Spec.RuntimeClassName = &PodRuntimeClassName
+
+	if peh.sandboxed {
+		pod.Spec.RuntimeClassName = &PodSandboxRuntimeClassName
+	}
 
 	b, err := json.Marshal(pod)
 	if err != nil {
@@ -68,6 +72,20 @@ func (peh *PodEnforcementHandler) InjectDecoder(d *admission.Decoder) error {
 	return nil
 }
 
-func NewPodEnforcementHandler() *PodEnforcementHandler {
-	return &PodEnforcementHandler{}
+type PodEnforcementHandlerOption func(peh *PodEnforcementHandler)
+
+func PodEnforcementHandlerWithSandboxing(sandboxed bool) PodEnforcementHandlerOption {
+	return func(peh *PodEnforcementHandler) {
+		peh.sandboxed = sandboxed
+	}
+}
+
+func NewPodEnforcementHandler(opts ...PodEnforcementHandlerOption) *PodEnforcementHandler {
+	peh := &PodEnforcementHandler{}
+
+	for _, opt := range opts {
+		opt(peh)
+	}
+
+	return peh
 }
