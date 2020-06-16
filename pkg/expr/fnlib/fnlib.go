@@ -1,6 +1,6 @@
 package fnlib
 
-import "github.com/puppetlabs/nebula-tasks/pkg/expr/fn"
+import "github.com/puppetlabs/relay-core/pkg/expr/fn"
 
 var (
 	library = map[string]fn.Descriptor{

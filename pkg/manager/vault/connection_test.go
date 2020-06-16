@@ -6,9 +6,9 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/puppetlabs/nebula-tasks/pkg/manager/vault"
-	"github.com/puppetlabs/nebula-tasks/pkg/model"
-	"github.com/puppetlabs/nebula-tasks/pkg/util/testutil"
+	"github.com/puppetlabs/relay-core/pkg/manager/vault"
+	"github.com/puppetlabs/relay-core/pkg/model"
+	"github.com/puppetlabs/relay-core/pkg/util/testutil"
 	"github.com/stretchr/testify/require"
 )
 

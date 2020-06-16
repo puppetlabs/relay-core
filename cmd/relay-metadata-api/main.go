@@ -11,11 +11,11 @@ import (
 	"github.com/puppetlabs/errawr-go/v2/pkg/errawr"
 	"github.com/puppetlabs/horsehead/v2/logging"
 	"github.com/puppetlabs/horsehead/v2/mainutil"
-	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/opt"
-	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/sample"
-	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server"
-	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"
-	"github.com/puppetlabs/nebula-tasks/pkg/util/lifecycleutil"
+	"github.com/puppetlabs/relay-core/pkg/metadataapi/opt"
+	"github.com/puppetlabs/relay-core/pkg/metadataapi/sample"
+	"github.com/puppetlabs/relay-core/pkg/metadataapi/server"
+	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/middleware"
+	"github.com/puppetlabs/relay-core/pkg/util/lifecycleutil"
 )
 
 func main() {

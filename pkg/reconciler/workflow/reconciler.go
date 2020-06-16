@@ -6,9 +6,9 @@ import (
 	"io"
 
 	"github.com/puppetlabs/horsehead/v2/storage"
-	"github.com/puppetlabs/nebula-tasks/pkg/authenticate"
-	"github.com/puppetlabs/nebula-tasks/pkg/dependency"
-	"github.com/puppetlabs/nebula-tasks/pkg/obj"
+	"github.com/puppetlabs/relay-core/pkg/authenticate"
+	"github.com/puppetlabs/relay-core/pkg/dependency"
+	"github.com/puppetlabs/relay-core/pkg/obj"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"

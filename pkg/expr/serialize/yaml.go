@@ -1,8 +1,8 @@
 package serialize
 
 import (
-	"github.com/puppetlabs/nebula-tasks/pkg/expr/parse"
-	"gopkg.in/yaml.v3"
+	"github.com/puppetlabs/relay-core/pkg/expr/parse"
+	yaml "gopkg.in/yaml.v3"
 )
 
 type YAMLTree struct {

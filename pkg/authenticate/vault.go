@@ -8,8 +8,8 @@ import (
 	"path"
 	"time"
 
-	"github.com/hashicorp/go-cleanhttp"
-	"github.com/hashicorp/go-retryablehttp"
+	cleanhttp "github.com/hashicorp/go-cleanhttp"
+	retryablehttp "github.com/hashicorp/go-retryablehttp"
 	vaultapi "github.com/hashicorp/vault/api"
 	"gopkg.in/square/go-jose.v2/jwt"
 )

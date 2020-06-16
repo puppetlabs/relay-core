@@ -4,13 +4,13 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/puppetlabs/nebula-tasks/pkg/authenticate"
-	"github.com/puppetlabs/nebula-tasks/pkg/manager/builder"
-	mlog "github.com/puppetlabs/nebula-tasks/pkg/manager/log"
-	"github.com/puppetlabs/nebula-tasks/pkg/manager/memory"
-	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/opt"
-	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"
-	"github.com/puppetlabs/nebula-tasks/pkg/model"
+	"github.com/puppetlabs/relay-core/pkg/authenticate"
+	"github.com/puppetlabs/relay-core/pkg/manager/builder"
+	mlog "github.com/puppetlabs/relay-core/pkg/manager/log"
+	"github.com/puppetlabs/relay-core/pkg/manager/memory"
+	"github.com/puppetlabs/relay-core/pkg/metadataapi/opt"
+	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/middleware"
+	"github.com/puppetlabs/relay-core/pkg/model"
 	"gopkg.in/square/go-jose.v2/jwt"
 )
 

@@ -3,10 +3,10 @@ package serialize
 import (
 	"context"
 
-	"github.com/puppetlabs/nebula-tasks/pkg/expr/evaluate"
-	"github.com/puppetlabs/nebula-tasks/pkg/expr/fn"
-	"github.com/puppetlabs/nebula-tasks/pkg/expr/parse"
-	"github.com/puppetlabs/nebula-tasks/pkg/expr/resolve"
+	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
+	"github.com/puppetlabs/relay-core/pkg/expr/fn"
+	"github.com/puppetlabs/relay-core/pkg/expr/parse"
+	"github.com/puppetlabs/relay-core/pkg/expr/resolve"
 )
 
 type JSONTree struct {

@@ -1,6 +1,6 @@
 package evaluate
 
-import "github.com/puppetlabs/nebula-tasks/pkg/expr/resolve"
+import "github.com/puppetlabs/relay-core/pkg/expr/resolve"
 
 type Option func(e *Evaluator)
 

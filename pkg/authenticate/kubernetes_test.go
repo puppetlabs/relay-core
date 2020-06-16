@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	vaultapi "github.com/hashicorp/vault/api"
-	"github.com/puppetlabs/nebula-tasks/pkg/authenticate"
-	"github.com/puppetlabs/nebula-tasks/pkg/util/testutil"
+	"github.com/puppetlabs/relay-core/pkg/authenticate"
+	"github.com/puppetlabs/relay-core/pkg/util/testutil"
 	"github.com/stretchr/testify/require"
 	tektonv1alpha1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
 	"gopkg.in/square/go-jose.v2/jwt"

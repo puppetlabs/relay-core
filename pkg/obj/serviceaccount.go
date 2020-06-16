@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/puppetlabs/nebula-tasks/pkg/util/retry"
+	"github.com/puppetlabs/relay-core/pkg/util/retry"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"

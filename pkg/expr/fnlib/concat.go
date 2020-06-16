@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/puppetlabs/nebula-tasks/pkg/expr/fn"
+	"github.com/puppetlabs/relay-core/pkg/expr/fn"
 )
 
 var concatDescriptor = fn.DescriptorFuncs{

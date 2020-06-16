@@ -6,7 +6,7 @@ import (
 
 	vaultapi "github.com/hashicorp/vault/api"
 	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
-	"github.com/puppetlabs/nebula-tasks/pkg/model"
+	"github.com/puppetlabs/relay-core/pkg/model"
 )
 
 // KVV2Client accesses metadata and data from a KV V2 engine mount uniformly.

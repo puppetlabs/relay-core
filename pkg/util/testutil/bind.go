@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/puppetlabs/nebula-tasks/pkg/util/retry"
+	"github.com/puppetlabs/relay-core/pkg/util/retry"
 	"github.com/rancher/remotedialer"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"

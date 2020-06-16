@@ -1,6 +1,6 @@
 package typeutil
 
-import "gopkg.in/yaml.v2"
+import yaml "gopkg.in/yaml.v2"
 
 type VersionKind struct {
 	APIVersion string `yaml:"apiVersion" json:"apiVersion,omitempty"`

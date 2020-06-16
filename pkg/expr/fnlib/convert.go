@@ -4,8 +4,8 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/puppetlabs/nebula-tasks/pkg/expr/convert"
-	"github.com/puppetlabs/nebula-tasks/pkg/expr/fn"
+	"github.com/puppetlabs/relay-core/pkg/expr/convert"
+	"github.com/puppetlabs/relay-core/pkg/expr/fn"
 )
 
 var convertMarkdownDescriptor = fn.DescriptorFuncs{

@@ -4,10 +4,10 @@ import (
 	"net/http"
 
 	utilapi "github.com/puppetlabs/horsehead/v2/httputil/api"
-	"github.com/puppetlabs/nebula-tasks/pkg/expr/evaluate"
-	"github.com/puppetlabs/nebula-tasks/pkg/manager/resolve"
-	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/errors"
-	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"
+	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
+	"github.com/puppetlabs/relay-core/pkg/manager/resolve"
+	"github.com/puppetlabs/relay-core/pkg/metadataapi/errors"
+	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/middleware"
 )
 
 func (s *Server) GetSpec(w http.ResponseWriter, r *http.Request) {
