@@ -1,8 +1,8 @@
 package builder
 
 import (
-	"github.com/puppetlabs/nebula-tasks/pkg/manager/reject"
-	"github.com/puppetlabs/nebula-tasks/pkg/model"
+	"github.com/puppetlabs/relay-core/pkg/manager/reject"
+	"github.com/puppetlabs/relay-core/pkg/model"
 )
 
 type metadataManagers struct {

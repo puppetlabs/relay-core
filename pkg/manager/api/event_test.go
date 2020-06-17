@@ -8,8 +8,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/puppetlabs/nebula-tasks/pkg/manager/api"
-	"github.com/puppetlabs/nebula-tasks/pkg/model"
+	"github.com/puppetlabs/relay-core/pkg/manager/api"
+	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/puppetlabs/nebula-tasks/pkg/manager/configmap"
-	"github.com/puppetlabs/nebula-tasks/pkg/model"
+	"github.com/puppetlabs/relay-core/pkg/manager/configmap"
+	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 )

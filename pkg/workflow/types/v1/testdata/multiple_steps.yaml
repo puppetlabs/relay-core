@@ -1,0 +1,68 @@
+version: "1.0"
+description: description
+
+parameters:
+  someparam:
+    default: value
+  anotherparam:
+    default: [one, two, three]
+    type: testing
+    description: "Testing a param with all three properties"
+  boilerplate:
+    default: Header
+  message:
+    default: Success!
+
+steps:
+  - name: publish
+    image: "alpine:latest"
+    input:
+      - cat /nebula/spec.json
+    spec:
+      flag: true
+      message: "publish this"
+      count: 42
+  - name: deploy
+    image: "alpine:latest"
+    input:
+      - cat /nebula/spec.json
+    spec:
+      values:
+        image:
+          tag:
+            $type: Secret
+            name: image.tag
+      data:
+        $type: Parameter
+        name: anotherparam
+      deployments:
+        zones:
+          - "zone1"
+          - "zone2"
+          - "zone3"
+        nodes:
+          - 1
+          - 2
+          - 3
+        autoscale:
+          - false
+          - true
+          - true
+  - name: notify
+    image: "alpine:latest"
+    input:
+      - cat /nebula/spec.json
+    spec:
+      messages:
+        - message:
+            $type: Parameter
+            name: boilerplate
+        - message:
+            $type: Parameter
+            name: message
+      token:
+        $type: Secret
+        name: slack-token
+    dependsOn:
+      - publish
+      - deploy

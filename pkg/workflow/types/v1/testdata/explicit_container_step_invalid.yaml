@@ -1,0 +1,9 @@
+apiVersion: v1
+## explicit container step types should trigger container step validation
+## This is invalid because of an invalid "command" field
+steps:
+  - name: step-1
+    type: container
+    image: my-image
+    command:
+      - key: value

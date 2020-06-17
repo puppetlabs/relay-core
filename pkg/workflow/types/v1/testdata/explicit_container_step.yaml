@@ -1,0 +1,6 @@
+apiVersion: v1
+## specifying type: container on a step is valid
+steps:
+  - name: step-1
+    type: container
+    image: my-image

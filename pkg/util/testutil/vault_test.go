@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/hashicorp/vault/api"
-	"github.com/puppetlabs/nebula-tasks/pkg/authenticate"
-	"github.com/puppetlabs/nebula-tasks/pkg/util/testutil"
+	"github.com/puppetlabs/relay-core/pkg/authenticate"
+	"github.com/puppetlabs/relay-core/pkg/util/testutil"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/square/go-jose.v2/jwt"
 )

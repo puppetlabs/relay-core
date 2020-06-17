@@ -1,0 +1,20 @@
+version: "1.0"
+description: description
+
+parameters:
+  someparam:
+    default: value
+  anotherparam:
+    default: [one, two, three]
+    type: testing
+    description: "Testing a param with all three properties"
+
+steps:
+  - name: publish
+    input:
+      - echo "thisisbasicallyamakefile"
+  - image: "alpine:latest"
+  - name: etc
+    image: "alpine:latest"
+    input:
+      - echo "thisisbasicallyamakefile"

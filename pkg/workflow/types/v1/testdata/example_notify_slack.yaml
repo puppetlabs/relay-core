@@ -1,0 +1,28 @@
+version: v1
+description: Notify team members with Slack
+
+parameters:
+  channel:
+    description: Slack channel (include preceding hashtag)
+  message:
+    description: Slack message
+
+steps:
+- name: init-workflow
+  image: alpine:latest
+  input:
+    - echo "Initializing workflow - Notify with Slack"
+- name: slack-notify
+  image: projectnebula/slack-notification:bf8ecb9
+  spec:
+    apitoken:
+       $type: Secret
+       name: slack-token
+    channel:
+       $type: Parameter
+       name: channel
+    message:
+       $type: Parameter
+       name: message
+  dependsOn:
+  - init-workflow

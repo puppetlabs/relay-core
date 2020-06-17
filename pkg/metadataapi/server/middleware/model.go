@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/puppetlabs/nebula-tasks/pkg/manager/builder"
-	"github.com/puppetlabs/nebula-tasks/pkg/model"
+	"github.com/puppetlabs/relay-core/pkg/manager/builder"
+	"github.com/puppetlabs/relay-core/pkg/model"
 )
 
 type modelContextKey int

@@ -3,8 +3,8 @@ package handler
 import (
 	"encoding/json"
 
-	"github.com/puppetlabs/nebula-tasks/pkg/model"
-	"github.com/puppetlabs/nebula-tasks/pkg/obj"
+	"github.com/puppetlabs/relay-core/pkg/model"
+	"github.com/puppetlabs/relay-core/pkg/obj"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"

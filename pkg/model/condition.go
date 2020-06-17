@@ -3,7 +3,7 @@ package model
 import (
 	"context"
 
-	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/parse"
+	"github.com/puppetlabs/relay-core/pkg/expr/parse"
 )
 
 type Condition struct {

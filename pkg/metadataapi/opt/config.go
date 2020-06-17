@@ -8,9 +8,9 @@ import (
 	"os"
 
 	vaultapi "github.com/hashicorp/vault/api"
-	"github.com/puppetlabs/nebula-tasks/pkg/authenticate"
+	"github.com/puppetlabs/relay-core/pkg/authenticate"
 	"github.com/spf13/viper"
-	"gopkg.in/yaml.v3"
+	yaml "gopkg.in/yaml.v3"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/cert"

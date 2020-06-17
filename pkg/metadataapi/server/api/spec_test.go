@@ -8,13 +8,13 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/evaluate"
-	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/serialize"
-	sdktestutil "github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/testutil"
-	"github.com/puppetlabs/nebula-tasks/pkg/manager/memory"
-	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/opt"
-	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/sample"
-	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/api"
+	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
+	"github.com/puppetlabs/relay-core/pkg/expr/serialize"
+	sdktestutil "github.com/puppetlabs/relay-core/pkg/expr/testutil"
+	"github.com/puppetlabs/relay-core/pkg/manager/memory"
+	"github.com/puppetlabs/relay-core/pkg/metadataapi/opt"
+	"github.com/puppetlabs/relay-core/pkg/metadataapi/sample"
+	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/api"
 	"github.com/stretchr/testify/require"
 )
 

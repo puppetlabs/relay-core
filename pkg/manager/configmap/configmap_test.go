@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/puppetlabs/nebula-tasks/pkg/manager/configmap"
-	"github.com/puppetlabs/nebula-tasks/pkg/util/testutil"
+	"github.com/puppetlabs/relay-core/pkg/manager/configmap"
+	"github.com/puppetlabs/relay-core/pkg/util/testutil"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"

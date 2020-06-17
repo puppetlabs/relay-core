@@ -17,11 +17,11 @@ import (
 	"github.com/inconshreveable/log15"
 	"github.com/puppetlabs/horsehead/v2/logging"
 	"github.com/puppetlabs/horsehead/v2/scheduler"
-	"github.com/puppetlabs/nebula-tasks/pkg/authenticate"
-	"github.com/puppetlabs/nebula-tasks/pkg/util/testutil"
+	"github.com/puppetlabs/relay-core/pkg/authenticate"
+	"github.com/puppetlabs/relay-core/pkg/util/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/square/go-jose.v2"
+	jose "gopkg.in/square/go-jose.v2"
 	"gopkg.in/square/go-jose.v2/jwt"
 )
 

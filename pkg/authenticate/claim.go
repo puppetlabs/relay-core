@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/puppetlabs/horsehead/v2/jsonutil"
-	"github.com/puppetlabs/nebula-tasks/pkg/model"
+	"github.com/puppetlabs/relay-core/pkg/model"
 	"gopkg.in/square/go-jose.v2/jwt"
 )
 

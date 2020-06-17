@@ -4,8 +4,8 @@ import (
 	"context"
 	"sync"
 
-	"github.com/puppetlabs/nebula-sdk/pkg/workflow/spec/parse"
-	"github.com/puppetlabs/nebula-tasks/pkg/model"
+	"github.com/puppetlabs/relay-core/pkg/expr/parse"
+	"github.com/puppetlabs/relay-core/pkg/model"
 )
 
 type ConditionManager struct {

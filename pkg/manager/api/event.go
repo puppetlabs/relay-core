@@ -10,7 +10,7 @@ import (
 	"github.com/puppetlabs/errawr-go/v2/pkg/errawr"
 	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
 	utilapi "github.com/puppetlabs/horsehead/v2/httputil/api"
-	"github.com/puppetlabs/nebula-tasks/pkg/model"
+	"github.com/puppetlabs/relay-core/pkg/model"
 )
 
 type UnexpectedResponseError struct {

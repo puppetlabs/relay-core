@@ -1,12 +1,12 @@
 package trigger
 
 import (
-	relayv1beta1 "github.com/puppetlabs/nebula-tasks/pkg/apis/relay.sh/v1beta1"
-	"github.com/puppetlabs/nebula-tasks/pkg/config"
-	"github.com/puppetlabs/nebula-tasks/pkg/controller/handler"
-	"github.com/puppetlabs/nebula-tasks/pkg/dependency"
-	"github.com/puppetlabs/nebula-tasks/pkg/reconciler/filter"
-	"github.com/puppetlabs/nebula-tasks/pkg/reconciler/trigger"
+	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
+	"github.com/puppetlabs/relay-core/pkg/config"
+	"github.com/puppetlabs/relay-core/pkg/controller/handler"
+	"github.com/puppetlabs/relay-core/pkg/dependency"
+	"github.com/puppetlabs/relay-core/pkg/reconciler/filter"
+	"github.com/puppetlabs/relay-core/pkg/reconciler/trigger"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/controller"

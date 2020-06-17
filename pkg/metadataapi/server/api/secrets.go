@@ -5,10 +5,14 @@ import (
 
 	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
 	utilapi "github.com/puppetlabs/horsehead/v2/httputil/api"
-	"github.com/puppetlabs/nebula-sdk/pkg/secrets"
-	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/errors"
-	"github.com/puppetlabs/nebula-tasks/pkg/metadataapi/server/middleware"
+	"github.com/puppetlabs/relay-core/pkg/metadataapi/errors"
+	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/middleware"
 )
+
+type GetSecretResponseEnvelope struct {
+	Key   string             `json:"key"`
+	Value transfer.JSONOrStr `json:"value"`
+}
 
 func (s *Server) GetSecret(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -30,7 +34,7 @@ func (s *Server) GetSecret(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	env := &secrets.Secret{
+	env := &GetSecretResponseEnvelope{
 		Key:   sec.Name,
 		Value: ev,
 	}

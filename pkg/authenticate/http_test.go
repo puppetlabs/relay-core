@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/puppetlabs/nebula-tasks/pkg/authenticate"
+	"github.com/puppetlabs/relay-core/pkg/authenticate"
 	"github.com/stretchr/testify/require"
 )
 

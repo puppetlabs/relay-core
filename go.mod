@@ -1,13 +1,16 @@
-module github.com/puppetlabs/nebula-tasks
+module github.com/puppetlabs/relay-core
 
 go 1.13
 
 require (
 	cloud.google.com/go/storage v1.1.2 // indirect
+	github.com/PaesslerAG/gval v1.0.2-0.20190803062529-6fceb06ca162 // indirect
+	github.com/PaesslerAG/jsonpath v0.1.1 // indirect
 	github.com/containerd/continuity v0.0.0-20200413184840-d3ef23f19fbb // indirect
 	github.com/frankban/quicktest v1.7.3 // indirect
 	github.com/gofrs/flock v0.7.1
 	github.com/golang/groupcache v0.0.0-20191002201903-404acd9df4cc // indirect
+	github.com/gomarkdown/markdown v0.0.0-20200513213024-62c5e2c608cc
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.3
 	github.com/hashicorp/go-cleanhttp v0.5.1
@@ -20,19 +23,26 @@ require (
 	github.com/inconshreveable/log15 v0.0.0-20180818164646-67afb5ed74ec
 	github.com/jstemmer/go-junit-report v0.9.1 // indirect
 	github.com/keybase/go-crypto v0.0.0-20200123153347-de78d2cb44f4 // indirect
+	github.com/mitchellh/mapstructure v1.1.2
 	github.com/opencontainers/runc v1.0.0-rc6 // indirect
 	github.com/puppetlabs/errawr-gen v1.0.1
 	github.com/puppetlabs/errawr-go/v2 v2.2.0
 	github.com/puppetlabs/horsehead/v2 v2.7.0
 	github.com/puppetlabs/nebula-libs/storage/file/v2 v2.0.0
 	github.com/puppetlabs/nebula-libs/storage/gcs/v2 v2.0.0
-	github.com/puppetlabs/nebula-sdk v1.14.1
+	github.com/puppetlabs/paesslerag-gval v1.0.2-0.20191119012647-d2c694821b5b
+	github.com/puppetlabs/paesslerag-jsonpath v0.1.2-0.20200512062544-1e26d7ca225e
 	github.com/rancher/remotedialer v0.2.5
+	github.com/shurcooL/vfsgen v0.0.0-20181202132449-6a9ea43bcacd
+	github.com/smartystreets/goconvey v0.0.0-20190731233626-505e41936337 // indirect
 	github.com/spf13/viper v1.3.2
 	github.com/stretchr/testify v1.5.1
 	github.com/tektoncd/pipeline v0.12.0
+	github.com/xeipuuv/gojsonschema v1.2.0
 	golang.org/x/net v0.0.0-20200202094626-16171245cfb2
+	gopkg.in/ini.v1 v1.48.0 // indirect
 	gopkg.in/square/go-jose.v2 v2.4.1
+	gopkg.in/yaml.v2 v2.2.8
 	gopkg.in/yaml.v3 v3.0.0-20191010095647-fc94e3f71652
 	k8s.io/api v0.17.3
 	k8s.io/apiextensions-apiserver v0.17.3

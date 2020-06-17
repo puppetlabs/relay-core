@@ -5,7 +5,7 @@ import (
 )
 
 var (
-	logger = logging.Builder().At("nebula-tasks", "pkg", "metadataapi", "sample")
+	logger = logging.Builder().At("relay-core", "pkg", "metadataapi", "sample")
 )
 
 func log() logging.Logger {

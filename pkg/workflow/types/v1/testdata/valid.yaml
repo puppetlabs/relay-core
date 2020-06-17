@@ -1,0 +1,10 @@
+apiVersion: v1
+description: This is a workflow
+parameters:
+  hi:
+    default: 5
+    description: "Hello"
+steps:
+  - name: step-1
+    image: image-1
+    

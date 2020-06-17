@@ -1,10 +1,10 @@
 package tenant
 
 import (
-	relayv1beta1 "github.com/puppetlabs/nebula-tasks/pkg/apis/relay.sh/v1beta1"
-	"github.com/puppetlabs/nebula-tasks/pkg/config"
-	"github.com/puppetlabs/nebula-tasks/pkg/reconciler/filter"
-	"github.com/puppetlabs/nebula-tasks/pkg/reconciler/tenant"
+	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
+	"github.com/puppetlabs/relay-core/pkg/config"
+	"github.com/puppetlabs/relay-core/pkg/reconciler/filter"
+	"github.com/puppetlabs/relay-core/pkg/reconciler/tenant"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"

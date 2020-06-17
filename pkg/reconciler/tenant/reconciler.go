@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/puppetlabs/nebula-tasks/pkg/config"
-	"github.com/puppetlabs/nebula-tasks/pkg/obj"
+	"github.com/puppetlabs/relay-core/pkg/config"
+	"github.com/puppetlabs/relay-core/pkg/obj"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"

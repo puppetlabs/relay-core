@@ -7,7 +7,7 @@ import (
 
 	gometrics "github.com/puppetlabs/horsehead/v2/instrumentation/metrics"
 	"github.com/puppetlabs/horsehead/v2/instrumentation/metrics/delegates"
-	"github.com/puppetlabs/nebula-tasks/pkg/util/testutil"
+	"github.com/puppetlabs/relay-core/pkg/util/testutil"
 	"k8s.io/klog"
 )
 
