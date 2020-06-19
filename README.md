@@ -1,6 +1,7 @@
 # Relay Core
 
-This repository contains the open-source core of [Relay](https://relay.sh).
+This repository contains the Kubernetes-based execution backend for
+[Relay](https://relay.sh).
 
 ## Installation
 
