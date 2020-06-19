@@ -10,4 +10,4 @@ triggers:
 
 steps:
 - name: execute
-  image: projectnebula/core
+  image: relaysh/core

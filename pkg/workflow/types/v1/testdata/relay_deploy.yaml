@@ -1,0 +1,162 @@
+version: v1
+description: Relay Workflow
+
+parameters:
+  param-a:
+    default: redacted
+    description: Param A
+  param-b:
+    default: redacted
+    description: Param B
+  branch:
+    default: master
+
+steps:
+- name: relay-terraform-1
+  image: relaysh/terraform:latest
+  spec:
+    directory:
+      $type: Parameter
+      name: param-a
+    credentials:
+      credentials.json:
+        $type: Secret
+        name: credentials
+    git: &git
+      ssh_key:
+        $type: Secret
+        name: ssh_key
+      known_hosts:
+        $type: Secret
+        name: known_hosts
+      name: relay-deploy
+      repository: redacted
+      branch:
+        $type: Parameter
+        name: branch
+- name: relay-terraform-2
+  image: relaysh/terraform:latest
+  spec:
+    vars:
+      param-b:
+        $type: Parameter
+        name: param-b
+      foo: true
+      bar: 1.0.0
+    directory: redacted
+    credentials:
+      credentials.json:
+        $type: Secret
+        name: credentials
+    git: *git
+  dependsOn:
+  - relay-terraform-1
+- name: relay-apply-tekton
+  image: relaysh/kubectl:latest
+  spec:
+    command: apply
+    file: https://storage.googleapis.com/tekton-releases/latest/release.yaml
+    namespace: tekton-pipelines
+    cluster: &cluster
+      name: cluster
+      url:
+        $type: Output
+        name: url
+        taskName: relay-terraform-2
+      cadata:
+        $type: Output
+        name: cadata
+        taskName: relay-terraform-2
+      token:
+        $type: Output
+        name: token
+        taskName: relay-terraform-2
+  dependsOn:
+  - relay-terraform-2
+- name: relay-helm-vault
+  image: relaysh/helm-deployer:latest
+  spec:
+    name: vault
+    chart: helm/vault
+    values:
+      replicaCount: 2
+    namespace: redacted
+    credentials: &credentials
+      key.pem:
+        $type: Output
+        name: key-pem
+        taskName: relay-terraform-2
+      ca.pem:
+        $type: Output
+        name: ca-pem
+        taskName: relay-terraform-2
+      cert.pem:
+        $type: Output
+        name: cert-pem
+        taskName: relay-terraform-2
+    cluster: *cluster
+    git: *git
+  dependsOn:
+  - relay-terraform-2
+- name: relay-helm-redis-operator
+  image: relaysh/helm-deployer:latest
+  spec:
+    name: redis-operator
+    chart: helm/redis-operator
+    namespace: redacted
+    git: *git
+    cluster: *cluster
+    credentials: *credentials
+  dependsOn: relay-terraform-2
+- name: relay-helm-relay-firewall
+  image: relaysh/helm-deployer:latest
+  spec:
+    name: relay-firewall
+    chart: helm/relay-firewall
+    namespace: redacted
+    git: *git
+    cluster: *cluster
+    credentials: *credentials
+  dependsOn: relay-terraform-2
+- name: relay-helm-relay-security
+  image: relaysh/helm-deployer:latest
+  spec:
+    name: relay-security
+    chart: helm/relay-security
+    namespace: redacted
+    git: *git
+    cluster: *cluster
+    credentials: *credentials
+  dependsOn: relay-terraform-2
+- name: relay-apply-1
+  image: relaysh/kubectl:latest
+  spec:
+    command: apply
+    file: redacted.yaml
+    namespace: default
+    cluster: *cluster
+    git: *git
+  dependsOn: relay-terraform-2
+- name: relay-apply-2
+  image: relaysh/kubectl:latest
+  spec:
+    command: apply
+    file: redacted.yaml
+    namespace: redacted
+    cluster: *cluster
+    git: *git
+  dependsOn: relay-terraform-2
+- name: relay-deploy-app
+  image: relaysh/helm-deployer:latest
+  spec:
+    name: relay
+    chart: helm/relay
+    git: *git
+    cluster: *cluster
+    credentials: *credentials
+  dependsOn:
+  - relay-helm-redis-operator
+  - relay-helm-relay-security
+  - relay-helm-relay-firewall
+  - relay-apply-1
+  - relay-apply-2

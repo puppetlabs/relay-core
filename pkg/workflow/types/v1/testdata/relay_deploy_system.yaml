@@ -1,0 +1,32 @@
+version: v1
+description: Relay Workflow
+parameters:
+  TasksImageTag:
+    description: The relay-tasks release to deploy
+steps:
+- name: relay-deploy-system
+  image: relaysh/helm-deployer:8e0dc97
+  spec:
+    chart: helm/relay-system
+    namespace: redacted
+    git:
+      ssh_key:
+        $type: Secret
+        name: ssh_key
+      known_hosts:
+        $type: Secret
+        name: known_hosts
+      name: relay-system
+      repository: redacted
+      branch: development
+    cluster:
+      name: relay-cluster
+      url:
+        $type: Secret
+        name: url
+      cadata:
+        $type: Secret
+        name: cadata
+      token:
+        $type: Secret
+        name: token

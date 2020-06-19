@@ -15,8 +15,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const AmbassadorTestImage = "gcr.io/nebula-contrib/ambassador:git-v1.4.2-75-g00e350c11"
-
 func doInstallAmbassador(ctx context.Context, cl client.Client, mapper meta.RESTMapper) error {
 	// Ambassador requires Knative Serving; it won't detect it after the fact.
 	if err := doInstallKnativeServing(ctx, cl); err != nil {
@@ -44,11 +42,6 @@ func doInstallAmbassador(ctx context.Context, cl client.Client, mapper meta.REST
 			if c.Name != "ambassador" {
 				continue
 			}
-
-			// We have to swap out the image with our own image to get the
-			// behavior we want. Remove this once we upgrade to Ambassador
-			// v1.5.0!
-			c.Image = AmbassadorTestImage
 
 			SetKubernetesEnvVar(&c.Env, "AMBASSADOR_ID", "webhook")
 			SetKubernetesEnvVar(&c.Env, "AMBASSADOR_KNATIVE_SUPPORT", "true")

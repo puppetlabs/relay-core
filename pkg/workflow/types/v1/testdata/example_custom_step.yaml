@@ -7,18 +7,18 @@ parameters:
   
 steps:
 - name: introduction
-  image: projectnebula/core
+  image: relaysh/core
   input: 
   -  echo "-------------- INTRODUCTION --------------"
-  -  echo "Nebula provides the ability to create custom steps"
+  -  echo "Relay provides the ability to create custom steps"
   -  echo ""
-  -  echo "Ni is a tool in the projectnebula/core image that gives you access to things"
+  -  echo "Ni is a tool in the relaysh/core image that gives you access to things"
   -  echo "like spec parameters, outputs, and secrets."
   -  echo ""
   -  echo "Let's see what we can do with them."
 
 - name: parameters
-  image: projectnebula/core
+  image: relaysh/core
   dependsOn: introduction
   input: 
   -  echo "-------------- PARAMETERS --------------"
@@ -34,7 +34,7 @@ steps:
       name: name
 
 - name: secrets 
-  image: projectnebula/core
+  image: relaysh/core
   dependsOn: parameters
   input:
   -  echo "-------------- SECRETS --------------"
@@ -51,7 +51,7 @@ steps:
       name: secret
 
 - name: outputs
-  image: projectnebula/core
+  image: relaysh/core
   dependsOn: secrets
   input: 
   -  echo "-------------- OUTPUTS --------------"
@@ -64,7 +64,7 @@ steps:
   -  ni output set --key "key" --value "You are awesome"
 
 - name: end 
-  image: projectnebula/core
+  image: relaysh/core
   dependsOn: outputs
   input: 
   -  echo "-------------- OUTPUTS --------------"

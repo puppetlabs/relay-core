@@ -2,11 +2,11 @@
 
 export TRAVIS_BRANCH="${TRAVIS_BRANCH:-$(git branch | grep \* | cut -d ' ' -f2)}"
 export TRAVIS_PULL_REQUEST="${TRAVIS_PULL_REQUEST:-}"
-export NEBULA_TASKS_BUILD_DIR="${NEBULA_TASKS_BUILD_DIR:-.build}"
+export RELAY_CORE_BUILD_DIR="${RELAY_CORE_BUILD_DIR:-.build}"
 export NO_DOCKER_PUSH="${NO_DOCKER_PUSH:-yes}"
 
-export NEBULA_TASKS_RELEASE_LATEST=
-[ "${TRAVIS_BRANCH}" = "master" ] && [ "${TRAVIS_PULL_REQUEST}" = "false" ] && export NEBULA_TASKS_RELEASE_LATEST=true
+export RELAY_CORE_RELEASE_LATEST=
+[ "${TRAVIS_BRANCH}" = "master" ] && [ "${TRAVIS_PULL_REQUEST}" = "false" ] && export RELAY_CORE_RELEASE_LATEST=true
 
 DIRTY=
 [ -n "$(git status --porcelain --untracked-files=no)" ] && DIRTY="-dirty"
@@ -22,18 +22,18 @@ if [[ "$TRAVIS_PULL_REQUEST" == "false" ]]; then
         export NO_DOCKER_PUSH=
 fi
 
-declare -A NEBULA_WORKFLOWS
+declare -A RELAY_WORKFLOWS
 
-[ -r "nebula-deploy.sh" ] && source "nebula-deploy.sh"
+[ -r "$(dirname "$0")/relay-deploy.sh" ] && source "$(dirname "$0")/relay-deploy.sh"
 
-NEBULA_WORKFLOWS[master]=nebula-prod-1
-NEBULA_WORKFLOWS[development]=nebula-stage-1
+RELAY_WORKFLOWS[master]=nebula-prod-1
+RELAY_WORKFLOWS[development]=nebula-stage-1
 
-NEBULA_WORKFLOW=${NEBULA_WORKFLOWS["$TRAVIS_BRANCH"]:-}
-if [ -z "${NEBULA_WORKFLOW}" ]; then
+RELAY_WORKFLOW=${RELAY_WORKFLOWS["$TRAVIS_BRANCH"]:-}
+if [ -z "${RELAY_WORKFLOW}" ]; then
     export NO_DOCKER_PUSH=yes
 else
-    export NEBULA_WORKFLOW
+    export RELAY_WORKFLOW
 fi
 
 if [ -n "${DIRTY}" ]; then
