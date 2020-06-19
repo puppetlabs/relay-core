@@ -24,7 +24,7 @@ fi
 
 declare -A RELAY_WORKFLOWS
 
-[ -r "relay-deploy.sh" ] && source "relay-deploy.sh"
+[ -r "$(dirname "$0")/relay-deploy.sh" ] && source "$(dirname "$0")/relay-deploy.sh"
 
 RELAY_WORKFLOWS[master]=nebula-prod-1
 RELAY_WORKFLOWS[development]=nebula-stage-1
