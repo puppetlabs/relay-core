@@ -1,21 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [ -z "${NEBULA_EMAIL:-}" ] || [ -z "${NEBULA_PASSWORD:-}" ] || [ -z "${GITHUB_TOKEN:-}" ] || [ -z "${NEBULA_WORKFLOW:-}" ] || [ -z "${VERSION:-}" ] || [ "${NO_DOCKER_PUSH:-}" == "yes" ]; then
+if [ -z "${RELAY_EMAIL:-}" ] || [ -z "${RELAY_PASSWORD:-}" ] || [ -z "${RELAY_WORKFLOW:-}" ] || [ -z "${VERSION:-}" ] || [ "${NO_DOCKER_PUSH:-}" == "yes" ]; then
     echo "Branch ${TRAVIS_BRANCH} has no workflow configuration. Skipping deploy."
     exit 0
 fi
 
-# FIXME(impl): 25072016 is the release ID for v3.4.0. We should move back to latest ASAP.
 mkdir -p .deploy
 curl -LJ -o .deploy/relay \
     -H 'Accept: application/octet-stream' \
-    "https://api.github.com/repos/puppetlabs/relay/releases/assets/$( curl -s "https://api.github.com/repos/puppetlabs/relay/releases/25072016?access_token=${GITHUB_TOKEN}" | jq -r '.assets[] | select(.name | endswith("-linux-amd64")) | .id' )?access_token=${GITHUB_TOKEN}"
+    "https://github.com/puppetlabs/relay/releases/download/v3.4.0/nebula-v3.4.0-linux-amd64"
 chmod +x .deploy/relay
 
 mkdir -p ~/.config/nebula
-echo 'apiHostAddr: https://api.stage.nebula.puppet.net' >~/.config/nebula/config.yaml
+echo 'apiHostAddr: https://api.stage.relay-infra.net' >~/.config/nebula/config.yaml
 
-echo -n "${NEBULA_PASSWORD}" | .deploy/relay login -e "${NEBULA_EMAIL}" -p
-echo -n "${VERSION}" | .deploy/relay secret set -w "${NEBULA_WORKFLOW}" -k tasks.image.tag -v
-.deploy/relay workflow run -n "${NEBULA_WORKFLOW}"
+echo -n "${RELAY_PASSWORD}" | .deploy/relay login -e "${RELAY_EMAIL}" -p
+echo -n "${VERSION}" | .deploy/relay secret set -w "${RELAY_WORKFLOW}" -k tasks.image.tag -v
+.deploy/relay workflow run -n "${RELAY_WORKFLOW}"

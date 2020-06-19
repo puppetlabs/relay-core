@@ -4,7 +4,7 @@ set -euo pipefail
 # this ensures that we are in the correct directory context
 cd "$(dirname "$0")"/..
 
-NEBULA_TASKS_REPO_BASE="${NEBULA_TASKS_REPO_BASE:-gcr.io/nebula-235818}"
+RELAY_CORE_REPO_BASE="${RELAY_CORE_REPO_BASE:-gcr.io/nebula-235818}"
 
-docker build -f ./cmd/relay-operator/Dockerfile -t "${NEBULA_TASKS_REPO_BASE}/relay-operator:${VERSION}" .
-docker build -f ./cmd/relay-metadata-api/Dockerfile -t "${NEBULA_TASKS_REPO_BASE}/relay-metadata-api:${VERSION}" .
+docker build -f ./cmd/relay-operator/Dockerfile -t "${RELAY_CORE_REPO_BASE}/relay-operator:${VERSION}" .
+docker build -f ./cmd/relay-metadata-api/Dockerfile -t "${RELAY_CORE_REPO_BASE}/relay-metadata-api:${VERSION}" .

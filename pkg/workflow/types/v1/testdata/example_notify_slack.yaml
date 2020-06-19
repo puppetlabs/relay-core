@@ -13,7 +13,7 @@ steps:
   input:
     - echo "Initializing workflow - Notify with Slack"
 - name: slack-notify
-  image: projectnebula/slack-notification:bf8ecb9
+  image: relaysh/slack-notification:bf8ecb9
   spec:
     apitoken:
        $type: Secret

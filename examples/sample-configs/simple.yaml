@@ -1,7 +1,7 @@
 connections:
   aws/test:
-    accessKeyID: AKIAW3VDPWQFW35H22J6
-    secretAccessKey: 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
+    accessKeyID: AKIASAMPLEKEY
+    secretAccessKey: 6bkpuV9fF3LX1Yo79OpfTwsw8wt5wsVLGTPJjDTu
 
 secrets:
   hello: world
