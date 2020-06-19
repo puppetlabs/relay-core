@@ -1,5 +1,5 @@
 version: v1
-description: Nebula Deploy Demo
+description: Relay Deploy Demo
 
 parameters:
   project:
@@ -13,7 +13,7 @@ parameters:
 
 steps:
 - name: provision-gcs-storage-bucket
-  image: projectnebula/core
+  image: relaysh/core
   input: 
     - apk --no-cache add curl python &&
       curl -O https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-264.0.0-linux-x86_64.tar.gz &&
@@ -43,7 +43,7 @@ steps:
 - name: provision-gke-with-terraform
   dependsOn:
     - provision-gcs-storage-bucket
-  image: projectnebula/terraform
+  image: relaysh/terraform
   spec:
     backendConfig:
       bucket: 
@@ -66,13 +66,13 @@ steps:
       repository: https://github.com/puppetlabs/relay-workflow-examples.git
 - name: deploy-to-gke
   dependsOn: provision-gke-with-terraform
-  image: projectnebula/kubectl
+  image: relaysh/kubectl
   spec:
     command: apply
     file: example-workflows/gke-provision-and-deploy-workflow/deploy/deploy.yaml
     namespace: default
     cluster:
-      name: nebula-example-cluster
+      name: relay-example-cluster
       url:
         $type: Output
         name: k8s_endpoint
@@ -91,7 +91,7 @@ steps:
 - name: slack-notify
   dependsOn:
     - deploy-to-gke
-  image: projectnebula/slack-notification
+  image: relaysh/slack-notification
   spec:
     apitoken:
        $type: Secret

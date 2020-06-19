@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	ConditionImage  = "projectnebula/core:latest"
+	ConditionImage  = "relaysh/core:latest"
 	ConditionScript = `#!/bin/bash
 JQ="${JQ:-jq}"
 

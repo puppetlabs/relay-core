@@ -17,7 +17,7 @@ steps:
   - name: publish
     image: "alpine:latest"
     input:
-      - cat /nebula/spec.json
+      - cat /workspace/spec.json
     spec:
       flag: true
       message: "publish this"
@@ -25,7 +25,7 @@ steps:
   - name: deploy
     image: "alpine:latest"
     input:
-      - cat /nebula/spec.json
+      - cat /workspace/spec.json
     spec:
       values:
         image:
@@ -51,7 +51,7 @@ steps:
   - name: notify
     image: "alpine:latest"
     input:
-      - cat /nebula/spec.json
+      - cat /workspace/spec.json
     spec:
       messages:
         - message:

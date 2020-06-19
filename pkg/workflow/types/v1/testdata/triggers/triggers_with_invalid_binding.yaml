@@ -14,13 +14,13 @@ triggers:
 - name: webhook
   source:
     type: webhook
-    image: projectnebula/dockerhub-push-trigger
+    image: relaysh/dockerhub-push-trigger
   binding:
     dockerTagName: latest
 
 steps:
 - name: execute
-  image: projectnebula/core
+  image: relaysh/core
   input:
   - echo $( ni get .tagToDeploy )
   spec:

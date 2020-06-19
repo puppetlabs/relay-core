@@ -1,0 +1,45 @@
+version: v1
+description: Relay Workflow
+parameters:
+  APIImageTag:
+    description: The relay-api release to deploy
+  UIImageTag:
+    description: The relay-ui release to deploy
+steps:
+- name: relay-deploy-app
+  image: relaysh/helm-deployer:8e0dc97
+  spec:
+    credentials:
+      ca.pem:
+        $type: Secret
+        name: ca
+      key.pem:
+        $type: Secret
+        name: key
+      cert.pem:
+        $type: Secret
+        name: cert
+    name: relay
+    chart: helm/relay
+    namespace: redacted
+    git:
+      ssh_key:
+        $type: Secret
+        name: ssh_key
+      known_hosts:
+        $type: Secret
+        name: known_hosts
+      name: relay
+      repository: redacted
+      branch: development
+    cluster:
+      name: relay-cluster
+      url:
+        $type: Secret
+        name: url
+      cadata:
+        $type: Secret
+        name: cadata
+      token:
+        $type: Secret
+        name: token

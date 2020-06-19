@@ -14,8 +14,8 @@ triggers:
 - name: webhook
   source:
     type: webhooked
-    image: projectnebula/dockerhub-push-trigger
+    image: relaysh/dockerhub-push-trigger
 
 steps:
 - name: execute
-  image: projectnebula/core
+  image: relaysh/core

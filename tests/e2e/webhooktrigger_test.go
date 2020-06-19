@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	_ "github.com/puppetlabs/nebula-libs/storage/file/v2"
+	_ "github.com/puppetlabs/horsehead/v2/storage/file"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
 	"github.com/puppetlabs/relay-core/pkg/model"
