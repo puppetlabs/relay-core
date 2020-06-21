@@ -9,6 +9,7 @@ import (
 
 	"github.com/inconshreveable/log15"
 	"github.com/puppetlabs/errawr-go/v2/pkg/errawr"
+	"github.com/puppetlabs/horsehead/v2/instrumentation/alerts"
 	"github.com/puppetlabs/horsehead/v2/logging"
 	"github.com/puppetlabs/horsehead/v2/mainutil"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/opt"
@@ -79,6 +80,23 @@ func main() {
 		var serverOpts []server.Option
 		if cfg.Debug {
 			serverOpts = append(serverOpts, server.WithErrorSensitivity(errawr.ErrorSensitivityAll))
+		}
+
+		if cfg.SentryDSN != "" {
+			delegate, err := alerts.DelegateToSentry(cfg.SentryDSN)
+			if err != nil {
+				return fmt.Errorf("failed to initialize Sentry: %+v", err)
+			}
+
+			a := alerts.NewAlerts(delegate, alerts.Options{
+				Environment: cfg.Environment,
+			})
+
+			capturer := a.NewCapturer().
+				WithNewTrace().
+				WithAppPackages([]string{"github.com/puppetlabs/relay-core"})
+
+			serverOpts = append(serverOpts, server.WithCapturer(capturer))
 		}
 
 		s := &http.Server{

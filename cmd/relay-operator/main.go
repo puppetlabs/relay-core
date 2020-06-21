@@ -36,6 +36,7 @@ func main() {
 	// configured too, which makes our command help make no sense.
 	fs := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 
+	environment := fs.String("environment", "dev", "the environment this operator is running in")
 	kubeconfig := fs.String("kubeconfig", "", "path to kubeconfig file. Only required if running outside of a cluster.")
 	kubeMasterURL := fs.String("kube-master-url", "", "url to the kubernetes master")
 	kubeNamespace := fs.String("kube-namespace", "", "an optional working namespace to restrict to for watching CRDs")
@@ -51,6 +52,7 @@ func main() {
 	webhookServerPort := fs.Int("webhook-server-port", 443, "the port to listen on for webhook requests")
 	webhookServerKeyDir := fs.String("webhook-server-key-dir", "", "path to a directory containing two files, tls.key and tls.crt, to secure the webhook server")
 	tenantSandboxing := fs.Bool("tenant-sandboxing", false, "enables gVisor sandbox for tenant pods")
+	sentryDSN := fs.String("sentry-dsn", "", "the Sentry DSN to use for error reporting")
 
 	fs.Parse(os.Args[1:])
 
