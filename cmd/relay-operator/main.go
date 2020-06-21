@@ -11,6 +11,7 @@ import (
 	"os"
 
 	vaultapi "github.com/hashicorp/vault/api"
+	"github.com/puppetlabs/horsehead/v2/instrumentation/alerts"
 	"github.com/puppetlabs/horsehead/v2/instrumentation/metrics"
 	"github.com/puppetlabs/horsehead/v2/instrumentation/metrics/delegates"
 	metricsserver "github.com/puppetlabs/horsehead/v2/instrumentation/metrics/server"
@@ -53,6 +54,7 @@ func main() {
 	webhookServerKeyDir := fs.String("webhook-server-key-dir", "", "path to a directory containing two files, tls.key and tls.crt, to secure the webhook server")
 	tenantSandboxing := fs.Bool("tenant-sandboxing", false, "enables gVisor sandbox for tenant pods")
 	sentryDSN := fs.String("sentry-dsn", "", "the Sentry DSN to use for error reporting")
+	dynamicRBACBinding := fs.Bool("dynamic-rbac-binding", false, "enable if RBAC rules are set up dynamically for the operator to reduce unhelpful reported errors")
 
 	fs.Parse(os.Args[1:])
 
@@ -136,7 +138,17 @@ func main() {
 		log.Fatal("Error creating signer for JWTs", err)
 	}
 
+	var alertsDelegate alerts.DelegateFunc
+	if *sentryDSN != "" {
+		var err error
+		alertsDelegate, err = alerts.DelegateToSentry(*sentryDSN)
+		if err != nil {
+			log.Fatal("Error initializing Sentry", err)
+		}
+	}
+
 	cfg := &config.WorkflowControllerConfig{
+		Environment:             *environment,
 		Namespace:               *kubeNamespace,
 		ImagePullSecret:         *imagePullSecret,
 		MaxConcurrentReconciles: *numWorkers,
@@ -145,6 +157,8 @@ func main() {
 		VaultTransitKey:         *vaultTransitKey,
 		WebhookServerPort:       *webhookServerPort,
 		WebhookServerKeyDir:     *webhookServerKeyDir,
+		AlertsDelegate:          alertsDelegate,
+		DynamicRBACBinding:      *dynamicRBACBinding,
 	}
 
 	dm, err := dependency.NewDependencyManager(cfg, kcc, vc, jwtSigner, blobStore, mets)
