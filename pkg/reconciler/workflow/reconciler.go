@@ -9,6 +9,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
 	"github.com/puppetlabs/relay-core/pkg/dependency"
 	"github.com/puppetlabs/relay-core/pkg/obj"
+	"github.com/puppetlabs/relay-core/pkg/reconciler/errmark"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -53,15 +54,6 @@ func NewReconciler(dm *dependency.DependencyManager) *Reconciler {
 }
 
 func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error) {
-	klog.Infof("reconciling WorkflowRun %s", req.NamespacedName)
-	defer func() {
-		if err != nil {
-			klog.Infof("error reconciling WorkflowRun %s: %+v", req.NamespacedName, err)
-		} else {
-			klog.Infof("done reconciling WorkflowRun %s", req.NamespacedName)
-		}
-	}()
-
 	ctx := context.Background()
 
 	wr := obj.NewWorkflowRun(req.NamespacedName)
@@ -89,7 +81,12 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 			obj.WorkflowRunDepsWithSourceSystemImagePullSecret(r.Config.ImagePullSecretKey()),
 		)
 		if err != nil {
-			return fmt.Errorf("failed to apply dependencies: %+v", err)
+			err = errmark.MarkTransient(err, errmark.TransientIfObjectRequired).
+				Map(func(err error) error {
+					return fmt.Errorf("failed to apply dependencies: %+v", err)
+				}).
+				Resolve()
+			return err
 		}
 
 		// Configure and save the underlying Tekton Pipeline.

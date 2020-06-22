@@ -8,7 +8,6 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/config"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -28,15 +27,6 @@ func NewReconciler(client client.Client, cfg *config.WorkflowControllerConfig) *
 }
 
 func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error) {
-	klog.Infof("reconciling Tenant %s", req.NamespacedName)
-	defer func() {
-		if err != nil {
-			klog.Infof("error reconciling Tenant %s: %+v", req.NamespacedName, err)
-		} else {
-			klog.Infof("done reconciling Tenant %s", req.NamespacedName)
-		}
-	}()
-
 	ctx := context.Background()
 
 	tn := obj.NewTenant(req.NamespacedName)
