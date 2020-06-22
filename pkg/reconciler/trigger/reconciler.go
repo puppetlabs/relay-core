@@ -7,10 +7,10 @@ import (
 
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
 	"github.com/puppetlabs/relay-core/pkg/dependency"
+	"github.com/puppetlabs/relay-core/pkg/errmark"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	"k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -53,20 +53,13 @@ func NewReconciler(dm *dependency.DependencyManager) *Reconciler {
 }
 
 func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error) {
-	klog.Infof("reconciling WebhookTrigger %s", req.NamespacedName)
-	defer func() {
-		if err != nil {
-			klog.Infof("error reconciling WebhookTrigger %s: %+v", req.NamespacedName, err)
-		} else {
-			klog.Infof("done reconciling WebhookTrigger %s", req.NamespacedName)
-		}
-	}()
-
 	ctx := context.Background()
 
 	wt := obj.NewWebhookTrigger(req.NamespacedName)
 	if ok, err := wt.Load(ctx, r.Client); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to load dependencies: %+v", err)
+		return ctrl.Result{}, errmark.MapLast(err, func(err error) error {
+			return fmt.Errorf("failed to load dependencies: %+v", err)
+		})
 	} else if !ok {
 		// CRD deleted from under us?
 		return ctrl.Result{}, nil
@@ -74,7 +67,12 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 
 	deps := obj.NewWebhookTriggerDeps(wt, r.issuer, r.Config.MetadataAPIURL)
 	if _, err := deps.Load(ctx, r.Client); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to load dependencies: %+v", err)
+		// Could be waiting for the tenant to reconcile.
+		err = errmark.MarkTransient(err, obj.TransientIfRequired)
+
+		return ctrl.Result{}, errmark.MapLast(err, func(err error) error {
+			return fmt.Errorf("failed to load dependencies: %+v", err)
+		})
 	}
 
 	finalized, err := obj.Finalize(ctx, r.Client, FinalizerName, wt, func() error {
@@ -86,11 +84,17 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 	}
 
 	if err := obj.ConfigureWebhookTriggerDeps(ctx, deps); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to configure dependencies: %+v", err)
+		return ctrl.Result{}, errmark.MapLast(err, func(err error) error {
+			return fmt.Errorf("failed to configure dependencies: %+v", err)
+		})
 	}
 
 	if err := deps.Persist(ctx, r.Client); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to apply dependencies: %+v", err)
+		err = errmark.MarkTransient(err, obj.TransientIfRequired)
+
+		return ctrl.Result{}, errmark.MapLast(err, func(err error) error {
+			return fmt.Errorf("failed to apply dependencies: %+v", err)
+		})
 	}
 
 	ksr := obj.AsKnativeServiceResult(obj.ApplyKnativeService(ctx, r.Client, deps))

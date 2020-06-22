@@ -7,6 +7,7 @@ import (
 
 	"github.com/gorilla/mux"
 	vaultapi "github.com/hashicorp/vault/api"
+	"github.com/puppetlabs/horsehead/v2/instrumentation/alerts/trackers"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
 	"github.com/puppetlabs/relay-core/pkg/manager/api"
 	"github.com/puppetlabs/relay-core/pkg/manager/builder"
@@ -19,6 +20,7 @@ import (
 // Credential represents a valid authentication request.
 type Credential struct {
 	Managers model.MetadataManagers
+	Tags     []trackers.Tag
 }
 
 // Authenticator maps an HTTP request to a credential, if possible.
@@ -125,7 +127,7 @@ func (ka *KubernetesAuthenticator) resolver(mgrs *builder.MetadataBuilder) authe
 	return authenticate.NewAnyResolver(delegates)
 }
 
-func (ka *KubernetesAuthenticator) injector(mgrs *builder.MetadataBuilder) authenticate.Injector {
+func (ka *KubernetesAuthenticator) injector(mgrs *builder.MetadataBuilder, tags *[]trackers.Tag) authenticate.Injector {
 	return authenticate.InjectorFunc(func(ctx context.Context, claims *authenticate.Claims) error {
 		client, err := ka.factory(claims.KubernetesServiceAccountToken)
 		if err != nil {
@@ -151,17 +153,31 @@ func (ka *KubernetesAuthenticator) injector(mgrs *builder.MetadataBuilder) authe
 		mgrs.SetSpec(configmap.NewSpecManager(action, immutableMap))
 		mgrs.SetState(configmap.NewStateManager(action, mutableMap))
 
+		ts := []trackers.Tag{
+			{Key: "relay.domain.id", Value: claims.RelayDomainID},
+			{Key: "relay.tenant.id", Value: claims.RelayTenantID},
+			{Key: "relay.run.id", Value: claims.RelayRunID},
+			{Key: "relay.action.type", Value: action.Type().Singular},
+			{Key: "relay.action.name", Value: claims.RelayName},
+		}
+		for _, tag := range ts {
+			if tag.Value != "" {
+				*tags = append(*tags, tag)
+			}
+		}
+
 		return nil
 	})
 }
 
 func (ka *KubernetesAuthenticator) Authenticate(r *http.Request) (*Credential, error) {
 	mgrs := builder.NewMetadataBuilder()
+	var tags []trackers.Tag
 
 	auth := authenticate.NewAuthenticator(
 		ka.intermediary(r),
 		ka.resolver(mgrs),
-		authenticate.AuthenticatorWithInjector(ka.injector(mgrs)),
+		authenticate.AuthenticatorWithInjector(ka.injector(mgrs, &tags)),
 	)
 
 	if ok, err := auth.Authenticate(r.Context()); err != nil {
@@ -170,7 +186,10 @@ func (ka *KubernetesAuthenticator) Authenticate(r *http.Request) (*Credential, e
 		return nil, nil
 	}
 
-	return &Credential{Managers: mgrs.Build()}, nil
+	return &Credential{
+		Managers: mgrs.Build(),
+		Tags:     tags,
+	}, nil
 }
 
 type KubernetesAuthenticatorOption func(ka *KubernetesAuthenticator)
@@ -225,6 +244,11 @@ func WithAuthentication(a Authenticator) mux.MiddlewareFunc {
 			} else if cred == nil {
 				http.Error(w, "401 unauthorized", http.StatusUnauthorized)
 			} else {
+				if capturer, ok := trackers.CapturerFromContext(r.Context()); ok {
+					capturer = capturer.WithTags(cred.Tags...)
+					r = r.WithContext(trackers.NewContextWithCapturer(r.Context(), capturer))
+				}
+
 				WithManagers(cred.Managers)(next).ServeHTTP(w, r)
 			}
 		})

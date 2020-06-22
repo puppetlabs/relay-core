@@ -5,6 +5,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/config"
 	"github.com/puppetlabs/relay-core/pkg/controller/handler"
 	"github.com/puppetlabs/relay-core/pkg/dependency"
+	"github.com/puppetlabs/relay-core/pkg/errmark"
 	"github.com/puppetlabs/relay-core/pkg/reconciler/filter"
 	"github.com/puppetlabs/relay-core/pkg/reconciler/trigger"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -22,7 +23,16 @@ func add(mgr manager.Manager, r reconcile.Reconciler, cfg *config.WorkflowContro
 		}).
 		For(&relayv1beta1.WebhookTrigger{}).
 		Watches(&source.Kind{Type: &servingv1.Service{}}, &handler.EnqueueRequestForAnnotatedDependent{OwnerType: &relayv1beta1.WebhookTrigger{}}).
-		Complete(filter.NewNamespaceFilterReconciler(cfg.Namespace, r))
+		Complete(filter.ChainRight(r,
+			filter.ErrorCaptureReconcilerLink(
+				&relayv1beta1.WebhookTrigger{},
+				cfg.Capturer(),
+				filter.ErrorCaptureReconcilerWithAdditionalTransientRule(
+					errmark.TransientPredicate(errmark.TransientIfForbidden, func() bool { return cfg.DynamicRBACBinding }),
+				),
+			),
+			filter.NamespaceFilterReconcilerLink(cfg.Namespace),
+		))
 }
 
 func Add(dm *dependency.DependencyManager) error {

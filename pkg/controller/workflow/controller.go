@@ -4,6 +4,7 @@ import (
 	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
 	"github.com/puppetlabs/relay-core/pkg/config"
 	"github.com/puppetlabs/relay-core/pkg/dependency"
+	"github.com/puppetlabs/relay-core/pkg/errmark"
 	"github.com/puppetlabs/relay-core/pkg/reconciler/filter"
 	"github.com/puppetlabs/relay-core/pkg/reconciler/workflow"
 	tekv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
@@ -20,7 +21,16 @@ func add(mgr manager.Manager, r reconcile.Reconciler, cfg *config.WorkflowContro
 		}).
 		For(&nebulav1.WorkflowRun{}).
 		Owns(&tekv1beta1.PipelineRun{}).
-		Complete(filter.NewNamespaceFilterReconciler(cfg.Namespace, r))
+		Complete(filter.ChainRight(r,
+			filter.ErrorCaptureReconcilerLink(
+				&nebulav1.WorkflowRun{},
+				cfg.Capturer(),
+				filter.ErrorCaptureReconcilerWithAdditionalTransientRule(
+					errmark.TransientPredicate(errmark.TransientIfForbidden, func() bool { return cfg.DynamicRBACBinding }),
+				),
+			),
+			filter.NamespaceFilterReconcilerLink(cfg.Namespace),
+		))
 }
 
 func Add(dm *dependency.DependencyManager) error {

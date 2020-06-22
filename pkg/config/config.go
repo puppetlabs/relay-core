@@ -3,6 +3,8 @@ package config
 import (
 	"net/url"
 
+	"github.com/puppetlabs/horsehead/v2/instrumentation/alerts"
+	"github.com/puppetlabs/horsehead/v2/instrumentation/alerts/trackers"
 	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -10,6 +12,7 @@ import (
 // WorkflowControllerConfig is the configuration object used to
 // configure the Workflow controller.
 type WorkflowControllerConfig struct {
+	Environment             string
 	Namespace               string
 	ImagePullSecret         string
 	MaxConcurrentReconciles int
@@ -18,6 +21,23 @@ type WorkflowControllerConfig struct {
 	VaultTransitKey         string
 	WebhookServerPort       int
 	WebhookServerKeyDir     string
+	DynamicRBACBinding      bool
+	AlertsDelegate          alerts.DelegateFunc
+}
+
+func (c *WorkflowControllerConfig) Capturer() trackers.Capturer {
+	alertsDelegate := c.AlertsDelegate
+	if alertsDelegate == nil {
+		alertsDelegate = alerts.NoDelegate
+	}
+
+	a := alerts.NewAlerts(alertsDelegate, alerts.Options{
+		Environment: c.Environment,
+	})
+
+	return a.NewCapturer().
+		WithNewTrace().
+		WithAppPackages([]string{"github.com/puppetlabs/relay-core"})
 }
 
 func (c *WorkflowControllerConfig) ImagePullSecretKey() client.ObjectKey {

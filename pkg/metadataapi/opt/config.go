@@ -28,6 +28,10 @@ type Config struct {
 	// Debug determines whether this server starts with debugging enabled.
 	Debug bool
 
+	// Environment is the execution environment for this instance. Used for
+	// reporting errors.
+	Environment string
+
 	// ListenPort is the port to bind the server to.
 	ListenPort int
 
@@ -83,6 +87,10 @@ type Config struct {
 	// SampleHS256SigningKey is a base64-encoded signing key for handling JWTs
 	// from sample steps.
 	SampleHS256SigningKey string
+
+	// SentryDSN is an optional identifier to automatically log API errors to
+	// Sentry.
+	SentryDSN string
 }
 
 func (c *Config) kubernetesInClusterHost() (string, bool) {
@@ -214,6 +222,7 @@ func NewConfig() *Config {
 
 	viper.BindEnv("vault_token", "VAULT_TOKEN")
 
+	viper.SetDefault("environment", "dev")
 	viper.SetDefault("listen_port", DefaultListenPort)
 
 	viper.SetDefault("vault_transit_url", viper.GetString("vault_addr"))
@@ -225,8 +234,9 @@ func NewConfig() *Config {
 	viper.SetDefault("vault_auth_path", "auth/jwt")
 
 	return &Config{
-		Debug:      viper.GetBool("debug"),
-		ListenPort: viper.GetInt("listen_port"),
+		Debug:       viper.GetBool("debug"),
+		Environment: viper.GetString("environment"),
+		ListenPort:  viper.GetInt("listen_port"),
 
 		TLSKeyFile:         viper.GetString("tls_key_file"),
 		TLSCertificateFile: viper.GetString("tls_certificate_file"),
@@ -246,5 +256,7 @@ func NewConfig() *Config {
 
 		SampleConfigFiles:     viper.GetStringSlice("sample_config_files"),
 		SampleHS256SigningKey: viper.GetString("sample_hs256_signing_key"),
+
+		SentryDSN: viper.GetString("sentry_dsn"),
 	}
 }

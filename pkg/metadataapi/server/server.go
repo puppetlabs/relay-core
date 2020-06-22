@@ -6,6 +6,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/puppetlabs/errawr-go/v2/pkg/errawr"
 	utilapi "github.com/puppetlabs/horsehead/v2/httputil/api"
+	"github.com/puppetlabs/horsehead/v2/instrumentation/alerts/trackers"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/api"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/middleware"
 )
@@ -13,10 +14,14 @@ import (
 type Server struct {
 	auth             middleware.Authenticator
 	errorSensitivity errawr.ErrorSensitivity
+	capturer         trackers.Capturer
 	trustedProxyHops int
 }
 
 func (s *Server) Route(r *mux.Router) {
+	if s.capturer != nil {
+		r.Use(s.capturer.Middleware().Wrap)
+	}
 	r.Use(middleware.WithTrustedProxyHops(s.trustedProxyHops))
 	r.Use(utilapi.RequestMiddleware)
 	r.Use(utilapi.LogMiddleware)
@@ -33,6 +38,12 @@ type Option func(s *Server)
 func WithErrorSensitivity(sensitivity errawr.ErrorSensitivity) Option {
 	return func(s *Server) {
 		s.errorSensitivity = sensitivity
+	}
+}
+
+func WithCapturer(capturer trackers.Capturer) Option {
+	return func(s *Server) {
+		s.capturer = capturer
 	}
 }
 
