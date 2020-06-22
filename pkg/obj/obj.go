@@ -5,6 +5,7 @@ import (
 	"errors"
 	"reflect"
 
+	"github.com/puppetlabs/relay-core/pkg/errmark"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -14,6 +15,10 @@ import (
 var (
 	ErrRequired = errors.New("obj: required")
 )
+
+func TransientIfRequired(err error) bool {
+	return errmark.TransientRuleExact(err, ErrRequired)
+}
 
 type Persister interface {
 	Persist(ctx context.Context, cl client.Client) error

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/puppetlabs/relay-core/pkg/errmark"
 	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
 	"github.com/puppetlabs/relay-core/pkg/expr/resolve"
 	"github.com/puppetlabs/relay-core/pkg/manager/configmap"
@@ -71,7 +72,7 @@ func ConfigureImmutableConfigMapForWebhookTrigger(ctx context.Context, cm *Confi
 	if len(wt.Object.Spec.Spec) > 0 {
 		r, err := ev.EvaluateAll(ctx, wt.Object.Spec.Spec.Value())
 		if err != nil {
-			return err
+			return errmark.MarkUser(err)
 		}
 
 		if _, err := configmap.NewSpecManager(tm, lcm).Set(ctx, r.Value.(map[string]interface{})); err != nil {
@@ -114,7 +115,7 @@ func ConfigureImmutableConfigMapForWorkflowRun(ctx context.Context, cm *ConfigMa
 		if len(step.Spec) > 0 {
 			r, err := ev.EvaluateAll(ctx, step.Spec.Value())
 			if err != nil {
-				return err
+				return errmark.MarkUser(err)
 			}
 
 			if _, err := configmap.NewSpecManager(ModelStep(wr, step), lcm).Set(ctx, r.Value.(map[string]interface{})); err != nil {
@@ -125,7 +126,7 @@ func ConfigureImmutableConfigMapForWorkflowRun(ctx context.Context, cm *ConfigMa
 		if when := step.When.Value(); when != nil {
 			r, err := ev.EvaluateAll(ctx, when)
 			if err != nil {
-				return err
+				return errmark.MarkUser(err)
 			}
 
 			if _, err := configmap.NewConditionManager(ModelStep(wr, step), lcm).Set(ctx, r.Value); err != nil {
