@@ -5,7 +5,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/config"
 	"github.com/puppetlabs/relay-core/pkg/controller/handler"
 	"github.com/puppetlabs/relay-core/pkg/dependency"
-	"github.com/puppetlabs/relay-core/pkg/reconciler/errmark"
+	"github.com/puppetlabs/relay-core/pkg/errmark"
 	"github.com/puppetlabs/relay-core/pkg/reconciler/filter"
 	"github.com/puppetlabs/relay-core/pkg/reconciler/trigger"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"

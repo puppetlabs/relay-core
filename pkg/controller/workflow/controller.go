@@ -4,7 +4,7 @@ import (
 	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
 	"github.com/puppetlabs/relay-core/pkg/config"
 	"github.com/puppetlabs/relay-core/pkg/dependency"
-	"github.com/puppetlabs/relay-core/pkg/reconciler/errmark"
+	"github.com/puppetlabs/relay-core/pkg/errmark"
 	"github.com/puppetlabs/relay-core/pkg/reconciler/filter"
 	"github.com/puppetlabs/relay-core/pkg/reconciler/workflow"
 	tekv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"

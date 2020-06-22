@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/puppetlabs/relay-core/pkg/config"
+	"github.com/puppetlabs/relay-core/pkg/errmark"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -31,7 +32,9 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 
 	tn := obj.NewTenant(req.NamespacedName)
 	if ok, err := tn.Load(ctx, r.Client); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to load dependencies: %+v", err)
+		return ctrl.Result{}, errmark.MapLast(err, func(err error) error {
+			return fmt.Errorf("failed to load dependencies: %+v", err)
+		})
 	} else if !ok {
 		// CRD deleted from under us?
 		return ctrl.Result{}, nil
@@ -39,7 +42,9 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 
 	deps := obj.NewTenantDeps(tn)
 	if _, err := deps.Load(ctx, r.Client); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to load dependencies: %+v", err)
+		return ctrl.Result{}, errmark.MapLast(err, func(err error) error {
+			return fmt.Errorf("failed to load dependencies: %+v", err)
+		})
 	}
 
 	finalized, err := obj.Finalize(ctx, r.Client, FinalizerName, tn, func() error {

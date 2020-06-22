@@ -3,7 +3,7 @@ package tenant
 import (
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/config"
-	"github.com/puppetlabs/relay-core/pkg/reconciler/errmark"
+	"github.com/puppetlabs/relay-core/pkg/errmark"
 	"github.com/puppetlabs/relay-core/pkg/reconciler/filter"
 	"github.com/puppetlabs/relay-core/pkg/reconciler/tenant"
 	ctrl "sigs.k8s.io/controller-runtime"
