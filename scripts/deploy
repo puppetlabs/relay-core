@@ -17,4 +17,5 @@ echo 'apiHostAddr: https://api.stage.relay-infra.net' >~/.config/nebula/config.y
 
 echo -n "${RELAY_PASSWORD}" | .deploy/relay login -e "${RELAY_EMAIL}" -p
 echo -n "${VERSION}" | .deploy/relay secret set -w "${RELAY_WORKFLOW}" -k tasks.image.tag -v
+echo -n "${VERSION}" | .deploy/relay secret set -w "${RELAY_WORKFLOW}" -k metrics.image.tag -v
 .deploy/relay workflow run -n "${RELAY_WORKFLOW}"
