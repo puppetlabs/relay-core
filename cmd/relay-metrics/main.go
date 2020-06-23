@@ -27,10 +27,8 @@ import (
 )
 
 const (
-	metricName = "Test Pending Workflow Runs"
-	metricType = "custom.googleapis.com/relay/workflowruns/status"
-	projectID  = "nebula-235818"
-	INTERVAL   = 10
+	projectID = "nebula-235818"
+	INTERVAL  = 11
 )
 
 var (
@@ -49,7 +47,7 @@ func init() {
 }
 
 // createCustomMetric creates a custom metric specified by the metric type.
-func createCustomMetric(ctx context.Context, mc *monitoring.MetricClient, w io.Writer, name, description string) (*metricpb.MetricDescriptor, error) {
+func createCustomMetric(ctx context.Context, mc *monitoring.MetricClient, w io.Writer, name, metricType, description string) (*metricpb.MetricDescriptor, error) {
 	md := &metric.MetricDescriptor{
 		Name:        name,
 		DisplayName: name,
@@ -72,8 +70,8 @@ func createCustomMetric(ctx context.Context, mc *monitoring.MetricClient, w io.W
 	return m, nil
 }
 
-// writeTimeSeriesValue writes a value for the custom metric created
-func makeTimeSeriesValue(environment string, value int) *monitoringpb.TimeSeries {
+// makeTimeSeriesValue constructs a a value for the custom metric created
+func makeTimeSeriesValue(metricType, environment string, value int) *monitoringpb.TimeSeries {
 	now := &timestamp.Timestamp{
 		Seconds: time.Now().Unix(),
 	}
@@ -103,10 +101,10 @@ func makeTimeSeriesValue(environment string, value int) *monitoringpb.TimeSeries
 	}
 }
 
-func writeTimeSeriesRequest(ctx context.Context, mc *monitoring.MetricClient, series *monitoringpb.TimeSeries) error {
+func writeTimeSeriesRequest(ctx context.Context, mc *monitoring.MetricClient, series []*monitoringpb.TimeSeries) error {
 	req := &monitoringpb.CreateTimeSeriesRequest{
 		Name:       "projects/" + projectID,
-		TimeSeries: []*monitoringpb.TimeSeries{series},
+		TimeSeries: series,
 	}
 	log.Printf("writeTimeseriesRequest: %+v\n", req)
 
@@ -118,22 +116,26 @@ func writeTimeSeriesRequest(ctx context.Context, mc *monitoring.MetricClient, se
 }
 
 type workflowRunMetric struct {
-	Name   string
-	Status string
+	Name              string
+	Status            string
+	SecondsSinceStart float64
 }
 
 func getStatuses(ctx context.Context, c client.Client) (ret []*workflowRunMetric) {
+	now := time.Now().UTC()
 	wrs := &nebulav1.WorkflowRunList{}
 	err := c.List(ctx, wrs)
 	if err != nil {
 		panic(err.Error())
 	}
 	for _, item := range wrs.Items {
-		fmt.Printf("%s is %s\n", item.Name, item.Status.Status)
-		ret = append(ret, &workflowRunMetric{
-			Name:   item.Name,
-			Status: item.Status.Status,
-		})
+		m := workflowRunMetric{
+			Name:              item.Name,
+			Status:            item.Status.Status,
+			SecondsSinceStart: now.Sub(item.ObjectMeta.CreationTimestamp.UTC()).Seconds(),
+		}
+		fmt.Printf("%s is %s, %d\n", m.Name, m.Status, int(m.SecondsSinceStart))
+		ret = append(ret, &m)
 	}
 	return
 }
@@ -193,8 +195,18 @@ func main() {
 	kc := k8sClient(kubeconfig)
 	mc := metricsClient(ctx)
 
+	statusName := "Pending Workflow Runs"
+	oldestName := "Oldest Pending Workflow Run"
+	statusType := "custom.googleapis.com/relay/workflowruns/status"
+	oldestType := "custom.googleapis.com/relay/workflowruns/oldest_pending"
+
 	if publish != nil && *publish == "true" {
-		_, err = createCustomMetric(ctx, mc, os.Stdout, metricName, "The number of Workflow Runs with a status of `pending`")
+		_, err = createCustomMetric(ctx, mc, os.Stdout, statusName, statusType, "The number of Workflow Runs with a status of `pending`")
+		if err != nil {
+			panic(err.Error())
+		}
+
+		_, err = createCustomMetric(ctx, mc, os.Stdout, oldestName, oldestType, "The number of seconds since the oldest Workflow Runs with a status of `pending` was started")
 		if err != nil {
 			panic(err.Error())
 		}
@@ -203,15 +215,21 @@ func main() {
 	for {
 		statuses := getStatuses(ctx, kc)
 		count := 0
+		oldest := 0.0
 		for _, status := range statuses {
 			if status.Status == "pending" {
 				count += 1
+				if status.SecondsSinceStart > oldest {
+					oldest = status.SecondsSinceStart
+					fmt.Printf("Found older: %d\n", int(oldest))
+				}
 			}
 		}
-		series := makeTimeSeriesValue(*environment, count)
+		statusSeries := makeTimeSeriesValue(statusType, *environment, count)
+		oldestSeries := makeTimeSeriesValue(oldestType, *environment, int(oldest))
 
 		if publish != nil && *publish == "true" {
-			err := writeTimeSeriesRequest(ctx, mc, series)
+			err = writeTimeSeriesRequest(ctx, mc, []*monitoringpb.TimeSeries{statusSeries, oldestSeries})
 			if err != nil {
 				panic(err.Error())
 			}
