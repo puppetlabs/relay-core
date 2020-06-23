@@ -231,7 +231,7 @@ func main() {
 		count := 0
 		oldest := 0.0
 		for _, status := range statuses {
-			if status.Status == "pending" {
+			if status.Status == "pending" || status.Status == "" {
 				count += 1
 				if status.SecondsSinceStart > oldest {
 					oldest = status.SecondsSinceStart
