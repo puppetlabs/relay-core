@@ -187,9 +187,10 @@ func main() {
 	} else {
 		kubeconfig = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
 	}
-	publish := flag.String("publish", "false", "Publish metrics to stackdriver")
+	publish := flag.Bool("publish", false, "Publish discovered metrics to stackdriver.")
 	environment := flag.String("environment", "testing", "The environment being monitored for workflow runs")
-	deleteMetrics := flag.String("delete", "false", "Delete the metric descriptors. Be very sure")
+	// Re-running the process will restore the descriptors, and if done quickly may not actually lose the data.
+	deleteMetrics := flag.Bool("delete-descriptors", false, "Delete the metric descriptors. Be very sure, there is no confirmation.")
 
 	flag.Parse()
 
@@ -201,7 +202,7 @@ func main() {
 	statusType := "custom.googleapis.com/relay/workflowruns/status"
 	oldestType := "custom.googleapis.com/relay/workflowruns/oldest_pending"
 
-	if *deleteMetrics == "true" {
+	if *deleteMetrics == true {
 		err = deleteMetric(os.Stdout, "projects/"+projectID+"/metricDescriptors/"+statusType)
 		if err != nil {
 			panic(err.Error())
@@ -213,7 +214,7 @@ func main() {
 		return
 	}
 
-	if publish != nil && *publish == "true" {
+	if publish != nil && *publish == true {
 		_, err = createCustomMetric(ctx, mc, os.Stdout, statusName, statusType, "The number of Workflow Runs with a status of `pending`")
 		if err != nil {
 			panic(err.Error())
@@ -241,7 +242,7 @@ func main() {
 		statusSeries := makeTimeSeriesValue(statusType, *environment, count)
 		oldestSeries := makeTimeSeriesValue(oldestType, *environment, int(oldest))
 
-		if publish != nil && *publish == "true" {
+		if publish != nil && *publish == true {
 			err = writeTimeSeriesRequest(ctx, mc, []*monitoringpb.TimeSeries{statusSeries, oldestSeries})
 			if err != nil {
 				panic(err.Error())
