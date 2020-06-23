@@ -189,6 +189,7 @@ func main() {
 	}
 	publish := flag.String("publish", "false", "Publish metrics to stackdriver")
 	environment := flag.String("environment", "testing", "The environment being monitored for workflow runs")
+	deleteMetrics := flag.String("delete", "false", "Delete the metric descriptors. Be very sure")
 
 	flag.Parse()
 
@@ -199,6 +200,18 @@ func main() {
 	oldestName := "Oldest Pending Workflow Run"
 	statusType := "custom.googleapis.com/relay/workflowruns/status"
 	oldestType := "custom.googleapis.com/relay/workflowruns/oldest_pending"
+
+	if *deleteMetrics == "true" {
+		err = deleteMetric(os.Stdout, "projects/"+projectID+"/metricDescriptors/"+statusType)
+		if err != nil {
+			panic(err.Error())
+		}
+		err = deleteMetric(os.Stdout, "projects/"+projectID+"/metricDescriptors/"+oldestType)
+		if err != nil {
+			panic(err.Error())
+		}
+		return
+	}
 
 	if publish != nil && *publish == "true" {
 		_, err = createCustomMetric(ctx, mc, os.Stdout, statusName, statusType, "The number of Workflow Runs with a status of `pending`")
@@ -240,4 +253,23 @@ func main() {
 		// Stackdriver only wants points published every ten seconds or less
 		time.Sleep(INTERVAL * time.Second)
 	}
+}
+
+// deleteMetric deletes the given metric. name should be of the form
+// "projects/PROJECT_ID/metricDescriptors/METRIC_TYPE".
+func deleteMetric(w io.Writer, name string) error {
+	ctx := context.Background()
+	c, err := monitoring.NewMetricClient(ctx)
+	if err != nil {
+		return err
+	}
+	req := &monitoringpb.DeleteMetricDescriptorRequest{
+		Name: name,
+	}
+
+	if err := c.DeleteMetricDescriptor(ctx, req); err != nil {
+		return fmt.Errorf("could not delete metric: %v", err)
+	}
+	fmt.Fprintf(w, "Deleted metric: %q\n", name)
+	return nil
 }
