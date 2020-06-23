@@ -188,7 +188,7 @@ func main() {
 		kubeconfig = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
 	}
 	publish := flag.Bool("publish", false, "Publish discovered metrics to stackdriver.")
-	environment := flag.String("environment", "testing", "The environment being monitored for workflow runs")
+	environment := flag.String("environment", "dev", "The environment being monitored for workflow runs")
 	// Re-running the process will restore the descriptors, and if done quickly may not actually lose the data.
 	deleteMetrics := flag.Bool("delete-descriptors", false, "Delete the metric descriptors. Be very sure, there is no confirmation.")
 
