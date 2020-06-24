@@ -12,6 +12,7 @@ import (
 
 	monitoring "cloud.google.com/go/monitoring/apiv3"
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"google.golang.org/genproto/googleapis/api/label"
 	"google.golang.org/genproto/googleapis/api/metric"
 	metricpb "google.golang.org/genproto/googleapis/api/metric"
 	"google.golang.org/genproto/googleapis/api/monitoredres"
@@ -52,6 +53,11 @@ func createCustomMetric(ctx context.Context, mc *monitoring.MetricClient, w io.W
 		Name:        name,
 		DisplayName: name,
 		Type:        metricType,
+		Labels: []*label.LabelDescriptor{{
+			Key:         "environment",
+			ValueType:   label.LabelDescriptor_STRING,
+			Description: "The environment of the reported metric",
+		}},
 		MetricKind:  metric.MetricDescriptor_GAUGE,
 		ValueType:   metric.MetricDescriptor_INT64,
 		Unit:        "1",
