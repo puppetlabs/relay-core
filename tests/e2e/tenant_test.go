@@ -171,25 +171,7 @@ func TestTenantAPITriggerEventSinkWithSecret(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, e2e.ControllerRuntimeClient.Create(ctx, tenant))
-
-		// Wait for tenant to reconcile.
-		require.NoError(t, retry.Retry(ctx, 500*time.Millisecond, func() *retry.RetryError {
-			if err := e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{
-				Namespace: tenant.GetNamespace(),
-				Name:      tenant.GetName(),
-			}, tenant); err != nil {
-				return retry.RetryPermanent(err)
-			}
-
-			for _, cond := range tenant.Status.Conditions {
-				if cond.Type == relayv1beta1.TenantReady && cond.Status == corev1.ConditionTrue {
-					return retry.RetryPermanent(nil)
-				}
-			}
-
-			return retry.RetryTransient(fmt.Errorf("waiting for tenant to reconcile"))
-		}))
+		CreateAndWaitForTenant(t, ctx, tenant)
 	})
 }
 
@@ -239,25 +221,7 @@ func TestTenantAPITriggerEventSinkWithNamespaceAndSecret(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, e2e.ControllerRuntimeClient.Create(ctx, tenant))
-
-		// Wait for tenant to reconcile.
-		require.NoError(t, retry.Retry(ctx, 500*time.Millisecond, func() *retry.RetryError {
-			if err := e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{
-				Namespace: tenant.GetNamespace(),
-				Name:      tenant.GetName(),
-			}, tenant); err != nil {
-				return retry.RetryPermanent(err)
-			}
-
-			for _, cond := range tenant.Status.Conditions {
-				if cond.Type == relayv1beta1.TenantReady && cond.Status == corev1.ConditionTrue {
-					return retry.RetryPermanent(nil)
-				}
-			}
-
-			return retry.RetryTransient(fmt.Errorf("waiting for tenant to reconcile"))
-		}))
+		CreateAndWaitForTenant(t, ctx, tenant)
 	})
 }
 

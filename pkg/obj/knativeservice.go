@@ -13,7 +13,9 @@ import (
 )
 
 const (
-	AmbassadorIDAnnotation        = "getambassador.io/ambassador-id"
+	AmbassadorIDAnnotation                      = "getambassador.io/ambassador-id"
+	ImmutableConfigMapResourceVersionAnnotation = "controller.relay.sh/immutable-config-map-resource-version"
+
 	KnativeServiceVisibilityLabel = "serving.knative.dev/visibility"
 )
 
@@ -92,8 +94,18 @@ func ConfigureKnativeService(ctx context.Context, s *KnativeService, wtd *Webhoo
 			Labels: map[string]string{
 				model.RelayControllerWebhookTriggerIDLabel: wtd.WebhookTrigger.Key.Name,
 			},
-			// Keep any existing token annotations.
 			Annotations: map[string]string{
+				// We keep track of the immutable config map version to ensure
+				// Knative updates if the `input` script changes.
+				//
+				// It should be safe to use the resource version here as
+				// resource versions aren't supposed to change under semantic
+				// equality. However, this has been buggy in previous versions
+				// of Kubernetes, so we can always switch to a hash instead if
+				// needed.
+				ImmutableConfigMapResourceVersionAnnotation: wtd.ImmutableConfigMap.Object.GetResourceVersion(),
+
+				// Keep any existing token annotations.
 				model.RelayControllerTokenHashAnnotation: s.Object.Spec.ConfigurationSpec.Template.GetAnnotations()[model.RelayControllerTokenHashAnnotation],
 				authenticate.KubernetesTokenAnnotation:   s.Object.Spec.ConfigurationSpec.Template.GetAnnotations()[authenticate.KubernetesTokenAnnotation],
 				authenticate.KubernetesSubjectAnnotation: s.Object.Spec.ConfigurationSpec.Template.GetAnnotations()[authenticate.KubernetesSubjectAnnotation],
