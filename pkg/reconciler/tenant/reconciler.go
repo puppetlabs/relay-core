@@ -55,6 +55,12 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 		return ctrl.Result{}, err
 	}
 
+	if _, err := deps.DeleteStale(ctx, r.Client); err != nil {
+		return ctrl.Result{}, errmark.MapLast(err, func(err error) error {
+			return fmt.Errorf("failed to delete stale dependencies: %+v", err)
+		})
+	}
+
 	obj.ConfigureTenantDeps(ctx, deps)
 
 	tdr := obj.AsTenantDepsResult(deps, deps.Persist(ctx, r.Client))

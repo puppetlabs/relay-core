@@ -6,6 +6,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/controller/handler"
 	"github.com/puppetlabs/relay-core/pkg/dependency"
 	"github.com/puppetlabs/relay-core/pkg/errmark"
+	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/reconciler/filter"
 	"github.com/puppetlabs/relay-core/pkg/reconciler/trigger"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -22,6 +23,10 @@ func add(mgr manager.Manager, r reconcile.Reconciler, cfg *config.WorkflowContro
 			MaxConcurrentReconciles: cfg.MaxConcurrentReconciles,
 		}).
 		For(&relayv1beta1.WebhookTrigger{}).
+		Watches(&source.Kind{Type: &relayv1beta1.Tenant{}}, &handler.EnqueueRequestForReferencesByNameLabel{
+			Label:      model.RelayControllerTenantNameLabel,
+			TargetType: &relayv1beta1.WebhookTrigger{},
+		}).
 		Watches(&source.Kind{Type: &servingv1.Service{}}, &handler.EnqueueRequestForAnnotatedDependent{OwnerType: &relayv1beta1.WebhookTrigger{}}).
 		Complete(filter.ChainRight(r,
 			filter.ErrorCaptureReconcilerLink(

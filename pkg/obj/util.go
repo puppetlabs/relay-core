@@ -164,20 +164,26 @@ func IsDependencyOf(target metav1.ObjectMeta, owner Owner) (bool, error) {
 	return accessor.GetUID() == dep.UID && accessor.GetNamespace() == dep.Namespace && accessor.GetName() == dep.Name, nil
 }
 
-func Annotate(target *metav1.ObjectMeta, name, value string) {
+func Annotate(target *metav1.ObjectMeta, name, value string) bool {
 	if target.Annotations == nil {
 		target.Annotations = make(map[string]string)
+	} else if candidate, ok := target.Annotations[name]; ok && candidate == value {
+		return false
 	}
 
 	target.Annotations[name] = value
+	return true
 }
 
-func Label(target *metav1.ObjectMeta, name, value string) {
+func Label(target *metav1.ObjectMeta, name, value string) bool {
 	if target.Labels == nil {
 		target.Labels = make(map[string]string)
+	} else if candidate, ok := target.Labels[name]; ok && candidate == value {
+		return false
 	}
 
 	target.Labels[name] = value
+	return true
 }
 
 func CopyLabelsAndAnnotations(target *metav1.ObjectMeta, src metav1.ObjectMeta) {

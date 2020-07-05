@@ -69,3 +69,7 @@ func IfAll(err error, conds []IfFunc, fn func(err error)) {
 
 	fn(Resolve(err))
 }
+
+func Is(candidate, wanted error) bool {
+	return AsMarkedError(candidate).Delegate == wanted
+}

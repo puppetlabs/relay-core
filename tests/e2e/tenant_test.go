@@ -260,3 +260,53 @@ func TestTenantAPITriggerEventSinkWithNamespaceAndSecret(t *testing.T) {
 		}))
 	})
 }
+
+func TestTenantNamespaceUpdate(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	WithConfig(t, ctx, []ConfigOption{
+		ConfigWithTenantReconciler,
+	}, func(cfg *Config) {
+		child1 := fmt.Sprintf("%s-child-1", cfg.Namespace.GetName())
+		child2 := fmt.Sprintf("%s-child-2", cfg.Namespace.GetName())
+
+		tenant := &relayv1beta1.Tenant{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: cfg.Namespace.GetName(),
+				Name:      "my-test-tenant",
+			},
+			Spec: relayv1beta1.TenantSpec{
+				NamespaceTemplate: relayv1beta1.NamespaceTemplate{
+					Metadata: metav1.ObjectMeta{
+						Name: child1,
+					},
+				},
+			},
+		}
+		CreateAndWaitForTenant(t, ctx, tenant)
+
+		// Child namespace should now exist.
+		var ns1 corev1.Namespace
+		require.Equal(t, child1, tenant.Status.Namespace)
+		require.NoError(t, e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: child1}, &ns1))
+
+		// Change namespace in tenant.
+		Mutate(t, ctx, tenant, func() {
+			tenant.Spec.NamespaceTemplate.Metadata.Name = child2
+		})
+		WaitForTenant(t, ctx, tenant)
+
+		// First child namespace should now not exist or have deletion timestamp
+		// set, second should exist.
+		var ns2 corev1.Namespace
+		require.Equal(t, child2, tenant.Status.Namespace)
+		require.NoError(t, e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: child2}, &ns2))
+
+		if err := e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: child1}, &ns1); err != nil {
+			require.True(t, errors.IsNotFound(err))
+		} else {
+			require.NotEmpty(t, ns1.GetDeletionTimestamp())
+		}
+	})
+}
