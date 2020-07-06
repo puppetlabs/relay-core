@@ -12,6 +12,20 @@ func TransientRuleExact(err, want error) bool {
 	return err == want
 }
 
+func TransientAll(rules ...TransientRule) TransientRule {
+	return func(err error) bool {
+		for _, rule := range rules {
+			if !rule(err) {
+				return false
+			}
+		}
+
+		return true
+	}
+}
+
+var TransientAlways = TransientAll()
+
 func TransientAny(rules ...TransientRule) TransientRule {
 	return func(err error) bool {
 		for _, rule := range rules {

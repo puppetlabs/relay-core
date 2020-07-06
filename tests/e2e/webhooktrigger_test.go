@@ -22,6 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -368,5 +369,132 @@ func TestWebhookTriggerHasAccessToMetadataAPI(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, http.StatusAccepted, resp.StatusCode)
 		require.NotEqual(t, 0, reqs)
+	})
+}
+
+func TestWebhookTriggerTenantUpdatePropagation(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	WithConfig(t, ctx, []ConfigOption{
+		ConfigWithWebhookTriggerReconciler,
+	}, func(cfg *Config) {
+		child1 := fmt.Sprintf("%s-child-1", cfg.Namespace.GetName())
+		child2 := fmt.Sprintf("%s-child-2", cfg.Namespace.GetName())
+
+		tn := &relayv1beta1.Tenant{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: cfg.Namespace.GetName(),
+				Name:      "my-test-tenant",
+			},
+			Spec: relayv1beta1.TenantSpec{
+				NamespaceTemplate: relayv1beta1.NamespaceTemplate{
+					Metadata: metav1.ObjectMeta{
+						Name: child1,
+					},
+				},
+			},
+		}
+		CreateAndWaitForTenant(t, ctx, tn)
+
+		// Create a webhook trigger. The Knative service will come up in the first
+		// namespace.
+		wt := &relayv1beta1.WebhookTrigger{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-trigger",
+				Namespace: cfg.Namespace.GetName(),
+			},
+			Spec: relayv1beta1.WebhookTriggerSpec{
+				Image: "alpine",
+				Input: []string{
+					"echo hi",
+				},
+				TenantRef: corev1.LocalObjectReference{
+					Name: tn.GetName(),
+				},
+			},
+		}
+		require.NoError(t, e2e.ControllerRuntimeClient.Create(ctx, wt))
+
+		var ks servingv1.ServiceList
+		require.NoError(t, retry.Retry(ctx, 500*time.Millisecond, func() *retry.RetryError {
+			if err := e2e.ControllerRuntimeClient.List(ctx, &ks, client.InNamespace(child1)); err != nil {
+				return retry.RetryPermanent(err)
+			}
+
+			if len(ks.Items) == 0 {
+				return retry.RetryTransient(fmt.Errorf("waiting for Knative service in first child namespace"))
+			}
+
+			return retry.RetryPermanent(nil)
+		}))
+
+		// Change the tenant to use a new namespace. The Knative service should then
+		// switch to the new namespace.
+		Mutate(t, ctx, tn, func() {
+			tn.Spec.NamespaceTemplate.Metadata.Name = child2
+		})
+
+		require.NoError(t, retry.Retry(ctx, 500*time.Millisecond, func() *retry.RetryError {
+			if err := e2e.ControllerRuntimeClient.List(ctx, &ks, client.InNamespace(child2)); err != nil {
+				return retry.RetryPermanent(err)
+			}
+
+			if len(ks.Items) == 0 {
+				return retry.RetryTransient(fmt.Errorf("waiting for Knative service in second child namespace"))
+			}
+
+			return retry.RetryPermanent(nil)
+		}))
+	})
+}
+
+func TestWebhookTriggerDeletionAfterTenantDeletion(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	WithConfig(t, ctx, []ConfigOption{
+		ConfigWithWebhookTriggerReconciler,
+	}, func(cfg *Config) {
+		tn := &relayv1beta1.Tenant{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: cfg.Namespace.GetName(),
+				Name:      "my-test-tenant",
+			},
+			Spec: relayv1beta1.TenantSpec{
+				NamespaceTemplate: relayv1beta1.NamespaceTemplate{
+					Metadata: metav1.ObjectMeta{
+						Name: fmt.Sprintf("%s-child", cfg.Namespace.GetName()),
+					},
+				},
+			},
+		}
+		CreateAndWaitForTenant(t, ctx, tn)
+
+		wt := &relayv1beta1.WebhookTrigger{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-trigger",
+				Namespace: cfg.Namespace.GetName(),
+			},
+			Spec: relayv1beta1.WebhookTriggerSpec{
+				Image: "alpine",
+				Input: []string{
+					"echo hi",
+				},
+				TenantRef: corev1.LocalObjectReference{
+					Name: tn.GetName(),
+				},
+			},
+		}
+		require.NoError(t, e2e.ControllerRuntimeClient.Create(ctx, wt))
+
+		// Delete tenant first. This should pretty much break the webhook
+		// reconciliation.
+		require.NoError(t, e2e.ControllerRuntimeClient.Delete(ctx, tn))
+		require.NoError(t, testutil.WaitForObjectDeletion(ctx, e2e.ControllerRuntimeClient, tn))
+
+		// Webhook should still be deletable, though.
+		require.NoError(t, e2e.ControllerRuntimeClient.Delete(ctx, wt))
+		require.NoError(t, testutil.WaitForObjectDeletion(ctx, e2e.ControllerRuntimeClient, wt))
 	})
 }

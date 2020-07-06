@@ -113,6 +113,10 @@ spec:
               x-kubernetes-list-map-keys:
               - type
               x-kubernetes-list-type: map
+            namespace:
+              description: Namespace is the Kubernetes namespace containing the target
+                resources of this webhook trigger.
+              type: string
             observedGeneration:
               description: ObservedGeneration is the generation of the resource specification
                 that this status matches.

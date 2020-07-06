@@ -51,6 +51,10 @@ func NewAPITriggerEventSink(namespace string, sink *relayv1beta1.APITriggerEvent
 type TenantDeps struct {
 	Tenant *Tenant
 
+	// StaleNamespace is the old namespace of a tenant that needs to be cleaned
+	// up.
+	StaleNamespace *Namespace
+
 	Namespace     *Namespace
 	NetworkPolicy *NetworkPolicy
 	LimitRange    *LimitRange
@@ -91,10 +95,21 @@ func (td *TenantDeps) Load(ctx context.Context, cl client.Client) (bool, error) 
 		loaders = append(loaders, td.Namespace, td.NetworkPolicy, td.LimitRange)
 	}
 
+	// Check for stale namespace. We only clean up the stale namespace if it was
+	// managed.
+	if td.Tenant.Object.Status.Namespace != "" && td.Tenant.Object.Status.Namespace != td.Tenant.Key.Namespace && td.Tenant.Object.Status.Namespace != td.Namespace.Name {
+		td.StaleNamespace = NewNamespace(td.Tenant.Object.Status.Namespace)
+		loaders = append(loaders, td.StaleNamespace)
+	}
+
 	return loaders.Load(ctx, cl)
 }
 
 func (td *TenantDeps) Delete(ctx context.Context, cl client.Client) (bool, error) {
+	if _, err := td.DeleteStale(ctx, cl); err != nil {
+		return false, err
+	}
+
 	if !td.Tenant.Managed() {
 		return true, nil
 	}
@@ -107,6 +122,20 @@ func (td *TenantDeps) Delete(ctx context.Context, cl client.Client) (bool, error
 		return false, err
 	} else if ok {
 		return td.Namespace.Delete(ctx, cl)
+	}
+
+	return true, nil
+}
+
+func (td *TenantDeps) DeleteStale(ctx context.Context, cl client.Client) (bool, error) {
+	if td.StaleNamespace == nil || td.StaleNamespace.Object.GetUID() == "" {
+		return true, nil
+	}
+
+	if ok, err := IsDependencyOf(td.StaleNamespace.Object.ObjectMeta, Owner{Object: td.Tenant.Object, GVK: relayv1beta1.TenantKind}); err != nil {
+		return false, err
+	} else if ok {
+		return td.StaleNamespace.Delete(ctx, cl)
 	}
 
 	return true, nil

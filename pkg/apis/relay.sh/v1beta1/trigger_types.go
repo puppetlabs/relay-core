@@ -60,6 +60,12 @@ type WebhookTriggerStatus struct {
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
+	// Namespace is the Kubernetes namespace containing the target resources of
+	// this webhook trigger.
+	//
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
+
 	// URL is the endpoint for the webhook once provisioned.
 	//
 	// +optional

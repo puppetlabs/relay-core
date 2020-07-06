@@ -170,6 +170,7 @@ func ConfigureTenant(t *Tenant, td *TenantDepsResult) {
 
 	t.Object.Status = relayv1beta1.TenantStatus{
 		ObservedGeneration: t.Object.GetGeneration(),
+		Namespace:          td.TenantDeps.Namespace.Name,
 		Conditions: []relayv1beta1.TenantCondition{
 			{
 				Condition: *conds[relayv1beta1.TenantNamespaceReady],

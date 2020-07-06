@@ -8,6 +8,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
 	"github.com/puppetlabs/relay-core/pkg/dependency"
 	"github.com/puppetlabs/relay-core/pkg/errmark"
+	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	"k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -66,10 +67,8 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 	}
 
 	deps := obj.NewWebhookTriggerDeps(wt, r.issuer, r.Config.MetadataAPIURL)
-	if _, err := deps.Load(ctx, r.Client); err != nil {
-		// Could be waiting for the tenant to reconcile.
-		err = errmark.MarkTransient(err, obj.TransientIfRequired)
-
+	loaded, err := deps.Load(ctx, r.Client)
+	if err != nil {
 		return ctrl.Result{}, errmark.MapLast(err, func(err error) error {
 			return fmt.Errorf("failed to load dependencies: %+v", err)
 		})
@@ -81,6 +80,28 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 	})
 	if err != nil || finalized {
 		return ctrl.Result{}, err
+	}
+
+	// Set the ownership label first. We use this to ensure this object is
+	// reconciled when the tenant changes or is deleted.
+	if obj.Label(&wt.Object.ObjectMeta, model.RelayControllerTenantNameLabel, wt.Object.Spec.TenantRef.Name) {
+		if err := wt.Persist(ctx, r.Client); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	// Delete stale dependencies regardless of upstream status. This will also
+	// remove stale Knative services because they are owned by the config map.
+	if _, err := deps.DeleteStale(ctx, r.Client); err != nil {
+		return ctrl.Result{}, errmark.MapLast(err, func(err error) error {
+			return fmt.Errorf("failed to delete stale dependencies: %+v", err)
+		})
+	}
+
+	if !loaded.Upstream {
+		// Upstream dependencies (tenant, tenant dependencies) have not yet
+		// settled. Wait for them to do so.
+		return ctrl.Result{}, errmark.MarkTransient(fmt.Errorf("waiting for dependencies to reconcile"), errmark.TransientAlways)
 	}
 
 	if err := obj.ConfigureWebhookTriggerDeps(ctx, deps); err != nil {
