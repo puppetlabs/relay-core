@@ -93,6 +93,12 @@ type TenantStatus struct {
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
+	// Namespace is the namespace managed by this tenant or the namespace of the
+	// tenant if it is unmanaged.
+	//
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
+
 	// Conditions are the observations of this resource's state.
 	//
 	// +optional

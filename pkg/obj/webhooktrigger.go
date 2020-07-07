@@ -146,7 +146,16 @@ func ConfigureWebhookTrigger(wt *WebhookTrigger, ksr *KnativeServiceResult) {
 		},
 	}
 
-	if ksr.KnativeService != nil && ksr.KnativeService.Object.Status.IsReady() && ksr.KnativeService.Object.Status.URL != nil {
-		wt.Object.Status.URL = ksr.KnativeService.Object.Status.URL.String()
+	if ksr.KnativeService != nil {
+		wt.Object.Status.Namespace = ksr.KnativeService.Key.Namespace
+
+		if ksr.KnativeService.Object.Status.IsReady() && ksr.KnativeService.Object.Status.URL != nil {
+			wt.Object.Status.URL = ksr.KnativeService.Object.Status.URL.String()
+		} else {
+			wt.Object.Status.URL = ""
+		}
+	} else {
+		wt.Object.Status.Namespace = ""
+		wt.Object.Status.URL = ""
 	}
 }

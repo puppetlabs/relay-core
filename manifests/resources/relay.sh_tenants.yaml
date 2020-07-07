@@ -121,6 +121,10 @@ spec:
               x-kubernetes-list-map-keys:
               - type
               x-kubernetes-list-type: map
+            namespace:
+              description: Namespace is the namespace managed by this tenant or the
+                namespace of the tenant if it is unmanaged.
+              type: string
             observedGeneration:
               description: ObservedGeneration is the generation of the resource specification
                 that this status matches.

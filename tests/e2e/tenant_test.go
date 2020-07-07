@@ -171,25 +171,7 @@ func TestTenantAPITriggerEventSinkWithSecret(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, e2e.ControllerRuntimeClient.Create(ctx, tenant))
-
-		// Wait for tenant to reconcile.
-		require.NoError(t, retry.Retry(ctx, 500*time.Millisecond, func() *retry.RetryError {
-			if err := e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{
-				Namespace: tenant.GetNamespace(),
-				Name:      tenant.GetName(),
-			}, tenant); err != nil {
-				return retry.RetryPermanent(err)
-			}
-
-			for _, cond := range tenant.Status.Conditions {
-				if cond.Type == relayv1beta1.TenantReady && cond.Status == corev1.ConditionTrue {
-					return retry.RetryPermanent(nil)
-				}
-			}
-
-			return retry.RetryTransient(fmt.Errorf("waiting for tenant to reconcile"))
-		}))
+		CreateAndWaitForTenant(t, ctx, tenant)
 	})
 }
 
@@ -239,24 +221,56 @@ func TestTenantAPITriggerEventSinkWithNamespaceAndSecret(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, e2e.ControllerRuntimeClient.Create(ctx, tenant))
+		CreateAndWaitForTenant(t, ctx, tenant)
+	})
+}
 
-		// Wait for tenant to reconcile.
-		require.NoError(t, retry.Retry(ctx, 500*time.Millisecond, func() *retry.RetryError {
-			if err := e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{
-				Namespace: tenant.GetNamespace(),
-				Name:      tenant.GetName(),
-			}, tenant); err != nil {
-				return retry.RetryPermanent(err)
-			}
+func TestTenantNamespaceUpdate(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
-			for _, cond := range tenant.Status.Conditions {
-				if cond.Type == relayv1beta1.TenantReady && cond.Status == corev1.ConditionTrue {
-					return retry.RetryPermanent(nil)
-				}
-			}
+	WithConfig(t, ctx, []ConfigOption{
+		ConfigWithTenantReconciler,
+	}, func(cfg *Config) {
+		child1 := fmt.Sprintf("%s-child-1", cfg.Namespace.GetName())
+		child2 := fmt.Sprintf("%s-child-2", cfg.Namespace.GetName())
 
-			return retry.RetryTransient(fmt.Errorf("waiting for tenant to reconcile"))
-		}))
+		tenant := &relayv1beta1.Tenant{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: cfg.Namespace.GetName(),
+				Name:      "my-test-tenant",
+			},
+			Spec: relayv1beta1.TenantSpec{
+				NamespaceTemplate: relayv1beta1.NamespaceTemplate{
+					Metadata: metav1.ObjectMeta{
+						Name: child1,
+					},
+				},
+			},
+		}
+		CreateAndWaitForTenant(t, ctx, tenant)
+
+		// Child namespace should now exist.
+		var ns1 corev1.Namespace
+		require.Equal(t, child1, tenant.Status.Namespace)
+		require.NoError(t, e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: child1}, &ns1))
+
+		// Change namespace in tenant.
+		Mutate(t, ctx, tenant, func() {
+			tenant.Spec.NamespaceTemplate.Metadata.Name = child2
+		})
+		WaitForTenant(t, ctx, tenant)
+
+		// First child namespace should now not exist or have deletion timestamp
+		// set, second should exist.
+		var ns2 corev1.Namespace
+		require.Equal(t, child2, tenant.Status.Namespace)
+		require.NoError(t, e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: child2}, &ns2))
+
+		if err := e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: child1}, &ns1); err != nil {
+			require.True(t, errors.IsNotFound(err))
+		} else {
+			require.NotEmpty(t, ns1.GetDeletionTimestamp())
+		}
 	})
 }

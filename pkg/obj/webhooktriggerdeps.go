@@ -25,11 +25,21 @@ var (
 	maxUsableTime = time.Unix(math.MaxInt64-62135596800, 999999999)
 )
 
+type WebhookTriggerDepsLoadResult struct {
+	Upstream bool
+	All      bool
+}
+
 type WebhookTriggerDeps struct {
 	WebhookTrigger *WebhookTrigger
 	Issuer         authenticate.Issuer
 	Tenant         *Tenant
 	TenantDeps     *TenantDeps
+
+	// StaleOwnerConfigMap is a reference to a now-outdated stub object that
+	// needs to be cleaned up. It is set if the tenant is deleted or if the
+	// tenant namespace changes.
+	StaleOwnerConfigMap *ConfigMap
 
 	// OwnerConfigMap is a stub object that allows us to aggregate ownership of
 	// the other objects created by these dependencies in the tenant namespace.
@@ -49,10 +59,13 @@ type WebhookTriggerDeps struct {
 }
 
 var _ Persister = &WebhookTriggerDeps{}
-var _ Loader = &WebhookTriggerDeps{}
 var _ Deleter = &WebhookTriggerDeps{}
 
 func (wtd *WebhookTriggerDeps) Persist(ctx context.Context, cl client.Client) error {
+	if _, err := wtd.DeleteStale(ctx, cl); err != nil {
+		return err
+	}
+
 	// Must have the owner UID before assigning ownership.
 	if err := wtd.OwnerConfigMap.Persist(ctx, cl); err != nil {
 		return err
@@ -81,7 +94,6 @@ func (wtd *WebhookTriggerDeps) Persist(ctx context.Context, cl client.Client) er
 		wtd.MetadataAPIRoleBinding,
 		wtd.KnativeServiceAccount,
 	}
-
 	for _, p := range ps {
 		if err := p.Persist(ctx, cl); err != nil {
 			return err
@@ -91,23 +103,50 @@ func (wtd *WebhookTriggerDeps) Persist(ctx context.Context, cl client.Client) er
 	return nil
 }
 
-func (wtd *WebhookTriggerDeps) Load(ctx context.Context, cl client.Client) (bool, error) {
+func (wtd *WebhookTriggerDeps) Load(ctx context.Context, cl client.Client) (*WebhookTriggerDepsLoadResult, error) {
 	// Load tenant and tenant dependencies first so that we can resolve
 	// everything else.
-	if _, err := (RequiredLoader{wtd.Tenant}).Load(ctx, cl); err != nil {
-		return false, err
+	if ok, err := wtd.Tenant.Load(ctx, cl); err != nil {
+		return nil, err
+	} else if !ok {
+		// In this case, our tenant may have been deleted so we check to see if
+		// this trigger already has resources created. If so, we add the stale
+		// config map at the current version.
+		if wtd.WebhookTrigger.Object.Status.Namespace != "" {
+			wtd.StaleOwnerConfigMap = NewConfigMap(SuffixObjectKey(client.ObjectKey{
+				Namespace: wtd.WebhookTrigger.Object.Status.Namespace,
+				Name:      wtd.WebhookTrigger.Key.Name,
+			}, "owner"))
+
+			if _, err := wtd.StaleOwnerConfigMap.Load(ctx, cl); err != nil {
+				return nil, err
+			}
+		}
+
+		return &WebhookTriggerDepsLoadResult{}, nil
 	}
 
 	wtd.TenantDeps = NewTenantDeps(wtd.Tenant)
 
-	if _, err := (RequiredLoader{wtd.TenantDeps}).Load(ctx, cl); err != nil {
-		return false, err
+	if ok, err := wtd.TenantDeps.Load(ctx, cl); err != nil {
+		return nil, err
+	} else if !ok {
+		// Waiting for tenant to settle now.
+		return &WebhookTriggerDepsLoadResult{}, nil
 	}
 
 	// Key will be our webhook trigger name *in* the tenant namespace.
 	key := client.ObjectKey{Namespace: wtd.TenantDeps.Namespace.Name, Name: wtd.WebhookTrigger.Key.Name}
 
 	wtd.OwnerConfigMap = NewConfigMap(SuffixObjectKey(key, "owner"))
+	if wtd.WebhookTrigger.Object.Status.Namespace != "" && wtd.OwnerConfigMap.Key.Namespace != wtd.WebhookTrigger.Object.Status.Namespace {
+		// In this case, the configuration of the tenant has changed. We'll
+		// delete the current owner map and replace it with the new one.
+		wtd.StaleOwnerConfigMap = NewConfigMap(SuffixObjectKey(client.ObjectKey{
+			Namespace: wtd.WebhookTrigger.Object.Status.Namespace,
+			Name:      wtd.WebhookTrigger.Key.Name,
+		}, "owner"))
+	}
 
 	wtd.NetworkPolicy = NewNetworkPolicy(key)
 
@@ -120,7 +159,8 @@ func (wtd *WebhookTriggerDeps) Load(ctx context.Context, cl client.Client) (bool
 
 	wtd.KnativeServiceAccount = NewServiceAccount(SuffixObjectKey(key, "knative"))
 
-	return Loaders{
+	ok, err := Loaders{
+		IgnoreNilLoader{wtd.StaleOwnerConfigMap},
 		wtd.OwnerConfigMap,
 		wtd.NetworkPolicy,
 		wtd.ImmutableConfigMap,
@@ -130,9 +170,21 @@ func (wtd *WebhookTriggerDeps) Load(ctx context.Context, cl client.Client) (bool
 		wtd.MetadataAPIRoleBinding,
 		wtd.KnativeServiceAccount,
 	}.Load(ctx, cl)
+	if err != nil {
+		return nil, err
+	}
+
+	return &WebhookTriggerDepsLoadResult{
+		Upstream: true,
+		All:      ok,
+	}, nil
 }
 
 func (wtd *WebhookTriggerDeps) Delete(ctx context.Context, cl client.Client) (bool, error) {
+	if _, err := wtd.DeleteStale(ctx, cl); err != nil {
+		return false, err
+	}
+
 	if wtd.OwnerConfigMap == nil || wtd.OwnerConfigMap.Object.GetUID() == "" {
 		return true, nil
 	}
@@ -141,6 +193,20 @@ func (wtd *WebhookTriggerDeps) Delete(ctx context.Context, cl client.Client) (bo
 		return false, err
 	} else if ok {
 		return wtd.OwnerConfigMap.Delete(ctx, cl)
+	}
+
+	return true, nil
+}
+
+func (wtd *WebhookTriggerDeps) DeleteStale(ctx context.Context, cl client.Client) (bool, error) {
+	if wtd.StaleOwnerConfigMap == nil || wtd.StaleOwnerConfigMap.Object.GetUID() == "" {
+		return true, nil
+	}
+
+	if ok, err := IsDependencyOf(wtd.StaleOwnerConfigMap.Object.ObjectMeta, Owner{Object: wtd.WebhookTrigger.Object, GVK: relayv1beta1.WebhookTriggerKind}); err != nil {
+		return false, err
+	} else if ok {
+		return wtd.StaleOwnerConfigMap.Delete(ctx, cl)
 	}
 
 	return true, nil
@@ -263,8 +329,10 @@ func ConfigureWebhookTriggerDeps(ctx context.Context, wtd *WebhookTriggerDeps) e
 func ApplyWebhookTriggerDeps(ctx context.Context, cl client.Client, wt *WebhookTrigger, issuer authenticate.Issuer, metadataAPIURL *url.URL) (*WebhookTriggerDeps, error) {
 	deps := NewWebhookTriggerDeps(wt, issuer, metadataAPIURL)
 
-	if _, err := deps.Load(ctx, cl); err != nil {
+	if loaded, err := deps.Load(ctx, cl); err != nil {
 		return nil, err
+	} else if !loaded.Upstream {
+		return nil, ErrRequired
 	}
 
 	if err := ConfigureWebhookTriggerDeps(ctx, deps); err != nil {
