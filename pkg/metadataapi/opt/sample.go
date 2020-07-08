@@ -50,7 +50,8 @@ type SampleConfigStep struct {
 }
 
 type SampleConfigRun struct {
-	Steps map[string]*SampleConfigStep `yaml:"steps"`
+	Parameters map[string]interface{}       `yaml:"parameters"`
+	Steps      map[string]*SampleConfigStep `yaml:"steps"`
 }
 
 type SampleConfigTrigger struct{}

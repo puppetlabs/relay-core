@@ -36,6 +36,9 @@ func TestGetSpec(t *testing.T) {
 		},
 		Runs: map[string]*opt.SampleConfigRun{
 			"test": &opt.SampleConfigRun{
+				Parameters: map[string]interface{}{
+					"nice-parameter": "nice-value",
+				},
 				Steps: map[string]*opt.SampleConfigStep{
 					"previous-task": &opt.SampleConfigStep{
 						Outputs: map[string]interface{}{
@@ -48,6 +51,9 @@ func TestGetSpec(t *testing.T) {
 					},
 					"current-task": &opt.SampleConfigStep{
 						Spec: opt.SampleConfigSpec{
+							"superParameter": serialize.YAMLTree{
+								Tree: sdktestutil.JSONParameter("nice-parameter"),
+							},
 							"superSecret": serialize.YAMLTree{
 								Tree: sdktestutil.JSONSecret("test-secret-key"),
 							},
@@ -95,8 +101,9 @@ func TestGetSpec(t *testing.T) {
 	var r evaluate.JSONResultEnvelope
 	require.NoError(t, json.NewDecoder(resp.Result().Body).Decode(&r))
 	require.Equal(t, map[string]interface{}{
-		"superSecret": "test-secret-value",
-		"superOutput": "test-output-value",
+		"superParameter": "nice-value",
+		"superSecret":    "test-secret-value",
+		"superOutput":    "test-output-value",
 		"structuredOutput": map[string]interface{}{
 			"a":       "value",
 			"another": "thing",

@@ -6,8 +6,6 @@ import (
 
 	"github.com/puppetlabs/relay-core/pkg/errmark"
 	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
-	"github.com/puppetlabs/relay-core/pkg/expr/fn"
-	"github.com/puppetlabs/relay-core/pkg/expr/resolve"
 	"github.com/puppetlabs/relay-core/pkg/manager/configmap"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	corev1 "k8s.io/api/core/v1"
@@ -68,11 +66,7 @@ func ConfigureImmutableConfigMapForWebhookTrigger(ctx context.Context, cm *Confi
 	// it later.
 	lcm := configmap.NewLocalConfigMap(cm.Object)
 
-	ev := evaluate.NewEvaluator(
-		evaluate.WithInvocationResolver(
-			resolve.NewMemoryInvocationResolver(fn.NewMap(map[string]fn.Descriptor{})),
-		),
-	)
+	ev := evaluate.NewEvaluator()
 
 	if len(wt.Object.Spec.Spec) > 0 {
 		r, err := ev.EvaluateAll(ctx, wt.Object.Spec.Spec.Value())
@@ -101,23 +95,18 @@ func ConfigureImmutableConfigMapForWorkflowRun(ctx context.Context, cm *ConfigMa
 	// it later.
 	lcm := configmap.NewLocalConfigMap(cm.Object)
 
-	specParamers := wr.Object.Spec.Workflow.Parameters.Value()
-	runParameters := wr.Object.Spec.Parameters.Value()
+	params := wr.Object.Spec.Workflow.Parameters.Value()
+	for name, value := range wr.Object.Spec.Parameters {
+		params[name] = value.Value()
+	}
 
-	ev := evaluate.NewEvaluator(
-		evaluate.WithInvocationResolver(
-			resolve.NewMemoryInvocationResolver(fn.NewMap(map[string]fn.Descriptor{})),
-		),
-		evaluate.WithParameterTypeResolver(resolve.ParameterTypeResolverFunc(func(ctx context.Context, name string) (interface{}, error) {
-			if p, ok := runParameters[name]; ok {
-				return p, nil
-			} else if p, ok := specParamers[name]; ok {
-				return p, nil
-			}
+	for name, value := range params {
+		if _, err := configmap.NewParameterManager(lcm).Set(ctx, name, value); err != nil {
+			return err
+		}
+	}
 
-			return nil, &resolve.ParameterNotFoundError{Name: name}
-		})),
-	)
+	ev := evaluate.NewEvaluator()
 
 	for _, step := range wr.Object.Spec.Workflow.Steps {
 		if len(step.Spec) > 0 {

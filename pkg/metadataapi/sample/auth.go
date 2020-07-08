@@ -77,6 +77,8 @@ func NewAuthenticator(sc *opt.SampleConfig, key interface{}) *Authenticator {
 		run := model.Run{ID: id}
 		som := memory.NewStepOutputMap()
 
+		parameterManager := memory.NewParameterManager(memory.ParameterManagerWithInitialParameters(sc.Parameters))
+
 		for name, sc := range sc.Steps {
 			step := &model.Step{
 				Run:  run,
@@ -112,6 +114,7 @@ func NewAuthenticator(sc *opt.SampleConfig, key interface{}) *Authenticator {
 
 			a.mgrs[step.Hash()] = func(mgrs *builder.MetadataBuilder) {
 				mgrs.SetConditions(conditionManager)
+				mgrs.SetParameters(parameterManager)
 				mgrs.SetSpec(specManager)
 				mgrs.SetState(stateManager)
 				mgrs.SetStepOutputs(stepOutputManager)
