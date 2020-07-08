@@ -6,6 +6,7 @@ import (
 
 	"github.com/puppetlabs/relay-core/pkg/errmark"
 	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
+	"github.com/puppetlabs/relay-core/pkg/expr/fn"
 	"github.com/puppetlabs/relay-core/pkg/expr/resolve"
 	"github.com/puppetlabs/relay-core/pkg/manager/configmap"
 	"github.com/puppetlabs/relay-core/pkg/model"
@@ -67,7 +68,11 @@ func ConfigureImmutableConfigMapForWebhookTrigger(ctx context.Context, cm *Confi
 	// it later.
 	lcm := configmap.NewLocalConfigMap(cm.Object)
 
-	ev := evaluate.NewEvaluator()
+	ev := evaluate.NewEvaluator(
+		evaluate.WithInvocationResolver(
+			resolve.NewMemoryInvocationResolver(fn.NewMap(map[string]fn.Descriptor{})),
+		),
+	)
 
 	if len(wt.Object.Spec.Spec) > 0 {
 		r, err := ev.EvaluateAll(ctx, wt.Object.Spec.Spec.Value())
@@ -100,6 +105,9 @@ func ConfigureImmutableConfigMapForWorkflowRun(ctx context.Context, cm *ConfigMa
 	runParameters := wr.Object.Spec.Parameters.Value()
 
 	ev := evaluate.NewEvaluator(
+		evaluate.WithInvocationResolver(
+			resolve.NewMemoryInvocationResolver(fn.NewMap(map[string]fn.Descriptor{})),
+		),
 		evaluate.WithParameterTypeResolver(resolve.ParameterTypeResolverFunc(func(ctx context.Context, name string) (interface{}, error) {
 			if p, ok := runParameters[name]; ok {
 				return p, nil
