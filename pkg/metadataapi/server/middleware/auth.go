@@ -140,8 +140,9 @@ func (ka *KubernetesAuthenticator) injector(mgrs *builder.MetadataBuilder, tags 
 		action := claims.Action()
 
 		model.IfStep(action, func(step *model.Step) {
-			// Only a step can work with outputs. Other actions will get the
-			// default rejection manager.
+			// Only a step can work with parameters and outputs. Other actions
+			// will get the default rejection manager.
+			mgrs.SetParameters(configmap.NewParameterManager(immutableMap))
 			mgrs.SetStepOutputs(configmap.NewStepOutputManager(step, mutableMap))
 		})
 

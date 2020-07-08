@@ -26,6 +26,7 @@ type MetadataManagers interface {
 	Conditions() ConditionGetterManager
 	Connections() ConnectionManager
 	Events() EventManager
+	Parameters() ParameterGetterManager
 	Secrets() SecretManager
 	Spec() SpecGetterManager
 	State() StateGetterManager
@@ -36,6 +37,7 @@ type MetadataManagers interface {
 // setting up a new run.
 type RunReconcilerManagers interface {
 	Conditions() ConditionSetterManager
+	Parameters() ParameterSetterManager
 	Spec() SpecSetterManager
 	State() StateSetterManager
 }
