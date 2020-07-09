@@ -29,6 +29,7 @@ func (s *Server) GetConditions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ev := evaluate.NewEvaluator(
+		evaluate.WithParameterTypeResolver(resolve.NewParameterTypeResolver(managers.Parameters())),
 		evaluate.WithSecretTypeResolver(resolve.NewSecretTypeResolver(managers.Secrets())),
 		evaluate.WithOutputTypeResolver(resolve.NewOutputTypeResolver(managers.StepOutputs())),
 		evaluate.WithAnswerTypeResolver(resolve.NewAnswerTypeResolver(managers.State())),
