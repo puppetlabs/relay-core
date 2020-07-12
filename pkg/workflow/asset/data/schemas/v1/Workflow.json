@@ -242,16 +242,18 @@
       "type": "object",
       "description": "A trigger binding definition",
       "properties": {
+        "key": {
+          "type": "string",
+          "description": "An optional key binding to uniquely identify an event"
+        },
         "parameters": {
           "type": "object",
+          "description": "Parameter bindings to use when triggered by an event",
           "additionalProperties": {
             "$ref": "#/definitions/Expression"
           }
         }
-      },
-      "required": [
-        "parameters"
-      ]
+      }
     }
   }
 }
