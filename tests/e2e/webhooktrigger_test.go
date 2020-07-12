@@ -172,6 +172,7 @@ func TestWebhookTriggerHasAccessToMetadataAPI(t *testing.T) {
 				"trigger": map[string]interface{}{"name": "my-trigger"},
 			},
 			"data": map[string]interface{}{"test": "value"},
+			"key":  "",
 		}, body)
 
 		w.WriteHeader(http.StatusAccepted)

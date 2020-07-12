@@ -8,7 +8,7 @@ import (
 
 type eventManager struct{}
 
-func (*eventManager) Emit(ctx context.Context, data map[string]interface{}) (*model.Event, error) {
+func (*eventManager) Emit(ctx context.Context, data map[string]interface{}, key string) (*model.Event, error) {
 	return nil, model.ErrRejected
 }
 
