@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/puppetlabs/relay-core/pkg/manager/api"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/stretchr/testify/assert"
@@ -26,6 +27,8 @@ func TestEventManager(t *testing.T) {
 		"baz": []interface{}{float64(1), float64(2), float64(3)},
 	}
 
+	key := uuid.New().String()
+
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/events", r.URL.Path)
 		assert.Equal(t, "Bearer token", r.Header.Get("authorization"))
@@ -38,12 +41,14 @@ func TestEventManager(t *testing.T) {
 				} `json:"trigger"`
 			} `json:"source"`
 			Data map[string]interface{} `json:"data"`
+			Key  string                 `json:"key"`
 		}
 		require.NoError(t, json.NewDecoder(r.Body).Decode(&env))
 
 		assert.Equal(t, "trigger", env.Source.Type)
 		assert.Equal(t, trigger.Name, env.Source.Trigger.Name)
 		assert.Equal(t, data, env.Data)
+		assert.Equal(t, key, env.Key)
 
 		w.WriteHeader(http.StatusAccepted)
 	}))
@@ -51,7 +56,7 @@ func TestEventManager(t *testing.T) {
 
 	em := api.NewEventManager(trigger, fmt.Sprintf("%s/api/events", s.URL), "token")
 
-	ev, err := em.Emit(ctx, data)
+	ev, err := em.Emit(ctx, data, key)
 	require.NoError(t, err)
 	require.Equal(t, data, ev.Data)
 }

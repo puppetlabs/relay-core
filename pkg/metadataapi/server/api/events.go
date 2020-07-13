@@ -12,6 +12,7 @@ import (
 
 type PostEventRequestEnvelope struct {
 	Data map[string]transfer.JSONInterface `json:"data"`
+	Key  string                            `json:"key"`
 }
 
 func (s *Server) PostEvent(w http.ResponseWriter, r *http.Request) {
@@ -31,7 +32,7 @@ func (s *Server) PostEvent(w http.ResponseWriter, r *http.Request) {
 		data[k] = v.Data
 	}
 
-	if _, err := em.Emit(ctx, data); err != nil {
+	if _, err := em.Emit(ctx, data, env.Key); err != nil {
 		utilapi.WriteError(ctx, w, ModelWriteError(err))
 		return
 	}

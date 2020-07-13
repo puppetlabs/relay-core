@@ -53,12 +53,6 @@ func TestFixtureValidationForTriggers(t *testing.T) {
 						Description: "Invalid type. Expected: object, given: array",
 						Type:        "invalid_type",
 					},
-					{
-						Context:     "(root).triggers.1.binding",
-						Field:       "triggers.1.binding",
-						Description: "parameters is required",
-						Type:        "required",
-					},
 				},
 			},
 		},

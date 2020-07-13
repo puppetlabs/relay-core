@@ -32,7 +32,7 @@ type EventManager struct {
 
 var _ model.EventManager = &EventManager{}
 
-func (m *EventManager) Emit(ctx context.Context, data map[string]interface{}) (*model.Event, error) {
+func (m *EventManager) Emit(ctx context.Context, data map[string]interface{}, key string) (*model.Event, error) {
 	switch at := m.me.(type) {
 	case *model.Trigger:
 		encoded := make(map[string]transfer.JSONInterface, len(data))
@@ -48,6 +48,7 @@ func (m *EventManager) Emit(ctx context.Context, data map[string]interface{}) (*
 				},
 			},
 			Data: encoded,
+			Key:  key,
 		}
 
 		b, err := json.Marshal(env)
@@ -83,6 +84,7 @@ func (m *EventManager) Emit(ctx context.Context, data map[string]interface{}) (*
 
 		return &model.Event{
 			Data: data,
+			Key:  key,
 		}, nil
 	default:
 		return nil, model.ErrRejected
@@ -109,4 +111,5 @@ type triggerEventSourceEnvelope struct {
 type postEventRequestEnvelope struct {
 	Source *triggerEventSourceEnvelope       `json:"source"`
 	Data   map[string]transfer.JSONInterface `json:"data"`
+	Key    string                            `json:"key,omitempty"`
 }

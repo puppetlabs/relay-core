@@ -8,11 +8,12 @@ import (
 
 type eventManager struct{}
 
-func (*eventManager) Emit(ctx context.Context, data map[string]interface{}) (*model.Event, error) {
-	log(ctx).Info("received event", "data", data)
+func (*eventManager) Emit(ctx context.Context, data map[string]interface{}, key string) (*model.Event, error) {
+	log(ctx).Info("received event", "data", data, "key", key)
 
 	return &model.Event{
 		Data: data,
+		Key:  key,
 	}, nil
 }
 
