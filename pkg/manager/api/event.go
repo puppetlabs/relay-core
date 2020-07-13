@@ -84,6 +84,7 @@ func (m *EventManager) Emit(ctx context.Context, data map[string]interface{}, ke
 
 		return &model.Event{
 			Data: data,
+			Key:  key,
 		}, nil
 	default:
 		return nil, model.ErrRejected
@@ -110,5 +111,5 @@ type triggerEventSourceEnvelope struct {
 type postEventRequestEnvelope struct {
 	Source *triggerEventSourceEnvelope       `json:"source"`
 	Data   map[string]transfer.JSONInterface `json:"data"`
-	Key    string                            `json:"key"`
+	Key    string                            `json:"key,omitempty"`
 }
