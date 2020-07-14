@@ -11,12 +11,6 @@ triggers:
     schedule: '* * * * */5'
   binding:
   - dockerTagName: latest
-- name: webhook
-  source:
-    type: webhook
-    image: relaysh/dockerhub-push-trigger
-  binding:
-    dockerTagName: latest
 
 steps:
 - name: execute
