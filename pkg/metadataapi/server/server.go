@@ -19,12 +19,6 @@ type Server struct {
 }
 
 func (s *Server) Route(r *mux.Router) {
-	if s.capturer != nil {
-		r.Use(s.capturer.Middleware().Wrap)
-	}
-	r.Use(middleware.WithTrustedProxyHops(s.trustedProxyHops))
-	r.Use(utilapi.RequestMiddleware)
-	r.Use(utilapi.LogMiddleware)
 	r.Use(middleware.WithErrorSensitivity(s.errorSensitivity))
 
 	r.HandleFunc("/healthz", s.GetHealthz).Methods("GET")
@@ -53,7 +47,7 @@ func WithTrustedProxyHops(n int) Option {
 	}
 }
 
-func New(auth middleware.Authenticator, opts ...Option) *Server {
+func new(auth middleware.Authenticator, opts ...Option) *Server {
 	s := &Server{
 		auth:             auth,
 		errorSensitivity: errawr.ErrorSensitivityNone,
@@ -67,7 +61,20 @@ func New(auth middleware.Authenticator, opts ...Option) *Server {
 }
 
 func NewHandler(auth middleware.Authenticator, opts ...Option) http.Handler {
+	s := new(auth, opts...)
+
 	r := mux.NewRouter()
-	New(auth, opts...).Route(r)
-	return r
+	s.Route(r)
+
+	// These should run for every request, not just ones that Mux matches.
+	var h http.Handler = r
+	h = middleware.WebSecurity(h)
+	h = utilapi.LogMiddleware(h)
+	h = utilapi.RequestMiddleware(h)
+	h = middleware.WithTrustedProxyHops(s.trustedProxyHops)(h)
+	if s.capturer != nil {
+		h = s.capturer.Middleware().Wrap(h)
+	}
+
+	return h
 }
