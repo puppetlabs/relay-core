@@ -187,7 +187,6 @@ func TestVaultResolverEphemeralPorts(t *testing.T) {
 				}
 
 				if pn := atomic.AddUint32(&num, 1); pn > math.MaxUint16 {
-					pool.Close()
 					return
 				} else if pn%10000 == 0 {
 					t.Logf("issuing request #%d", pn)
@@ -218,8 +217,7 @@ func TestVaultResolverEphemeralPorts(t *testing.T) {
 		// Wait up to the available context for the testing to finish.
 		cerr := scheduler.WaitContext(ctx, pool)
 
-		// Close the pool (if not already closed) and wait for everything to
-		// settle.
+		// Close the pool and wait for everything to settle.
 		pool.Close()
 		<-pool.Done()
 

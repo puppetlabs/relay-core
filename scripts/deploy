@@ -6,15 +6,16 @@ if [ -z "${RELAY_EMAIL:-}" ] || [ -z "${RELAY_PASSWORD:-}" ] || [ -z "${RELAY_WO
     exit 0
 fi
 
+CLI_VERSION="$( curl -s -I https://github.com/puppetlabs/relay/releases/latest | awk 'tolower($1) == "location:" { printf("%s", gensub(/.*\/(.*)\r/, "\\1", "g")) }' )"
 mkdir -p .deploy
 curl -LJ -o .deploy/relay \
     -H 'Accept: application/octet-stream' \
-    "https://github.com/puppetlabs/relay/releases/download/v3.4.0/nebula-v3.4.0-linux-amd64"
+    "https://github.com/puppetlabs/relay/releases/download/${CLI_VERSION}/relay-${CLI_VERSION}-linux-amd64"
 chmod +x .deploy/relay
 
-mkdir -p ~/.config/nebula
-echo 'apiHostAddr: https://api.stage.relay-infra.net' >~/.config/nebula/config.yaml
+mkdir -p ~/.config/relay
+echo 'api_domain: https://api.stage.relay-infra.net' >~/.config/relay/config.yaml
 
-echo -n "${RELAY_PASSWORD}" | .deploy/relay login -e "${RELAY_EMAIL}" -p
-echo -n "${VERSION}" | .deploy/relay secret set -w "${RELAY_WORKFLOW}" -k tasks.image.tag -v
-.deploy/relay workflow run -n "${RELAY_WORKFLOW}"
+echo -n "${RELAY_PASSWORD}" | .deploy/relay auth login "${RELAY_EMAIL}" --password-stdin
+echo -n "${VERSION}" | .deploy/relay workflow secret set "${RELAY_WORKFLOW}" tasks.image.tag --value-stdin
+.deploy/relay workflow run "${RELAY_WORKFLOW}"
