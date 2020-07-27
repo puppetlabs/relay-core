@@ -73,6 +73,10 @@ func NewPipeline(wrd *WorkflowRunDeps) *Pipeline {
 }
 
 func ConfigurePipeline(ctx context.Context, p *Pipeline) error {
+	if err := p.Deps.WorkflowRun.Own(ctx, p); err != nil {
+		return err
+	}
+
 	if err := ConfigureConditions(ctx, p.Conditions); err != nil {
 		return err
 	}
