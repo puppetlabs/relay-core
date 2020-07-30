@@ -18,9 +18,34 @@
         "Workflow"
       ]
     },
+    "summary": {
+      "type": "string",
+      "description": "A high-level phrase describing what the workflow does"
+    },
     "description": {
       "type": "string",
-      "description": "An optional user-provided workflow description"
+      "description": "A more detailed description of the workflow"
+    },
+    "homepage": {
+      "type": "string",
+      "description": "An optional URL to a website for the workflow",
+      "format": "uri"
+    },
+    "source": {
+      "type": "string",
+      "description": "An optional URL to the workflow's authoritative source code location",
+      "format": "uri"
+    },
+    "tags": {
+      "type": "array",
+      "description": "An optional list of free-form labels to help people find the workflow",
+      "items": {
+        "type": "string"
+      }
+    },
+    "locals": {
+      "type": "object",
+      "description": "Reusable free-form data specific to this workflow"
     },
     "parameters": {
       "type": "object",
@@ -44,9 +69,6 @@
       }
     }
   },
-  "required": [
-    "steps"
-  ],
   "definitions": {
     "SchemaField": {
       "type": "object",
