@@ -2,6 +2,7 @@ package obj
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/puppetlabs/relay-core/pkg/model"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
@@ -78,13 +79,11 @@ func ConfigurePipelineRun(ctx context.Context, pr *PipelineRun) error {
 	sans := make([]tektonv1beta1.PipelineRunSpecServiceAccountName, len(pr.Pipeline.Object.Spec.Tasks))
 	for i, pt := range pr.Pipeline.Object.Spec.Tasks {
 		sans[i] = tektonv1beta1.PipelineRunSpecServiceAccountName{
-			TaskName:           pt.Name,
-			ServiceAccountName: pr.Pipeline.Deps.PipelineServiceAccount.Key.Name,
+			TaskName: pt.Name,
 		}
 	}
 
 	pr.Object.Spec = tektonv1beta1.PipelineRunSpec{
-		ServiceAccountName:  pr.Pipeline.Deps.SystemServiceAccount.Key.Name,
 		ServiceAccountNames: sans,
 		PipelineRef: &tektonv1beta1.PipelineRef{
 			Name: pr.Pipeline.Key.Name,
@@ -102,17 +101,17 @@ func ApplyPipelineRun(ctx context.Context, cl client.Client, p *Pipeline) (*Pipe
 	pr := NewPipelineRun(p)
 
 	if _, err := pr.Load(ctx, cl); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load PipelineRun: %w", err)
 	}
 
 	pr.LabelAnnotateFrom(ctx, p.Object.ObjectMeta)
 
 	if err := ConfigurePipelineRun(ctx, pr); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to configure PipelineRun: %w", err)
 	}
 
 	if err := pr.Persist(ctx, cl); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to persist PipelineRun: %w", err)
 	}
 
 	return pr, nil

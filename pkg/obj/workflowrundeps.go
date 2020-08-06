@@ -2,6 +2,7 @@ package obj
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"path"
 	"time"
@@ -10,7 +11,6 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"gopkg.in/square/go-jose.v2/jwt"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -36,11 +36,8 @@ type WorkflowRunDeps struct {
 	MetadataAPIRole           *Role
 	MetadataAPIRoleBinding    *RoleBinding
 
-	PipelineServiceAccount *ServiceAccount
-
-	SourceSystemImagePullSecret *ImagePullSecret
-	TargetSystemImagePullSecret *ImagePullSecret
-	SystemServiceAccount        *ServiceAccount
+	PipelineServiceAccount  *ServiceAccount
+	UntrustedServiceAccount *ServiceAccount
 }
 
 var _ Persister = &WorkflowRunDeps{}
@@ -56,8 +53,7 @@ func (wrd *WorkflowRunDeps) Persist(ctx context.Context, cl client.Client) error
 		wrd.MetadataAPIRole,
 		wrd.MetadataAPIRoleBinding,
 		wrd.PipelineServiceAccount,
-		IgnoreNilPersister{wrd.TargetSystemImagePullSecret},
-		wrd.SystemServiceAccount,
+		wrd.UntrustedServiceAccount,
 	}
 
 	for _, p := range ps {
@@ -80,9 +76,7 @@ func (wrd *WorkflowRunDeps) Load(ctx context.Context, cl client.Client) (bool, e
 		wrd.MetadataAPIRole,
 		wrd.MetadataAPIRoleBinding,
 		wrd.PipelineServiceAccount,
-		RequiredLoader{IgnoreNilLoader{wrd.SourceSystemImagePullSecret}},
-		IgnoreNilLoader{wrd.TargetSystemImagePullSecret},
-		wrd.SystemServiceAccount,
+		wrd.UntrustedServiceAccount,
 	}.Load(ctx, cl)
 }
 
@@ -131,7 +125,7 @@ func (wrd *WorkflowRunDeps) AnnotateStepToken(ctx context.Context, target *metav
 
 	tok, err := wrd.Issuer.Issue(ctx, claims)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to issue token: %w", err)
 	}
 
 	Annotate(target, authenticate.KubernetesTokenAnnotation, string(tok))
@@ -141,13 +135,6 @@ func (wrd *WorkflowRunDeps) AnnotateStepToken(ctx context.Context, target *metav
 }
 
 type WorkflowRunDepsOption func(wrd *WorkflowRunDeps)
-
-func WorkflowRunDepsWithSourceSystemImagePullSecret(key client.ObjectKey) WorkflowRunDepsOption {
-	return func(wrd *WorkflowRunDeps) {
-		wrd.SourceSystemImagePullSecret = NewImagePullSecret(key)
-		wrd.TargetSystemImagePullSecret = NewImagePullSecret(SuffixObjectKey(wrd.WorkflowRun.Key, "system"))
-	}
-}
 
 func NewWorkflowRunDeps(wr *WorkflowRun, issuer authenticate.Issuer, metadataAPIURL *url.URL, opts ...WorkflowRunDepsOption) *WorkflowRunDeps {
 	key := wr.Key
@@ -170,9 +157,8 @@ func NewWorkflowRunDeps(wr *WorkflowRun, issuer authenticate.Issuer, metadataAPI
 		MetadataAPIRole:           NewRole(SuffixObjectKey(key, "metadata-api")),
 		MetadataAPIRoleBinding:    NewRoleBinding(SuffixObjectKey(key, "metadata-api")),
 
-		PipelineServiceAccount: NewServiceAccount(SuffixObjectKey(key, "pipeline")),
-
-		SystemServiceAccount: NewServiceAccount(SuffixObjectKey(key, "system")),
+		PipelineServiceAccount:  NewServiceAccount(SuffixObjectKey(key, "pipeline")),
+		UntrustedServiceAccount: NewServiceAccount(SuffixObjectKey(key, "untrusted")),
 	}
 
 	for _, opt := range opts {
@@ -192,8 +178,7 @@ func ConfigureWorkflowRunDeps(ctx context.Context, wrd *WorkflowRunDeps) error {
 		wrd.MetadataAPIRole,
 		wrd.MetadataAPIRoleBinding,
 		wrd.PipelineServiceAccount,
-		IgnoreNilOwnable{wrd.TargetSystemImagePullSecret},
-		wrd.SystemServiceAccount,
+		wrd.UntrustedServiceAccount,
 	}
 	for _, o := range os {
 		if err := wrd.WorkflowRun.Own(ctx, o); err != nil {
@@ -207,7 +192,7 @@ func ConfigureWorkflowRunDeps(ctx context.Context, wrd *WorkflowRunDeps) error {
 		wrd.MetadataAPIServiceAccount,
 		wrd.MetadataAPIRole,
 		wrd.PipelineServiceAccount,
-		wrd.SystemServiceAccount,
+		wrd.UntrustedServiceAccount,
 	}
 	for _, laf := range lafs {
 		laf.LabelAnnotateFrom(ctx, wrd.WorkflowRun.Object.ObjectMeta)
@@ -227,18 +212,8 @@ func ConfigureWorkflowRunDeps(ctx context.Context, wrd *WorkflowRunDeps) error {
 	ConfigureMetadataAPIServiceAccount(wrd.MetadataAPIServiceAccount)
 	ConfigureMetadataAPIRole(wrd.MetadataAPIRole, wrd.ImmutableConfigMap, wrd.MutableConfigMap)
 	ConfigureMetadataAPIRoleBinding(wrd.MetadataAPIRoleBinding, wrd.MetadataAPIServiceAccount, wrd.MetadataAPIRole)
-
 	ConfigureUntrustedServiceAccount(wrd.PipelineServiceAccount)
-
-	{
-		var opts []SystemServiceAccountOption
-		if wrd.SourceSystemImagePullSecret != nil {
-			ConfigureImagePullSecret(wrd.TargetSystemImagePullSecret, wrd.SourceSystemImagePullSecret)
-			opts = append(opts, SystemServiceAccountWithImagePullSecret(corev1.LocalObjectReference{Name: wrd.TargetSystemImagePullSecret.Key.Name}))
-		}
-
-		ConfigureSystemServiceAccount(wrd.SystemServiceAccount, opts...)
-	}
+	ConfigureUntrustedServiceAccount(wrd.UntrustedServiceAccount)
 
 	return nil
 }
@@ -247,15 +222,15 @@ func ApplyWorkflowRunDeps(ctx context.Context, cl client.Client, wr *WorkflowRun
 	deps := NewWorkflowRunDeps(wr, issuer, metadataAPIURL, opts...)
 
 	if _, err := deps.Load(ctx, cl); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load WorkflowRun deps: %w", err)
 	}
 
 	if err := ConfigureWorkflowRunDeps(ctx, deps); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to configure WorkflowRun deps: %w", err)
 	}
 
 	if err := deps.Persist(ctx, cl); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to persist WorkflowRun deps: %w", err)
 	}
 
 	return deps, nil

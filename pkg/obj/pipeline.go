@@ -2,6 +2,7 @@ package obj
 
 import (
 	"context"
+	"fmt"
 
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -74,15 +75,15 @@ func NewPipeline(wrd *WorkflowRunDeps) *Pipeline {
 
 func ConfigurePipeline(ctx context.Context, p *Pipeline) error {
 	if err := p.Deps.WorkflowRun.Own(ctx, p); err != nil {
-		return err
+		return fmt.Errorf("failed to own Pipeline: %w", err)
 	}
 
 	if err := ConfigureConditions(ctx, p.Conditions); err != nil {
-		return err
+		return fmt.Errorf("failed to configure conditions: %w", err)
 	}
 
 	if err := ConfigureTasks(ctx, p.Tasks); err != nil {
-		return err
+		return fmt.Errorf("failed to configure tasks: %w", err)
 	}
 
 	p.Object.Spec.Tasks = make([]tektonv1beta1.PipelineTask, 0, len(p.Tasks.List))
@@ -119,17 +120,17 @@ func ApplyPipeline(ctx context.Context, cl client.Client, deps *WorkflowRunDeps)
 	p := NewPipeline(deps)
 
 	if _, err := p.Load(ctx, cl); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load Pipeline: %w", err)
 	}
 
 	p.LabelAnnotateFrom(ctx, deps.WorkflowRun.Object.ObjectMeta)
 
 	if err := ConfigurePipeline(ctx, p); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to configure Pipeline: %w", err)
 	}
 
 	if err := p.Persist(ctx, cl); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to persist Pipeline: %w", err)
 	}
 
 	return p, nil

@@ -59,7 +59,7 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 	wr := obj.NewWorkflowRun(req.NamespacedName)
 	if ok, err := wr.Load(ctx, r.Client); err != nil {
 		return ctrl.Result{}, errmark.MapLast(err, func(err error) error {
-			return fmt.Errorf("failed to load dependencies: %+v", err)
+			return fmt.Errorf("failed to load dependencies: %w", err)
 		})
 	} else if !ok {
 		// CRD deleted from under us?
@@ -80,13 +80,12 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 			wr,
 			r.issuer,
 			r.Config.MetadataAPIURL,
-			obj.WorkflowRunDepsWithSourceSystemImagePullSecret(r.Config.ImagePullSecretKey()),
 		)
 		if err != nil {
 			err = errmark.MarkTransient(err, obj.TransientIfRequired)
 
 			return errmark.MapLast(err, func(err error) error {
-				return fmt.Errorf("failed to apply dependencies: %+v", err)
+				return err
 			})
 		}
 
@@ -94,7 +93,7 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 		pipeline, err := obj.ApplyPipeline(ctx, r.Client, deps)
 		if err != nil {
 			return errmark.MapLast(err, func(err error) error {
-				return fmt.Errorf("failed to apply Pipeline: %+v", err)
+				return err
 			})
 		}
 
@@ -102,7 +101,7 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 		pr, err = obj.ApplyPipelineRun(ctx, r.Client, pipeline)
 		if err != nil {
 			return errmark.MapLast(err, func(err error) error {
-				return fmt.Errorf("failed to apply Pipeline: %+v", err)
+				return err
 			})
 		}
 
@@ -124,7 +123,7 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 
 	if err := wr.PersistStatus(ctx, r.Client); err != nil {
 		return ctrl.Result{}, errmark.MapLast(err, func(err error) error {
-			return fmt.Errorf("failed to persist WorkflowRun: %+v", err)
+			return fmt.Errorf("failed to persist WorkflowRun: %w", err)
 		})
 	}
 
