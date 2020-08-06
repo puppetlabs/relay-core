@@ -37,8 +37,9 @@ var (
 )
 
 type PodEnforcementHandler struct {
-	sandboxed bool
-	decoder   *admission.Decoder
+	sandboxed  bool
+	standalone bool
+	decoder    *admission.Decoder
 }
 
 var _ admission.Handler = &PodEnforcementHandler{}
@@ -52,8 +53,11 @@ func (peh *PodEnforcementHandler) Handle(ctx context.Context, req admission.Requ
 
 	pod.Spec.NodeSelector = PodNodeSelector
 	pod.Spec.Tolerations = PodTolerations
-	pod.Spec.DNSPolicy = PodDNSPolicy
-	pod.Spec.DNSConfig = PodDNSConfig
+
+	if !peh.standalone {
+		pod.Spec.DNSPolicy = PodDNSPolicy
+		pod.Spec.DNSConfig = PodDNSConfig
+	}
 
 	if peh.sandboxed {
 		pod.Spec.RuntimeClassName = &PodSandboxRuntimeClassName
@@ -77,6 +81,12 @@ type PodEnforcementHandlerOption func(peh *PodEnforcementHandler)
 func PodEnforcementHandlerWithSandboxing(sandboxed bool) PodEnforcementHandlerOption {
 	return func(peh *PodEnforcementHandler) {
 		peh.sandboxed = sandboxed
+	}
+}
+
+func PodEnforcementHandlerWithStandaloneMode(standalone bool) PodEnforcementHandlerOption {
+	return func(peh *PodEnforcementHandler) {
+		peh.standalone = standalone
 	}
 }
 

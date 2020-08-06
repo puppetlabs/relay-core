@@ -45,8 +45,8 @@ var _ Loader = &WorkflowRunDeps{}
 
 func (wrd *WorkflowRunDeps) Persist(ctx context.Context, cl client.Client) error {
 	ps := []Persister{
-		wrd.LimitRange,
-		wrd.NetworkPolicy,
+		IgnoreNilPersister{wrd.LimitRange},
+		IgnoreNilPersister{wrd.NetworkPolicy},
 		wrd.ImmutableConfigMap,
 		wrd.MutableConfigMap,
 		wrd.MetadataAPIServiceAccount,
@@ -68,8 +68,8 @@ func (wrd *WorkflowRunDeps) Persist(ctx context.Context, cl client.Client) error
 func (wrd *WorkflowRunDeps) Load(ctx context.Context, cl client.Client) (bool, error) {
 	return Loaders{
 		RequiredLoader{wrd.Namespace},
-		wrd.LimitRange,
-		wrd.NetworkPolicy,
+		IgnoreNilLoader{wrd.LimitRange},
+		IgnoreNilLoader{wrd.NetworkPolicy},
 		wrd.ImmutableConfigMap,
 		wrd.MutableConfigMap,
 		wrd.MetadataAPIServiceAccount,
@@ -136,6 +136,15 @@ func (wrd *WorkflowRunDeps) AnnotateStepToken(ctx context.Context, target *metav
 
 type WorkflowRunDepsOption func(wrd *WorkflowRunDeps)
 
+func WorkflowRunDepsWithStandaloneMode(standalone bool) WorkflowRunDepsOption {
+	return func(wrd *WorkflowRunDeps) {
+		if standalone {
+			wrd.NetworkPolicy = nil
+			wrd.LimitRange = nil
+		}
+	}
+}
+
 func NewWorkflowRunDeps(wr *WorkflowRun, issuer authenticate.Issuer, metadataAPIURL *url.URL, opts ...WorkflowRunDepsOption) *WorkflowRunDeps {
 	key := wr.Key
 
@@ -170,8 +179,6 @@ func NewWorkflowRunDeps(wr *WorkflowRun, issuer authenticate.Issuer, metadataAPI
 
 func ConfigureWorkflowRunDeps(ctx context.Context, wrd *WorkflowRunDeps) error {
 	os := []Ownable{
-		wrd.LimitRange,
-		wrd.NetworkPolicy,
 		wrd.ImmutableConfigMap,
 		wrd.MutableConfigMap,
 		wrd.MetadataAPIServiceAccount,
@@ -182,6 +189,18 @@ func ConfigureWorkflowRunDeps(ctx context.Context, wrd *WorkflowRunDeps) error {
 	}
 	for _, o := range os {
 		if err := wrd.WorkflowRun.Own(ctx, o); err != nil {
+			return err
+		}
+	}
+
+	if wrd.LimitRange != nil {
+		if err := wrd.WorkflowRun.Own(ctx, wrd.LimitRange); err != nil {
+			return err
+		}
+	}
+
+	if wrd.NetworkPolicy != nil {
+		if err := wrd.WorkflowRun.Own(ctx, wrd.NetworkPolicy); err != nil {
 			return err
 		}
 	}
@@ -198,9 +217,13 @@ func ConfigureWorkflowRunDeps(ctx context.Context, wrd *WorkflowRunDeps) error {
 		laf.LabelAnnotateFrom(ctx, wrd.WorkflowRun.Object.ObjectMeta)
 	}
 
-	ConfigureLimitRange(wrd.LimitRange)
+	if wrd.LimitRange != nil {
+		ConfigureLimitRange(wrd.LimitRange)
+	}
 
-	ConfigureNetworkPolicyForWorkflowRun(wrd.NetworkPolicy, wrd.WorkflowRun)
+	if wrd.NetworkPolicy != nil {
+		ConfigureNetworkPolicyForWorkflowRun(wrd.NetworkPolicy, wrd.WorkflowRun)
+	}
 
 	if err := ConfigureImmutableConfigMapForWorkflowRun(ctx, wrd.ImmutableConfigMap, wrd.WorkflowRun); err != nil {
 		return err
