@@ -3,6 +3,7 @@ package v1
 import (
 	"context"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -101,4 +102,19 @@ func TestYAMLDecoder(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestStreamingDecoder(t *testing.T) {
+	ctx := context.Background()
+
+	f, err := os.Open("testdata/valid.yaml")
+	require.NoError(t, err)
+
+	sd := NewDocumentStreamingDecoder(f, &YAMLDecoder{})
+
+	wd, err := sd.DecodeStream(ctx)
+	require.NoError(t, err)
+
+	require.Equal(t, "v1", wd.Version)
+	require.Equal(t, "This is a workflow", wd.Description)
 }
