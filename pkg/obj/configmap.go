@@ -120,6 +120,22 @@ func ConfigureImmutableConfigMapForWorkflowRun(ctx context.Context, cm *ConfigMa
 			}
 		}
 
+		if env := step.Env.Value(); env != nil {
+			em := configmap.NewEnvironmentManager(ModelStep(wr, step), lcm)
+
+			vars := make(map[string]interface{})
+			for name, value := range env {
+				r, err := ev.EvaluateAll(ctx, value)
+				if err != nil {
+					return errmark.MarkUser(err)
+				}
+
+				vars[name] = r.Value.(map[string]interface{})
+			}
+
+			em.Set(ctx, vars)
+		}
+
 		if when := step.When.Value(); when != nil {
 			r, err := ev.EvaluateAll(ctx, when)
 			if err != nil {

@@ -244,6 +244,13 @@ func (in *WorkflowStep) DeepCopyInto(out *WorkflowStep) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.Env != nil {
+		in, out := &in.Env, &out.Env
+		*out = make(v1beta1.UnstructuredObject, len(*in))
+		for key, val := range *in {
+			(*out)[key] = *val.DeepCopy()
+		}
+	}
 	in.When.DeepCopyInto(&out.When)
 	if in.DependsOn != nil {
 		in, out := &in.DependsOn, &out.DependsOn
