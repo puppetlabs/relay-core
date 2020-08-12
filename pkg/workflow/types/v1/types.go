@@ -183,6 +183,12 @@ type WorkflowParameter struct {
 	Type        string      `json:"type,omitempty"`
 }
 
+type WorkflowRunParameters map[string]*WorkflowRunParameter
+
+type WorkflowRunParameter struct {
+	Value interface{} `json:"value"`
+}
+
 type ExpressionMap map[string]serialize.JSONTree
 
 func (em ExpressionMap) AsParseTree() parse.Tree {
