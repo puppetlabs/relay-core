@@ -55,7 +55,7 @@ func (d *documentStreamingDecoder) DecodeStream(ctx context.Context) (*WorkflowD
 	_, err := d.buf.ReadFrom(d.reader)
 	if err != nil {
 		if err == io.EOF {
-			eof = io.EOF
+			eof = err
 		} else {
 			return nil, err
 		}
