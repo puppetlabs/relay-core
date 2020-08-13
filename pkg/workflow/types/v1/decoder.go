@@ -84,15 +84,12 @@ func NewDocumentStreamingDecoder(r io.ReadCloser, decoder Decoder) StreamingDeco
 }
 
 func yamlWorkflowDataToWorkflowData(ywd *YAMLWorkflowData) (*WorkflowData, error) {
-	env := &WorkflowData{}
-
-	env.Version = ywd.APIVersion
-	if ywd.Version != "" {
-		env.Version = ywd.Version
+	env := &WorkflowData{
+		APIVersion:  ywd.APIVersion,
+		Description: ywd.Description,
+		Name:        ywd.Name,
+		Parameters:  ywd.Parameters,
 	}
-
-	env.Description = ywd.Description
-	env.Parameters = ywd.Parameters
 
 	for _, step := range ywd.Steps {
 		stepType, err := makeStepType(step)

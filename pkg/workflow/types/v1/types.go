@@ -15,9 +15,7 @@ import (
 )
 
 type WorkflowStepType string
-
 type WorkflowTriggerSourceType string
-
 type WorkflowStepApprovalStatus string
 
 func (ws WorkflowStepApprovalStatus) String() string {
@@ -47,9 +45,9 @@ const (
 )
 
 type YAMLWorkflowData struct {
-	Version     string                `yaml:"version" json:"version"`
 	APIVersion  string                `yaml:"apiVersion" json:"apiVersion"`
 	Description string                `yaml:"description" json:"description"`
+	Name        string                `yaml:"name" json:"name,omitempty"`
 	Parameters  WorkflowParameters    `yaml:"parameters" json:"parameters,omitempty"`
 	Steps       []YAMLWorkflowStep    `yaml:"steps" json:"steps"`
 	Triggers    []YAMLWorkflowTrigger `yaml:"triggers" json:"triggers"`
@@ -156,8 +154,9 @@ func (wtsv *WebhookWorkflowTriggerSource) TriggerSourceType() string {
 }
 
 type WorkflowData struct {
-	Version     string                 `yaml:"version" json:"version"`
+	APIVersion  string                 `yaml:"apiVersion" json:"apiVersion"`
 	Description string                 `yaml:"description" json:"description"`
+	Name        string                 `yaml:"name" json:"name,omitempty"`
 	Parameters  WorkflowParameters     `yaml:"parameters" json:"parameters,omitempty"`
 	Steps       []*WorkflowStep        `yaml:"steps" json:"steps"`
 	Triggers    []*WorkflowDataTrigger `yaml:"triggers" json:"triggers"`
