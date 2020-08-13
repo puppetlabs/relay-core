@@ -51,6 +51,11 @@ type WebhookTriggerSpec struct {
 	//
 	// +optional
 	Spec UnstructuredObject `json:"spec,omitempty"`
+
+	// Env allows environment variables to be provided to the container image.
+	//
+	// +optional
+	Env UnstructuredObject `json:"env,omitempty"`
 }
 
 type WebhookTriggerStatus struct {
