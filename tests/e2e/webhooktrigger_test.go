@@ -184,9 +184,11 @@ func TestWebhookTriggerHasAccessToMetadataAPI(t *testing.T) {
 	}, func(cfg *Config) {
 		// Set a secret and connection for this webhook trigger to look up.
 		cfg.Vault.SetSecret(t, "my-tenant-id", "foo", "Hello")
+		cfg.Vault.SetSecret(t, "my-tenant-id", "accessKeyId", "AKIA123456789")
+		cfg.Vault.SetSecret(t, "my-tenant-id", "secretAccessKey", "that's-a-very-nice-key-you-have-there")
 		cfg.Vault.SetConnection(t, "my-domain-id", "aws", "test", map[string]string{
 			"accessKeyID":     "AKIA123456789",
-			"secretAccessKey": "very-nice-key",
+			"secretAccessKey": "that's-a-very-nice-key-you-have-there",
 		})
 
 		tn := &relayv1beta1.Tenant{
@@ -241,6 +243,16 @@ func TestWebhookTriggerHasAccessToMetadataAPI(t *testing.T) {
 					},
 					"foo": "bar",
 				}),
+				Env: relayv1beta1.NewUnstructuredObject(map[string]interface{}{
+					"AWS_ACCESS_KEY_ID": map[string]interface{}{
+						"$type": "Secret",
+						"name":  "accessKeyId",
+					},
+					"AWS_SECRET_ACCESS_KEY": map[string]interface{}{
+						"$type": "Secret",
+						"name":  "secretAccessKey",
+					},
+				}),
 				TenantRef: corev1.LocalObjectReference{
 					Name: tn.GetName(),
 				},
@@ -289,10 +301,49 @@ func TestWebhookTriggerHasAccessToMetadataAPI(t *testing.T) {
 			"secret": "Hello",
 			"connection": map[string]interface{}{
 				"accessKeyID":     "AKIA123456789",
-				"secretAccessKey": "very-nice-key",
+				"secretAccessKey": "that's-a-very-nice-key-you-have-there",
 			},
 			"foo": "bar",
 		}, result.Value.Data)
+
+		req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("%s/environment", cfg.MetadataAPIURL), nil)
+		require.NoError(t, err)
+		req.Header.Set("X-Forwarded-For", pod.Status.PodIP)
+
+		resp, err = http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(&result))
+		assert.True(t, result.Complete)
+		assert.Equal(t, map[string]interface{}{
+			"AWS_ACCESS_KEY_ID":     "AKIA123456789",
+			"AWS_SECRET_ACCESS_KEY": "that's-a-very-nice-key-you-have-there",
+		}, result.Value.Data)
+
+		req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("%s/environment/AWS_ACCESS_KEY_ID", cfg.MetadataAPIURL), nil)
+		require.NoError(t, err)
+		req.Header.Set("X-Forwarded-For", pod.Status.PodIP)
+
+		resp, err = http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(&result))
+		assert.True(t, result.Complete)
+		assert.Equal(t, "AKIA123456789", result.Value.Data)
+
+		req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("%s/environment/AWS_SECRET_ACCESS_KEY", cfg.MetadataAPIURL), nil)
+		require.NoError(t, err)
+		req.Header.Set("X-Forwarded-For", pod.Status.PodIP)
+
+		resp, err = http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(&result))
+		assert.True(t, result.Complete)
+		assert.Equal(t, "that's-a-very-nice-key-you-have-there", result.Value.Data)
 
 		// Dispatch an event.
 		req.Method = http.MethodPost

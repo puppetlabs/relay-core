@@ -46,6 +46,14 @@ spec:
               description: Command is the path to the executable to run when the container
                 starts.
               type: string
+            env:
+              additionalProperties:
+                description: Unstructured is arbitrary JSON data, which may also include
+                  base64-encoded binary data.
+                x-kubernetes-preserve-unknown-fields: true
+              description: Env allows environment variables to be provided to the
+                container image.
+              type: object
             image:
               description: Image is the Docker image to run when this webhook receives
                 an event.
