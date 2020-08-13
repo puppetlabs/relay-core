@@ -13,7 +13,7 @@ import (
 
 func validWorkflow(t *testing.T, wd *WorkflowData) {
 	expected := &WorkflowData{
-		Version:     "v1",
+		APIVersion:  "v1",
 		Description: "This is a workflow",
 		Parameters: WorkflowParameters(map[string]*WorkflowParameter{
 			"hi": {
@@ -37,7 +37,7 @@ func validWorkflow(t *testing.T, wd *WorkflowData) {
 }
 
 func complicatedWorkflow(t *testing.T, wd *WorkflowData) {
-	require.Equal(t, "v1", wd.Version)
+	require.Equal(t, "v1", wd.APIVersion)
 	require.Equal(t, "a more complicated workflow", wd.Description)
 
 	require.Len(t, wd.Parameters, 2)
@@ -115,6 +115,6 @@ func TestStreamingDecoder(t *testing.T) {
 	wd, err := sd.DecodeStream(ctx)
 	require.NoError(t, err)
 
-	require.Equal(t, "v1", wd.Version)
+	require.Equal(t, "v1", wd.APIVersion)
 	require.Equal(t, "This is a workflow", wd.Description)
 }
