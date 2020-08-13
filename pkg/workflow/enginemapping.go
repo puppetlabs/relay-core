@@ -12,20 +12,18 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// KubernetesObjectMapping is a result struct that contains the kubernets
+// RunKubernetesObjectMapping is a result struct that contains the kubernets
 // objects created from translating a WorkflowData object.
-type KubernetesObjectMapping struct {
-	Namespace      *corev1.Namespace
-	Tenant         *v1beta1.Tenant
-	WorkflowRun    *nebulav1.WorkflowRun
-	WebhookTrigger *v1beta1.WebhookTrigger
+type RunKubernetesObjectMapping struct {
+	Namespace   *corev1.Namespace
+	WorkflowRun *nebulav1.WorkflowRun
 }
 
-// KubernetesEngineMapper translates a v1.WorkflowData object into a kubernets
+// RunKubernetesEngineMapper translates a v1.WorkflowData object into a kubernets
 // object manifest. The results have not been applied or created on the
 // kubernetes server.
-type KubernetesEngineMapper interface {
-	ToRuntimeObjectsManifest(*v1.WorkflowData) (*KubernetesObjectMapping, error)
+type RunKubernetesEngineMapper interface {
+	ToRuntimeObjectsManifest(*v1.WorkflowData) (*RunKubernetesObjectMapping, error)
 }
 
 const (
@@ -34,50 +32,50 @@ const (
 	defaultNamespace       = "default"
 )
 
-// DefaultEngineMapperOption is a func that takes a *DefaultEngineMapper and
+// DefaultRunEngineMapperOption is a func that takes a *DefaultRunEngineMapper and
 // configures it. Each function is responsible for a small configuration, such
 // as setting the name field.
-type DefaultEngineMapperOption func(*DefaultEngineMapper)
+type DefaultRunEngineMapperOption func(*DefaultRunEngineMapper)
 
-func WithDomainID(id string) DefaultEngineMapperOption {
-	return func(m *DefaultEngineMapper) {
+func WithDomainID(id string) DefaultRunEngineMapperOption {
+	return func(m *DefaultRunEngineMapper) {
 		m.domainID = id
 	}
 }
 
-func WithWorkflowName(name string) DefaultEngineMapperOption {
-	return func(m *DefaultEngineMapper) {
+func WithWorkflowName(name string) DefaultRunEngineMapperOption {
+	return func(m *DefaultRunEngineMapper) {
 		m.name = name
 	}
 }
 
-func WithWorkflowRunName(name string) DefaultEngineMapperOption {
-	return func(m *DefaultEngineMapper) {
+func WithWorkflowRunName(name string) DefaultRunEngineMapperOption {
+	return func(m *DefaultRunEngineMapper) {
 		m.runName = name
 	}
 }
 
-func WithNamespace(ns string) DefaultEngineMapperOption {
-	return func(m *DefaultEngineMapper) {
+func WithNamespace(ns string) DefaultRunEngineMapperOption {
+	return func(m *DefaultRunEngineMapper) {
 		m.namespace = ns
 	}
 }
 
-func WithRunParameters(params v1.WorkflowRunParameters) DefaultEngineMapperOption {
-	return func(m *DefaultEngineMapper) {
+func WithRunParameters(params v1.WorkflowRunParameters) DefaultRunEngineMapperOption {
+	return func(m *DefaultRunEngineMapper) {
 		m.runParameters = params
 	}
 }
 
-func WithVaultEngineMount(mount string) DefaultEngineMapperOption {
-	return func(m *DefaultEngineMapper) {
+func WithVaultEngineMount(mount string) DefaultRunEngineMapperOption {
+	return func(m *DefaultRunEngineMapper) {
 		m.vaultEngineMount = mount
 	}
 }
 
-// DefaultEngineMapper maps a v1.WorkflowRun to Kubernetes runtime objects. It
+// DefaultRunEngineMapper maps a v1.WorkflowRun to Kubernetes runtime objects. It
 // is the default for relay-operator.
-type DefaultEngineMapper struct {
+type DefaultRunEngineMapper struct {
 	name             string
 	runName          string
 	namespace        string
@@ -86,11 +84,11 @@ type DefaultEngineMapper struct {
 	vaultEngineMount string
 }
 
-// ToRuntimeObjectsManifest returns a KubernetesObjectMapping that contains
+// ToRuntimeObjectsManifest returns a RunKubernetesObjectMapping that contains
 // uncreated objects that map to relay-core CRDs and other kubernetes resources
 // required to support a run.
-func (m *DefaultEngineMapper) ToRuntimeObjectsManifest(wd *v1.WorkflowData) (*KubernetesObjectMapping, error) {
-	manifest := KubernetesObjectMapping{}
+func (m *DefaultRunEngineMapper) ToRuntimeObjectsManifest(wd *v1.WorkflowData) (*RunKubernetesObjectMapping, error) {
+	manifest := RunKubernetesObjectMapping{}
 
 	if m.namespace != defaultNamespace {
 		manifest.Namespace = mapNamespace(m.namespace)
@@ -138,10 +136,10 @@ func (m *DefaultEngineMapper) ToRuntimeObjectsManifest(wd *v1.WorkflowData) (*Ku
 	return &manifest, nil
 }
 
-// NewDefaultEngineMapper takes any number of DefaultEngineMapperOption's and
+// NewDefaultRunEngineMapper takes any number of DefaultRunEngineMapperOption's and
 // returns a configured KubernetesEngineMapper.
-func NewDefaultEngineMapper(opts ...DefaultEngineMapperOption) *DefaultEngineMapper {
-	m := &DefaultEngineMapper{
+func NewDefaultRunEngineMapper(opts ...DefaultRunEngineMapperOption) *DefaultRunEngineMapper {
+	m := &DefaultRunEngineMapper{
 		name:      defaultWorkflowName,
 		runName:   defaultWorkflowRunName,
 		namespace: defaultNamespace,
