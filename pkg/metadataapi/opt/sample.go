@@ -42,11 +42,24 @@ func (sp SampleConfigSpec) Interface() map[string]interface{} {
 	return copy
 }
 
+type SampleConfigEnvironment map[string]serialize.YAMLTree
+
+func (sp SampleConfigEnvironment) Interface() map[string]interface{} {
+	copy := make(map[string]interface{})
+
+	for k, v := range sp {
+		copy[k] = v.Tree
+	}
+
+	return copy
+}
+
 type SampleConfigStep struct {
-	Conditions serialize.YAMLTree     `yaml:"conditions"`
-	Spec       SampleConfigSpec       `yaml:"spec"`
-	Outputs    map[string]interface{} `yaml:"outputs"`
-	State      map[string]interface{} `yaml:"state"`
+	Conditions serialize.YAMLTree      `yaml:"conditions"`
+	Env        SampleConfigEnvironment `yaml:"env"`
+	Spec       SampleConfigSpec        `yaml:"spec"`
+	Outputs    map[string]interface{}  `yaml:"outputs"`
+	State      map[string]interface{}  `yaml:"state"`
 }
 
 type SampleConfigRun struct {

@@ -67,6 +67,12 @@ spec:
                         items:
                           type: string
                         type: array
+                      env:
+                        additionalProperties:
+                          description: Unstructured is arbitrary JSON data, which
+                            may also include base64-encoded binary data.
+                          x-kubernetes-preserve-unknown-fields: true
+                        type: object
                       image:
                         type: string
                       input:
