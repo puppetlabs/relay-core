@@ -20,9 +20,9 @@ func TestWorkflowRunEngineMapping(t *testing.T) {
 	require.NoError(t, err)
 
 	mapper := NewDefaultRunEngineMapper(
-		WithNamespace("valid-workflow"),
-		WithWorkflowName("valid-workflow-name"),
-		WithWorkflowRunName("valid-workflow-run-name"),
+		WithNamespaceRunOption("valid-workflow"),
+		WithWorkflowNameRunOption("valid-workflow-name"),
+		WithWorkflowRunNameRunOption("valid-workflow-run-name"),
 	)
 
 	manifest, err := mapper.ToRuntimeObjectsManifest(wd)
