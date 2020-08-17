@@ -1,4 +1,4 @@
-version: v1
+apiVersion: v1
 description: a more complicated workflow
 
 parameters:
