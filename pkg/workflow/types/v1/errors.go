@@ -1,6 +1,9 @@
 package v1
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 type WorkflowFileFormatError struct {
 	Cause error
@@ -22,3 +25,6 @@ type WorkflowStepInvalidError struct {
 func (e *WorkflowStepInvalidError) Error() string {
 	return fmt.Sprintf("workflow step is invalid: %s %s", e.Name, e.Type)
 }
+
+var MissingTenantIDError = errors.New("tenantID cannot be blank")
+var MissingWorkflowIDError = errors.New("workflowID cannot be blank")
