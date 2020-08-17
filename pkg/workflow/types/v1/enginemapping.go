@@ -1,4 +1,4 @@
-package workflow
+package v1
 
 import (
 	"path"
@@ -7,7 +7,6 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/expr/serialize"
 	"github.com/puppetlabs/relay-core/pkg/model"
-	v1 "github.com/puppetlabs/relay-core/pkg/workflow/types/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -23,7 +22,7 @@ type RunKubernetesObjectMapping struct {
 // object manifest. The results have not been applied or created on the
 // kubernetes server.
 type RunKubernetesEngineMapper interface {
-	ToRuntimeObjectsManifest(*v1.WorkflowData) (*RunKubernetesObjectMapping, error)
+	ToRuntimeObjectsManifest(*WorkflowData) (*RunKubernetesObjectMapping, error)
 }
 
 const (
@@ -61,7 +60,7 @@ func WithNamespace(ns string) DefaultRunEngineMapperOption {
 	}
 }
 
-func WithRunParameters(params v1.WorkflowRunParameters) DefaultRunEngineMapperOption {
+func WithRunParameters(params WorkflowRunParameters) DefaultRunEngineMapperOption {
 	return func(m *DefaultRunEngineMapper) {
 		m.runParameters = params
 	}
@@ -73,13 +72,13 @@ func WithVaultEngineMount(mount string) DefaultRunEngineMapperOption {
 	}
 }
 
-// DefaultRunEngineMapper maps a v1.WorkflowRun to Kubernetes runtime objects. It
+// DefaultRunEngineMapper maps a WorkflowRun to Kubernetes runtime objects. It
 // is the default for relay-operator.
 type DefaultRunEngineMapper struct {
 	name             string
 	runName          string
 	namespace        string
-	runParameters    v1.WorkflowRunParameters
+	runParameters    WorkflowRunParameters
 	domainID         string
 	vaultEngineMount string
 }
@@ -87,7 +86,7 @@ type DefaultRunEngineMapper struct {
 // ToRuntimeObjectsManifest returns a RunKubernetesObjectMapping that contains
 // uncreated objects that map to relay-core CRDs and other kubernetes resources
 // required to support a run.
-func (m *DefaultRunEngineMapper) ToRuntimeObjectsManifest(wd *v1.WorkflowData) (*RunKubernetesObjectMapping, error) {
+func (m *DefaultRunEngineMapper) ToRuntimeObjectsManifest(wd *WorkflowData) (*RunKubernetesObjectMapping, error) {
 	manifest := RunKubernetesObjectMapping{}
 
 	if m.namespace != defaultNamespace {
@@ -169,7 +168,7 @@ func mapNamespace(ns string) *corev1.Namespace {
 	}
 }
 
-func mapSteps(wd *v1.WorkflowData) []*nebulav1.WorkflowStep {
+func mapSteps(wd *WorkflowData) []*nebulav1.WorkflowStep {
 	var workflowSteps []*nebulav1.WorkflowStep
 
 	for _, value := range wd.Steps {
@@ -180,7 +179,7 @@ func mapSteps(wd *v1.WorkflowData) []*nebulav1.WorkflowStep {
 		}
 
 		switch variant := value.Variant.(type) {
-		case *v1.ContainerWorkflowStep:
+		case *ContainerWorkflowStep:
 			workflowStep.Image = variant.Image
 			workflowStep.Spec = mapStepSpec(variant.Spec)
 			workflowStep.Input = variant.Input
