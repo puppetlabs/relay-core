@@ -44,6 +44,15 @@ spec:
                   base64-encoded binary data.
                 x-kubernetes-preserve-unknown-fields: true
               type: object
+            tenantRef:
+              description: LocalObjectReference contains enough information to let
+                you locate the referenced object inside the same namespace.
+              properties:
+                name:
+                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    TODO: Add other useful fields. apiVersion, kind, uid?'
+                  type: string
+              type: object
             workflow:
               properties:
                 name:
