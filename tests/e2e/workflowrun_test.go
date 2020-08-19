@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -199,5 +200,56 @@ func TestWorkflowRun(t *testing.T) {
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(&result))
 		assert.True(t, result.Complete)
 		assert.Equal(t, "that's-a-very-nice-key-you-have-there", result.Value.Data)
+	})
+}
+
+func TestWorkflowRunWithoutSteps(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	WithConfig(t, ctx, []ConfigOption{
+		ConfigWithWorkflowRunReconciler,
+	}, func(cfg *Config) {
+		wr := &nebulav1.WorkflowRun{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: cfg.Namespace.GetName(),
+				Name:      "my-test-run",
+				Annotations: map[string]string{
+					model.RelayVaultEngineMountAnnotation:    cfg.Vault.SecretsPath,
+					model.RelayVaultConnectionPathAnnotation: "connections/my-domain-id",
+					model.RelayVaultSecretPathAnnotation:     "workflows/my-tenant-id",
+					model.RelayDomainIDAnnotation:            "my-domain-id",
+					model.RelayTenantIDAnnotation:            "my-tenant-id",
+				},
+			},
+			Spec: nebulav1.WorkflowRunSpec{
+				Name: "my-workflow-run-1234",
+				Workflow: nebulav1.Workflow{
+					Name:  "my-workflow",
+					Steps: []*nebulav1.WorkflowStep{},
+				},
+			},
+		}
+		require.NoError(t, e2e.ControllerRuntimeClient.Create(ctx, wr))
+
+		require.NoError(t, retry.Retry(ctx, 500*time.Millisecond, func() *retry.RetryError {
+			if err := e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: wr.GetName(), Namespace: wr.GetNamespace()}, wr); err != nil {
+				if k8serrors.IsNotFound(err) {
+					retry.RetryTransient(fmt.Errorf("waiting for initial workflow run"))
+				}
+
+				return retry.RetryPermanent(err)
+			}
+
+			if wr.Status.Status == "" {
+				return retry.RetryTransient(fmt.Errorf("waiting for workflow run status"))
+			}
+
+			return retry.RetryPermanent(nil)
+		}))
+
+		require.Equal(t, string(obj.WorkflowRunStatusSuccess), wr.Status.Status)
+		require.NotNil(t, wr.Status.StartTime)
+		require.NotNil(t, wr.Status.CompletionTime)
 	})
 }

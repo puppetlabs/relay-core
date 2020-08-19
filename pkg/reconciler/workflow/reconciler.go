@@ -70,6 +70,14 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 		return ctrl.Result{}, nil
 	}
 
+	if len(wr.Object.Spec.Workflow.Steps) == 0 {
+		if err := wr.Complete(ctx, r.Client); err != nil {
+			return ctrl.Result{}, err
+		}
+
+		return ctrl.Result{}, nil
+	}
+
 	var pr *obj.PipelineRun
 	err = r.metrics.trackDurationWithOutcome(metricWorkflowRunStartUpDuration, func() error {
 		// Configure and save all the infrastructure bits needed to create a
