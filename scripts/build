@@ -6,6 +6,7 @@ cd "$(dirname "$0")"/..
 
 RELAY_CORE_REPO_BASE="${RELAY_CORE_REPO_BASE:-gcr.io/nebula-235818}"
 
+docker build -f ./cmd/relay-entrypoint/Dockerfile -t "${RELAY_CORE_REPO_BASE}/relay-entrypoint:${VERSION}" .
 docker build -f ./cmd/relay-operator/Dockerfile -t "${RELAY_CORE_REPO_BASE}/relay-operator:${VERSION}" .
 docker build -f ./cmd/relay-metadata-api/Dockerfile -t "${RELAY_CORE_REPO_BASE}/relay-metadata-api:${VERSION}" .
 docker build -f ./cmd/relay-metrics/Dockerfile -t "${RELAY_CORE_REPO_BASE}/relay-metrics:${VERSION}" .
