@@ -2,6 +2,7 @@ package obj
 
 import (
 	"context"
+	"time"
 
 	"github.com/puppetlabs/horsehead/v2/datastructure"
 	"github.com/puppetlabs/horsehead/v2/graph"
@@ -69,6 +70,20 @@ func (wr *WorkflowRun) IsCancelled() bool {
 	}
 
 	return state.Value() == true
+}
+
+func (wr *WorkflowRun) Complete(ctx context.Context, cl client.Client) error {
+	if wr.Object.Status.StartTime == nil {
+		wr.Object.Status.StartTime = &metav1.Time{Time: time.Now()}
+	}
+
+	if wr.Object.Status.CompletionTime == nil {
+		wr.Object.Status.CompletionTime = &metav1.Time{Time: time.Now()}
+	}
+
+	wr.Object.Status.Status = string(WorkflowRunStatusSuccess)
+
+	return wr.PersistStatus(ctx, cl)
 }
 
 func NewWorkflowRun(key client.ObjectKey) *WorkflowRun {
