@@ -11,6 +11,7 @@ require (
 	github.com/gofrs/flock v0.7.1
 	github.com/golang/protobuf v1.4.2
 	github.com/gomarkdown/markdown v0.0.0-20200513213024-62c5e2c608cc
+	github.com/google/go-containerregistry v0.0.0-20200115214256-379933c9c22b
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.3
 	github.com/hashicorp/go-cleanhttp v0.5.1
