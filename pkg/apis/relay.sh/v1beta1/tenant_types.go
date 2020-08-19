@@ -129,9 +129,9 @@ const (
 	// example, any secret references must be resolvable.
 	TenantEventSinkReady TenantConditionType = "EventSinkReady"
 
-	// TenantVolumeClaimReady indicates whether the volume claim requested by the
-	// tenant volume claim template is ready to use.
-	TenantVolumeClaimReady TenantConditionType = "VolumeClaimReady"
+	// TenantToolInjectionReady indicates whether the tool injection
+	// suite is ready to use.
+	TenantToolInjectionReady TenantConditionType = "ToolInjectionReady"
 
 	// TenantReady is set when all other conditions are ready.
 	TenantReady TenantConditionType = "Ready"
@@ -142,7 +142,7 @@ type TenantCondition struct {
 
 	// Type is the identifier for this condition.
 	//
-	// +kubebuilder:validation:Enum=NamespaceReady;EventSinkReady;VolumeClaimReady;Ready
+	// +kubebuilder:validation:Enum=NamespaceReady;EventSinkReady;ToolInjectionReady;Ready
 	Type TenantConditionType `json:"type"`
 }
 

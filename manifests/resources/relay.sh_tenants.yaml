@@ -322,7 +322,7 @@ spec:
                     enum:
                     - NamespaceReady
                     - EventSinkReady
-                    - VolumeClaimReady
+                    - ToolInjectionReady
                     - Ready
                     type: string
                 required:
