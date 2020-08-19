@@ -3,7 +3,7 @@ ENV GO111MODULE on
 ENV CGO_ENABLED 0
 WORKDIR /build
 COPY . .
-RUN go build -a -installsuffix cgo -o /var/lib/puppet/relay/entrypoint ./cmd/relay-entrypoint
+RUN go build -a -installsuffix cgo -o /var/lib/puppet/relay/entrypoint ./cmd/relay-runtime-tools
 
 FROM relaysh/core AS source
 

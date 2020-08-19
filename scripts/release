@@ -2,7 +2,7 @@
 set -euo pipefail
 
 RELAY_CORE_REPO_BASE="${RELAY_CORE_REPO_BASE:-gcr.io/nebula-235818}"
-RELAY_CORE_RELEASE_REPOS=( "${RELAY_CORE_REPO_BASE}/relay-entrypoint" "${RELAY_CORE_REPO_BASE}/relay-operator" "${RELAY_CORE_REPO_BASE}/relay-metadata-api" "${RELAY_CORE_REPO_BASE}/relay-metrics" )
+RELAY_CORE_RELEASE_REPOS=( "${RELAY_CORE_REPO_BASE}/relay-operator" "${RELAY_CORE_REPO_BASE}/relay-metadata-api" "${RELAY_CORE_REPO_BASE}/relay-metrics" "${RELAY_CORE_REPO_BASE}/relay-runtime-tools")
 
 release_docker_images() {
     if [ "${NO_DOCKER_PUSH}" != "yes" ]; then
