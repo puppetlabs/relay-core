@@ -14,7 +14,8 @@ curl -LJ -o .deploy/relay \
 chmod +x .deploy/relay
 
 mkdir -p ~/.config/relay
-echo 'api_domain: https://api.stage.relay-infra.net' >~/.config/relay/config.yaml
+echo 'api_domain: https://api.stage.relay-infra.net' >> ~/.config/relay/config.yaml
+echo 'ui_domain: https://ui.stage.relay-infra.net' >> ~/.config/relay/config.yaml
 
 echo -n "${RELAY_PASSWORD}" | .deploy/relay auth login "${RELAY_EMAIL}" --password-stdin
 echo -n "${VERSION}" | .deploy/relay workflow secret set "${RELAY_WORKFLOW}" tasks.image.tag --value-stdin
