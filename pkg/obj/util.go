@@ -34,21 +34,30 @@ func (e *OwnerInOtherNamespaceError) Error() string {
 }
 
 func CreateOrUpdate(ctx context.Context, cl client.Client, key client.ObjectKey, obj runtime.Object) error {
-	accessor, err := meta.Accessor(obj)
+	exists, err := Exists(key, obj)
 	if err != nil {
 		return err
+	}
+
+	if exists {
+		klog.Infof("updating %T %s", obj, key)
+		return cl.Update(ctx, obj)
+	}
+
+	klog.Infof("creating %T %s", obj, key)
+	return cl.Create(ctx, obj)
+}
+
+func Exists(key client.ObjectKey, obj runtime.Object) (bool, error) {
+	accessor, err := meta.Accessor(obj)
+	if err != nil {
+		return false, err
 	}
 
 	accessor.SetNamespace(key.Namespace)
 	accessor.SetName(key.Name)
 
-	if len(accessor.GetUID()) == 0 {
-		klog.Infof("creating %T %s", obj, key)
-		return cl.Create(ctx, obj)
-	}
-
-	klog.Infof("updating %T %s", obj, key)
-	return cl.Update(ctx, obj)
+	return len(accessor.GetUID()) > 0, nil
 }
 
 func GetIgnoreNotFound(ctx context.Context, cl client.Client, key client.ObjectKey, obj runtime.Object) (bool, error) {
