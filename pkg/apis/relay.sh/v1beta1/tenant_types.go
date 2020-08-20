@@ -27,6 +27,9 @@ type TenantSpec struct {
 	// +optional
 	NamespaceTemplate NamespaceTemplate `json:"namespaceTemplate,omitempty"`
 
+	// +optional
+	ToolInjection ToolInjection `json:"toolInjection,omitempty"`
+
 	// TriggerEventSink represents the destination for events received as part
 	// of trigger processing. If not specified, events will be logged and
 	// discarded.
@@ -46,6 +49,14 @@ type NamespaceTemplate struct {
 	// +optional
 	// +kubebuilder:validation:XPreserveUnknownFields
 	Metadata metav1.ObjectMeta `json:"metadata,omitempty"`
+}
+
+type ToolInjection struct {
+	// VolumeClaimTemplate is an optional definition of the PVC that will be
+	// populated and attached to every tenant container.
+	//
+	// +optional
+	VolumeClaimTemplate *corev1.PersistentVolumeClaim `json:"volumeClaimTemplate,omitempty"`
 }
 
 // TriggerEventSink represents the destination for trigger events. At most one
@@ -118,6 +129,10 @@ const (
 	// example, any secret references must be resolvable.
 	TenantEventSinkReady TenantConditionType = "EventSinkReady"
 
+	// TenantToolInjectionReady indicates whether the tool injection
+	// suite is ready to use.
+	TenantToolInjectionReady TenantConditionType = "ToolInjectionReady"
+
 	// TenantReady is set when all other conditions are ready.
 	TenantReady TenantConditionType = "Ready"
 )
@@ -127,7 +142,7 @@ type TenantCondition struct {
 
 	// Type is the identifier for this condition.
 	//
-	// +kubebuilder:validation:Enum=NamespaceReady;EventSinkReady;Ready
+	// +kubebuilder:validation:Enum=NamespaceReady;EventSinkReady;ToolInjectionReady;Ready
 	Type TenantConditionType `json:"type"`
 }
 

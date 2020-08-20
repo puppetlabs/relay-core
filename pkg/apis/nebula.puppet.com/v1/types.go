@@ -2,6 +2,7 @@ package v1
 
 import (
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -28,6 +29,9 @@ type WorkflowRunSpec struct {
 
 	// +optional
 	Parameters relayv1beta1.UnstructuredObject `json:"parameters,omitempty"`
+
+	// +optional
+	TenantRef *corev1.LocalObjectReference `json:"tenantRef,omitempty"`
 }
 
 type Workflow struct {
