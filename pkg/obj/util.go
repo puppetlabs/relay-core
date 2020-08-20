@@ -33,39 +33,31 @@ func (e *OwnerInOtherNamespaceError) Error() string {
 	return fmt.Sprintf("obj: owner %T %s is in a different namespace than %T %s", e.Owner.Object, e.OwnerKey, e.Target, e.TargetKey)
 }
 
-func Create(ctx context.Context, cl client.Client, key client.ObjectKey, obj runtime.Object) error {
-	accessor, err := meta.Accessor(obj)
+func CreateOrUpdate(ctx context.Context, cl client.Client, key client.ObjectKey, obj runtime.Object) error {
+	exists, err := Exists(key, obj)
 	if err != nil {
 		return err
 	}
 
-	accessor.SetNamespace(key.Namespace)
-	accessor.SetName(key.Name)
-
-	if len(accessor.GetUID()) == 0 {
-		klog.Infof("creating %T %s", obj, key)
-		return cl.Create(ctx, obj)
+	if exists {
+		klog.Infof("updating %T %s", obj, key)
+		return cl.Update(ctx, obj)
 	}
 
-	return nil
+	klog.Infof("creating %T %s", obj, key)
+	return cl.Create(ctx, obj)
 }
 
-func CreateOrUpdate(ctx context.Context, cl client.Client, key client.ObjectKey, obj runtime.Object) error {
+func Exists(key client.ObjectKey, obj runtime.Object) (bool, error) {
 	accessor, err := meta.Accessor(obj)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	accessor.SetNamespace(key.Namespace)
 	accessor.SetName(key.Name)
 
-	if len(accessor.GetUID()) == 0 {
-		klog.Infof("creating %T %s", obj, key)
-		return cl.Create(ctx, obj)
-	}
-
-	klog.Infof("updating %T %s", obj, key)
-	return cl.Update(ctx, obj)
+	return len(accessor.GetUID()) > 0, nil
 }
 
 func GetIgnoreNotFound(ctx context.Context, cl client.Client, key client.ObjectKey, obj runtime.Object) (bool, error) {

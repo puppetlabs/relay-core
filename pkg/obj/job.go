@@ -19,12 +19,7 @@ var _ Ownable = &Job{}
 var _ LabelAnnotatableFrom = &Job{}
 
 func (j *Job) Persist(ctx context.Context, cl client.Client) error {
-	if err := Create(ctx, cl, j.Key, j.Object); err != nil {
-		return err
-	}
-
-	_, err := RequiredLoader{j}.Load(ctx, cl)
-	return err
+	return CreateOrUpdate(ctx, cl, j.Key, j.Object)
 }
 
 func (j *Job) Load(ctx context.Context, cl client.Client) (bool, error) {
@@ -46,20 +41,29 @@ func NewJob(key client.ObjectKey) *Job {
 	}
 }
 
-func ApplyJob(ctx context.Context, cl client.Client, key client.ObjectKey, j *batchv1.Job) (*Job, error) {
-	p := NewJob(key)
+func ApplyJob(ctx context.Context, cl client.Client, key client.ObjectKey, job *batchv1.Job) (*Job, error) {
+	j := NewJob(key)
 
-	if _, err := p.Load(ctx, cl); err != nil {
+	if _, err := j.Load(ctx, cl); err != nil {
 		return nil, err
 	}
 
-	if j != nil {
-		p.Object.Spec = j.Spec
+	if job != nil {
+		exists, err := Exists(key, j.Object)
+		if err != nil {
+			return nil, err
+		}
+
+		if exists {
+			j.Object.Spec.Template.Spec = job.Spec.Template.Spec
+		} else {
+			j.Object.Spec = job.Spec
+		}
 	}
 
-	if err := p.Persist(ctx, cl); err != nil {
+	if err := j.Persist(ctx, cl); err != nil {
 		return nil, err
 	}
 
-	return p, nil
+	return j, nil
 }

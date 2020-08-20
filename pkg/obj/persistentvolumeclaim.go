@@ -19,12 +19,7 @@ var _ Ownable = &PersistentVolumeClaim{}
 var _ LabelAnnotatableFrom = &PersistentVolumeClaim{}
 
 func (pvc *PersistentVolumeClaim) Persist(ctx context.Context, cl client.Client) error {
-	if err := Create(ctx, cl, pvc.Key, pvc.Object); err != nil {
-		return err
-	}
-
-	_, err := RequiredLoader{pvc}.Load(ctx, cl)
-	return err
+	return CreateOrUpdate(ctx, cl, pvc.Key, pvc.Object)
 }
 
 func (pvc *PersistentVolumeClaim) Load(ctx context.Context, cl client.Client) (bool, error) {
@@ -54,7 +49,16 @@ func ApplyPersistentVolumeClaim(ctx context.Context, cl client.Client, key clien
 	}
 
 	if pvc != nil {
-		p.Object.Spec = pvc.Spec
+		exists, err := Exists(key, p.Object)
+		if err != nil {
+			return nil, err
+		}
+
+		if exists {
+			p.Object.Spec.Resources = pvc.Spec.Resources
+		} else {
+			p.Object.Spec = pvc.Spec
+		}
 	}
 
 	if err := p.Persist(ctx, cl); err != nil {

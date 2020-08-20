@@ -19,12 +19,7 @@ var _ Ownable = &PersistentVolume{}
 var _ LabelAnnotatableFrom = &PersistentVolume{}
 
 func (pv *PersistentVolume) Persist(ctx context.Context, cl client.Client) error {
-	if err := Create(ctx, cl, pv.Key, pv.Object); err != nil {
-		return err
-	}
-
-	_, err := RequiredLoader{pv}.Load(ctx, cl)
-	return err
+	return CreateOrUpdate(ctx, cl, pv.Key, pv.Object)
 }
 
 func (pv *PersistentVolume) Load(ctx context.Context, cl client.Client) (bool, error) {
