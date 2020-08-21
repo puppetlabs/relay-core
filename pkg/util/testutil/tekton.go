@@ -9,7 +9,7 @@ import (
 )
 
 func doInstallTektonPipeline(ctx context.Context, cl client.Client) error {
-	return doInstall(ctx, cl, "tekton-pipelines", "tekton")
+	return doInstallAndWait(ctx, cl, "tekton-pipelines", "tekton")
 }
 
 func InstallTektonPipeline(t *testing.T, ctx context.Context, cl client.Client) {

@@ -33,6 +33,7 @@ func TestMain(m *testing.M) {
 		func(e *testutil.EndToEndEnvironment) {
 			e2e = e
 		},
+		testutil.EndToEndEnvironmentWithHostpathProvisioner,
 		testutil.EndToEndEnvironmentWithTekton,
 		testutil.EndToEndEnvironmentWithKnative,
 		testutil.EndToEndEnvironmentWithAmbassador,

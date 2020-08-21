@@ -104,8 +104,17 @@ func EndToEndEnvironmentWithAmbassador(ctx context.Context, e *EndToEndEnvironme
 	return doInstallAmbassador(ctx, e.ControllerRuntimeClient, e.RESTMapper)
 }
 
+func EndToEndEnvironmentWithHostpathProvisioner(ctx context.Context, e *EndToEndEnvironment) error {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+
+	return doInstallHostpathProvisioner(ctx, e.ControllerRuntimeClient)
+}
+
 var _ EndToEndEnvironmentOption = EndToEndEnvironmentWithTekton
 var _ EndToEndEnvironmentOption = EndToEndEnvironmentWithKnative
+var _ EndToEndEnvironmentOption = EndToEndEnvironmentWithAmbassador
+var _ EndToEndEnvironmentOption = EndToEndEnvironmentWithHostpathProvisioner
 
 func doEndToEndEnvironment(fn func(e *EndToEndEnvironment), opts ...EndToEndEnvironmentOption) (bool, error) {
 	// We'll allow 30 minutes to attach the environment and run the test. This
