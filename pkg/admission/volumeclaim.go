@@ -23,7 +23,7 @@ func (eh *VolumeClaimHandler) Handle(ctx context.Context, req admission.Request)
 		return admission.Errored(http.StatusBadRequest, err)
 	}
 
-	if claim, ok := pod.ObjectMeta.GetAnnotations()[model.RelayControllerVolumeClaimAnnotation]; ok {
+	if claim, ok := pod.ObjectMeta.GetAnnotations()[model.RelayControllerToolsVolumeClaimAnnotation]; ok {
 		cs := make([]corev1.Container, 0)
 
 		updated := false

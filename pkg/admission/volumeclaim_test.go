@@ -91,7 +91,7 @@ func TestVolumeClaimHandler(t *testing.T) {
 						}(admissionregistrationv1beta1.IfNeededReinvocationPolicy),
 						NamespaceSelector: &metav1.LabelSelector{
 							MatchLabels: map[string]string{
-								"testing.relay.sh/volume-claim": "true",
+								"testing.relay.sh/tools-volume-claim": "true",
 							},
 						},
 					},
@@ -109,7 +109,7 @@ func TestVolumeClaimHandler(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: fmt.Sprintf("%s-child", ns.GetName()),
 					Labels: map[string]string{
-						"testing.relay.sh/volume-claim": "true",
+						"testing.relay.sh/tools-volume-claim": "true",
 					},
 				},
 			}
@@ -126,7 +126,7 @@ func TestVolumeClaimHandler(t *testing.T) {
 					Namespace: child.GetName(),
 					Name:      "sneaky-pod",
 					Annotations: map[string]string{
-						model.RelayControllerVolumeClaimAnnotation: "volume-claim",
+						model.RelayControllerToolsVolumeClaimAnnotation: "tools-volume-claim",
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -149,7 +149,7 @@ func TestVolumeClaimHandler(t *testing.T) {
 			volume := false
 			for _, v := range pod.Spec.Volumes {
 				if v.Name == model.ToolInjectionMountName &&
-					v.VolumeSource.PersistentVolumeClaim.ClaimName == "volume-claim" {
+					v.VolumeSource.PersistentVolumeClaim.ClaimName == "tools-volume-claim" {
 					volume = true
 				}
 			}

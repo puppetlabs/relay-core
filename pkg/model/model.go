@@ -16,9 +16,9 @@ const (
 	RelayVaultSecretPathAnnotation     = "relay.sh/vault-secret-path"
 	RelayVaultConnectionPathAnnotation = "relay.sh/vault-connection-path"
 
-	RelayControllerTokenHashAnnotation    = "controller.relay.sh/token-hash"
-	RelayControllerDependencyOfAnnotation = "controller.relay.sh/dependency-of"
-	RelayControllerVolumeClaimAnnotation  = "controller.relay.sh/volume-claim"
+	RelayControllerTokenHashAnnotation        = "controller.relay.sh/token-hash"
+	RelayControllerDependencyOfAnnotation     = "controller.relay.sh/dependency-of"
+	RelayControllerToolsVolumeClaimAnnotation = "controller.relay.sh/tools-volume-claim"
 
 	RelayControllerTenantNameLabel       = "controller.relay.sh/tenant-name"
 	RelayControllerTenantWorkloadLabel   = "controller.relay.sh/tenant-workload"
