@@ -2,7 +2,6 @@ package obj
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/puppetlabs/relay-core/pkg/model"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
@@ -101,17 +100,17 @@ func ApplyPipelineRun(ctx context.Context, cl client.Client, p *Pipeline) (*Pipe
 	pr := NewPipelineRun(p)
 
 	if _, err := pr.Load(ctx, cl); err != nil {
-		return nil, fmt.Errorf("failed to load PipelineRun: %w", err)
+		return nil, err
 	}
 
 	pr.LabelAnnotateFrom(ctx, p.Object.ObjectMeta)
 
 	if err := ConfigurePipelineRun(ctx, pr); err != nil {
-		return nil, fmt.Errorf("failed to configure PipelineRun: %w", err)
+		return nil, err
 	}
 
 	if err := pr.Persist(ctx, cl); err != nil {
-		return nil, fmt.Errorf("failed to persist PipelineRun: %w", err)
+		return nil, err
 	}
 
 	return pr, nil

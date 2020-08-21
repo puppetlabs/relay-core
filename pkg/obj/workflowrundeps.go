@@ -2,7 +2,6 @@ package obj
 
 import (
 	"context"
-	"fmt"
 	"net/url"
 	"path"
 	"time"
@@ -125,7 +124,7 @@ func (wrd *WorkflowRunDeps) AnnotateStepToken(ctx context.Context, target *metav
 
 	tok, err := wrd.Issuer.Issue(ctx, claims)
 	if err != nil {
-		return fmt.Errorf("failed to issue token: %w", err)
+		return err
 	}
 
 	Annotate(target, authenticate.KubernetesTokenAnnotation, string(tok))
@@ -245,15 +244,15 @@ func ApplyWorkflowRunDeps(ctx context.Context, cl client.Client, wr *WorkflowRun
 	deps := NewWorkflowRunDeps(wr, issuer, metadataAPIURL, opts...)
 
 	if _, err := deps.Load(ctx, cl); err != nil {
-		return nil, fmt.Errorf("failed to load WorkflowRun deps: %w", err)
+		return nil, err
 	}
 
 	if err := ConfigureWorkflowRunDeps(ctx, deps); err != nil {
-		return nil, fmt.Errorf("failed to configure WorkflowRun deps: %w", err)
+		return nil, err
 	}
 
 	if err := deps.Persist(ctx, cl); err != nil {
-		return nil, fmt.Errorf("failed to persist WorkflowRun deps: %w", err)
+		return nil, err
 	}
 
 	return deps, nil

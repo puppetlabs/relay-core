@@ -2,7 +2,6 @@ package obj
 
 import (
 	"context"
-	"fmt"
 
 	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
 	"github.com/puppetlabs/relay-core/pkg/model"
@@ -78,7 +77,7 @@ func ConfigureTask(ctx context.Context, t *Task, wrd *WorkflowRunDeps, ws *nebul
 	}
 
 	if err := wrd.AnnotateStepToken(ctx, &t.Object.ObjectMeta, ws); err != nil {
-		return fmt.Errorf("failed to annotate step token: %w", err)
+		return err
 	}
 
 	t.Object.Spec.Steps = []tektonv1beta1.Step{step}
@@ -145,12 +144,12 @@ func NewTasks(wrd *WorkflowRunDeps) *Tasks {
 
 func ConfigureTasks(ctx context.Context, ts *Tasks) error {
 	if err := ts.Deps.WorkflowRun.Own(ctx, ts); err != nil {
-		return fmt.Errorf("failed to own Tasks: %w", err)
+		return err
 	}
 
 	for i, ws := range ts.Deps.WorkflowRun.Object.Spec.Workflow.Steps {
 		if err := ConfigureTask(ctx, ts.List[i], ts.Deps, ws); err != nil {
-			return fmt.Errorf("failed to configure task: %w", err)
+			return err
 		}
 	}
 
