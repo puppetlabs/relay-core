@@ -13,6 +13,7 @@ import (
 // configure the Workflow controller.
 type WorkflowControllerConfig struct {
 	Environment             string
+	Standalone              bool
 	Namespace               string
 	ImagePullSecret         string
 	MaxConcurrentReconciles int

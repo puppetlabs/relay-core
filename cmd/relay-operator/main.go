@@ -38,6 +38,7 @@ func main() {
 	fs := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 
 	environment := fs.String("environment", "dev", "the environment this operator is running in")
+	standalone := fs.Bool("standalone", false, "enables standalone mode which runs workflows without multi-tenant network security protections")
 	kubeconfig := fs.String("kubeconfig", "", "path to kubeconfig file. Only required if running outside of a cluster.")
 	kubeMasterURL := fs.String("kube-master-url", "", "url to the kubernetes master")
 	kubeNamespace := fs.String("kube-namespace", "", "an optional working namespace to restrict to for watching CRDs")
@@ -149,6 +150,7 @@ func main() {
 
 	cfg := &config.WorkflowControllerConfig{
 		Environment:             *environment,
+		Standalone:              *standalone,
 		Namespace:               *kubeNamespace,
 		ImagePullSecret:         *imagePullSecret,
 		MaxConcurrentReconciles: *numWorkers,
@@ -181,6 +183,7 @@ func main() {
 	dm.Manager.GetWebhookServer().Register("/mutate/pod-enforcement", &webhook.Admission{
 		Handler: admission.NewPodEnforcementHandler(
 			admission.PodEnforcementHandlerWithSandboxing(*tenantSandboxing),
+			admission.PodEnforcementHandlerWithStandaloneMode(*standalone),
 		),
 	})
 
