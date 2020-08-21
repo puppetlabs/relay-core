@@ -427,6 +427,7 @@ github.com/puppetlabs/horsehead/v2/scheduler/errors
 github.com/puppetlabs/horsehead/v2/storage
 github.com/puppetlabs/horsehead/v2/storage/file
 github.com/puppetlabs/horsehead/v2/storage/gcs
+github.com/puppetlabs/horsehead/v2/stringutil
 # github.com/puppetlabs/paesslerag-gval v1.0.2-0.20191119012647-d2c694821b5b
 github.com/puppetlabs/paesslerag-gval
 # github.com/puppetlabs/paesslerag-jsonpath v0.1.2-0.20200512062544-1e26d7ca225e
@@ -439,6 +440,8 @@ github.com/reflect/raymond
 github.com/reflect/raymond/ast
 github.com/reflect/raymond/lexer
 github.com/reflect/raymond/parser
+# github.com/robfig/cron/v3 v3.0.1
+github.com/robfig/cron/v3
 # github.com/ryanuber/go-glob v1.0.0
 github.com/ryanuber/go-glob
 # github.com/serenize/snaker v0.0.0-20171002133257-c7a77c38c398
