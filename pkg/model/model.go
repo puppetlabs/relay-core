@@ -2,6 +2,11 @@ package model
 
 const (
 	DefaultImage = "alpine:latest"
+
+	// TODO All tool injection settings should be fully configurable
+	ToolInjectionImagePath = "/relay/runtime/tools/."
+	ToolInjectionMountName = "relay-runtime-tools"
+	ToolInjectionMountPath = "/var/lib/puppet/relay/"
 )
 
 const (
@@ -11,8 +16,9 @@ const (
 	RelayVaultSecretPathAnnotation     = "relay.sh/vault-secret-path"
 	RelayVaultConnectionPathAnnotation = "relay.sh/vault-connection-path"
 
-	RelayControllerTokenHashAnnotation    = "controller.relay.sh/token-hash"
-	RelayControllerDependencyOfAnnotation = "controller.relay.sh/dependency-of"
+	RelayControllerTokenHashAnnotation        = "controller.relay.sh/token-hash"
+	RelayControllerDependencyOfAnnotation     = "controller.relay.sh/dependency-of"
+	RelayControllerToolsVolumeClaimAnnotation = "controller.relay.sh/tools-volume-claim"
 
 	RelayControllerTenantNameLabel       = "controller.relay.sh/tenant-name"
 	RelayControllerTenantWorkloadLabel   = "controller.relay.sh/tenant-workload"
