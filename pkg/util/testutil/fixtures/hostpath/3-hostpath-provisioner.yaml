@@ -6,7 +6,7 @@ metadata:
 spec:
   containers:
     - name: hostpath-provisioner
-      image: gcr.io/nebula-tasks/hostpath-provisioner:latest
+      image: relaysh/relay-hostpath-provisioner:latest
       imagePullPolicy: "IfNotPresent"
       env:
         - name: NODE_NAME
