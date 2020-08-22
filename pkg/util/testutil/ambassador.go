@@ -58,7 +58,7 @@ func doInstallAmbassador(ctx context.Context, cl client.Client, mapper meta.REST
 		deployment.Spec.Strategy.RollingUpdate = nil
 	})
 
-	if err := doInstall(ctx, cl, ns.GetName(), "ambassador", patchers...); err != nil {
+	if err := doInstallAndWait(ctx, cl, ns.GetName(), "ambassador", patchers...); err != nil {
 		return err
 	}
 

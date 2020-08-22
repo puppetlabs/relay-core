@@ -9,7 +9,7 @@ import (
 )
 
 func doInstallKnativeServing(ctx context.Context, cl client.Client) error {
-	return doInstall(ctx, cl, "knative-serving", "knative")
+	return doInstallAndWait(ctx, cl, "knative-serving", "knative")
 }
 
 func InstallKnativeServing(t *testing.T, ctx context.Context, cl client.Client) {
