@@ -5,6 +5,7 @@ import (
 
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/model"
+	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -48,6 +49,18 @@ func NewAPITriggerEventSink(namespace string, sink *relayv1beta1.APITriggerEvent
 	return tes
 }
 
+type ToolInjection struct {
+	VolumeClaimTemplate *corev1.PersistentVolumeClaim
+}
+
+func NewToolInjection(namespace string, toolInjection relayv1beta1.ToolInjection) *ToolInjection {
+	ti := &ToolInjection{
+		VolumeClaimTemplate: toolInjection.VolumeClaimTemplate,
+	}
+
+	return ti
+}
+
 type TenantDeps struct {
 	Tenant *Tenant
 
@@ -60,6 +73,7 @@ type TenantDeps struct {
 	LimitRange    *LimitRange
 
 	APITriggerEventSink *APITriggerEventSink
+	ToolInjection       *ToolInjection
 }
 
 var _ Persister = &TenantDeps{}
@@ -159,6 +173,8 @@ func NewTenantDeps(t *Tenant) *TenantDeps {
 	if sink := t.Object.Spec.TriggerEventSink.API; sink != nil {
 		td.APITriggerEventSink = NewAPITriggerEventSink(td.Tenant.Key.Namespace, sink)
 	}
+
+	td.ToolInjection = NewToolInjection(td.Tenant.Key.Namespace, td.Tenant.Object.Spec.ToolInjection)
 
 	return td
 }

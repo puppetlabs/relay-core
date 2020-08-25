@@ -56,6 +56,7 @@ func main() {
 	tenantSandboxing := fs.Bool("tenant-sandboxing", false, "enables gVisor sandbox for tenant pods")
 	sentryDSN := fs.String("sentry-dsn", "", "the Sentry DSN to use for error reporting")
 	dynamicRBACBinding := fs.Bool("dynamic-rbac-binding", false, "enable if RBAC rules are set up dynamically for the operator to reduce unhelpful reported errors")
+	toolInjectionImage := fs.String("tool-injection-image", "relaysh/relay-runtime-tools", "image to use for the tool injection suite")
 
 	fs.Parse(os.Args[1:])
 
@@ -161,6 +162,7 @@ func main() {
 		WebhookServerKeyDir:     *webhookServerKeyDir,
 		AlertsDelegate:          alertsDelegate,
 		DynamicRBACBinding:      *dynamicRBACBinding,
+		ToolInjectionImage:      *toolInjectionImage,
 	}
 
 	dm, err := dependency.NewDependencyManager(cfg, kcc, vc, jwtSigner, blobStore, mets)

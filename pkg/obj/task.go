@@ -80,6 +80,13 @@ func ConfigureTask(ctx context.Context, t *Task, wrd *WorkflowRunDeps, ws *nebul
 		return err
 	}
 
+	// TODO Reference the tool injection from the tenant (once this is available)
+	// For now, we'll assume an explicit tenant reference implies the use of the tool injection suite
+	if wrd.WorkflowRun.Object.Spec.TenantRef != nil {
+		claim := wrd.WorkflowRun.Object.Spec.TenantRef.Name + model.ToolInjectionVolumeClaimSuffixReadOnlyMany
+		Annotate(&t.Object.ObjectMeta, model.RelayControllerToolsVolumeClaimAnnotation, claim)
+	}
+
 	t.Object.Spec.Steps = []tektonv1beta1.Step{step}
 
 	return nil
