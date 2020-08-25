@@ -1,12 +1,16 @@
 package model
 
 const (
-	DefaultImage = "alpine:latest"
+	DefaultImage              = "alpine:latest"
+	DefaultToolInjectionImage = "relaysh/relay-runtime-tools"
 
 	// TODO All tool injection settings should be fully configurable
 	ToolInjectionImagePath = "/relay/runtime/tools/."
 	ToolInjectionMountName = "relay-runtime-tools"
 	ToolInjectionMountPath = "/var/lib/puppet/relay/"
+
+	ToolInjectionVolumeClaimSuffixReadOnlyMany  = "-volume-rox"
+	ToolInjectionVolumeClaimSuffixReadWriteOnce = "-volume-rwo"
 )
 
 const (

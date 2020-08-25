@@ -4,6 +4,7 @@ import (
 	"context"
 
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -16,8 +17,15 @@ const (
 	TenantStatusReasonEventSinkNotConfigured = "EventSinkNotConfigured"
 	TenantStatusReasonEventSinkReady         = "EventSinkReady"
 
+	TenantStatusReasonToolInjectionMissing = "ToolInjectionMissing"
+	TenantStatusReasonToolInjectionError   = "ToolInjectionError"
+
 	TenantStatusReasonReady = "Ready"
 	TenantStatusReasonError = "Error"
+)
+
+var (
+	TenantKind = relayv1beta1.SchemeGroupVersion.WithKind("Tenant")
 )
 
 type Tenant struct {
@@ -76,12 +84,13 @@ func NewTenant(key client.ObjectKey) *Tenant {
 	}
 }
 
-func ConfigureTenant(t *Tenant, td *TenantDepsResult) {
+func ConfigureTenant(t *Tenant, td *TenantDepsResult, jcs []batchv1.JobCondition) {
 	// Set up our initial map from the existing data.
 	conds := map[relayv1beta1.TenantConditionType]*relayv1beta1.Condition{
-		relayv1beta1.TenantNamespaceReady: &relayv1beta1.Condition{},
-		relayv1beta1.TenantEventSinkReady: &relayv1beta1.Condition{},
-		relayv1beta1.TenantReady:          &relayv1beta1.Condition{},
+		relayv1beta1.TenantNamespaceReady:     &relayv1beta1.Condition{},
+		relayv1beta1.TenantEventSinkReady:     &relayv1beta1.Condition{},
+		relayv1beta1.TenantToolInjectionReady: &relayv1beta1.Condition{},
+		relayv1beta1.TenantReady:              &relayv1beta1.Condition{},
 	}
 
 	for _, cond := range t.Object.Status.Conditions {
@@ -147,8 +156,63 @@ func ConfigureTenant(t *Tenant, td *TenantDepsResult) {
 		}
 	})
 
+	UpdateStatusConditionIfTransitioned(conds[relayv1beta1.TenantToolInjectionReady], func() relayv1beta1.Condition {
+		if td.TenantDeps != nil {
+			if vc := td.TenantDeps.ToolInjection.VolumeClaimTemplate; vc != nil {
+				complete := false
+				failed := false
+				for _, cond := range jcs {
+					switch cond.Type {
+					case batchv1.JobComplete:
+						switch cond.Status {
+						case corev1.ConditionTrue:
+							complete = true
+						case corev1.ConditionFalse:
+							complete = false
+						}
+					case batchv1.JobFailed:
+						switch cond.Status {
+						case corev1.ConditionTrue:
+							failed = true
+						case corev1.ConditionFalse:
+							failed = false
+						}
+					}
+				}
+
+				if complete {
+					if failed {
+						return relayv1beta1.Condition{
+							Status:  corev1.ConditionFalse,
+							Reason:  TenantStatusReasonToolInjectionError,
+							Message: "Error processing tool injection.",
+						}
+					}
+
+					return relayv1beta1.Condition{
+						Status: corev1.ConditionTrue,
+					}
+				}
+
+				return relayv1beta1.Condition{
+					Status: corev1.ConditionUnknown,
+				}
+			}
+
+			return relayv1beta1.Condition{
+				Status:  corev1.ConditionTrue,
+				Reason:  TenantStatusReasonToolInjectionMissing,
+				Message: "The tenant does not have a tool injection defined.",
+			}
+		}
+
+		return relayv1beta1.Condition{
+			Status: corev1.ConditionUnknown,
+		}
+	})
+
 	UpdateStatusConditionIfTransitioned(conds[relayv1beta1.TenantReady], func() relayv1beta1.Condition {
-		switch AggregateStatusConditions(*conds[relayv1beta1.TenantNamespaceReady], *conds[relayv1beta1.TenantEventSinkReady]) {
+		switch AggregateStatusConditions(*conds[relayv1beta1.TenantNamespaceReady], *conds[relayv1beta1.TenantEventSinkReady], *conds[relayv1beta1.TenantToolInjectionReady]) {
 		case corev1.ConditionTrue:
 			return relayv1beta1.Condition{
 				Status:  corev1.ConditionTrue,
@@ -179,6 +243,10 @@ func ConfigureTenant(t *Tenant, td *TenantDepsResult) {
 			{
 				Condition: *conds[relayv1beta1.TenantEventSinkReady],
 				Type:      relayv1beta1.TenantEventSinkReady,
+			},
+			{
+				Condition: *conds[relayv1beta1.TenantToolInjectionReady],
+				Type:      relayv1beta1.TenantToolInjectionReady,
 			},
 			{
 				Condition: *conds[relayv1beta1.TenantReady],

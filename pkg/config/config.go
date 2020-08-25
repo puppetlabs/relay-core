@@ -23,6 +23,7 @@ type WorkflowControllerConfig struct {
 	WebhookServerPort       int
 	WebhookServerKeyDir     string
 	DynamicRBACBinding      bool
+	ToolInjectionImage      string
 	AlertsDelegate          alerts.DelegateFunc
 }
 

@@ -182,6 +182,10 @@ func ConfigureKnativeService(ctx context.Context, s *KnativeService, wtd *Webhoo
 		return err
 	}
 
+	if wtd.Tenant.Object.Spec.ToolInjection.VolumeClaimTemplate != nil {
+		Annotate(&template.ObjectMeta, model.RelayControllerToolsVolumeClaimAnnotation, wtd.Tenant.Object.GetName()+model.ToolInjectionVolumeClaimSuffixReadOnlyMany)
+	}
+
 	s.Object.Spec = servingv1.ServiceSpec{
 		ConfigurationSpec: servingv1.ConfigurationSpec{
 			Template: template,
