@@ -49,7 +49,16 @@ func ApplyPersistentVolume(ctx context.Context, cl client.Client, key client.Obj
 	}
 
 	if pv != nil {
-		p.Object.Spec = pv.Spec
+		exists, err := Exists(key, p.Object)
+		if err != nil {
+			return nil, err
+		}
+
+		if exists {
+			p.Object.Spec.Capacity = pv.Spec.Capacity
+		} else {
+			p.Object.Spec = pv.Spec
+		}
 	}
 
 	if err := p.Persist(ctx, cl); err != nil {
