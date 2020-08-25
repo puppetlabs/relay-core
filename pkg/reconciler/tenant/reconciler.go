@@ -76,6 +76,10 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 	}
 
 	if tn.Object.Spec.ToolInjection.VolumeClaimTemplate == nil {
+		if !tn.Ready() {
+			return ctrl.Result{Requeue: true}, nil
+		}
+
 		return ctrl.Result{}, nil
 	}
 
@@ -249,6 +253,10 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 
 	if err := tn.PersistStatus(ctx, r.Client); err != nil {
 		return ctrl.Result{}, err
+	}
+
+	if !tn.Ready() {
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	return ctrl.Result{}, nil
