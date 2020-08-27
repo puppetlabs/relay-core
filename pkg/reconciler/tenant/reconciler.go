@@ -189,6 +189,7 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 	}
 
 	defaultLimit := int32(1)
+	root := int64(0)
 
 	j := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
@@ -204,6 +205,9 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 				Spec: corev1.PodSpec{
 					Containers:    []corev1.Container{container},
 					RestartPolicy: corev1.RestartPolicyNever,
+					SecurityContext: &corev1.PodSecurityContext{
+						RunAsUser: &root,
+					},
 					Volumes: []corev1.Volume{
 						{
 							Name: model.ToolInjectionMountName,
