@@ -24,6 +24,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/controller/trigger"
 	"github.com/puppetlabs/relay-core/pkg/controller/workflow"
 	"github.com/puppetlabs/relay-core/pkg/dependency"
+	"github.com/puppetlabs/relay-core/pkg/model"
 	jose "gopkg.in/square/go-jose.v2"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -56,7 +57,7 @@ func main() {
 	tenantSandboxing := fs.Bool("tenant-sandboxing", false, "enables gVisor sandbox for tenant pods")
 	sentryDSN := fs.String("sentry-dsn", "", "the Sentry DSN to use for error reporting")
 	dynamicRBACBinding := fs.Bool("dynamic-rbac-binding", false, "enable if RBAC rules are set up dynamically for the operator to reduce unhelpful reported errors")
-	toolInjectionImage := fs.String("tool-injection-image", "relaysh/relay-runtime-tools", "image to use for the tool injection suite")
+	toolInjectionImage := fs.String("tool-injection-image", model.DefaultToolInjectionImage, "tool injection image to use")
 
 	fs.Parse(os.Args[1:])
 

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	batchv1 "k8s.io/api/batch/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -28,6 +29,16 @@ func (j *Job) Load(ctx context.Context, cl client.Client) (bool, error) {
 
 func (j *Job) Owned(ctx context.Context, owner Owner) error {
 	return Own(j.Object, owner)
+}
+
+func (j *Job) Delete(ctx context.Context, cl client.Client, opts ...client.DeleteOption) (bool, error) {
+	if err := cl.Delete(ctx, j.Object, opts...); k8serrors.IsNotFound(err) {
+		return false, nil
+	} else if err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
 
 func (j *Job) LabelAnnotateFrom(ctx context.Context, from metav1.ObjectMeta) {

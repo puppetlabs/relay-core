@@ -215,7 +215,7 @@ func (in *ToolInjection) DeepCopyInto(out *ToolInjection) {
 	*out = *in
 	if in.VolumeClaimTemplate != nil {
 		in, out := &in.VolumeClaimTemplate, &out.VolumeClaimTemplate
-		*out = new(v1.PersistentVolumeClaim)
+		*out = new(v1.PersistentVolumeClaimSpec)
 		(*in).DeepCopyInto(*out)
 	}
 }

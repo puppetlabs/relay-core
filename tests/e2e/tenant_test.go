@@ -13,7 +13,6 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/util/retry"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -302,39 +301,29 @@ func TestTenantToolInjection(t *testing.T) {
 					},
 				},
 				ToolInjection: relayv1beta1.ToolInjection{
-					VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
-						Spec: corev1.PersistentVolumeClaimSpec{
-							Resources: corev1.ResourceRequirements{
-								Requests: map[corev1.ResourceName]resource.Quantity{
-									corev1.ResourceStorage: size,
-								},
+					VolumeClaimTemplate: &corev1.PersistentVolumeClaimSpec{
+						Resources: corev1.ResourceRequirements{
+							Requests: map[corev1.ResourceName]resource.Quantity{
+								corev1.ResourceStorage: size,
 							},
-							StorageClassName: &storageClassName,
 						},
+						StorageClassName: &storageClassName,
 					},
 				},
 			},
 		}
-
 		CreateAndWaitForTenant(t, ctx, tenant)
 
 		var ns corev1.Namespace
 		require.Equal(t, child, tenant.Status.Namespace)
 		require.NoError(t, e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: child}, &ns))
 
-		var job batchv1.Job
-		require.NoError(t, e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: tenant.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany, Namespace: tenant.Status.Namespace}, &job))
-		e2e.ControllerRuntimeClient.Delete(ctx, &job)
-
-		var pvc corev1.PersistentVolumeClaim
-		require.NoError(t, e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: tenant.GetName() + model.ToolInjectionVolumeClaimSuffixReadWriteOnce, Namespace: tenant.Status.Namespace}, &pvc))
-		e2e.ControllerRuntimeClient.Delete(ctx, &pvc)
-
-		require.NoError(t, e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: tenant.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany, Namespace: tenant.Status.Namespace}, &pvc))
-		e2e.ControllerRuntimeClient.Delete(ctx, &pvc)
-
 		var pv corev1.PersistentVolume
 		require.NoError(t, e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: tenant.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany}, &pv))
 		e2e.ControllerRuntimeClient.Delete(ctx, &pv)
+
+		var pvc corev1.PersistentVolumeClaim
+		require.NoError(t, e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: tenant.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany, Namespace: tenant.Status.Namespace}, &pvc))
+		e2e.ControllerRuntimeClient.Delete(ctx, &pvc)
 	})
 }

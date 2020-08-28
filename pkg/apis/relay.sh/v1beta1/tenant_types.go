@@ -56,7 +56,7 @@ type ToolInjection struct {
 	// populated and attached to every tenant container.
 	//
 	// +optional
-	VolumeClaimTemplate *corev1.PersistentVolumeClaim `json:"volumeClaimTemplate,omitempty"`
+	VolumeClaimTemplate *corev1.PersistentVolumeClaimSpec `json:"volumeClaimTemplate,omitempty"`
 }
 
 // TriggerEventSink represents the destination for trigger events. At most one
