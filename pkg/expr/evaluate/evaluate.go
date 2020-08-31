@@ -108,7 +108,21 @@ func (e *Evaluator) EvaluateQuery(ctx context.Context, tree parse.Tree, query st
 			gval.VariableSelector(gvaljsonpath.VariableSelector(variableVisitor(e, r))),
 		)
 	case LanguageJSONPathTemplate:
-		pl = jsonpath.TemplateLanguage(jsonpath.WithExpressionLanguageVariableVisitor(variableVisitor(e, r)))
+		pl = jsonpath.TemplateLanguage(
+			jsonpath.WithExpressionLanguageVariableVisitor(variableVisitor(e, r)),
+			jsonpath.WithFormatter(func(v interface{}) (string, error) {
+				rv, err := e.evaluate(ctx, v, -1)
+				if err != nil {
+					return "", err
+				} else if !rv.Complete() {
+					r.extends(rv)
+				} else {
+					v = rv.Value
+				}
+
+				return jsonpath.DefaultFormatter(v)
+			}),
+		)
 	default:
 		return nil, ErrUnsupportedLanguage
 	}
