@@ -81,7 +81,7 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 
 	if tn.Ready() {
 		if tn.Object.Spec.ToolInjection.VolumeClaimTemplate != nil {
-			err := r.cleanup(ctx, tn)
+			err := r.deleteReadWriteVolumeClaim(ctx, tn)
 			if err != nil {
 				return ctrl.Result{}, err
 			}
@@ -100,7 +100,7 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 			return ctrl.Result{Requeue: true}, nil
 		}
 
-		job, err := r.executeJob(ctx, tn)
+		job, err := r.initializeVolumeClaim(ctx, tn)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -158,7 +158,7 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 		}
 
 		if tn.Ready() {
-			err := r.cleanup(ctx, tn)
+			err := r.deleteReadWriteVolumeClaim(ctx, tn)
 			if err != nil {
 				return ctrl.Result{}, err
 			}
@@ -172,7 +172,7 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 	return ctrl.Result{}, nil
 }
 
-func (r *Reconciler) cleanup(ctx context.Context, tn *obj.Tenant) error {
+func (r *Reconciler) deleteReadWriteVolumeClaim(ctx context.Context, tn *obj.Tenant) error {
 	pvc := obj.NewPersistentVolumeClaim(client.ObjectKey{Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadWriteOnce, Namespace: tn.Object.Spec.NamespaceTemplate.Metadata.GetName()})
 	_, err := pvc.Load(ctx, r.Client)
 	if err != nil {
@@ -233,10 +233,10 @@ func (r *Reconciler) createReadOnlyVolume(ctx context.Context, tn *obj.Tenant, p
 func (r *Reconciler) createReadOnlyVolumeClaim(ctx context.Context, tn *obj.Tenant) (*obj.PersistentVolumeClaim, error) {
 	pvcn := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany,
-			Namespace: tn.Object.Spec.NamespaceTemplate.Metadata.GetName(),
+			Name:        tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany,
+			Namespace:   tn.Object.Spec.NamespaceTemplate.Metadata.GetName(),
 			Annotations: tn.Object.Spec.ToolInjection.VolumeClaimTemplate.Annotations,
-			Labels: tn.Object.Spec.ToolInjection.VolumeClaimTemplate.Labels,
+			Labels:      tn.Object.Spec.ToolInjection.VolumeClaimTemplate.Labels,
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
 			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadOnlyMany},
@@ -276,7 +276,7 @@ func (r *Reconciler) createReadWriteVolumeClaim(ctx context.Context, tn *obj.Ten
 	return pvco, err
 }
 
-func (r *Reconciler) executeJob(ctx context.Context, tn *obj.Tenant) (*obj.Job, error) {
+func (r *Reconciler) initializeVolumeClaim(ctx context.Context, tn *obj.Tenant) (*obj.Job, error) {
 	tii := model.DefaultToolInjectionImage
 	if r.Config.ToolInjectionImage != "" {
 		tii = r.Config.ToolInjectionImage
