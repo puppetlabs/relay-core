@@ -235,11 +235,13 @@ func (r *Reconciler) createReadOnlyVolumeClaim(ctx context.Context, tn *obj.Tena
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany,
 			Namespace: tn.Object.Spec.NamespaceTemplate.Metadata.GetName(),
+			Annotations: tn.Object.Spec.ToolInjection.VolumeClaimTemplate.Annotations,
+			Labels: tn.Object.Spec.ToolInjection.VolumeClaimTemplate.Labels,
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
 			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadOnlyMany},
-			Resources:        tn.Object.Spec.ToolInjection.VolumeClaimTemplate.Resources,
-			StorageClassName: tn.Object.Spec.ToolInjection.VolumeClaimTemplate.StorageClassName,
+			Resources:        tn.Object.Spec.ToolInjection.VolumeClaimTemplate.Spec.Resources,
+			StorageClassName: tn.Object.Spec.ToolInjection.VolumeClaimTemplate.Spec.StorageClassName,
 		},
 	}
 
@@ -260,8 +262,8 @@ func (r *Reconciler) createReadWriteVolumeClaim(ctx context.Context, tn *obj.Ten
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
 			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-			Resources:        tn.Object.Spec.ToolInjection.VolumeClaimTemplate.Resources,
-			StorageClassName: tn.Object.Spec.ToolInjection.VolumeClaimTemplate.StorageClassName,
+			Resources:        tn.Object.Spec.ToolInjection.VolumeClaimTemplate.Spec.Resources,
+			StorageClassName: tn.Object.Spec.ToolInjection.VolumeClaimTemplate.Spec.StorageClassName,
 		},
 	}
 

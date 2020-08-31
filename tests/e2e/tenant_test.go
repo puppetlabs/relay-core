@@ -301,17 +301,20 @@ func TestTenantToolInjection(t *testing.T) {
 					},
 				},
 				ToolInjection: relayv1beta1.ToolInjection{
-					VolumeClaimTemplate: &corev1.PersistentVolumeClaimSpec{
-						Resources: corev1.ResourceRequirements{
-							Requests: map[corev1.ResourceName]resource.Quantity{
-								corev1.ResourceStorage: size,
+					VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
+						Spec: corev1.PersistentVolumeClaimSpec{
+							Resources: corev1.ResourceRequirements{
+								Requests: map[corev1.ResourceName]resource.Quantity{
+									corev1.ResourceStorage: size,
+								},
 							},
+							StorageClassName: &storageClassName,
 						},
-						StorageClassName: &storageClassName,
 					},
 				},
 			},
 		}
+
 		CreateAndWaitForTenant(t, ctx, tenant)
 
 		var ns corev1.Namespace

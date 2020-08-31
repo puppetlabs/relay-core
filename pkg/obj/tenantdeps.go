@@ -50,7 +50,7 @@ func NewAPITriggerEventSink(namespace string, sink *relayv1beta1.APITriggerEvent
 }
 
 type ToolInjection struct {
-	VolumeClaimTemplate *corev1.PersistentVolumeClaimSpec
+	VolumeClaimTemplate *corev1.PersistentVolumeClaim
 }
 
 func NewToolInjection(namespace string, toolInjection relayv1beta1.ToolInjection) *ToolInjection {
