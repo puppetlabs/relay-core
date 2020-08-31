@@ -15,6 +15,7 @@ type PersistentVolumeClaim struct {
 
 var _ Persister = &PersistentVolumeClaim{}
 var _ Loader = &PersistentVolumeClaim{}
+var _ Deleter = &PersistentVolumeClaim{}
 var _ Ownable = &PersistentVolumeClaim{}
 var _ LabelAnnotatableFrom = &PersistentVolumeClaim{}
 
@@ -24,6 +25,10 @@ func (pvc *PersistentVolumeClaim) Persist(ctx context.Context, cl client.Client)
 
 func (pvc *PersistentVolumeClaim) Load(ctx context.Context, cl client.Client) (bool, error) {
 	return GetIgnoreNotFound(ctx, cl, pvc.Key, pvc.Object)
+}
+
+func (pvc *PersistentVolumeClaim) Delete(ctx context.Context, cl client.Client) (bool, error) {
+	return DeleteIgnoreNotFound(ctx, cl, pvc.Object)
 }
 
 func (pvc *PersistentVolumeClaim) Owned(ctx context.Context, owner Owner) error {
@@ -66,4 +71,16 @@ func ApplyPersistentVolumeClaim(ctx context.Context, cl client.Client, key clien
 	}
 
 	return p, nil
+}
+
+type PersistentVolumeClaimResult struct {
+	PersistentVolumeClaim *PersistentVolumeClaim
+	Error                 error
+}
+
+func AsPersistentVolumeClaimResult(pvc *PersistentVolumeClaim, err error) *PersistentVolumeClaimResult {
+	return &PersistentVolumeClaimResult{
+		PersistentVolumeClaim: pvc,
+		Error:                 err,
+	}
 }

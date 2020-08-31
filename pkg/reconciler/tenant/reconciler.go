@@ -69,52 +69,135 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 
 	tdr := obj.AsTenantDepsResult(deps, deps.Persist(ctx, r.Client))
 
-	obj.ConfigureTenant(tn, tdr, []batchv1.JobCondition{})
+	pvc := obj.NewPersistentVolumeClaim(client.ObjectKey{Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany, Namespace: tn.Object.Spec.NamespaceTemplate.Metadata.GetName()})
+	_, err = pvc.Load(ctx, r.Client)
+	pvcr := obj.AsPersistentVolumeClaimResult(pvc, err)
+
+	obj.ConfigureTenant(tn, tdr, pvcr)
 
 	if err := tn.PersistStatus(ctx, r.Client); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if tn.Object.Spec.ToolInjection.VolumeClaimTemplate == nil {
-		if !tn.Ready() {
-			return ctrl.Result{Requeue: true}, nil
+	if tn.Ready() {
+		if tn.Object.Spec.ToolInjection.VolumeClaimTemplate != nil {
+			err := r.deleteReadWriteVolumeClaim(ctx, tn)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
 		}
 
 		return ctrl.Result{}, nil
 	}
 
-	pvc := &corev1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      deps.Tenant.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadWriteOnce,
-			Namespace: tn.Object.Spec.NamespaceTemplate.Metadata.GetName(),
-		},
-		Spec: corev1.PersistentVolumeClaimSpec{
-			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-			Resources:        tn.Object.Spec.ToolInjection.VolumeClaimTemplate.Spec.Resources,
-			StorageClassName: tn.Object.Spec.ToolInjection.VolumeClaimTemplate.Spec.StorageClassName,
-		},
+	if tn.Object.Spec.ToolInjection.VolumeClaimTemplate != nil {
+		pvc, err := r.createReadWriteVolumeClaim(ctx, tn)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+
+		if pvc.Object.Status.Phase != corev1.ClaimBound {
+			return ctrl.Result{Requeue: true}, nil
+		}
+
+		job, err := r.initializeVolumeClaim(ctx, tn)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+
+		complete := false
+		failed := false
+		for _, cond := range job.Object.Status.Conditions {
+			switch cond.Type {
+			case batchv1.JobComplete:
+				switch cond.Status {
+				case corev1.ConditionTrue:
+					complete = true
+				}
+			case batchv1.JobFailed:
+				switch cond.Status {
+				case corev1.ConditionTrue:
+					failed = true
+				}
+			}
+		}
+
+		if !complete && !failed {
+			return ctrl.Result{Requeue: true}, nil
+		}
+
+		pv := obj.NewPersistentVolume(client.ObjectKey{Name: pvc.Object.Spec.VolumeName})
+		ok, err := pv.Load(ctx, r.Client)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+
+		if !ok ||
+			(pv.Object.Spec.GCEPersistentDisk == nil && pv.Object.Spec.HostPath == nil) {
+			return ctrl.Result{Requeue: true}, nil
+		}
+
+		_, err = r.createReadOnlyVolume(ctx, tn, pv.Object)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+
+		pvcr := obj.AsPersistentVolumeClaimResult(r.createReadOnlyVolumeClaim(ctx, tn))
+		if pvcr.Error != nil {
+			return ctrl.Result{}, pvcr.Error
+		}
+
+		if pvcr.PersistentVolumeClaim.Object.Status.Phase != corev1.ClaimBound {
+			return ctrl.Result{Requeue: true}, nil
+		}
+
+		obj.ConfigureTenant(tn, tdr, pvcr)
+
+		if err := tn.PersistStatus(ctx, r.Client); err != nil {
+			return ctrl.Result{}, err
+		}
+
+		if tn.Ready() {
+			err := r.deleteReadWriteVolumeClaim(ctx, tn)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+		}
 	}
 
-	key := client.ObjectKey{Name: deps.Tenant.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadWriteOnce, Namespace: deps.Tenant.Object.Spec.NamespaceTemplate.Metadata.GetName()}
-	pvco, err := obj.ApplyPersistentVolumeClaim(ctx, r.Client, key, pvc)
+	if !tn.Ready() {
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func (r *Reconciler) deleteReadWriteVolumeClaim(ctx context.Context, tn *obj.Tenant) error {
+	pvc := obj.NewPersistentVolumeClaim(client.ObjectKey{Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadWriteOnce, Namespace: tn.Object.Spec.NamespaceTemplate.Metadata.GetName()})
+	_, err := pvc.Load(ctx, r.Client)
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
+	}
+	_, err = pvc.Delete(ctx, r.Client)
+	if err != nil {
+		return err
 	}
 
-	if pvco.Object.Spec.VolumeName == "" || pvco.Object.Status.Phase != corev1.ClaimBound {
-		return ctrl.Result{Requeue: true}, nil
+	job := obj.NewJob(client.ObjectKey{Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadWriteOnce, Namespace: tn.Object.Spec.NamespaceTemplate.Metadata.GetName()})
+	_, err = job.Load(ctx, r.Client)
+	if err != nil {
+		return err
 	}
 
-	pv := &corev1.PersistentVolume{}
-
-	if err := r.Client.Get(ctx, client.ObjectKey{Name: pvco.Object.Spec.VolumeName}, pv); k8serrors.IsNotFound(err) {
-		return ctrl.Result{}, err
+	_, err = job.Delete(ctx, r.Client, client.PropagationPolicy(metav1.DeletePropagationForeground))
+	if err != nil {
+		return err
 	}
 
-	if pv.Spec.GCEPersistentDisk == nil && pv.Spec.HostPath == nil {
-		return ctrl.Result{Requeue: true}, nil
-	}
+	return nil
+}
 
+func (r *Reconciler) createReadOnlyVolume(ctx context.Context, tn *obj.Tenant, pv *corev1.PersistentVolume) (*obj.PersistentVolume, error) {
 	pvn := &corev1.PersistentVolume{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany,
@@ -138,38 +221,62 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 		}
 	}
 
-	key = client.ObjectKey{Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany}
-	_, err = obj.ApplyPersistentVolume(ctx, r.Client, key, pvn)
+	key := client.ObjectKey{Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany}
+	pvno, err := obj.ApplyPersistentVolume(ctx, r.Client, key, pvn)
 	if err != nil {
-		return ctrl.Result{}, err
+		return nil, err
 	}
 
+	return pvno, nil
+}
+
+func (r *Reconciler) createReadOnlyVolumeClaim(ctx context.Context, tn *obj.Tenant) (*obj.PersistentVolumeClaim, error) {
 	pvcn := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      pvn.GetName(),
-			Namespace: tn.Object.Spec.NamespaceTemplate.Metadata.GetName(),
+			Name:        tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany,
+			Namespace:   tn.Object.Spec.NamespaceTemplate.Metadata.GetName(),
+			Annotations: tn.Object.Spec.ToolInjection.VolumeClaimTemplate.Annotations,
+			Labels:      tn.Object.Spec.ToolInjection.VolumeClaimTemplate.Labels,
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
 			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadOnlyMany},
-			Resources:        pvco.Object.Spec.Resources,
-			StorageClassName: pvco.Object.Spec.StorageClassName,
+			Resources:        tn.Object.Spec.ToolInjection.VolumeClaimTemplate.Spec.Resources,
+			StorageClassName: tn.Object.Spec.ToolInjection.VolumeClaimTemplate.Spec.StorageClassName,
 		},
 	}
 
-	key = client.ObjectKey{Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany, Namespace: tn.Object.Spec.NamespaceTemplate.Metadata.GetName()}
-	_, err = obj.ApplyPersistentVolumeClaim(ctx, r.Client, key, pvcn)
+	key := client.ObjectKey{Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany, Namespace: tn.Object.Spec.NamespaceTemplate.Metadata.GetName()}
+	pvcno, err := obj.ApplyPersistentVolumeClaim(ctx, r.Client, key, pvcn)
 	if err != nil {
-		return ctrl.Result{}, err
+		return nil, err
 	}
 
-	if err := r.Client.Get(ctx, client.ObjectKey{Namespace: pvcn.GetNamespace(), Name: pvcn.GetName()}, pvcn); k8serrors.IsNotFound(err) {
-		return ctrl.Result{}, err
+	return pvcno, err
+}
+
+func (r *Reconciler) createReadWriteVolumeClaim(ctx context.Context, tn *obj.Tenant) (*obj.PersistentVolumeClaim, error) {
+	pvc := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadWriteOnce,
+			Namespace: tn.Object.Spec.NamespaceTemplate.Metadata.GetName(),
+		},
+		Spec: corev1.PersistentVolumeClaimSpec{
+			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+			Resources:        tn.Object.Spec.ToolInjection.VolumeClaimTemplate.Spec.Resources,
+			StorageClassName: tn.Object.Spec.ToolInjection.VolumeClaimTemplate.Spec.StorageClassName,
+		},
 	}
 
-	if pvcn.Spec.VolumeName == "" {
-		return ctrl.Result{Requeue: true}, nil
+	key := client.ObjectKey{Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadWriteOnce, Namespace: tn.Object.Spec.NamespaceTemplate.Metadata.GetName()}
+	pvco, err := obj.ApplyPersistentVolumeClaim(ctx, r.Client, key, pvc)
+	if err != nil {
+		return nil, err
 	}
 
+	return pvco, err
+}
+
+func (r *Reconciler) initializeVolumeClaim(ctx context.Context, tn *obj.Tenant) (*obj.Job, error) {
 	tii := model.DefaultToolInjectionImage
 	if r.Config.ToolInjectionImage != "" {
 		tii = r.Config.ToolInjectionImage
@@ -193,7 +300,7 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 
 	j := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany,
+			Name:      tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadWriteOnce,
 			Namespace: tn.Object.Spec.NamespaceTemplate.Metadata.GetName(),
 		},
 		Spec: batchv1.JobSpec{
@@ -213,7 +320,7 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 							Name: model.ToolInjectionMountName,
 							VolumeSource: corev1.VolumeSource{
 								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-									ClaimName: pvco.Object.GetName(),
+									ClaimName: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadWriteOnce,
 								},
 							},
 						},
@@ -226,42 +333,11 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 		},
 	}
 
-	key = client.ObjectKey{Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany, Namespace: tn.Object.Spec.NamespaceTemplate.Metadata.GetName()}
+	key := client.ObjectKey{Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadWriteOnce, Namespace: tn.Object.Spec.NamespaceTemplate.Metadata.GetName()}
 	job, err := obj.ApplyJob(ctx, r.Client, key, j)
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
-		return ctrl.Result{}, err
+		return nil, err
 	}
 
-	complete := false
-	failed := false
-	for _, cond := range job.Object.Status.Conditions {
-		switch cond.Type {
-		case batchv1.JobComplete:
-			switch cond.Status {
-			case corev1.ConditionTrue:
-				complete = true
-			}
-		case batchv1.JobFailed:
-			switch cond.Status {
-			case corev1.ConditionTrue:
-				failed = true
-			}
-		}
-	}
-
-	if !complete && !failed {
-		return ctrl.Result{Requeue: true}, nil
-	}
-
-	obj.ConfigureTenant(tn, tdr, job.Object.Status.Conditions)
-
-	if err := tn.PersistStatus(ctx, r.Client); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	if !tn.Ready() {
-		return ctrl.Result{Requeue: true}, nil
-	}
-
-	return ctrl.Result{}, nil
+	return job, nil
 }
