@@ -2,8 +2,10 @@ package obj
 
 import (
 	"context"
+	"path"
 
 	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
+	"github.com/puppetlabs/relay-core/pkg/entrypoint"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -64,15 +66,27 @@ func ConfigureTask(ctx context.Context, t *Task, wrd *WorkflowRunDeps, ws *nebul
 		},
 	}
 
-	if len(ws.Input) > 0 {
-		step.Script = model.ScriptForInput(ws.Input)
-	} else {
-		if len(ws.Command) > 0 {
-			step.Container.Command = []string{ws.Command}
+	// TODO Reference the tool injection from the tenant (once this is available)
+	// For now, we'll assume an explicit tenant reference implies the use of the entrypoint handling
+	if wrd.WorkflowRun.Object.Spec.TenantRef != nil {
+		ep, err := entrypoint.ImageEntrypoint(image, []string{ws.Command}, ws.Args)
+		if err != nil {
+			return err
 		}
 
-		if len(ws.Args) > 0 {
-			step.Container.Args = ws.Args
+		step.Container.Command = []string{path.Join(model.ToolInjectionMountPath, ep.Entrypoint)}
+		step.Container.Args = ep.Args
+	} else {
+		if len(ws.Input) > 0 {
+			step.Script = model.ScriptForInput(ws.Input)
+		} else {
+			if len(ws.Command) > 0 {
+				step.Container.Command = []string{ws.Command}
+			}
+
+			if len(ws.Args) > 0 {
+				step.Container.Args = ws.Args
+			}
 		}
 	}
 

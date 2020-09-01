@@ -2,9 +2,11 @@ package obj
 
 import (
 	"context"
+	"path"
 
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
+	"github.com/puppetlabs/relay-core/pkg/entrypoint"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -167,12 +169,22 @@ func ConfigureKnativeService(ctx context.Context, s *KnativeService, wtd *Webhoo
 		}
 		container.Command = []string{"/var/run/puppet/relay/config/input-script"}
 	} else {
-		if command := wtd.WebhookTrigger.Object.Spec.Command; command != "" {
-			container.Command = []string{command}
-		}
+		if wtd.Tenant.Object.Spec.ToolInjection.VolumeClaimTemplate != nil {
+			ep, err := entrypoint.ImageEntrypoint(image, []string{wtd.WebhookTrigger.Object.Spec.Command}, wtd.WebhookTrigger.Object.Spec.Args)
+			if err != nil {
+				return err
+			}
 
-		if args := wtd.WebhookTrigger.Object.Spec.Args; len(args) > 0 {
-			container.Args = args
+			container.Command = []string{path.Join(model.ToolInjectionMountPath, ep.Entrypoint)}
+			container.Args = ep.Args
+		} else {
+			if command := wtd.WebhookTrigger.Object.Spec.Command; command != "" {
+				container.Command = []string{command}
+			}
+
+			if args := wtd.WebhookTrigger.Object.Spec.Args; len(args) > 0 {
+				container.Args = args
+			}
 		}
 	}
 
