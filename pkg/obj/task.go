@@ -46,47 +46,86 @@ func ConfigureTask(ctx context.Context, t *Task, wrd *WorkflowRunDeps, ws *nebul
 		image = model.DefaultImage
 	}
 
-	step := tektonv1beta1.Step{
-		Container: corev1.Container{
-			Name:            "step",
-			Image:           image,
-			ImagePullPolicy: corev1.PullAlways,
-			Env: []corev1.EnvVar{
-				{
-					Name:  "METADATA_API_URL",
-					Value: wrd.MetadataAPIURL.String(),
-				},
-			},
-			SecurityContext: &corev1.SecurityContext{
-				// We can't use RunAsUser et al. here because they don't allow write
-				// access to the container filesystem. Eventually, we'll use gVisor
-				// to protect us here.
-				AllowPrivilegeEscalation: func(b bool) *bool { return &b }(false),
+	container := corev1.Container{
+		Name:            "step",
+		Image:           image,
+		ImagePullPolicy: corev1.PullAlways,
+		Env: []corev1.EnvVar{
+			{
+				Name:  "METADATA_API_URL",
+				Value: wrd.MetadataAPIURL.String(),
 			},
 		},
+		SecurityContext: &corev1.SecurityContext{
+			// We can't use RunAsUser et al. here because they don't allow write
+			// access to the container filesystem. Eventually, we'll use gVisor
+			// to protect us here.
+			AllowPrivilegeEscalation: func(b bool) *bool { return &b }(false),
+		},
+	}
+
+	command := ws.Command
+	args := ws.Args
+
+	if len(ws.Input) > 0 {
+		sm := ModelStep(wrd.WorkflowRun, ws)
+
+		found := false
+		config := configVolumeKey(sm)
+		for _, volume := range t.Object.Spec.Volumes {
+			if volume.Name == config {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			t.Object.Spec.Volumes = append(t.Object.Spec.Volumes, corev1.Volume{
+				Name: config,
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: wrd.ImmutableConfigMap.Key.Name,
+						},
+						Items: []corev1.KeyToPath{
+							{
+								Key:  scriptConfigMapKey(sm),
+								Path: "input-script",
+								Mode: func(i int32) *int32 { return &i }(0755),
+							},
+						},
+					},
+				},
+			})
+
+			container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+				Name:      config,
+				ReadOnly:  true,
+				MountPath: "/var/run/puppet/relay/config",
+			})
+		}
+
+		command = "/var/run/puppet/relay/config/input-script"
+		args = []string{}
 	}
 
 	// TODO Reference the tool injection from the tenant (once this is available)
 	// For now, we'll assume an explicit tenant reference implies the use of the entrypoint handling
 	if wrd.WorkflowRun.Object.Spec.TenantRef != nil {
-		ep, err := entrypoint.ImageEntrypoint(image, []string{ws.Command}, ws.Args)
+		ep, err := entrypoint.ImageEntrypoint(image, []string{command}, args)
 		if err != nil {
 			return err
 		}
 
-		step.Container.Command = []string{path.Join(model.ToolInjectionMountPath, ep.Entrypoint)}
-		step.Container.Args = ep.Args
+		container.Command = []string{path.Join(model.ToolInjectionMountPath, ep.Entrypoint)}
+		container.Args = ep.Args
 	} else {
-		if len(ws.Input) > 0 {
-			step.Script = model.ScriptForInput(ws.Input)
-		} else {
-			if len(ws.Command) > 0 {
-				step.Container.Command = []string{ws.Command}
-			}
+		if command != "" {
+			container.Command = []string{command}
+		}
 
-			if len(ws.Args) > 0 {
-				step.Container.Args = ws.Args
-			}
+		if len(args) > 0 {
+			container.Args = args
 		}
 	}
 
@@ -101,7 +140,11 @@ func ConfigureTask(ctx context.Context, t *Task, wrd *WorkflowRunDeps, ws *nebul
 		Annotate(&t.Object.ObjectMeta, model.RelayControllerToolsVolumeClaimAnnotation, claim)
 	}
 
-	t.Object.Spec.Steps = []tektonv1beta1.Step{step}
+	t.Object.Spec.Steps = []tektonv1beta1.Step{
+		{
+			Container: container,
+		},
+	}
 
 	return nil
 }
