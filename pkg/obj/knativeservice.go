@@ -2,9 +2,11 @@ package obj
 
 import (
 	"context"
+	"path"
 
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
+	"github.com/puppetlabs/relay-core/pkg/entrypoint"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -137,41 +139,67 @@ func ConfigureKnativeService(ctx context.Context, s *KnativeService, wtd *Webhoo
 		},
 	}
 
+	command := wtd.WebhookTrigger.Object.Spec.Command
+	args := wtd.WebhookTrigger.Object.Spec.Args
+
 	if len(wtd.WebhookTrigger.Object.Spec.Input) > 0 {
 		tm := ModelWebhookTrigger(wtd.WebhookTrigger)
 
-		template.Spec.PodSpec.Volumes = append(template.Spec.PodSpec.Volumes, corev1.Volume{
-			Name: "config",
-			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: wtd.ImmutableConfigMap.Key.Name,
-					},
-					Items: []corev1.KeyToPath{
-						{
-							Key:  scriptConfigMapKey(tm),
-							Path: "input-script",
-							Mode: func(i int32) *int32 { return &i }(0755),
+		found := false
+		config := configVolumeKey(tm)
+		for _, volume := range template.Spec.PodSpec.Volumes {
+			if volume.Name == config {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			template.Spec.PodSpec.Volumes = append(template.Spec.PodSpec.Volumes, corev1.Volume{
+				Name: config,
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: wtd.ImmutableConfigMap.Key.Name,
+						},
+						Items: []corev1.KeyToPath{
+							{
+								Key:  scriptConfigMapKey(tm),
+								Path: "input-script",
+								Mode: func(i int32) *int32 { return &i }(0755),
+							},
 						},
 					},
 				},
-			},
-		})
+			})
 
-		container.VolumeMounts = []corev1.VolumeMount{
-			{
-				Name:      "config",
-				ReadOnly:  true,
-				MountPath: "/var/run/puppet/relay/config",
-			},
+			container.VolumeMounts = []corev1.VolumeMount{
+				{
+					Name:      config,
+					ReadOnly:  true,
+					MountPath: "/var/run/puppet/relay/config",
+				},
+			}
 		}
-		container.Command = []string{"/var/run/puppet/relay/config/input-script"}
+
+		command = "/var/run/puppet/relay/config/input-script"
+		args = []string{}
+	}
+
+	if wtd.Tenant.Object.Spec.ToolInjection.VolumeClaimTemplate != nil {
+		ep, err := entrypoint.ImageEntrypoint(image, []string{command}, args)
+		if err != nil {
+			return err
+		}
+
+		container.Command = []string{path.Join(model.ToolInjectionMountPath, ep.Entrypoint)}
+		container.Args = ep.Args
 	} else {
-		if command := wtd.WebhookTrigger.Object.Spec.Command; command != "" {
+		if command != "" {
 			container.Command = []string{command}
 		}
 
-		if args := wtd.WebhookTrigger.Object.Spec.Args; len(args) > 0 {
+		if len(args) > 0 {
 			container.Args = args
 		}
 	}

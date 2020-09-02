@@ -124,20 +124,24 @@ func ConfigureImmutableConfigMapForWorkflowRun(ctx context.Context, cm *ConfigMa
 
 	ev := evaluate.NewEvaluator()
 
+	scripts := make(map[string]string)
+
 	for _, step := range wr.Object.Spec.Workflow.Steps {
+		sm := ModelStep(wr, step)
+
 		if len(step.Spec) > 0 {
 			r, err := ev.EvaluateAll(ctx, step.Spec.Value())
 			if err != nil {
 				return errmark.MarkUser(err)
 			}
 
-			if _, err := configmap.NewSpecManager(ModelStep(wr, step), lcm).Set(ctx, r.Value.(map[string]interface{})); err != nil {
+			if _, err := configmap.NewSpecManager(sm, lcm).Set(ctx, r.Value.(map[string]interface{})); err != nil {
 				return err
 			}
 		}
 
 		if env := step.Env.Value(); env != nil {
-			em := configmap.NewEnvironmentManager(ModelStep(wr, step), lcm)
+			em := configmap.NewEnvironmentManager(sm, lcm)
 
 			vars := make(map[string]interface{})
 			for name, value := range env {
@@ -158,9 +162,23 @@ func ConfigureImmutableConfigMapForWorkflowRun(ctx context.Context, cm *ConfigMa
 				return errmark.MarkUser(err)
 			}
 
-			if _, err := configmap.NewConditionManager(ModelStep(wr, step), lcm).Set(ctx, r.Value); err != nil {
+			if _, err := configmap.NewConditionManager(sm, lcm).Set(ctx, r.Value); err != nil {
 				return err
 			}
+		}
+
+		if len(step.Input) > 0 {
+			scripts[scriptConfigMapKey(sm)] = model.ScriptForInput(step.Input)
+		}
+	}
+
+	if len(scripts) > 0 {
+		if _, err := configmap.MutateConfigMap(ctx, lcm, func(cm *corev1.ConfigMap) {
+			for name, value := range scripts {
+				cm.Data[name] = value
+			}
+		}); err != nil {
+			return err
 		}
 	}
 
@@ -181,6 +199,10 @@ func ConfigureMutableConfigMapForWorkflowRun(ctx context.Context, cm *ConfigMap,
 	}
 
 	return nil
+}
+
+func configVolumeKey(action model.Action) string {
+	return fmt.Sprintf("config-%s-%s", action.Type().Plural, action.Hash())
 }
 
 func scriptConfigMapKey(action model.Action) string {
