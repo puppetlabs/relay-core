@@ -172,14 +172,14 @@ func ConfigureKnativeService(ctx context.Context, s *KnativeService, wtd *Webhoo
 					},
 				},
 			})
+		}
 
-			container.VolumeMounts = []corev1.VolumeMount{
-				{
-					Name:      config,
-					ReadOnly:  true,
-					MountPath: "/var/run/puppet/relay/config",
-				},
-			}
+		container.VolumeMounts = []corev1.VolumeMount{
+			{
+				Name:      config,
+				ReadOnly:  true,
+				MountPath: "/var/run/puppet/relay/config",
+			},
 		}
 
 		command = "/var/run/puppet/relay/config/input-script"

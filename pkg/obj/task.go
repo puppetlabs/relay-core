@@ -97,13 +97,13 @@ func ConfigureTask(ctx context.Context, t *Task, wrd *WorkflowRunDeps, ws *nebul
 					},
 				},
 			})
-
-			container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
-				Name:      config,
-				ReadOnly:  true,
-				MountPath: "/var/run/puppet/relay/config",
-			})
 		}
+
+		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+			Name:      config,
+			ReadOnly:  true,
+			MountPath: "/var/run/puppet/relay/config",
+		})
 
 		command = "/var/run/puppet/relay/config/input-script"
 		args = []string{}
