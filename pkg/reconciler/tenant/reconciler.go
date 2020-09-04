@@ -81,7 +81,7 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 
 	if tn.Ready() {
 		if tn.Object.Spec.ToolInjection.VolumeClaimTemplate != nil {
-			err := r.deleteReadWriteVolumeClaim(ctx, tn)
+			err := r.cleanupToolInjectionResources(ctx, tn)
 			if err != nil {
 				return ctrl.Result{}, err
 			}
@@ -158,7 +158,7 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 		}
 
 		if tn.Ready() {
-			err := r.deleteReadWriteVolumeClaim(ctx, tn)
+			err := r.cleanupToolInjectionResources(ctx, tn)
 			if err != nil {
 				return ctrl.Result{}, err
 			}
@@ -172,19 +172,9 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 	return ctrl.Result{}, nil
 }
 
-func (r *Reconciler) deleteReadWriteVolumeClaim(ctx context.Context, tn *obj.Tenant) error {
-	pvc := obj.NewPersistentVolumeClaim(client.ObjectKey{Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadWriteOnce, Namespace: tn.Object.Spec.NamespaceTemplate.Metadata.GetName()})
-	_, err := pvc.Load(ctx, r.Client)
-	if err != nil {
-		return err
-	}
-	_, err = pvc.Delete(ctx, r.Client)
-	if err != nil {
-		return err
-	}
-
+func (r *Reconciler) cleanupToolInjectionResources(ctx context.Context, tn *obj.Tenant) error {
 	job := obj.NewJob(client.ObjectKey{Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadWriteOnce, Namespace: tn.Object.Spec.NamespaceTemplate.Metadata.GetName()})
-	_, err = job.Load(ctx, r.Client)
+	_, err := job.Load(ctx, r.Client)
 	if err != nil {
 		return err
 	}
