@@ -69,6 +69,10 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 
 	tdr := obj.AsTenantDepsResult(deps, deps.Persist(ctx, r.Client))
 
+	if tdr.Error != nil {
+		return ctrl.Result{}, err
+	}
+
 	pvc := obj.NewPersistentVolumeClaim(client.ObjectKey{Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany, Namespace: tn.Object.Spec.NamespaceTemplate.Metadata.GetName()})
 	_, err = pvc.Load(ctx, r.Client)
 	pvcr := obj.AsPersistentVolumeClaimResult(pvc, err)
