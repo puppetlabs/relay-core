@@ -2,8 +2,10 @@ package obj
 
 import (
 	"context"
+	"path"
 
 	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
+	"github.com/puppetlabs/relay-core/pkg/entrypoint"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -44,35 +46,86 @@ func ConfigureTask(ctx context.Context, t *Task, wrd *WorkflowRunDeps, ws *nebul
 		image = model.DefaultImage
 	}
 
-	step := tektonv1beta1.Step{
-		Container: corev1.Container{
-			Name:            "step",
-			Image:           image,
-			ImagePullPolicy: corev1.PullAlways,
-			Env: []corev1.EnvVar{
-				{
-					Name:  "METADATA_API_URL",
-					Value: wrd.MetadataAPIURL.String(),
-				},
+	container := corev1.Container{
+		Name:            "step",
+		Image:           image,
+		ImagePullPolicy: corev1.PullAlways,
+		Env: []corev1.EnvVar{
+			{
+				Name:  "METADATA_API_URL",
+				Value: wrd.MetadataAPIURL.String(),
 			},
-			SecurityContext: &corev1.SecurityContext{
-				// We can't use RunAsUser et al. here because they don't allow write
-				// access to the container filesystem. Eventually, we'll use gVisor
-				// to protect us here.
-				AllowPrivilegeEscalation: func(b bool) *bool { return &b }(false),
-			},
+		},
+		SecurityContext: &corev1.SecurityContext{
+			// We can't use RunAsUser et al. here because they don't allow write
+			// access to the container filesystem. Eventually, we'll use gVisor
+			// to protect us here.
+			AllowPrivilegeEscalation: func(b bool) *bool { return &b }(false),
 		},
 	}
 
+	command := ws.Command
+	args := ws.Args
+
 	if len(ws.Input) > 0 {
-		step.Script = model.ScriptForInput(ws.Input)
-	} else {
-		if len(ws.Command) > 0 {
-			step.Container.Command = []string{ws.Command}
+		sm := ModelStep(wrd.WorkflowRun, ws)
+
+		found := false
+		config := configVolumeKey(sm)
+		for _, volume := range t.Object.Spec.Volumes {
+			if volume.Name == config {
+				found = true
+				break
+			}
 		}
 
-		if len(ws.Args) > 0 {
-			step.Container.Args = ws.Args
+		if !found {
+			t.Object.Spec.Volumes = append(t.Object.Spec.Volumes, corev1.Volume{
+				Name: config,
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: wrd.ImmutableConfigMap.Key.Name,
+						},
+						Items: []corev1.KeyToPath{
+							{
+								Key:  scriptConfigMapKey(sm),
+								Path: "input-script",
+								Mode: func(i int32) *int32 { return &i }(0755),
+							},
+						},
+					},
+				},
+			})
+		}
+
+		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+			Name:      config,
+			ReadOnly:  true,
+			MountPath: "/var/run/puppet/relay/config",
+		})
+
+		command = "/var/run/puppet/relay/config/input-script"
+		args = []string{}
+	}
+
+	// TODO Reference the tool injection from the tenant (once this is available)
+	// For now, we'll assume an explicit tenant reference implies the use of the entrypoint handling
+	if wrd.WorkflowRun.Object.Spec.TenantRef != nil {
+		ep, err := entrypoint.ImageEntrypoint(image, []string{command}, args)
+		if err != nil {
+			return err
+		}
+
+		container.Command = []string{path.Join(model.ToolInjectionMountPath, ep.Entrypoint)}
+		container.Args = ep.Args
+	} else {
+		if command != "" {
+			container.Command = []string{command}
+		}
+
+		if len(args) > 0 {
+			container.Args = args
 		}
 	}
 
@@ -80,7 +133,18 @@ func ConfigureTask(ctx context.Context, t *Task, wrd *WorkflowRunDeps, ws *nebul
 		return err
 	}
 
-	t.Object.Spec.Steps = []tektonv1beta1.Step{step}
+	// TODO Reference the tool injection from the tenant (once this is available)
+	// For now, we'll assume an explicit tenant reference implies the use of the tool injection suite
+	if wrd.WorkflowRun.Object.Spec.TenantRef != nil {
+		claim := wrd.WorkflowRun.Object.Spec.TenantRef.Name + model.ToolInjectionVolumeClaimSuffixReadOnlyMany
+		Annotate(&t.Object.ObjectMeta, model.RelayControllerToolsVolumeClaimAnnotation, claim)
+	}
+
+	t.Object.Spec.Steps = []tektonv1beta1.Step{
+		{
+			Container: container,
+		},
+	}
 
 	return nil
 }

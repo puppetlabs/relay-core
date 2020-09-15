@@ -6,6 +6,7 @@ package v1
 
 import (
 	"github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -112,6 +113,11 @@ func (in *WorkflowRunSpec) DeepCopyInto(out *WorkflowRunSpec) {
 		for key, val := range *in {
 			(*out)[key] = *val.DeepCopy()
 		}
+	}
+	if in.TenantRef != nil {
+		in, out := &in.TenantRef, &out.TenantRef
+		*out = new(corev1.LocalObjectReference)
+		**out = **in
 	}
 }
 
@@ -243,6 +249,13 @@ func (in *WorkflowStep) DeepCopyInto(out *WorkflowStep) {
 		in, out := &in.Args, &out.Args
 		*out = make([]string, len(*in))
 		copy(*out, *in)
+	}
+	if in.Env != nil {
+		in, out := &in.Env, &out.Env
+		*out = make(v1beta1.UnstructuredObject, len(*in))
+		for key, val := range *in {
+			(*out)[key] = *val.DeepCopy()
+		}
 	}
 	in.When.DeepCopyInto(&out.When)
 	if in.DependsOn != nil {

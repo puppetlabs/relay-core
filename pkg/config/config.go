@@ -13,6 +13,7 @@ import (
 // configure the Workflow controller.
 type WorkflowControllerConfig struct {
 	Environment             string
+	Standalone              bool
 	Namespace               string
 	ImagePullSecret         string
 	MaxConcurrentReconciles int
@@ -22,6 +23,7 @@ type WorkflowControllerConfig struct {
 	WebhookServerPort       int
 	WebhookServerKeyDir     string
 	DynamicRBACBinding      bool
+	ToolInjectionImage      string
 	AlertsDelegate          alerts.DelegateFunc
 }
 

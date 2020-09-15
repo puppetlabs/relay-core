@@ -18,6 +18,10 @@
         "Workflow"
       ]
     },
+    "name": {
+      "type": "string",
+      "description": "An optional name for the workflow"
+    },
     "summary": {
       "type": "string",
       "description": "A high-level phrase describing what the workflow does"

@@ -24,6 +24,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/controller/trigger"
 	"github.com/puppetlabs/relay-core/pkg/controller/workflow"
 	"github.com/puppetlabs/relay-core/pkg/dependency"
+	"github.com/puppetlabs/relay-core/pkg/model"
 	jose "gopkg.in/square/go-jose.v2"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -38,6 +39,7 @@ func main() {
 	fs := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 
 	environment := fs.String("environment", "dev", "the environment this operator is running in")
+	standalone := fs.Bool("standalone", false, "enables standalone mode which runs workflows without multi-tenant network security protections")
 	kubeconfig := fs.String("kubeconfig", "", "path to kubeconfig file. Only required if running outside of a cluster.")
 	kubeMasterURL := fs.String("kube-master-url", "", "url to the kubernetes master")
 	kubeNamespace := fs.String("kube-namespace", "", "an optional working namespace to restrict to for watching CRDs")
@@ -55,6 +57,7 @@ func main() {
 	tenantSandboxing := fs.Bool("tenant-sandboxing", false, "enables gVisor sandbox for tenant pods")
 	sentryDSN := fs.String("sentry-dsn", "", "the Sentry DSN to use for error reporting")
 	dynamicRBACBinding := fs.Bool("dynamic-rbac-binding", false, "enable if RBAC rules are set up dynamically for the operator to reduce unhelpful reported errors")
+	toolInjectionImage := fs.String("tool-injection-image", model.DefaultToolInjectionImage, "tool injection image to use")
 
 	fs.Parse(os.Args[1:])
 
@@ -149,6 +152,7 @@ func main() {
 
 	cfg := &config.WorkflowControllerConfig{
 		Environment:             *environment,
+		Standalone:              *standalone,
 		Namespace:               *kubeNamespace,
 		ImagePullSecret:         *imagePullSecret,
 		MaxConcurrentReconciles: *numWorkers,
@@ -159,6 +163,7 @@ func main() {
 		WebhookServerKeyDir:     *webhookServerKeyDir,
 		AlertsDelegate:          alertsDelegate,
 		DynamicRBACBinding:      *dynamicRBACBinding,
+		ToolInjectionImage:      *toolInjectionImage,
 	}
 
 	dm, err := dependency.NewDependencyManager(cfg, kcc, vc, jwtSigner, blobStore, mets)
@@ -181,7 +186,12 @@ func main() {
 	dm.Manager.GetWebhookServer().Register("/mutate/pod-enforcement", &webhook.Admission{
 		Handler: admission.NewPodEnforcementHandler(
 			admission.PodEnforcementHandlerWithSandboxing(*tenantSandboxing),
+			admission.PodEnforcementHandlerWithStandaloneMode(*standalone),
 		),
+	})
+
+	dm.Manager.GetWebhookServer().Register("/mutate/volume-claim", &webhook.Admission{
+		Handler: admission.NewVolumeClaimHandler(),
 	})
 
 	if err := dm.Manager.Start(signals.SetupSignalHandler()); err != nil {

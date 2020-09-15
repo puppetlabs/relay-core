@@ -36,16 +36,9 @@ func WithExpressionLanguageVariableVisitor(visitor jsonpath.VariableVisitor) Tem
 	}
 }
 
-func TemplateLanguage(opts ...TemplateOption) gval.Language {
-	return newTemplateLanguage(opts).generate()
-}
+type FormatterFunc func(value interface{}) (string, error)
 
-func eval(ctx context.Context, ev gval.Evaluable, parameter interface{}) (string, error) {
-	v, err := ev(ctx, parameter)
-	if err != nil {
-		return "", err
-	}
-
+func DefaultFormatter(v interface{}) (string, error) {
 	switch vt := v.(type) {
 	case nil:
 		return "", nil
@@ -61,19 +54,38 @@ func eval(ctx context.Context, ev gval.Evaluable, parameter interface{}) (string
 	}
 }
 
-func concat(ctx context.Context, p *gval.Parser, a gval.Evaluable) (gval.Evaluable, error) {
+func WithFormatter(formatter FormatterFunc) TemplateOption {
+	return func(tl *templateLanguage) {
+		tl.fmt = formatter
+	}
+}
+
+func TemplateLanguage(opts ...TemplateOption) gval.Language {
+	return newTemplateLanguage(opts).generate()
+}
+
+func eval(ctx context.Context, ev gval.Evaluable, parameter interface{}, ff FormatterFunc) (string, error) {
+	v, err := ev(ctx, parameter)
+	if err != nil {
+		return "", err
+	}
+
+	return ff(v)
+}
+
+func concat(ctx context.Context, p *gval.Parser, a gval.Evaluable, ff FormatterFunc) (gval.Evaluable, error) {
 	b, err := p.ParseExpression(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	return func(ctx context.Context, parameter interface{}) (interface{}, error) {
-		ea, err := eval(ctx, a, parameter)
+		ea, err := eval(ctx, a, parameter, ff)
 		if err != nil {
 			return nil, err
 		}
 
-		eb, err := eval(ctx, b, parameter)
+		eb, err := eval(ctx, b, parameter, ff)
 		if err != nil {
 			return nil, err
 		}
@@ -192,6 +204,7 @@ var expressionLanguage = gval.NewLanguage(
 // templateLanguage is the total language, which includes literal handling outside of curly braces
 type templateLanguage struct {
 	tpl gval.Language
+	fmt FormatterFunc
 }
 
 func (tl *templateLanguage) generate() gval.Language {
@@ -222,7 +235,7 @@ func (tl *templateLanguage) generate() gval.Language {
 				return p.ParseExpression(ctx)
 			}),
 			gval.PrefixExtension(scanner.Ident, func(ctx context.Context, p *gval.Parser) (gval.Evaluable, error) {
-				return concat(ctx, p, p.Const(p.TokenText()))
+				return concat(ctx, p, p.Const(p.TokenText()), tl.fmt)
 			}),
 			gval.PrefixExtension(scanner.EOF, func(ctx context.Context, p *gval.Parser) (gval.Evaluable, error) {
 				return p.Const(""), nil
@@ -241,7 +254,7 @@ func (tl *templateLanguage) generate() gval.Language {
 					return nil, p.Expected("JSONPath template", '}')
 				}
 
-				return concat(ctx, p, eval)
+				return concat(ctx, p, eval, tl.fmt)
 			}),
 		)
 	})
@@ -250,6 +263,7 @@ func (tl *templateLanguage) generate() gval.Language {
 func newTemplateLanguage(opts []TemplateOption) *templateLanguage {
 	tl := &templateLanguage{
 		tpl: expressionLanguage,
+		fmt: DefaultFormatter,
 	}
 	for _, opt := range opts {
 		opt(tl)

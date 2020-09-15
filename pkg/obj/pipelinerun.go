@@ -78,13 +78,11 @@ func ConfigurePipelineRun(ctx context.Context, pr *PipelineRun) error {
 	sans := make([]tektonv1beta1.PipelineRunSpecServiceAccountName, len(pr.Pipeline.Object.Spec.Tasks))
 	for i, pt := range pr.Pipeline.Object.Spec.Tasks {
 		sans[i] = tektonv1beta1.PipelineRunSpecServiceAccountName{
-			TaskName:           pt.Name,
-			ServiceAccountName: pr.Pipeline.Deps.PipelineServiceAccount.Key.Name,
+			TaskName: pt.Name,
 		}
 	}
 
 	pr.Object.Spec = tektonv1beta1.PipelineRunSpec{
-		ServiceAccountName:  pr.Pipeline.Deps.SystemServiceAccount.Key.Name,
 		ServiceAccountNames: sans,
 		PipelineRef: &tektonv1beta1.PipelineRef{
 			Name: pr.Pipeline.Key.Name,

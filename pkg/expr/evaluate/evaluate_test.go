@@ -756,7 +756,7 @@ func TestEvaluateQuery(t *testing.T) {
 			ExpectedValue: "very secret",
 		},
 		{
-			Name: "JSONPath unresolvable not evaluated because not in path",
+			Name: "JSONPath object unresolvable not evaluated because not in path",
 			Data: `{
 				"a": {"name": "aa", "value": {"$type": "Parameter", "name": "bar"}},
 				"b": {"name": "bb", "value": {"$type": "Secret", "name": "foo"}}
@@ -768,6 +768,17 @@ func TestEvaluateQuery(t *testing.T) {
 			ExpectedValue: randomOrder{"aa", "bb"},
 		},
 		{
+			Name: "JSONPath array unresolvable not evaluated because not in path",
+			Data: `[
+				{"name": "aa", "value": {"$type": "Parameter", "name": "bar"}},
+				{"name": "bb", "value": {"$type": "Secret", "name": "foo"}}
+			]`,
+			Query: "$.*.name",
+			Opts: []evaluate.Option{
+				evaluate.WithLanguage(evaluate.LanguageJSONPath),
+			},
+			ExpectedValue: randomOrder{"aa", "bb"},
+		}, {
 			Name: "type resolver returns an unsupported type",
 			Data: `{
 				"a": {"$type": "Parameter", "name": "foo"}
@@ -814,6 +825,59 @@ func TestEvaluateQuery(t *testing.T) {
 			},
 			ExpectedError: &evaluate.UnsupportedValueError{
 				Type: reflect.TypeOf(map[string]string(nil)),
+			},
+		},
+		{
+			Name: "JSONPath template traverses object",
+			Data: `{
+				"args": {
+					"a": "undo",
+					"b": {"$fn.concat": ["deployment.v1.apps/", {"$type": "Parameter", "name": "deployment"}]}
+				}
+			}`,
+			Query: "{.args}",
+			Opts: []evaluate.Option{
+				evaluate.WithLanguage(evaluate.LanguageJSONPathTemplate),
+				evaluate.WithParameterTypeResolver(resolve.NewMemoryParameterTypeResolver(map[string]interface{}{
+					"deployment": "my-test-deployment",
+				})),
+			},
+			ExpectedValue: "map[a:undo b:deployment.v1.apps/my-test-deployment]",
+		},
+		{
+			Name: "JSONPath template traverses array",
+			Data: `{
+				"args": [
+					"undo",
+					{"$fn.concat": ["deployment.v1.apps/", {"$type": "Parameter", "name": "deployment"}]}
+				]
+			}`,
+			Query: "{.args}",
+			Opts: []evaluate.Option{
+				evaluate.WithLanguage(evaluate.LanguageJSONPathTemplate),
+				evaluate.WithParameterTypeResolver(resolve.NewMemoryParameterTypeResolver(map[string]interface{}{
+					"deployment": "my-test-deployment",
+				})),
+			},
+			ExpectedValue: "undo deployment.v1.apps/my-test-deployment",
+		},
+		{
+			Name: "JSONPath template traverses array with unresolvables",
+			Data: `{
+				"args": [
+					"undo",
+					{"$fn.concat": ["deployment.v1.apps/", {"$type": "Parameter", "name": "deployment"}]}
+				]
+			}`,
+			Query: "{.args}",
+			Opts: []evaluate.Option{
+				evaluate.WithLanguage(evaluate.LanguageJSONPathTemplate),
+			},
+			ExpectedValue: "undo map[$fn.concat:[deployment.v1.apps/ map[$type:Parameter name:deployment]]]",
+			ExpectedUnresolvable: evaluate.Unresolvable{
+				Parameters: []evaluate.UnresolvableParameter{
+					{Name: "deployment"},
+				},
 			},
 		},
 	}.RunAll(t)

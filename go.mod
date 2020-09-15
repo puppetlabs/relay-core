@@ -11,6 +11,7 @@ require (
 	github.com/gofrs/flock v0.7.1
 	github.com/golang/protobuf v1.4.2
 	github.com/gomarkdown/markdown v0.0.0-20200513213024-62c5e2c608cc
+	github.com/google/go-containerregistry v0.0.0-20200115214256-379933c9c22b
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.3
 	github.com/hashicorp/go-cleanhttp v0.5.1
@@ -30,6 +31,7 @@ require (
 	github.com/puppetlabs/paesslerag-gval v1.0.2-0.20191119012647-d2c694821b5b
 	github.com/puppetlabs/paesslerag-jsonpath v0.1.2-0.20200512062544-1e26d7ca225e
 	github.com/rancher/remotedialer v0.2.5
+	github.com/robfig/cron/v3 v3.0.1
 	github.com/shurcooL/vfsgen v0.0.0-20181202132449-6a9ea43bcacd
 	github.com/smartystreets/goconvey v0.0.0-20190731233626-505e41936337 // indirect
 	github.com/spf13/viper v1.3.2

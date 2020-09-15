@@ -9,6 +9,7 @@ type metadataManagers struct {
 	connections model.ConnectionManager
 	conditions  model.ConditionGetterManager
 	events      model.EventManager
+	environment model.EnvironmentGetterManager
 	parameters  model.ParameterGetterManager
 	secrets     model.SecretManager
 	spec        model.SpecGetterManager
@@ -28,6 +29,10 @@ func (mm *metadataManagers) Conditions() model.ConditionGetterManager {
 
 func (mm *metadataManagers) Events() model.EventManager {
 	return mm.events
+}
+
+func (mm *metadataManagers) Environment() model.EnvironmentGetterManager {
+	return mm.environment
 }
 
 func (mm *metadataManagers) Parameters() model.ParameterGetterManager {
@@ -54,6 +59,7 @@ type MetadataBuilder struct {
 	connections model.ConnectionManager
 	conditions  model.ConditionGetterManager
 	events      model.EventManager
+	environment model.EnvironmentGetterManager
 	parameters  model.ParameterGetterManager
 	secrets     model.SecretManager
 	spec        model.SpecGetterManager
@@ -73,6 +79,11 @@ func (mb *MetadataBuilder) SetConditions(m model.ConditionGetterManager) *Metada
 
 func (mb *MetadataBuilder) SetEvents(m model.EventManager) *MetadataBuilder {
 	mb.events = m
+	return mb
+}
+
+func (mb *MetadataBuilder) SetEnvironment(m model.EnvironmentGetterManager) *MetadataBuilder {
+	mb.environment = m
 	return mb
 }
 
@@ -106,6 +117,7 @@ func (mb *MetadataBuilder) Build() model.MetadataManagers {
 		connections: mb.connections,
 		conditions:  mb.conditions,
 		events:      mb.events,
+		environment: mb.environment,
 		parameters:  mb.parameters,
 		secrets:     mb.secrets,
 		spec:        mb.spec,
@@ -119,6 +131,7 @@ func NewMetadataBuilder() *MetadataBuilder {
 		connections: reject.ConnectionManager,
 		conditions:  reject.ConditionManager,
 		events:      reject.EventManager,
+		environment: reject.EnvironmentManager,
 		parameters:  reject.ParameterManager,
 		secrets:     reject.SecretManager,
 		spec:        reject.SpecManager,

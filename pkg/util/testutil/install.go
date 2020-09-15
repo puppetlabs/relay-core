@@ -41,11 +41,20 @@ func doInstall(ctx context.Context, cl client.Client, namespace, name string, pa
 		return err
 	}
 
-	err = WaitForServicesToBeReady(ctx, cl, namespace)
+	log.Printf("installed %s in %s after %s", name, namespace, time.Now().Sub(requested))
+	return nil
+}
+
+func doInstallAndWait(ctx context.Context, cl client.Client, namespace, name string, patchers ...ParseKubernetesManifestPatcherFunc) error {
+	doInstall(ctx, cl, namespace, name, patchers...)
+
+	requested := time.Now()
+
+	err := WaitForServicesToBeReady(ctx, cl, namespace)
 	if err != nil {
 		return err
 	}
 
-	log.Printf("installed %s in %s after %s", name, namespace, time.Now().Sub(requested))
+	log.Printf("waited for services to be ready for %s in %s after %s", name, namespace, time.Now().Sub(requested))
 	return nil
 }

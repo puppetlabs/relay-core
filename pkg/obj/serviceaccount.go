@@ -112,29 +112,3 @@ func ConfigureUntrustedServiceAccount(sa *ServiceAccount) {
 	// services. It has no permissions.
 	sa.Object.AutomountServiceAccountToken = func(b bool) *bool { return &b }(false)
 }
-
-type systemServiceAccountOptions struct {
-	imagePullSecrets []corev1.LocalObjectReference
-}
-
-type SystemServiceAccountOption func(opts *systemServiceAccountOptions)
-
-func SystemServiceAccountWithImagePullSecret(ref corev1.LocalObjectReference) SystemServiceAccountOption {
-	return func(opts *systemServiceAccountOptions) {
-		opts.imagePullSecrets = append(opts.imagePullSecrets, ref)
-	}
-}
-
-func ConfigureSystemServiceAccount(sa *ServiceAccount, opts ...SystemServiceAccountOption) {
-	// This service account is used by internal containers needing to pull
-	// restricted images.
-
-	sao := &systemServiceAccountOptions{}
-
-	for _, opt := range opts {
-		opt(sao)
-	}
-
-	sa.Object.AutomountServiceAccountToken = func(b bool) *bool { return &b }(false)
-	sa.Object.ImagePullSecrets = sao.imagePullSecrets
-}

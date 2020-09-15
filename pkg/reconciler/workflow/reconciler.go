@@ -25,8 +25,9 @@ type Reconciler struct {
 	Client client.Client
 	Scheme *runtime.Scheme
 
-	metrics *controllerObservations
-	issuer  authenticate.Issuer
+	standalone bool
+	metrics    *controllerObservations
+	issuer     authenticate.Issuer
 }
 
 func NewReconciler(dm *dependency.DependencyManager) *Reconciler {
@@ -36,7 +37,8 @@ func NewReconciler(dm *dependency.DependencyManager) *Reconciler {
 		Client: dm.Manager.GetClient(),
 		Scheme: dm.Manager.GetScheme(),
 
-		metrics: newControllerObservations(dm.Metrics),
+		standalone: dm.Config.Standalone,
+		metrics:    newControllerObservations(dm.Metrics),
 		issuer: authenticate.IssuerFunc(func(ctx context.Context, claims *authenticate.Claims) (authenticate.Raw, error) {
 			raw, err := authenticate.NewKeySignerIssuer(dm.JWTSigner).Issue(ctx, claims)
 			if err != nil {
@@ -70,6 +72,14 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 		return ctrl.Result{}, nil
 	}
 
+	if len(wr.Object.Spec.Workflow.Steps) == 0 {
+		if err := wr.Complete(ctx, r.Client); err != nil {
+			return ctrl.Result{}, err
+		}
+
+		return ctrl.Result{}, nil
+	}
+
 	var pr *obj.PipelineRun
 	err = r.metrics.trackDurationWithOutcome(metricWorkflowRunStartUpDuration, func() error {
 		// Configure and save all the infrastructure bits needed to create a
@@ -80,8 +90,9 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 			wr,
 			r.issuer,
 			r.Config.MetadataAPIURL,
-			obj.WorkflowRunDepsWithSourceSystemImagePullSecret(r.Config.ImagePullSecretKey()),
+			obj.WorkflowRunDepsWithStandaloneMode(r.standalone),
 		)
+
 		if err != nil {
 			err = errmark.MarkTransient(err, obj.TransientIfRequired)
 
