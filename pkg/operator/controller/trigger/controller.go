@@ -2,13 +2,13 @@ package trigger
 
 import (
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
-	"github.com/puppetlabs/relay-core/pkg/config"
-	"github.com/puppetlabs/relay-core/pkg/controller/handler"
-	"github.com/puppetlabs/relay-core/pkg/dependency"
 	"github.com/puppetlabs/relay-core/pkg/errmark"
 	"github.com/puppetlabs/relay-core/pkg/model"
-	"github.com/puppetlabs/relay-core/pkg/reconciler/filter"
-	"github.com/puppetlabs/relay-core/pkg/reconciler/trigger"
+	"github.com/puppetlabs/relay-core/pkg/operator/config"
+	"github.com/puppetlabs/relay-core/pkg/operator/controller/handler"
+	"github.com/puppetlabs/relay-core/pkg/operator/dependency"
+	"github.com/puppetlabs/relay-core/pkg/operator/reconciler/filter"
+	"github.com/puppetlabs/relay-core/pkg/operator/reconciler/trigger"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/controller"

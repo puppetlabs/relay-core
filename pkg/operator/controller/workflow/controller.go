@@ -2,11 +2,11 @@ package workflow
 
 import (
 	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
-	"github.com/puppetlabs/relay-core/pkg/config"
-	"github.com/puppetlabs/relay-core/pkg/dependency"
 	"github.com/puppetlabs/relay-core/pkg/errmark"
-	"github.com/puppetlabs/relay-core/pkg/reconciler/filter"
-	"github.com/puppetlabs/relay-core/pkg/reconciler/workflow"
+	"github.com/puppetlabs/relay-core/pkg/operator/config"
+	"github.com/puppetlabs/relay-core/pkg/operator/dependency"
+	"github.com/puppetlabs/relay-core/pkg/operator/reconciler/filter"
+	"github.com/puppetlabs/relay-core/pkg/operator/reconciler/workflow"
 	tekv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/controller"

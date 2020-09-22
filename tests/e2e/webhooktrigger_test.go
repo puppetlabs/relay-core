@@ -13,10 +13,10 @@ import (
 
 	"github.com/google/uuid"
 	_ "github.com/puppetlabs/horsehead/v2/storage/file"
-	"github.com/puppetlabs/relay-core/pkg/admission"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
 	"github.com/puppetlabs/relay-core/pkg/model"
+	"github.com/puppetlabs/relay-core/pkg/operator/admission"
 	"github.com/puppetlabs/relay-core/pkg/util/retry"
 	"github.com/puppetlabs/relay-core/pkg/util/testutil"
 	"github.com/stretchr/testify/assert"

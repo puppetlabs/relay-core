@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/puppetlabs/relay-core/pkg/admission"
 	"github.com/puppetlabs/relay-core/pkg/model"
+	"github.com/puppetlabs/relay-core/pkg/operator/admission"
 	"github.com/puppetlabs/relay-core/pkg/util/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
