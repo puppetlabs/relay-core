@@ -8,7 +8,7 @@ import (
 	"github.com/puppetlabs/horsehead/v2/storage"
 	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
-	"github.com/puppetlabs/relay-core/pkg/config"
+	"github.com/puppetlabs/relay-core/pkg/operator/config"
 	tektonv1alpha1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	jose "gopkg.in/square/go-jose.v2"
