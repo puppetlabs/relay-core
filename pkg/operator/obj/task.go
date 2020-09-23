@@ -52,6 +52,14 @@ func ConfigureTask(ctx context.Context, t *Task, wrd *WorkflowRunDeps, ws *nebul
 		ImagePullPolicy: corev1.PullAlways,
 		Env: []corev1.EnvVar{
 			{
+				Name:  "CI",
+				Value: "true",
+			},
+			{
+				Name:  "RELAY",
+				Value: "true",
+			},
+			{
 				Name:  "METADATA_API_URL",
 				Value: wrd.MetadataAPIURL.String(),
 			},
