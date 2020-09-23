@@ -133,6 +133,14 @@ func ConfigureKnativeService(ctx context.Context, s *KnativeService, wtd *Webhoo
 		ImagePullPolicy: corev1.PullAlways,
 		Env: []corev1.EnvVar{
 			{
+				Name:  "CI",
+				Value: "true",
+			},
+			{
+				Name:  "RELAY",
+				Value: "true",
+			},
+			{
 				Name:  "METADATA_API_URL",
 				Value: wtd.MetadataAPIURL.String(),
 			},
