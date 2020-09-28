@@ -87,7 +87,7 @@ func TestGetSpec(t *testing.T) {
 	currentTaskToken, found := tokenMap.ForStep("test", "current-task")
 	require.True(t, found)
 
-	h := api.NewHandler(sample.NewAuthenticator(sc, tokenGenerator.Key()))
+	h := api.NewHandler(sample.NewAuthenticator(sc, tokenGenerator.Key()), nil)
 
 	// Request the whole spec.
 	req, err := http.NewRequest(http.MethodGet, "/spec", nil)

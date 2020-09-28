@@ -115,3 +115,13 @@ sections:
         arguments:
           type:
             description: the unexpected type
+
+  spec:
+    title: Spec errors
+    errors:
+      schema_lookup_error:
+        title: Schema lookup error
+        description: failed to lookup spec schema
+      schema_validation_error:
+        title: Schema validation error
+        description: could not validate step spec

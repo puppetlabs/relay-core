@@ -14,7 +14,10 @@ import (
 // Schema is a step spec schema. It provides a Validate method for ensuring at
 // runtime, specs for steps meet the schema's requirements.
 type Schema interface {
+	// Validate takes the data to be validated as a byte array.
 	Validate(data []byte) error
+	// ValidateGo takes the data to be validated as an arbitrary go data structure.
+	ValidateGo(data interface{}) error
 }
 
 // SchemaRegistry is a registry of spec schemas for steps.
@@ -31,7 +34,16 @@ type JSONSchema struct {
 }
 
 func (j *JSONSchema) Validate(data []byte) error {
-	result, err := j.schema.Validate(gojsonschema.NewBytesLoader(data))
+	return j.validate(gojsonschema.NewBytesLoader(data))
+}
+
+func (j *JSONSchema) ValidateGo(data interface{}) error {
+	return j.validate(gojsonschema.NewGoLoader(data))
+}
+
+func (j *JSONSchema) validate(loader gojsonschema.JSONLoader) error {
+	//	result, err := j.schema.Validate()
+	result, err := j.schema.Validate(loader)
 	if err != nil {
 		return &SchemaValidationError{Cause: err}
 	}

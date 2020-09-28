@@ -30,7 +30,7 @@ func TestPostEvent(t *testing.T) {
 	triggerToken, found := tokenMap.ForTrigger("test")
 	require.True(t, found)
 
-	h := api.NewHandler(sample.NewAuthenticator(sc, tokenGenerator.Key()))
+	h := api.NewHandler(sample.NewAuthenticator(sc, tokenGenerator.Key()), nil)
 
 	req, err := http.NewRequest(http.MethodPost, "/events", strings.NewReader(`{"data":{"foo":"bar"}}`))
 	require.NoError(t, err)

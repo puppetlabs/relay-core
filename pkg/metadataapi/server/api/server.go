@@ -5,10 +5,12 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/middleware"
+	"github.com/puppetlabs/relay-core/pkg/workflow/spec"
 )
 
 type Server struct {
-	auth middleware.Authenticator
+	auth               middleware.Authenticator
+	specSchemaRegistry spec.SchemaRegistry
 }
 
 func (s *Server) Route(r *mux.Router) {
@@ -39,14 +41,15 @@ func (s *Server) Route(r *mux.Router) {
 	r.HandleFunc("/state/{name}", s.GetState).Methods(http.MethodGet)
 }
 
-func NewServer(auth middleware.Authenticator) *Server {
+func NewServer(auth middleware.Authenticator, specSchemaRegistry spec.SchemaRegistry) *Server {
 	return &Server{
-		auth: auth,
+		auth:               auth,
+		specSchemaRegistry: specSchemaRegistry,
 	}
 }
 
-func NewHandler(auth middleware.Authenticator) http.Handler {
+func NewHandler(auth middleware.Authenticator, specSchemaRegistry spec.SchemaRegistry) http.Handler {
 	r := mux.NewRouter()
-	NewServer(auth).Route(r)
+	NewServer(auth, specSchemaRegistry).Route(r)
 	return r
 }

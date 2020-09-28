@@ -1,6 +1,7 @@
 package api
 
 import (
+	goerrors "errors"
 	"net/http"
 
 	utilapi "github.com/puppetlabs/horsehead/v2/httputil/api"
@@ -8,6 +9,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/manager/resolve"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/errors"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/middleware"
+	wfspec "github.com/puppetlabs/relay-core/pkg/workflow/spec"
 )
 
 func (s *Server) GetSpec(w http.ResponseWriter, r *http.Request) {
@@ -52,5 +54,22 @@ func (s *Server) GetSpec(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	utilapi.WriteObjectOK(ctx, w, evaluate.NewJSONResultEnvelope(rv))
+	env := evaluate.NewJSONResultEnvelope(rv)
+
+	if s.specSchemaRegistry != nil && env.Complete {
+		schema, err := s.specSchemaRegistry.GetByStepRepository("")
+		if err != nil {
+			if !goerrors.Is(err, &wfspec.SchemaDoesNotExistError{}) {
+				utilapi.WriteError(ctx, w, errors.NewSpecSchemaLookupError().WithCause(err))
+
+				return
+			}
+		} else {
+			if err := schema.ValidateGo(env.Value.Data); err != nil {
+				utilapi.WriteError(ctx, w, errors.NewSpecSchemaValidationError().WithCause(err))
+			}
+		}
+	}
+
+	utilapi.WriteObjectOK(ctx, w, env)
 }

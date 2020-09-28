@@ -17,8 +17,9 @@ import (
 )
 
 const (
-	DefaultListenPort = 7000
-	DefaultVaultURL   = "http://localhost:8200"
+	DefaultListenPort      = 7000
+	DefaultVaultURL        = "http://localhost:8200"
+	DefaultStepMetadataURL = "https://relay.sh/step-metadata.json"
 
 	DefaultKubernetesAutomountTokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token"
 	DefaultKubernetesAutomountCAFile    = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
@@ -42,6 +43,10 @@ type Config struct {
 	// TLSCertFile is the relative path to a PEM-encoded X509 certificate
 	// bundle corresponding to the private key.
 	TLSCertificateFile string
+
+	// StepMetadataURL is the HTTP(S) url to the relaysh core step metadata
+	// json file.
+	StepMetadataURL string
 
 	// VaultTransitURL is the HTTP(S) URL to the Vault server to use for secure
 	// token decryption.
@@ -233,6 +238,8 @@ func NewConfig() *Config {
 	viper.SetDefault("vault_auth_url", viper.GetString("vault_addr"))
 	viper.SetDefault("vault_auth_path", "auth/jwt")
 
+	viper.SetDefault("step_metadata_url", DefaultStepMetadataURL)
+
 	return &Config{
 		Debug:       viper.GetBool("debug"),
 		Environment: viper.GetString("environment"),
@@ -240,6 +247,8 @@ func NewConfig() *Config {
 
 		TLSKeyFile:         viper.GetString("tls_key_file"),
 		TLSCertificateFile: viper.GetString("tls_certificate_file"),
+
+		StepMetadataURL: viper.GetString("step_metadata_url"),
 
 		VaultTransitURL:   viper.GetString("vault_transit_url"),
 		VaultTransitToken: viper.GetString("vault_transit_token"),
