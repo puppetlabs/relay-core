@@ -124,7 +124,7 @@ func ConfigureImmutableConfigMapForWorkflowRun(ctx context.Context, cm *ConfigMa
 
 	ev := evaluate.NewEvaluator()
 
-	scripts := make(map[string]string)
+	configMapData := make(map[string]string)
 
 	for _, step := range wr.Object.Spec.Workflow.Steps {
 		sm := ModelStep(wr, step)
@@ -168,13 +168,15 @@ func ConfigureImmutableConfigMapForWorkflowRun(ctx context.Context, cm *ConfigMa
 		}
 
 		if len(step.Input) > 0 {
-			scripts[scriptConfigMapKey(sm)] = model.ScriptForInput(step.Input)
+			configMapData[scriptConfigMapKey(sm)] = model.ScriptForInput(step.Input)
 		}
+
+		configMapData[imageConfigMapKey(sm)] = step.Image
 	}
 
-	if len(scripts) > 0 {
+	if len(configMapData) > 0 {
 		if _, err := configmap.MutateConfigMap(ctx, lcm, func(cm *corev1.ConfigMap) {
-			for name, value := range scripts {
+			for name, value := range configMapData {
 				cm.Data[name] = value
 			}
 		}); err != nil {
@@ -207,4 +209,8 @@ func configVolumeKey(action model.Action) string {
 
 func scriptConfigMapKey(action model.Action) string {
 	return fmt.Sprintf("%s.%s.script", action.Type().Plural, action.Hash())
+}
+
+func imageConfigMapKey(action model.Action) string {
+	return fmt.Sprintf("%s.%s.image", action.Type().Plural, action.Hash())
 }
