@@ -116,6 +116,13 @@ sections:
           type:
             description: the unexpected type
 
+  step:
+    title: Step errors
+    errors:
+      image_parse_error:
+        title: Image parse error
+        description: failed to parse the image and tag string for step
+
   spec:
     title: Spec errors
     errors:

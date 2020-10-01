@@ -707,3 +707,58 @@ func NewSpecSchemaValidationErrorBuilder() *SpecSchemaValidationErrorBuilder {
 func NewSpecSchemaValidationError() Error {
 	return NewSpecSchemaValidationErrorBuilder().Build()
 }
+
+// StepSection defines a section of errors with the following scope:
+// Step errors
+var StepSection = &impl.ErrorSection{
+	Key:   "step",
+	Title: "Step errors",
+}
+
+// StepImageParseErrorCode is the code for an instance of "image_parse_error".
+const StepImageParseErrorCode = "rma_step_image_parse_error"
+
+// IsStepImageParseError tests whether a given error is an instance of "image_parse_error".
+func IsStepImageParseError(err errawr.Error) bool {
+	return err != nil && err.Is(StepImageParseErrorCode)
+}
+
+// IsStepImageParseError tests whether a given error is an instance of "image_parse_error".
+func (External) IsStepImageParseError(err errawr.Error) bool {
+	return IsStepImageParseError(err)
+}
+
+// StepImageParseErrorBuilder is a builder for "image_parse_error" errors.
+type StepImageParseErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "image_parse_error" from this builder.
+func (b *StepImageParseErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "failed to parse the image and tag string for step",
+		Technical: "failed to parse the image and tag string for step",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "image_parse_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     StepSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Image parse error",
+		Version:          1,
+	}
+}
+
+// NewStepImageParseErrorBuilder creates a new error builder for the code "image_parse_error".
+func NewStepImageParseErrorBuilder() *StepImageParseErrorBuilder {
+	return &StepImageParseErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewStepImageParseError creates a new error with the code "image_parse_error".
+func NewStepImageParseError() Error {
+	return NewStepImageParseErrorBuilder().Build()
+}

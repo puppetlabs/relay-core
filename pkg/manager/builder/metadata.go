@@ -6,15 +6,16 @@ import (
 )
 
 type metadataManagers struct {
-	connections model.ConnectionManager
-	conditions  model.ConditionGetterManager
-	events      model.EventManager
-	environment model.EnvironmentGetterManager
-	parameters  model.ParameterGetterManager
-	secrets     model.SecretManager
-	spec        model.SpecGetterManager
-	state       model.StateGetterManager
-	stepOutputs model.StepOutputManager
+	connections  model.ConnectionManager
+	conditions   model.ConditionGetterManager
+	events       model.EventManager
+	environment  model.EnvironmentGetterManager
+	parameters   model.ParameterGetterManager
+	secrets      model.SecretManager
+	spec         model.SpecGetterManager
+	state        model.StateGetterManager
+	stepMetadata model.StepMetadataGetterManager
+	stepOutputs  model.StepOutputManager
 }
 
 var _ model.MetadataManagers = &metadataManagers{}
@@ -51,20 +52,25 @@ func (mm *metadataManagers) State() model.StateGetterManager {
 	return mm.state
 }
 
+func (mm *metadataManagers) StepMetadata() model.StepMetadataGetterManager {
+	return mm.stepMetadata
+}
+
 func (mm *metadataManagers) StepOutputs() model.StepOutputManager {
 	return mm.stepOutputs
 }
 
 type MetadataBuilder struct {
-	connections model.ConnectionManager
-	conditions  model.ConditionGetterManager
-	events      model.EventManager
-	environment model.EnvironmentGetterManager
-	parameters  model.ParameterGetterManager
-	secrets     model.SecretManager
-	spec        model.SpecGetterManager
-	state       model.StateGetterManager
-	stepOutputs model.StepOutputManager
+	connections  model.ConnectionManager
+	conditions   model.ConditionGetterManager
+	events       model.EventManager
+	environment  model.EnvironmentGetterManager
+	parameters   model.ParameterGetterManager
+	secrets      model.SecretManager
+	spec         model.SpecGetterManager
+	state        model.StateGetterManager
+	stepMetadata model.StepMetadataManager
+	stepOutputs  model.StepOutputManager
 }
 
 func (mb *MetadataBuilder) SetConnections(m model.ConnectionManager) *MetadataBuilder {
@@ -107,6 +113,11 @@ func (mb *MetadataBuilder) SetState(m model.StateGetterManager) *MetadataBuilder
 	return mb
 }
 
+func (mb *MetadataBuilder) SetStepMetadata(m model.StepMetadataManager) *MetadataBuilder {
+	mb.stepMetadata = m
+	return mb
+}
+
 func (mb *MetadataBuilder) SetStepOutputs(m model.StepOutputManager) *MetadataBuilder {
 	mb.stepOutputs = m
 	return mb
@@ -114,28 +125,30 @@ func (mb *MetadataBuilder) SetStepOutputs(m model.StepOutputManager) *MetadataBu
 
 func (mb *MetadataBuilder) Build() model.MetadataManagers {
 	return &metadataManagers{
-		connections: mb.connections,
-		conditions:  mb.conditions,
-		events:      mb.events,
-		environment: mb.environment,
-		parameters:  mb.parameters,
-		secrets:     mb.secrets,
-		spec:        mb.spec,
-		state:       mb.state,
-		stepOutputs: mb.stepOutputs,
+		connections:  mb.connections,
+		conditions:   mb.conditions,
+		events:       mb.events,
+		environment:  mb.environment,
+		parameters:   mb.parameters,
+		secrets:      mb.secrets,
+		spec:         mb.spec,
+		state:        mb.state,
+		stepMetadata: mb.stepMetadata,
+		stepOutputs:  mb.stepOutputs,
 	}
 }
 
 func NewMetadataBuilder() *MetadataBuilder {
 	return &MetadataBuilder{
-		connections: reject.ConnectionManager,
-		conditions:  reject.ConditionManager,
-		events:      reject.EventManager,
-		environment: reject.EnvironmentManager,
-		parameters:  reject.ParameterManager,
-		secrets:     reject.SecretManager,
-		spec:        reject.SpecManager,
-		state:       reject.StateManager,
-		stepOutputs: reject.StepOutputManager,
+		connections:  reject.ConnectionManager,
+		conditions:   reject.ConditionManager,
+		events:       reject.EventManager,
+		environment:  reject.EnvironmentManager,
+		parameters:   reject.ParameterManager,
+		secrets:      reject.SecretManager,
+		spec:         reject.SpecManager,
+		state:        reject.StateManager,
+		stepMetadata: reject.StepMetadataManager,
+		stepOutputs:  reject.StepOutputManager,
 	}
 }

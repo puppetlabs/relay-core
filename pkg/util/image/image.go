@@ -6,7 +6,7 @@ import (
 )
 
 func ImageData(image string) ([]string, []string, error) {
-	ref, err := name.ParseReference(image, name.WeakValidation)
+	ref, err := RepoReference(image)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -22,4 +22,13 @@ func ImageData(image string) ([]string, []string, error) {
 	}
 
 	return cfg.Config.Entrypoint, cfg.Config.Cmd, nil
+}
+
+func RepoReference(image string) (name.Reference, error) {
+	ref, err := name.ParseReference(image, name.WeakValidation)
+	if err != nil {
+		return nil, err
+	}
+
+	return ref, nil
 }

@@ -58,6 +58,7 @@ type SampleConfigStep struct {
 	Conditions serialize.YAMLTree      `yaml:"conditions"`
 	Env        SampleConfigEnvironment `yaml:"env"`
 	Spec       SampleConfigSpec        `yaml:"spec"`
+	Image      string                  `yaml:"image"`
 	Outputs    map[string]interface{}  `yaml:"outputs"`
 	State      map[string]interface{}  `yaml:"state"`
 }

@@ -143,6 +143,7 @@ func (ka *KubernetesAuthenticator) injector(mgrs *builder.MetadataBuilder, tags 
 			// Only a step can work with parameters and outputs. Other actions
 			// will get the default rejection manager.
 			mgrs.SetParameters(configmap.NewParameterManager(immutableMap))
+			mgrs.SetStepMetadata(configmap.NewStepMetadataManager(step, immutableMap))
 			mgrs.SetStepOutputs(configmap.NewStepOutputManager(step, mutableMap))
 		})
 

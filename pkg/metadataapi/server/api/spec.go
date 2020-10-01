@@ -9,6 +9,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/manager/resolve"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/errors"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/middleware"
+	"github.com/puppetlabs/relay-core/pkg/util/image"
 	wfspec "github.com/puppetlabs/relay-core/pkg/workflow/spec"
 )
 
@@ -57,7 +58,21 @@ func (s *Server) GetSpec(w http.ResponseWriter, r *http.Request) {
 	env := evaluate.NewJSONResultEnvelope(rv)
 
 	if s.specSchemaRegistry != nil && env.Complete {
-		schema, err := s.specSchemaRegistry.GetByStepRepository("")
+		sm, err := managers.StepMetadata().Get(ctx)
+		if err != nil {
+			utilapi.WriteError(ctx, w, ModelReadError(err))
+			return
+		}
+
+		ref, err := image.RepoReference(sm.Image)
+		if err != nil {
+			utilapi.WriteError(ctx, w, errors.NewStepImageParseError().WithCause(err))
+			return
+		}
+
+		repository := ref.Context()
+
+		schema, err := s.specSchemaRegistry.GetByStepRepository(repository.RepositoryStr())
 		if err != nil {
 			if !goerrors.Is(err, &wfspec.SchemaDoesNotExistError{}) {
 				utilapi.WriteError(ctx, w, errors.NewSpecSchemaLookupError().WithCause(err))
@@ -67,6 +82,8 @@ func (s *Server) GetSpec(w http.ResponseWriter, r *http.Request) {
 		} else {
 			if err := schema.ValidateGo(env.Value.Data); err != nil {
 				utilapi.WriteError(ctx, w, errors.NewSpecSchemaValidationError().WithCause(err))
+
+				return
 			}
 		}
 	}
