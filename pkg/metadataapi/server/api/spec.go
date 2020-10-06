@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	utilapi "github.com/puppetlabs/horsehead/v2/httputil/api"
+	"github.com/puppetlabs/horsehead/v2/instrumentation/alerts/trackers"
 	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
 	"github.com/puppetlabs/relay-core/pkg/manager/resolve"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/errors"
@@ -72,18 +73,28 @@ func (s *Server) GetSpec(w http.ResponseWriter, r *http.Request) {
 
 		repository := ref.Context()
 
-		schema, err := s.specSchemaRegistry.GetByStepRepository(repository.RepositoryStr())
-		if err != nil {
-			if !goerrors.Is(err, &wfspec.SchemaDoesNotExistError{}) {
-				utilapi.WriteError(ctx, w, errors.NewSpecSchemaLookupError().WithCause(err))
+		capture, ok := trackers.CapturerFromContext(ctx)
+		if ok {
+			repo := repository.RepositoryStr()
+			capture = capture.WithTags(trackers.Tag{Key: "relay.spec.validation-error", Value: repo})
 
-				return
+			var captureErr error
+
+			schema, err := s.specSchemaRegistry.GetByStepRepository(repo)
+			if err != nil {
+				captureErr = err
+				if !goerrors.Is(err, &wfspec.SchemaDoesNotExistError{}) {
+					captureErr = errors.NewSpecSchemaLookupError().WithCause(err)
+				}
+			} else {
+				if err := schema.ValidateGo(env.Value.Data); err != nil {
+					captureErr = errors.NewSpecSchemaValidationError().WithCause(err)
+				}
 			}
-		} else {
-			if err := schema.ValidateGo(env.Value.Data); err != nil {
-				utilapi.WriteError(ctx, w, errors.NewSpecSchemaValidationError().WithCause(err))
 
-				return
+			if captureErr != nil {
+				report := capture.Capture(captureErr)
+				report.Report(ctx)
 			}
 		}
 	}

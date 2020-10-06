@@ -59,10 +59,11 @@ func (j *JSONSchema) validate(loader gojsonschema.JSONLoader) error {
 // from a single file at a URL. An example of this file can be found in
 // `testdata/step-metadata.json`.
 type StepMetadataSchemaRegistry struct {
+	LastResponse *http.Response
+
 	registry     map[string]*gojsonschema.Schema
 	metadataURL  *url.URL
 	lastModified string
-	lastResponse *http.Response
 	client       *http.Client
 
 	sync.RWMutex
@@ -88,13 +89,13 @@ func (s *StepMetadataSchemaRegistry) GetByStepRepository(repo string) (Schema, e
 }
 
 func (s *StepMetadataSchemaRegistry) fetchStepMetadata() error {
-	if s.lastResponse != nil && s.lastResponse.Header.Get("last-modified") != "" {
+	if s.LastResponse != nil && s.LastResponse.Header.Get("last-modified") != "" {
 		req, err := http.NewRequest("HEAD", s.metadataURL.String(), nil)
 		if err != nil {
 			return err
 		}
 
-		req.Header.Set("if-modified-since", s.lastResponse.Header.Get("last-modified"))
+		req.Header.Set("if-modified-since", s.LastResponse.Header.Get("last-modified"))
 
 		resp, err := s.client.Do(req)
 		if err != nil {
@@ -103,7 +104,7 @@ func (s *StepMetadataSchemaRegistry) fetchStepMetadata() error {
 
 		switch resp.StatusCode {
 		case http.StatusNotModified:
-			s.lastResponse = resp
+			s.LastResponse = resp
 
 			return nil
 		case http.StatusOK:
@@ -127,7 +128,7 @@ func (s *StepMetadataSchemaRegistry) fetchStepMetadata() error {
 		return err
 	}
 
-	s.lastResponse = resp
+	s.LastResponse = resp
 
 	return nil
 }

@@ -1,4 +1,4 @@
-package spec
+package spec_test
 
 import (
 	"errors"
@@ -7,8 +7,11 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"path/filepath"
 	"testing"
 
+	"github.com/puppetlabs/relay-core/pkg/util/testutil"
+	"github.com/puppetlabs/relay-core/pkg/workflow/spec"
 	"github.com/stretchr/testify/require"
 )
 
@@ -31,7 +34,7 @@ func withStepMetadataServer(t *testing.T, fn func(ts *httptest.Server)) {
 }
 
 func TestStepMetadataSchemaRegistry(t *testing.T) {
-	var reg SchemaRegistry
+	var reg spec.SchemaRegistry
 
 	var cases = []struct {
 		repo     string
@@ -50,11 +53,11 @@ func TestStepMetadataSchemaRegistry(t *testing.T) {
 		},
 	}
 
-	withStepMetadataServer(t, func(ts *httptest.Server) {
+	testutil.WithStepMetadataServer(t, filepath.Join("testdata/step-metadata.json"), func(ts *httptest.Server) {
 		u, err := url.Parse(ts.URL)
 		require.NoError(t, err)
 
-		stepMetadataReg, err := NewStepMetadataSchemaRegistry(u)
+		stepMetadataReg, err := spec.NewStepMetadataSchemaRegistry(u)
 		require.NoError(t, err)
 
 		reg = stepMetadataReg
@@ -72,25 +75,25 @@ func TestStepMetadataSchemaRegistry(t *testing.T) {
 				require.NoError(t, err, errors.Unwrap(err))
 			} else {
 				require.Error(t, err)
-				require.IsType(t, &SchemaValidationError{}, err)
+				require.IsType(t, &spec.SchemaValidationError{}, err)
 			}
 		}
 	})
 }
 
 func TestStepMetadataSchemaRegistryFetchCaching(t *testing.T) {
-	withStepMetadataServer(t, func(ts *httptest.Server) {
+	testutil.WithStepMetadataServer(t, filepath.Join("testdata/step-metadata.json"), func(ts *httptest.Server) {
 		u, err := url.Parse(ts.URL)
 		require.NoError(t, err)
 
-		stepMetadataReg, err := NewStepMetadataSchemaRegistry(u)
+		stepMetadataReg, err := spec.NewStepMetadataSchemaRegistry(u)
 		require.NoError(t, err)
 
-		require.Equal(t, http.StatusOK, stepMetadataReg.lastResponse.StatusCode)
+		require.Equal(t, http.StatusOK, stepMetadataReg.LastResponse.StatusCode)
 
 		_, err = stepMetadataReg.GetByStepRepository("relaysh/kubernetes-step-kubectl")
 		require.NoError(t, err)
 
-		require.Equal(t, http.StatusNotModified, stepMetadataReg.lastResponse.StatusCode)
+		require.Equal(t, http.StatusNotModified, stepMetadataReg.LastResponse.StatusCode)
 	})
 }

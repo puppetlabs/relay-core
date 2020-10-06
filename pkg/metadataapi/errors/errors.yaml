@@ -132,3 +132,6 @@ sections:
       schema_validation_error:
         title: Schema validation error
         description: could not validate step spec
+        metadata:
+          http:
+            status: 422

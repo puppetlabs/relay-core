@@ -23,11 +23,12 @@ require (
 	github.com/hashicorp/vault/sdk v0.1.14-0.20200429182704-29fce8f27ce4
 	github.com/inconshreveable/log15 v0.0.0-20180818164646-67afb5ed74ec
 	github.com/keybase/go-crypto v0.0.0-20200123153347-de78d2cb44f4 // indirect
+	github.com/kr/pretty v0.2.0
 	github.com/mitchellh/mapstructure v1.1.2
 	github.com/opencontainers/runc v1.0.0-rc6 // indirect
 	github.com/puppetlabs/errawr-gen v1.0.1
 	github.com/puppetlabs/errawr-go/v2 v2.2.0
-	github.com/puppetlabs/horsehead/v2 v2.10.0
+	github.com/puppetlabs/horsehead/v2 v2.15.1-0.20201005233051-7fc54ee74397
 	github.com/puppetlabs/paesslerag-gval v1.0.2-0.20191119012647-d2c694821b5b
 	github.com/puppetlabs/paesslerag-jsonpath v0.1.2-0.20200512062544-1e26d7ca225e
 	github.com/rancher/remotedialer v0.2.5
