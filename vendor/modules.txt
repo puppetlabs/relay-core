@@ -393,7 +393,7 @@ github.com/puppetlabs/errawr-go/v2/pkg/encoding
 github.com/puppetlabs/errawr-go/v2/pkg/errawr
 github.com/puppetlabs/errawr-go/v2/pkg/golang
 github.com/puppetlabs/errawr-go/v2/pkg/impl
-# github.com/puppetlabs/horsehead/v2 v2.15.1-0.20201005233051-7fc54ee74397 => /home/kyle/code/puppet/horsehead
+# github.com/puppetlabs/horsehead/v2 v2.16.0
 github.com/puppetlabs/horsehead/v2/datastructure
 github.com/puppetlabs/horsehead/v2/encoding/transfer
 github.com/puppetlabs/horsehead/v2/graph

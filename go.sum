@@ -1032,12 +1032,8 @@ github.com/puppetlabs/errawr-go/v2 v2.1.0 h1:SMZe3K6fSWOpo8Ol1u1G3slNroihmuka5uu
 github.com/puppetlabs/errawr-go/v2 v2.1.0/go.mod h1:TFKBrNpfPDG8ta8/NfaqpC+hMMsJqd9xKvBJDRgHFCQ=
 github.com/puppetlabs/errawr-go/v2 v2.2.0 h1:HiX2K0PoZCwe2F2ZPf4QF3xeNzNNuov3QCwZprsNcqI=
 github.com/puppetlabs/errawr-go/v2 v2.2.0/go.mod h1:SJ1lTqOW0HcfqVPS/F7kSrUAc4o/6DfjBatQ5TTS/JU=
-github.com/puppetlabs/horsehead/v2 v2.10.0 h1:vuP7Bn+xtkJyDEM89OeOM6YPwewD5stjuO11Iv8BQfs=
-github.com/puppetlabs/horsehead/v2 v2.10.0/go.mod h1:S7p/7glbiDRidGovPa/cfiufoucR4qEAcsxH9PL82Zc=
-github.com/puppetlabs/horsehead/v2 v2.15.1-0.20201005225031-016675f32cf0 h1:UGAn/TA7O+pWAVSa6jIAG2GH1FCNtpE0IeaPa5mByM4=
-github.com/puppetlabs/horsehead/v2 v2.15.1-0.20201005225031-016675f32cf0/go.mod h1:ixb6zHYDDe9tvWRi2YhJpljRfQukggDZ6KGfZkezvEc=
-github.com/puppetlabs/horsehead/v2 v2.15.1-0.20201005233051-7fc54ee74397 h1:qnjRO7jQ29bYGLoQ64QOI8jS/ji01WnLU6xGpZC0qmo=
-github.com/puppetlabs/horsehead/v2 v2.15.1-0.20201005233051-7fc54ee74397/go.mod h1:ixb6zHYDDe9tvWRi2YhJpljRfQukggDZ6KGfZkezvEc=
+github.com/puppetlabs/horsehead/v2 v2.16.0 h1:K3u6ct/omcVCcUxoam3jpZI8uRo5vpABGM0Qvxv3dkc=
+github.com/puppetlabs/horsehead/v2 v2.16.0/go.mod h1:ixb6zHYDDe9tvWRi2YhJpljRfQukggDZ6KGfZkezvEc=
 github.com/puppetlabs/paesslerag-gval v1.0.2-0.20191119012647-d2c694821b5b h1:L3KBXqsUZK0OsVAN6DQ99OzI18BvtP+uVtX0oTjCxhQ=
 github.com/puppetlabs/paesslerag-gval v1.0.2-0.20191119012647-d2c694821b5b/go.mod h1:+fTpFaf5D42b+LP12OkDl9tYbLdn36H+fvBauW4KIR4=
 github.com/puppetlabs/paesslerag-jsonpath v0.1.2-0.20200512062544-1e26d7ca225e h1:fWEPaND52rBrkqNIwEcNEdIE9Z42tPqrMaMdxM74QEM=
