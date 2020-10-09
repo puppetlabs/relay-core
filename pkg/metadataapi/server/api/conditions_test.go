@@ -136,7 +136,7 @@ func TestGetConditions(t *testing.T) {
 			currentTaskToken, found := tokenMap.ForStep("test", "current-task")
 			require.True(t, found)
 
-			h := api.NewHandler(sample.NewAuthenticator(sc, tokenGenerator.Key()), nil)
+			h := api.NewHandler(sample.NewAuthenticator(sc, tokenGenerator.Key()))
 
 			// Set the output so the condition can succeed.
 			req, err := http.NewRequest(http.MethodPut, "/outputs/output1", strings.NewReader("foobar"))

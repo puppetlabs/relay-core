@@ -39,7 +39,7 @@ func TestPutGetOutput(t *testing.T) {
 	testTaskToken, found := tokenMap.ForStep("test", "test-task")
 	require.True(t, found)
 
-	h := api.NewHandler(sample.NewAuthenticator(sc, tokenGenerator.Key()), nil)
+	h := api.NewHandler(sample.NewAuthenticator(sc, tokenGenerator.Key()))
 
 	// Set an output.
 	req, err := http.NewRequest(http.MethodPut, "/outputs/foo", strings.NewReader("bar\x90"))

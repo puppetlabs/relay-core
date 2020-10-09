@@ -26,7 +26,8 @@ func (s *Server) Route(r *mux.Router) {
 	r.HandleFunc("/healthz", s.GetHealthz).Methods("GET")
 
 	// This has a different set of middleware so bind it under a subrouter.
-	api.NewServer(s.auth, s.specSchemaRegistry).Route(r.NewRoute().Subrouter())
+	api.NewServer(s.auth, api.WithSpecSchemaRegistry(s.specSchemaRegistry)).
+		Route(r.NewRoute().Subrouter())
 }
 
 type Option func(s *Server)

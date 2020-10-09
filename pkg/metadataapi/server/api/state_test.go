@@ -69,7 +69,7 @@ func TestGetState(t *testing.T) {
 			testTaskToken, found := tokenMap.ForStep("test", "test-task")
 			require.True(t, found)
 
-			h := api.NewHandler(sample.NewAuthenticator(sc, tokenGenerator.Key()), nil)
+			h := api.NewHandler(sample.NewAuthenticator(sc, tokenGenerator.Key()))
 
 			req, err := http.NewRequest(http.MethodGet, "/state/test-key", nil)
 			require.NoError(t, err)

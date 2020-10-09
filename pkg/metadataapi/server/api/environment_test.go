@@ -62,7 +62,7 @@ func TestGetEnvironment(t *testing.T) {
 	currentTaskToken, found := tokenMap.ForStep("test", "current-task")
 	require.True(t, found)
 
-	h := api.NewHandler(sample.NewAuthenticator(sc, tokenGenerator.Key()), nil)
+	h := api.NewHandler(sample.NewAuthenticator(sc, tokenGenerator.Key()))
 
 	req, err := http.NewRequest(http.MethodGet, "/spec", nil)
 	require.NoError(t, err)

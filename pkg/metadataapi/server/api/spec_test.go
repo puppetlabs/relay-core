@@ -94,7 +94,7 @@ func TestGetSpec(t *testing.T) {
 	currentTaskToken, found := tokenMap.ForStep("test", "current-task")
 	require.True(t, found)
 
-	h := api.NewHandler(sample.NewAuthenticator(sc, tokenGenerator.Key()), nil)
+	h := api.NewHandler(sample.NewAuthenticator(sc, tokenGenerator.Key()))
 
 	// Request the whole spec.
 	req, err := http.NewRequest(http.MethodGet, "/spec", nil)
@@ -304,7 +304,7 @@ func TestSpecValidationCapture(t *testing.T) {
 			capturer := alertstest.NewCapturer()
 
 			testutil.WithStepMetadataSchemaRegistry(t, filepath.Join("testdata/step-metadata.json"), func(reg spec.SchemaRegistry) {
-				h := api.NewHandler(sample.NewAuthenticator(c.sc, tokenGenerator.Key()), reg)
+				h := api.NewHandler(sample.NewAuthenticator(c.sc, tokenGenerator.Key()), api.WithSpecSchemaRegistry(reg))
 				h = capturer.Middleware().Wrap(h)
 
 				req, err := http.NewRequest(http.MethodGet, "/spec", nil)
