@@ -18,6 +18,7 @@ env:
   - GO111MODULE: 'on'
   - RELAY_EMAIL: team-relay-ops@puppet.com
   - secure: QL8vS5o6H3/WyqelaJprcwUA/troTk67YeTs0m362327EsdQXEVnk0dlCcT+j460ALGgJ8l+j+Ywx9StFwx5FWOdvA02QMyiM1rNXtdJREACQe+3rODxwaoc+wMiX31Nnahg5uu/w3nXjY6wZpNto6pISZaSHxblm90uAGSlCKDd5PeEkH0CkQMDgN7JqwYeWohqXgIhkq/qTmnbNfwE4UTXo3/o3X9JqrZJV1aH1R0HKhH2qCM9BxldvnTVp36444qM8r/UGiZEjoqp2u1XZ47wmRMdKVcSSw013n6yhdT9vrGaCPKrGXVQt00/lU9TpCW0SR5CPsyMPhqIRI9EDKT3WwltV/t0x1ofuP3G2yEfoFxsktxQs4tF099u4QnTL74vat7KnnCX9QHkzONk0bUv9SzF8a9Z0bO9SDfG/pV+4f9DL6dTiC2Tp06kr7VEHkdURe/Xg+t/CzZ64derhmDxciiI+4wqq8xhktFcdMEBiRxs84ToccohzJrYyLFJ9HowKp4EIb8UYW5f5umN6iLUN/dNqyU8BXLo3zhw9plIT6GT4hlFdX8mFTKTAIkSUlezYzOlR2/j6x3yd3RWAFDFdGpQtTh3C306cvzkr0Ng2f+H3qUZBX8MskK/oK9sOM8nv7c9DLZOTxOdHPfDPm4751uhqZb5t+GTCE3va1Q=
+install: skip
 jobs:
   include:
   - stage: test
