@@ -2,7 +2,9 @@ FROM golang:1.14-alpine AS builder
 ENV GO111MODULE on
 ENV CGO_ENABLED 0
 WORKDIR /build
-COPY . .
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . ./
 RUN go build -a -installsuffix cgo -o /relay/runtime/tools/entrypoint ./cmd/relay-runtime-tools
 
 FROM relaysh/core AS source

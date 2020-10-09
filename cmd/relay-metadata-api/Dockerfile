@@ -1,9 +1,11 @@
-FROM golang:1.13-alpine AS builder
+FROM golang:1.14-alpine AS builder
 ENV GO111MODULE on
 ENV CGO_ENABLED 0
 WORKDIR /build
-COPY . .
-RUN go build -a -installsuffix cgo -mod vendor -o /usr/bin/relay-metadata-api ./cmd/relay-metadata-api
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . ./
+RUN go build -a -installsuffix cgo -o /usr/bin/relay-metadata-api ./cmd/relay-metadata-api
 
 FROM alpine:latest
 COPY --from=builder /usr/bin/relay-metadata-api /usr/bin/relay-metadata-api
