@@ -1,6 +1,14 @@
+dist: bionic
+addons:
+  apt:
+    sources:
+    - sourceline: 'deb http://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_18.04/ /'
+      key_url: 'https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/xUbuntu_18.04/Release.key'
+    packages:
+    - buildah
 language: go
 go:
-- 1.13.x
+- 1.14.x
 cache:
   directories:
   - "${GOPATH}/pkg/mod"

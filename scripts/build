@@ -6,12 +6,33 @@ cd "$(dirname "$0")"/..
 
 RELAY_CORE_REPO_BASE="${RELAY_CORE_REPO_BASE:-gcr.io/nebula-235818}"
 
+do_build() {
+  TARGET="$1"
+
+  BUILD_IMAGE="${RELAY_CORE_REPO_BASE}/${TARGET}:${VERSION}"
+  BUILD_ARGS=( -f "./cmd/${TARGET}/Dockerfile" -t "${BUILD_IMAGE}" )
+
+  if ! command -v buildah >/dev/null 2>&1; then
+    echo 'WARNING: You do not seem to have buildah installed. We will fall back to ' >&2
+    echo '`docker build`, and you will not be able to take advantage of the host Go module cache.' >&2
+
+    (
+      set -x
+      docker build "${BUILD_ARGS[@]}" .
+    )
+  else
+    (
+      set -x
+      buildah bud \
+        "${BUILD_ARGS[@]}" \
+        -v "${GOPATH}/pkg/mod:/go/pkg/mod:O" \
+        -v "${GOPATH}/pkg/sumdb:/go/pkg/sumdb:O" \
+        .
+      buildah push "${BUILD_IMAGE}" "docker-daemon:${BUILD_IMAGE}"
+    )
+  fi
+}
+
 for TARGET in relay-operator relay-metadata-api relay-metrics relay-runtime-tools; do
-  (
-    set -x
-    docker build \
-      -f "./cmd/${TARGET}/Dockerfile" \
-      -t "${RELAY_CORE_REPO_BASE}/${TARGET}:${VERSION}" \
-      .
-  )
+  do_build "${TARGET}"
 done
