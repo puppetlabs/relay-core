@@ -47,6 +47,9 @@ func (s *Server) Route(r *mux.Router) {
 
 	// State
 	r.HandleFunc("/state/{name}", s.GetState).Methods(http.MethodGet)
+
+	// Validation
+	r.HandleFunc("/validate", s.PostValidate).Methods(http.MethodPost)
 }
 
 func NewServer(auth middleware.Authenticator, opts ...ServerOption) *Server {

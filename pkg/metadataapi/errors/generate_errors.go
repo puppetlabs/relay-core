@@ -134,6 +134,57 @@ func NewAPIMalformedRequestError() Error {
 	return NewAPIMalformedRequestErrorBuilder().Build()
 }
 
+// APIObjectSerializationErrorCode is the code for an instance of "object_serialization_error".
+const APIObjectSerializationErrorCode = "rma_api_object_serialization_error"
+
+// IsAPIObjectSerializationError tests whether a given error is an instance of "object_serialization_error".
+func IsAPIObjectSerializationError(err errawr.Error) bool {
+	return err != nil && err.Is(APIObjectSerializationErrorCode)
+}
+
+// IsAPIObjectSerializationError tests whether a given error is an instance of "object_serialization_error".
+func (External) IsAPIObjectSerializationError(err errawr.Error) bool {
+	return IsAPIObjectSerializationError(err)
+}
+
+// APIObjectSerializationErrorBuilder is a builder for "object_serialization_error" errors.
+type APIObjectSerializationErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "object_serialization_error" from this builder.
+func (b *APIObjectSerializationErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "The response object failed to serialize.",
+		Technical: "The response object failed to serialize.",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "object_serialization_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata: &impl.ErrorMetadata{HTTPErrorMetadata: &impl.HTTPErrorMetadata{
+			ErrorHeaders: impl.HTTPErrorMetadataHeaders{},
+			ErrorStatus:  422,
+		}},
+		ErrorSection:     APISection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Object serialization error",
+		Version:          1,
+	}
+}
+
+// NewAPIObjectSerializationErrorBuilder creates a new error builder for the code "object_serialization_error".
+func NewAPIObjectSerializationErrorBuilder() *APIObjectSerializationErrorBuilder {
+	return &APIObjectSerializationErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewAPIObjectSerializationError creates a new error with the code "object_serialization_error".
+func NewAPIObjectSerializationError() Error {
+	return NewAPIObjectSerializationErrorBuilder().Build()
+}
+
 // APIUnknownRequestMediaTypeErrorCode is the code for an instance of "unknown_request_media_type_error".
 const APIUnknownRequestMediaTypeErrorCode = "rma_api_unknown_request_media_type_error"
 
@@ -690,7 +741,10 @@ func (b *SpecSchemaValidationErrorBuilder) Build() Error {
 		ErrorCode:        "schema_validation_error",
 		ErrorDescription: description,
 		ErrorDomain:      Domain,
-		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorMetadata: &impl.ErrorMetadata{HTTPErrorMetadata: &impl.HTTPErrorMetadata{
+			ErrorHeaders: impl.HTTPErrorMetadataHeaders{},
+			ErrorStatus:  422,
+		}},
 		ErrorSection:     SpecSection,
 		ErrorSensitivity: errawr.ErrorSensitivityNone,
 		ErrorTitle:       "Schema validation error",

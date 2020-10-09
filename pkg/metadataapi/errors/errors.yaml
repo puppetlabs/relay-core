@@ -34,6 +34,14 @@ sections:
           http:
             status: 422
 
+      object_serialization_error:
+        title: Object serialization error
+        description: >
+          The response object failed to serialize.
+        metadata:
+          http:
+            status: 422
+
   model:
     title: Model errors
     errors:
