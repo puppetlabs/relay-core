@@ -272,7 +272,7 @@ func workflowRunStatus(status duckv1beta1.Status) WorkflowRunStatus {
 		if cs.Reason == resources.ReasonConditionCheckFailed {
 			return WorkflowRunStatusSkipped
 		}
-		if cs.Reason == resources.ReasonTimedOut {
+		if cs.Reason == tektonv1beta1.PipelineRunReasonTimedOut.String() {
 			return WorkflowRunStatusTimedOut
 		}
 		return WorkflowRunStatusFailure
