@@ -28,7 +28,12 @@ jobs:
     - export KUBECONFIG=/tmp/kubeconfig-kind
     - ./kind create cluster
     script:
+    - |
+      while sleep 9m; do
+        echo -e '--- OUT-OF-BAND: Waiting...' >&2
+      done &
     - RELAY_TEST_E2E_KUBECONFIG="${KUBECONFIG}" ./scripts/ci test
+    - kill %1
   - stage: build
     before_script:
     - if [ ! -d "$HOME/google-cloud-sdk/bin" ]; then rm -rf $HOME/google-cloud-sdk;
