@@ -25,6 +25,61 @@ var Domain = &impl.ErrorDomain{
 	Title: "Relay Metadata API",
 }
 
+// ActionSection defines a section of errors with the following scope:
+// Action errors
+var ActionSection = &impl.ErrorSection{
+	Key:   "action",
+	Title: "Action errors",
+}
+
+// ActionImageParseErrorCode is the code for an instance of "image_parse_error".
+const ActionImageParseErrorCode = "rma_action_image_parse_error"
+
+// IsActionImageParseError tests whether a given error is an instance of "image_parse_error".
+func IsActionImageParseError(err errawr.Error) bool {
+	return err != nil && err.Is(ActionImageParseErrorCode)
+}
+
+// IsActionImageParseError tests whether a given error is an instance of "image_parse_error".
+func (External) IsActionImageParseError(err errawr.Error) bool {
+	return IsActionImageParseError(err)
+}
+
+// ActionImageParseErrorBuilder is a builder for "image_parse_error" errors.
+type ActionImageParseErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "image_parse_error" from this builder.
+func (b *ActionImageParseErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "failed to parse the image and tag string for the container action.",
+		Technical: "failed to parse the image and tag string for the container action.",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "image_parse_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     ActionSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Image parse error",
+		Version:          1,
+	}
+}
+
+// NewActionImageParseErrorBuilder creates a new error builder for the code "image_parse_error".
+func NewActionImageParseErrorBuilder() *ActionImageParseErrorBuilder {
+	return &ActionImageParseErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewActionImageParseError creates a new error with the code "image_parse_error".
+func NewActionImageParseError() Error {
+	return NewActionImageParseErrorBuilder().Build()
+}
+
 // APISection defines a section of errors with the following scope:
 // API errors
 var APISection = &impl.ErrorSection{
@@ -654,61 +709,6 @@ func NewModelWriteErrorBuilder() *ModelWriteErrorBuilder {
 // NewModelWriteError creates a new error with the code "write_error".
 func NewModelWriteError() Error {
 	return NewModelWriteErrorBuilder().Build()
-}
-
-// StepSection defines a section of errors with the following scope:
-// Step errors
-var StepSection = &impl.ErrorSection{
-	Key:   "step",
-	Title: "Step errors",
-}
-
-// StepImageParseErrorCode is the code for an instance of "image_parse_error".
-const StepImageParseErrorCode = "rma_step_image_parse_error"
-
-// IsStepImageParseError tests whether a given error is an instance of "image_parse_error".
-func IsStepImageParseError(err errawr.Error) bool {
-	return err != nil && err.Is(StepImageParseErrorCode)
-}
-
-// IsStepImageParseError tests whether a given error is an instance of "image_parse_error".
-func (External) IsStepImageParseError(err errawr.Error) bool {
-	return IsStepImageParseError(err)
-}
-
-// StepImageParseErrorBuilder is a builder for "image_parse_error" errors.
-type StepImageParseErrorBuilder struct {
-	arguments impl.ErrorArguments
-}
-
-// Build creates the error for the code "image_parse_error" from this builder.
-func (b *StepImageParseErrorBuilder) Build() Error {
-	description := &impl.ErrorDescription{
-		Friendly:  "failed to parse the image and tag string for step",
-		Technical: "failed to parse the image and tag string for step",
-	}
-
-	return &impl.Error{
-		ErrorArguments:   b.arguments,
-		ErrorCode:        "image_parse_error",
-		ErrorDescription: description,
-		ErrorDomain:      Domain,
-		ErrorMetadata:    &impl.ErrorMetadata{},
-		ErrorSection:     StepSection,
-		ErrorSensitivity: errawr.ErrorSensitivityNone,
-		ErrorTitle:       "Image parse error",
-		Version:          1,
-	}
-}
-
-// NewStepImageParseErrorBuilder creates a new error builder for the code "image_parse_error".
-func NewStepImageParseErrorBuilder() *StepImageParseErrorBuilder {
-	return &StepImageParseErrorBuilder{arguments: impl.ErrorArguments{}}
-}
-
-// NewStepImageParseError creates a new error with the code "image_parse_error".
-func NewStepImageParseError() Error {
-	return NewStepImageParseErrorBuilder().Build()
 }
 
 // ValidationSection defines a section of errors with the following scope:

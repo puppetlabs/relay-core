@@ -113,10 +113,10 @@ func NewAuthenticator(sc *opt.SampleConfig, key interface{}) *Authenticator {
 
 			stateManager := memory.NewStateManager(stateOpts...)
 
-			sm := &model.StepMetadata{
+			am := &model.ActionMetadata{
 				Image: sc.Image,
 			}
-			stepMetadataManager := memory.NewStepMetadataManager(sm)
+			actionMetadataManager := memory.NewActionMetadataManager(am)
 
 			for name, value := range sc.Outputs {
 				som.Set(step, name, value)
@@ -130,7 +130,7 @@ func NewAuthenticator(sc *opt.SampleConfig, key interface{}) *Authenticator {
 				mgrs.SetParameters(parameterManager)
 				mgrs.SetSpec(specManager)
 				mgrs.SetState(stateManager)
-				mgrs.SetStepMetadata(stepMetadataManager)
+				mgrs.SetActionMetadata(actionMetadataManager)
 				mgrs.SetStepOutputs(stepOutputManager)
 			}
 		}

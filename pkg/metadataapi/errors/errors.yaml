@@ -124,12 +124,12 @@ sections:
           type:
             description: the unexpected type
 
-  step:
-    title: Step errors
+  action:
+    title: Action errors
     errors:
       image_parse_error:
         title: Image parse error
-        description: failed to parse the image and tag string for step
+        description: failed to parse the image and tag string for the container action.
 
   validation:
     title: Validation errors

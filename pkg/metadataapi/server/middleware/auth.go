@@ -83,7 +83,7 @@ func (ka *KubernetesAuthenticator) intermediary(r *http.Request, mgrs *builder.M
 
 	// Otherwise we chain to the Vault client to let it decrypt the token.
 	return ki.Chain(func(ctx context.Context, raw authenticate.Raw, md *authenticate.KubernetesIntermediaryMetadata) (authenticate.Intermediary, error) {
-		mgrs.SetStepMetadata(memory.NewStepMetadataManager(&model.StepMetadata{
+		mgrs.SetActionMetadata(memory.NewActionMetadataManager(&model.ActionMetadata{
 			Image: md.Image,
 		}))
 

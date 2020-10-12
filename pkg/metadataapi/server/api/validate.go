@@ -44,16 +44,16 @@ func (s *Server) PostValidate(w http.ResponseWriter, r *http.Request) {
 		env := evaluate.NewJSONResultEnvelope(rv)
 
 		if env.Complete {
-			sm, err := managers.StepMetadata().Get(ctx)
+			am, err := managers.ActionMetadata().Get(ctx)
 			if err != nil {
 				utilapi.WriteError(ctx, w, ModelReadError(err))
 
 				return
 			}
 
-			ref, err := image.RepoReference(sm.Image)
+			ref, err := image.RepoReference(am.Image)
 			if err != nil {
-				utilapi.WriteError(ctx, w, errors.NewStepImageParseError().WithCause(err))
+				utilapi.WriteError(ctx, w, errors.NewActionImageParseError().WithCause(err))
 
 				return
 			}
