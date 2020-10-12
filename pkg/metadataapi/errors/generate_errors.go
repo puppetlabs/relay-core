@@ -656,112 +656,6 @@ func NewModelWriteError() Error {
 	return NewModelWriteErrorBuilder().Build()
 }
 
-// SpecSection defines a section of errors with the following scope:
-// Spec errors
-var SpecSection = &impl.ErrorSection{
-	Key:   "spec",
-	Title: "Spec errors",
-}
-
-// SpecSchemaLookupErrorCode is the code for an instance of "schema_lookup_error".
-const SpecSchemaLookupErrorCode = "rma_spec_schema_lookup_error"
-
-// IsSpecSchemaLookupError tests whether a given error is an instance of "schema_lookup_error".
-func IsSpecSchemaLookupError(err errawr.Error) bool {
-	return err != nil && err.Is(SpecSchemaLookupErrorCode)
-}
-
-// IsSpecSchemaLookupError tests whether a given error is an instance of "schema_lookup_error".
-func (External) IsSpecSchemaLookupError(err errawr.Error) bool {
-	return IsSpecSchemaLookupError(err)
-}
-
-// SpecSchemaLookupErrorBuilder is a builder for "schema_lookup_error" errors.
-type SpecSchemaLookupErrorBuilder struct {
-	arguments impl.ErrorArguments
-}
-
-// Build creates the error for the code "schema_lookup_error" from this builder.
-func (b *SpecSchemaLookupErrorBuilder) Build() Error {
-	description := &impl.ErrorDescription{
-		Friendly:  "failed to lookup spec schema",
-		Technical: "failed to lookup spec schema",
-	}
-
-	return &impl.Error{
-		ErrorArguments:   b.arguments,
-		ErrorCode:        "schema_lookup_error",
-		ErrorDescription: description,
-		ErrorDomain:      Domain,
-		ErrorMetadata:    &impl.ErrorMetadata{},
-		ErrorSection:     SpecSection,
-		ErrorSensitivity: errawr.ErrorSensitivityNone,
-		ErrorTitle:       "Schema lookup error",
-		Version:          1,
-	}
-}
-
-// NewSpecSchemaLookupErrorBuilder creates a new error builder for the code "schema_lookup_error".
-func NewSpecSchemaLookupErrorBuilder() *SpecSchemaLookupErrorBuilder {
-	return &SpecSchemaLookupErrorBuilder{arguments: impl.ErrorArguments{}}
-}
-
-// NewSpecSchemaLookupError creates a new error with the code "schema_lookup_error".
-func NewSpecSchemaLookupError() Error {
-	return NewSpecSchemaLookupErrorBuilder().Build()
-}
-
-// SpecSchemaValidationErrorCode is the code for an instance of "schema_validation_error".
-const SpecSchemaValidationErrorCode = "rma_spec_schema_validation_error"
-
-// IsSpecSchemaValidationError tests whether a given error is an instance of "schema_validation_error".
-func IsSpecSchemaValidationError(err errawr.Error) bool {
-	return err != nil && err.Is(SpecSchemaValidationErrorCode)
-}
-
-// IsSpecSchemaValidationError tests whether a given error is an instance of "schema_validation_error".
-func (External) IsSpecSchemaValidationError(err errawr.Error) bool {
-	return IsSpecSchemaValidationError(err)
-}
-
-// SpecSchemaValidationErrorBuilder is a builder for "schema_validation_error" errors.
-type SpecSchemaValidationErrorBuilder struct {
-	arguments impl.ErrorArguments
-}
-
-// Build creates the error for the code "schema_validation_error" from this builder.
-func (b *SpecSchemaValidationErrorBuilder) Build() Error {
-	description := &impl.ErrorDescription{
-		Friendly:  "could not validate step spec",
-		Technical: "could not validate step spec",
-	}
-
-	return &impl.Error{
-		ErrorArguments:   b.arguments,
-		ErrorCode:        "schema_validation_error",
-		ErrorDescription: description,
-		ErrorDomain:      Domain,
-		ErrorMetadata: &impl.ErrorMetadata{HTTPErrorMetadata: &impl.HTTPErrorMetadata{
-			ErrorHeaders: impl.HTTPErrorMetadataHeaders{},
-			ErrorStatus:  422,
-		}},
-		ErrorSection:     SpecSection,
-		ErrorSensitivity: errawr.ErrorSensitivityNone,
-		ErrorTitle:       "Schema validation error",
-		Version:          1,
-	}
-}
-
-// NewSpecSchemaValidationErrorBuilder creates a new error builder for the code "schema_validation_error".
-func NewSpecSchemaValidationErrorBuilder() *SpecSchemaValidationErrorBuilder {
-	return &SpecSchemaValidationErrorBuilder{arguments: impl.ErrorArguments{}}
-}
-
-// NewSpecSchemaValidationError creates a new error with the code "schema_validation_error".
-func NewSpecSchemaValidationError() Error {
-	return NewSpecSchemaValidationErrorBuilder().Build()
-}
-
 // StepSection defines a section of errors with the following scope:
 // Step errors
 var StepSection = &impl.ErrorSection{
@@ -815,4 +709,110 @@ func NewStepImageParseErrorBuilder() *StepImageParseErrorBuilder {
 // NewStepImageParseError creates a new error with the code "image_parse_error".
 func NewStepImageParseError() Error {
 	return NewStepImageParseErrorBuilder().Build()
+}
+
+// ValidationSection defines a section of errors with the following scope:
+// Validation errors
+var ValidationSection = &impl.ErrorSection{
+	Key:   "validation",
+	Title: "Validation errors",
+}
+
+// ValidationSchemaLookupErrorCode is the code for an instance of "schema_lookup_error".
+const ValidationSchemaLookupErrorCode = "rma_validation_schema_lookup_error"
+
+// IsValidationSchemaLookupError tests whether a given error is an instance of "schema_lookup_error".
+func IsValidationSchemaLookupError(err errawr.Error) bool {
+	return err != nil && err.Is(ValidationSchemaLookupErrorCode)
+}
+
+// IsValidationSchemaLookupError tests whether a given error is an instance of "schema_lookup_error".
+func (External) IsValidationSchemaLookupError(err errawr.Error) bool {
+	return IsValidationSchemaLookupError(err)
+}
+
+// ValidationSchemaLookupErrorBuilder is a builder for "schema_lookup_error" errors.
+type ValidationSchemaLookupErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "schema_lookup_error" from this builder.
+func (b *ValidationSchemaLookupErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "failed to lookup schema",
+		Technical: "failed to lookup schema",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "schema_lookup_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     ValidationSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Schema lookup error",
+		Version:          1,
+	}
+}
+
+// NewValidationSchemaLookupErrorBuilder creates a new error builder for the code "schema_lookup_error".
+func NewValidationSchemaLookupErrorBuilder() *ValidationSchemaLookupErrorBuilder {
+	return &ValidationSchemaLookupErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewValidationSchemaLookupError creates a new error with the code "schema_lookup_error".
+func NewValidationSchemaLookupError() Error {
+	return NewValidationSchemaLookupErrorBuilder().Build()
+}
+
+// ValidationSchemaValidationErrorCode is the code for an instance of "schema_validation_error".
+const ValidationSchemaValidationErrorCode = "rma_validation_schema_validation_error"
+
+// IsValidationSchemaValidationError tests whether a given error is an instance of "schema_validation_error".
+func IsValidationSchemaValidationError(err errawr.Error) bool {
+	return err != nil && err.Is(ValidationSchemaValidationErrorCode)
+}
+
+// IsValidationSchemaValidationError tests whether a given error is an instance of "schema_validation_error".
+func (External) IsValidationSchemaValidationError(err errawr.Error) bool {
+	return IsValidationSchemaValidationError(err)
+}
+
+// ValidationSchemaValidationErrorBuilder is a builder for "schema_validation_error" errors.
+type ValidationSchemaValidationErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "schema_validation_error" from this builder.
+func (b *ValidationSchemaValidationErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "could not validate schema",
+		Technical: "could not validate schema",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "schema_validation_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata: &impl.ErrorMetadata{HTTPErrorMetadata: &impl.HTTPErrorMetadata{
+			ErrorHeaders: impl.HTTPErrorMetadataHeaders{},
+			ErrorStatus:  422,
+		}},
+		ErrorSection:     ValidationSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Schema validation error",
+		Version:          1,
+	}
+}
+
+// NewValidationSchemaValidationErrorBuilder creates a new error builder for the code "schema_validation_error".
+func NewValidationSchemaValidationErrorBuilder() *ValidationSchemaValidationErrorBuilder {
+	return &ValidationSchemaValidationErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewValidationSchemaValidationError creates a new error with the code "schema_validation_error".
+func NewValidationSchemaValidationError() Error {
+	return NewValidationSchemaValidationErrorBuilder().Build()
 }

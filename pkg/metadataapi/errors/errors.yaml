@@ -131,15 +131,15 @@ sections:
         title: Image parse error
         description: failed to parse the image and tag string for step
 
-  spec:
-    title: Spec errors
+  validation:
+    title: Validation errors
     errors:
       schema_lookup_error:
         title: Schema lookup error
-        description: failed to lookup spec schema
+        description: failed to lookup schema
       schema_validation_error:
         title: Schema validation error
-        description: could not validate step spec
+        description: could not validate schema
         metadata:
           http:
             status: 422

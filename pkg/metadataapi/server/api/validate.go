@@ -71,11 +71,11 @@ func (s *Server) PostValidate(w http.ResponseWriter, r *http.Request) {
 				if err != nil {
 					captureErr = err
 					if !goerrors.Is(err, &validation.SchemaDoesNotExistError{}) {
-						captureErr = errors.NewSpecSchemaLookupError().WithCause(err)
+						captureErr = errors.NewValidationSchemaLookupError().WithCause(err)
 					}
 				} else {
 					if err := schema.ValidateGo(env.Value.Data); err != nil {
-						captureErr = errors.NewSpecSchemaValidationError().WithCause(err)
+						captureErr = errors.NewValidationSchemaValidationError().WithCause(err)
 					}
 				}
 

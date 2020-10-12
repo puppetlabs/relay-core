@@ -79,7 +79,7 @@ func TestValidationCapture(t *testing.T) {
 						Value: "relaysh/image",
 					},
 				},
-				Err: errors.NewSpecSchemaLookupError().WithCause(&validation.SchemaDoesNotExistError{Name: "relaysh/image"}),
+				Err: errors.NewValidationSchemaLookupError().WithCause(&validation.SchemaDoesNotExistError{Name: "relaysh/image"}),
 			},
 		},
 		{
@@ -117,7 +117,7 @@ func TestValidationCapture(t *testing.T) {
 						Value: "relaysh/kubernetes-step-kubectl",
 					},
 				},
-				Err: errors.NewSpecSchemaValidationError().WithCause(&validation.SchemaValidationError{
+				Err: errors.NewValidationSchemaValidationError().WithCause(&validation.SchemaValidationError{
 					Cause: &typeutil.ValidationError{
 						FieldErrors: []*typeutil.FieldValidationError{
 							&typeutil.FieldValidationError{Context: "(root)", Field: "(root)", Description: "command is required", Type: "required"},
