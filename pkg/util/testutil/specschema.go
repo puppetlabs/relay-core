@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/puppetlabs/relay-core/pkg/workflow/spec"
+	"github.com/puppetlabs/relay-core/pkg/workflow/validation"
 	"github.com/stretchr/testify/require"
 )
 
@@ -29,12 +29,12 @@ func WithStepMetadataServer(t *testing.T, metadataPath string, fn func(ts *httpt
 	fn(ts)
 }
 
-func WithStepMetadataSchemaRegistry(t *testing.T, metadataPath string, fn func(reg spec.SchemaRegistry)) {
+func WithStepMetadataSchemaRegistry(t *testing.T, metadataPath string, fn func(reg validation.SchemaRegistry)) {
 	WithStepMetadataServer(t, metadataPath, func(ts *httptest.Server) {
 		u, err := url.Parse(ts.URL)
 		require.NoError(t, err)
 
-		reg, err := spec.NewStepMetadataSchemaRegistry(u)
+		reg, err := validation.NewStepMetadataSchemaRegistry(u)
 		require.NoError(t, err)
 
 		fn(reg)

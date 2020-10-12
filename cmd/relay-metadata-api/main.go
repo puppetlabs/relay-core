@@ -18,7 +18,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/middleware"
 	"github.com/puppetlabs/relay-core/pkg/util/lifecycleutil"
-	"github.com/puppetlabs/relay-core/pkg/workflow/spec"
+	"github.com/puppetlabs/relay-core/pkg/workflow/validation"
 )
 
 func main() {
@@ -107,7 +107,7 @@ func main() {
 				return fmt.Errorf("failed to parse step metadata URL: %+v", err)
 			}
 
-			reg, err := spec.NewStepMetadataSchemaRegistry(u)
+			reg, err := validation.NewStepMetadataSchemaRegistry(u)
 			if err != nil {
 				return fmt.Errorf("failed to initialize step metadata schema registry: %+v", err)
 			}

@@ -11,7 +11,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/errors"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/middleware"
 	"github.com/puppetlabs/relay-core/pkg/util/image"
-	wfspec "github.com/puppetlabs/relay-core/pkg/workflow/spec"
+	"github.com/puppetlabs/relay-core/pkg/workflow/validation"
 )
 
 func (s *Server) PostValidate(w http.ResponseWriter, r *http.Request) {
@@ -70,7 +70,7 @@ func (s *Server) PostValidate(w http.ResponseWriter, r *http.Request) {
 				schema, err := s.specSchemaRegistry.GetByStepRepository(repo)
 				if err != nil {
 					captureErr = err
-					if !goerrors.Is(err, &wfspec.SchemaDoesNotExistError{}) {
+					if !goerrors.Is(err, &validation.SchemaDoesNotExistError{}) {
 						captureErr = errors.NewSpecSchemaLookupError().WithCause(err)
 					}
 				} else {

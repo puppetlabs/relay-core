@@ -5,12 +5,12 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/middleware"
-	"github.com/puppetlabs/relay-core/pkg/workflow/spec"
+	"github.com/puppetlabs/relay-core/pkg/workflow/validation"
 )
 
 type ServerOption func(*Server)
 
-func WithSpecSchemaRegistry(reg spec.SchemaRegistry) ServerOption {
+func WithSpecSchemaRegistry(reg validation.SchemaRegistry) ServerOption {
 	return func(s *Server) {
 		s.specSchemaRegistry = reg
 	}
@@ -18,7 +18,7 @@ func WithSpecSchemaRegistry(reg spec.SchemaRegistry) ServerOption {
 
 type Server struct {
 	auth               middleware.Authenticator
-	specSchemaRegistry spec.SchemaRegistry
+	specSchemaRegistry validation.SchemaRegistry
 }
 
 func (s *Server) Route(r *mux.Router) {

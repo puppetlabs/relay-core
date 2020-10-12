@@ -18,7 +18,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/api"
 	"github.com/puppetlabs/relay-core/pkg/util/testutil"
 	"github.com/puppetlabs/relay-core/pkg/util/typeutil"
-	"github.com/puppetlabs/relay-core/pkg/workflow/spec"
+	"github.com/puppetlabs/relay-core/pkg/workflow/validation"
 	"github.com/stretchr/testify/require"
 )
 
@@ -79,7 +79,7 @@ func TestValidationCapture(t *testing.T) {
 						Value: "relaysh/image",
 					},
 				},
-				Err: errors.NewSpecSchemaLookupError().WithCause(&spec.SchemaDoesNotExistError{Name: "relaysh/image"}),
+				Err: errors.NewSpecSchemaLookupError().WithCause(&validation.SchemaDoesNotExistError{Name: "relaysh/image"}),
 			},
 		},
 		{
@@ -117,7 +117,7 @@ func TestValidationCapture(t *testing.T) {
 						Value: "relaysh/kubernetes-step-kubectl",
 					},
 				},
-				Err: errors.NewSpecSchemaValidationError().WithCause(&spec.SchemaValidationError{
+				Err: errors.NewSpecSchemaValidationError().WithCause(&validation.SchemaValidationError{
 					Cause: &typeutil.ValidationError{
 						FieldErrors: []*typeutil.FieldValidationError{
 							&typeutil.FieldValidationError{Context: "(root)", Field: "(root)", Description: "command is required", Type: "required"},
@@ -169,7 +169,7 @@ func TestValidationCapture(t *testing.T) {
 
 			capturer := alertstest.NewCapturer()
 
-			testutil.WithStepMetadataSchemaRegistry(t, filepath.Join("testdata/step-metadata.json"), func(reg spec.SchemaRegistry) {
+			testutil.WithStepMetadataSchemaRegistry(t, filepath.Join("testdata/step-metadata.json"), func(reg validation.SchemaRegistry) {
 				h := api.NewHandler(sample.NewAuthenticator(c.sc, tokenGenerator.Key()), api.WithSpecSchemaRegistry(reg))
 				h = capturer.Middleware().Wrap(h)
 

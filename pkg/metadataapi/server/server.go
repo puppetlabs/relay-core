@@ -9,7 +9,7 @@ import (
 	"github.com/puppetlabs/horsehead/v2/instrumentation/alerts/trackers"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/api"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/middleware"
-	"github.com/puppetlabs/relay-core/pkg/workflow/spec"
+	"github.com/puppetlabs/relay-core/pkg/workflow/validation"
 )
 
 type Server struct {
@@ -17,7 +17,7 @@ type Server struct {
 	errorSensitivity   errawr.ErrorSensitivity
 	capturer           trackers.Capturer
 	trustedProxyHops   int
-	specSchemaRegistry spec.SchemaRegistry
+	specSchemaRegistry validation.SchemaRegistry
 }
 
 func (s *Server) Route(r *mux.Router) {
@@ -50,7 +50,7 @@ func WithTrustedProxyHops(n int) Option {
 	}
 }
 
-func WithSpecSchemaRegistry(r spec.SchemaRegistry) Option {
+func WithSpecSchemaRegistry(r validation.SchemaRegistry) Option {
 	return func(s *Server) {
 		s.specSchemaRegistry = r
 	}

@@ -1,4 +1,4 @@
-package spec_test
+package validation_test
 
 import (
 	"errors"
@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"github.com/puppetlabs/relay-core/pkg/util/testutil"
-	"github.com/puppetlabs/relay-core/pkg/workflow/spec"
+	"github.com/puppetlabs/relay-core/pkg/workflow/validation"
 	"github.com/stretchr/testify/require"
 )
 
@@ -34,7 +34,7 @@ func withStepMetadataServer(t *testing.T, fn func(ts *httptest.Server)) {
 }
 
 func TestStepMetadataSchemaRegistry(t *testing.T) {
-	var reg spec.SchemaRegistry
+	var reg validation.SchemaRegistry
 
 	var cases = []struct {
 		repo     string
@@ -57,7 +57,7 @@ func TestStepMetadataSchemaRegistry(t *testing.T) {
 		u, err := url.Parse(ts.URL)
 		require.NoError(t, err)
 
-		stepMetadataReg, err := spec.NewStepMetadataSchemaRegistry(u)
+		stepMetadataReg, err := validation.NewStepMetadataSchemaRegistry(u)
 		require.NoError(t, err)
 
 		reg = stepMetadataReg
@@ -75,7 +75,7 @@ func TestStepMetadataSchemaRegistry(t *testing.T) {
 				require.NoError(t, err, errors.Unwrap(err))
 			} else {
 				require.Error(t, err)
-				require.IsType(t, &spec.SchemaValidationError{}, err)
+				require.IsType(t, &validation.SchemaValidationError{}, err)
 			}
 		}
 	})
@@ -86,7 +86,7 @@ func TestStepMetadataSchemaRegistryFetchCaching(t *testing.T) {
 		u, err := url.Parse(ts.URL)
 		require.NoError(t, err)
 
-		stepMetadataReg, err := spec.NewStepMetadataSchemaRegistry(u)
+		stepMetadataReg, err := validation.NewStepMetadataSchemaRegistry(u)
 		require.NoError(t, err)
 
 		require.Equal(t, http.StatusOK, stepMetadataReg.LastResponse.StatusCode)
