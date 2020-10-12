@@ -3,7 +3,6 @@ package e2e_test
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"testing"
 	"time"
 
@@ -14,24 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
 )
-
-type testServerInjectorHandler struct {
-	http.Handler
-}
-
-var _ inject.Injector = testServerInjectorHandler{}
-
-func (ts testServerInjectorHandler) InjectFunc(f inject.Func) error {
-	if err := f(ts.Handler); err != nil {
-		return err
-	}
-
-	inject.LoggerInto(log.Log.WithName("webhooks"), ts.Handler)
-	return nil
-}
 
 func WaitForTenant(t *testing.T, ctx context.Context, tn *relayv1beta1.Tenant) {
 	require.NoError(t, retry.Retry(ctx, 500*time.Millisecond, func() *retry.RetryError {
@@ -80,7 +62,7 @@ func Mutate(t *testing.T, ctx context.Context, obj runtime.Object, fn func()) {
 			}
 
 			return retry.RetryTransient(err)
-		} else {
+		} else if err != nil {
 			return retry.RetryPermanent(err)
 		}
 

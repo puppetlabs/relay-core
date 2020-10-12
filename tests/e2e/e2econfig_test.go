@@ -17,6 +17,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/middleware"
+	"github.com/puppetlabs/relay-core/pkg/operator/admission"
 	"github.com/puppetlabs/relay-core/pkg/operator/config"
 	"github.com/puppetlabs/relay-core/pkg/operator/controller/tenant"
 	"github.com/puppetlabs/relay-core/pkg/operator/controller/trigger"
@@ -50,6 +51,8 @@ type Config struct {
 	withTenantReconciler         bool
 	withWebhookTriggerReconciler bool
 	withWorkflowRunReconciler    bool
+	withPodEnforcementAdmission  bool
+	withVolumeClaimAdmission     bool
 }
 
 type ConfigOption func(cfg *Config)
@@ -87,9 +90,19 @@ func ConfigWithAllReconcilers(cfg *Config) {
 	ConfigWithWorkflowRunReconciler(cfg)
 }
 
+func ConfigWithPodEnforcementAdmission(cfg *Config) {
+	cfg.withPodEnforcementAdmission = true
+}
+
+func ConfigWithVolumeClaimAdmission(cfg *Config) {
+	cfg.withVolumeClaimAdmission = true
+}
+
 func ConfigWithEverything(cfg *Config) {
 	ConfigWithMetadataAPI(cfg)
 	ConfigWithAllReconcilers(cfg)
+	ConfigWithPodEnforcementAdmission(cfg)
+	ConfigWithVolumeClaimAdmission(cfg)
 }
 
 type doConfigFunc func(t *testing.T, cfg *Config, next func())
@@ -243,6 +256,32 @@ func doConfigReconcilers(t *testing.T, cfg *Config, next func()) {
 	next()
 }
 
+func doConfigPodEnforcementAdmission(ctx context.Context) doConfigFunc {
+	return func(t *testing.T, cfg *Config, next func()) {
+		if !cfg.withPodEnforcementAdmission {
+			next()
+			return
+		}
+
+		opts := []admission.PodEnforcementHandlerOption{
+			admission.PodEnforcementHandlerWithStandaloneMode(true),
+			admission.PodEnforcementHandlerWithRuntimeClassName(e2e.GVisorRuntimeClassName),
+		}
+		testutil.WithPodEnforcementAdmissionRegistration(t, ctx, e2e, cfg.Manager, opts, nil, next)
+	}
+}
+
+func doConfigVolumeClaimAdmission(ctx context.Context) doConfigFunc {
+	return func(t *testing.T, cfg *Config, next func()) {
+		if !cfg.withVolumeClaimAdmission {
+			next()
+			return
+		}
+
+		testutil.WithVolumeClaimAdmissionRegistration(t, ctx, e2e, cfg.Manager, nil, nil, next)
+	}
+}
+
 func doConfigLifecycle(t *testing.T, cfg *Config, next func()) {
 	var wg sync.WaitGroup
 
@@ -337,6 +376,8 @@ func WithConfig(t *testing.T, ctx context.Context, opts []ConfigOption, fn func(
 		doConfigMetadataAPI,
 		doConfigDependencyManager(ctx),
 		doConfigReconcilers,
+		doConfigPodEnforcementAdmission(ctx),
+		doConfigVolumeClaimAdmission(ctx),
 		doConfigLifecycle,
 		doConfigUser(fn),
 		doConfigCleanup,
