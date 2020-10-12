@@ -2,7 +2,7 @@
 set -euo pipefail
 
 go_test() {
-    go test -race -mod=vendor ./...
+    go test -race ./...
 }
 
 # this ensures that we are in the correct directory context
