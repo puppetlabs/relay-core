@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/puppetlabs/relay-core/pkg/model"
 	tekton "github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -22,6 +23,7 @@ const (
 
 type KubernetesIntermediaryMetadata struct {
 	NamespaceUID types.UID
+	Image        string
 }
 
 type KubernetesChainIntermediaryFunc func(ctx context.Context, raw Raw, md *KubernetesIntermediaryMetadata) (Intermediary, error)
@@ -98,6 +100,8 @@ func (ki *KubernetesIntermediary) next(ctx context.Context, state *Authenticatio
 
 	subject := pod.GetAnnotations()[KubernetesSubjectAnnotation]
 
+	var stepImage string
+
 	tok, found := pod.GetAnnotations()[KubernetesTokenAnnotation]
 	if !found || tok == "" {
 		// Right now we don't propagate annotations from TaskRuns to condition
@@ -108,6 +112,14 @@ func (ki *KubernetesIntermediary) next(ctx context.Context, state *Authenticatio
 		// XXX: This assumes that Tasks and Conditions have the same name. This
 		// is true for us, but not for Tekton generally.
 		name := pod.GetLabels()["tekton.dev/pipelineTask"]
+
+		for _, container := range pod.Spec.Containers {
+			if container.Name == model.ActionPodStepContainerName {
+				stepImage = container.Image
+
+				break
+			}
+		}
 
 		tr, err := ki.client.TektonV1alpha1().Conditions(ns.GetName()).Get(name, metav1.GetOptions{})
 		if errors.IsNotFound(err) {
@@ -127,6 +139,7 @@ func (ki *KubernetesIntermediary) next(ctx context.Context, state *Authenticatio
 
 	md := &KubernetesIntermediaryMetadata{
 		NamespaceUID: ns.GetUID(),
+		Image:        stepImage,
 	}
 
 	// Namespace validation.

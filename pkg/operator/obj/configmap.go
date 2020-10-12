@@ -170,13 +170,6 @@ func ConfigureImmutableConfigMapForWorkflowRun(ctx context.Context, cm *ConfigMa
 		if len(step.Input) > 0 {
 			configMapData[scriptConfigMapKey(sm)] = model.ScriptForInput(step.Input)
 		}
-
-		smm := configmap.NewStepMetadataManager(sm, lcm)
-		stepMeta := &model.StepMetadata{Image: step.Image}
-
-		if err := smm.Set(ctx, stepMeta); err != nil {
-			return err
-		}
 	}
 
 	if len(configMapData) > 0 {
@@ -214,8 +207,4 @@ func configVolumeKey(action model.Action) string {
 
 func scriptConfigMapKey(action model.Action) string {
 	return fmt.Sprintf("%s.%s.script", action.Type().Plural, action.Hash())
-}
-
-func imageConfigMapKey(action model.Action) string {
-	return fmt.Sprintf("%s.%s.image", action.Type().Plural, action.Hash())
 }

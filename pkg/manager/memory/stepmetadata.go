@@ -18,11 +18,6 @@ func (s *StepMetadataManager) Get(ctx context.Context) (*model.StepMetadata, err
 	return s.val, nil
 }
 
-func (s *StepMetadataManager) Set(ctx context.Context, sm *model.StepMetadata) error {
-	s.val = sm
-	return nil
-}
-
 func NewStepMetadataManager(sm *model.StepMetadata) *StepMetadataManager {
 	return &StepMetadataManager{
 		val: sm,

@@ -14,7 +14,7 @@ type metadataManagers struct {
 	secrets      model.SecretManager
 	spec         model.SpecGetterManager
 	state        model.StateGetterManager
-	stepMetadata model.StepMetadataGetterManager
+	stepMetadata model.StepMetadataManager
 	stepOutputs  model.StepOutputManager
 }
 
@@ -52,7 +52,7 @@ func (mm *metadataManagers) State() model.StateGetterManager {
 	return mm.state
 }
 
-func (mm *metadataManagers) StepMetadata() model.StepMetadataGetterManager {
+func (mm *metadataManagers) StepMetadata() model.StepMetadataManager {
 	return mm.stepMetadata
 }
 
