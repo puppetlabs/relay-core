@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"sync"
 
+	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/puppetlabs/relay-core/pkg/util/typeutil"
 	"github.com/xeipuuv/gojsonschema"
 )
@@ -25,7 +26,7 @@ type SchemaRegistry interface {
 	// GetByStepRepository returns the spec Schema for repo. Implementations of
 	// this interface might use the image repo as the repo string to look up
 	// schemas.
-	GetByStepRepository(repo string) (Schema, error)
+	GetByImage(ref name.Reference) (Schema, error)
 }
 
 // JSONSchema implements Schema and uses json-schema to validate spec data.
@@ -69,16 +70,19 @@ type StepMetadataSchemaRegistry struct {
 	sync.RWMutex
 }
 
-// GetByStepRepository takes an image repo and looks up the schema for its spec
+// GetByImage takes an image repo ref and looks up the schema for its spec
 // and returns a Schema for it. If the repo cannot be found, it returns
 // SchemaDoesNotExistError.
-func (s *StepMetadataSchemaRegistry) GetByStepRepository(repo string) (Schema, error) {
+func (s *StepMetadataSchemaRegistry) GetByImage(ref name.Reference) (Schema, error) {
 	if err := s.fetchStepMetadata(); err != nil {
 		return nil, err
 	}
 
 	s.RLock()
 	defer s.RUnlock()
+
+	repository := ref.Context()
+	repo := repository.RepositoryStr()
 
 	schema, ok := s.registry[repo]
 	if !ok {

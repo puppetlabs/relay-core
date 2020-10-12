@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/puppetlabs/relay-core/pkg/util/image"
 	"github.com/puppetlabs/relay-core/pkg/util/testutil"
 	"github.com/puppetlabs/relay-core/pkg/workflow/validation"
 	"github.com/stretchr/testify/require"
@@ -63,7 +64,10 @@ func TestStepMetadataSchemaRegistry(t *testing.T) {
 		reg = stepMetadataReg
 
 		for _, c := range cases {
-			schema, err := reg.GetByStepRepository(c.repo)
+			ref, err := image.RepoReference(c.repo)
+			require.NoError(t, err)
+
+			schema, err := reg.GetByImage(ref)
 			require.NoError(t, err)
 
 			content, err := ioutil.ReadFile(c.specFile)
@@ -91,7 +95,10 @@ func TestStepMetadataSchemaRegistryFetchCaching(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, stepMetadataReg.LastResponse.StatusCode)
 
-		_, err = stepMetadataReg.GetByStepRepository("relaysh/kubernetes-step-kubectl")
+		ref, err := image.RepoReference("relaysh/kubernetes-step-kubectl")
+		require.NoError(t, err)
+
+		_, err = stepMetadataReg.GetByImage(ref)
 		require.NoError(t, err)
 
 		require.Equal(t, http.StatusNotModified, stepMetadataReg.LastResponse.StatusCode)

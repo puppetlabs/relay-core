@@ -67,7 +67,7 @@ func (s *Server) PostValidate(w http.ResponseWriter, r *http.Request) {
 
 				var captureErr error
 
-				schema, err := s.specSchemaRegistry.GetByStepRepository(repo)
+				schema, err := s.specSchemaRegistry.GetByImage(ref)
 				if err != nil {
 					captureErr = err
 					if !goerrors.Is(err, &validation.SchemaDoesNotExistError{}) {
