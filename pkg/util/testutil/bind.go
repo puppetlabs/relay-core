@@ -79,6 +79,11 @@ func WithServiceBoundToHostHTTP(t *testing.T, ctx context.Context, cfg *rest.Con
 					},
 					Ports: []corev1.ContainerPort{
 						{
+							Name:          "proxy-http",
+							ContainerPort: 8000,
+							Protocol:      corev1.ProtocolTCP,
+						},
+						{
 							Name:          "tunnel",
 							ContainerPort: 8080,
 							Protocol:      corev1.ProtocolTCP,
@@ -105,7 +110,7 @@ func WithServiceBoundToHostHTTP(t *testing.T, ctx context.Context, cfg *rest.Con
 					},
 					Ports: []corev1.ContainerPort{
 						{
-							Name:          "proxy",
+							Name:          "proxy-https",
 							ContainerPort: 9000,
 							Protocol:      corev1.ProtocolTCP,
 						},
@@ -210,8 +215,14 @@ func WithServiceBoundToHostHTTP(t *testing.T, ctx context.Context, cfg *rest.Con
 			Type: corev1.ServiceTypeClusterIP,
 			Ports: []corev1.ServicePort{
 				{
-					Name:       "proxy",
-					TargetPort: intstr.FromString("proxy"),
+					Name:       "proxy-http",
+					TargetPort: intstr.FromString("proxy-http"),
+					Protocol:   corev1.ProtocolTCP,
+					Port:       80,
+				},
+				{
+					Name:       "proxy-https",
+					TargetPort: intstr.FromString("proxy-https"),
 					Protocol:   corev1.ProtocolTCP,
 					Port:       443,
 				},

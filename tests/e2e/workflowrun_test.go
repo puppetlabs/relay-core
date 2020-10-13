@@ -14,6 +14,7 @@ import (
 	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
+	"github.com/puppetlabs/relay-core/pkg/expr/testutil"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/operator/obj"
 	"github.com/puppetlabs/relay-core/pkg/util/retry"
@@ -540,7 +541,7 @@ func TestWorkflowRunWithoutSteps(t *testing.T) {
 }
 
 func TestWorkflowRunInGVisor(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 6*time.Minute)
 	defer cancel()
 
 	if e2e.GVisorRuntimeClassName == "" {
@@ -548,6 +549,7 @@ func TestWorkflowRunInGVisor(t *testing.T) {
 	}
 
 	WithConfig(t, ctx, []ConfigOption{
+		ConfigWithMetadataAPIBoundInCluster,
 		ConfigWithWorkflowRunReconciler,
 		ConfigWithPodEnforcementAdmission,
 	}, func(cfg *Config) {
@@ -571,6 +573,20 @@ func TestWorkflowRunInGVisor(t *testing.T) {
 					Input: []string{"dmesg"},
 				},
 			},
+			{
+				Name: "command-with-condition",
+				StepDefinition: &nebulav1.WorkflowStep{
+					Name:  "my-test-step",
+					Image: "alpine:latest",
+					When: relayv1beta1.AsUnstructured(
+						testutil.JSONInvocation("equals", []interface{}{
+							testutil.JSONParameter("Hello"),
+							"World!",
+						}),
+					),
+					Command: "dmesg",
+				},
+			},
 		}
 		for _, test := range tests {
 			t.Run(test.Name, func(t *testing.T) {
@@ -583,6 +599,9 @@ func TestWorkflowRunInGVisor(t *testing.T) {
 						Name: "my-workflow-run-1234",
 						Workflow: nebulav1.Workflow{
 							Name: "my-workflow",
+							Parameters: relayv1beta1.NewUnstructuredObject(map[string]interface{}{
+								"Hello": "World!",
+							}),
 							Steps: []*nebulav1.WorkflowStep{
 								test.StepDefinition,
 							},

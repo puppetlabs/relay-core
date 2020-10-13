@@ -2,6 +2,7 @@ package e2e_test
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http/httptest"
@@ -28,6 +29,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -46,13 +48,14 @@ type Config struct {
 	blobStore         storage.BlobStore
 	dependencyManager *dependency.DependencyManager
 
-	withVault                    bool
-	withMetadataAPI              bool
-	withTenantReconciler         bool
-	withWebhookTriggerReconciler bool
-	withWorkflowRunReconciler    bool
-	withPodEnforcementAdmission  bool
-	withVolumeClaimAdmission     bool
+	withVault                     bool
+	withMetadataAPI               bool
+	withMetadataAPIBoundInCluster bool
+	withTenantReconciler          bool
+	withWebhookTriggerReconciler  bool
+	withWorkflowRunReconciler     bool
+	withPodEnforcementAdmission   bool
+	withVolumeClaimAdmission      bool
 }
 
 type ConfigOption func(cfg *Config)
@@ -69,6 +72,11 @@ func ConfigWithVault(cfg *Config) {
 
 func ConfigWithMetadataAPI(cfg *Config) {
 	cfg.withMetadataAPI = true
+}
+
+func ConfigWithMetadataAPIBoundInCluster(cfg *Config) {
+	ConfigWithMetadataAPI(cfg)
+	cfg.withMetadataAPIBoundInCluster = true
 }
 
 func ConfigWithTenantReconciler(cfg *Config) {
@@ -154,38 +162,52 @@ func doConfigVault(t *testing.T, cfg *Config, next func()) {
 	})
 }
 
-func doConfigMetadataAPI(t *testing.T, cfg *Config, next func()) {
-	if !cfg.withMetadataAPI {
-		next()
-		return
+func doConfigMetadataAPI(ctx context.Context) doConfigFunc {
+	return func(t *testing.T, cfg *Config, next func()) {
+		if !cfg.withMetadataAPI {
+			next()
+			return
+		}
+
+		log.Println("using metadata API")
+
+		metadataAPI := httptest.NewServer(server.NewHandler(
+			middleware.NewKubernetesAuthenticator(
+				func(token string) (kubernetes.Interface, error) {
+					rc := rest.AnonymousClientConfig(e2e.RESTConfig)
+					rc.BearerToken = token
+
+					return kubernetes.NewForConfig(rc)
+				},
+				middleware.KubernetesAuthenticatorWithKubernetesIntermediary(&authenticate.KubernetesInterface{
+					Interface:       e2e.Interface,
+					TektonInterface: e2e.TektonInterface,
+				}),
+				middleware.KubernetesAuthenticatorWithChainToVaultTransitIntermediary(cfg.Vault.Client, cfg.Vault.TransitPath, cfg.Vault.TransitKey),
+				middleware.KubernetesAuthenticatorWithVaultResolver(cfg.Vault.Address, cfg.Vault.JWTAuthPath, cfg.Vault.JWTAuthRole),
+			),
+			server.WithTrustedProxyHops(1),
+		))
+		defer metadataAPI.Close()
+
+		if !cfg.withMetadataAPIBoundInCluster {
+			metadataAPIURL, err := url.Parse(metadataAPI.URL)
+			require.NoError(t, err)
+
+			cfg.MetadataAPIURL = metadataAPIURL
+			next()
+		} else {
+			e2e.WithUtilNamespace(t, ctx, func(ns *corev1.Namespace) {
+				testutil.WithServiceBoundToHostHTTP(t, ctx, e2e.RESTConfig, e2e.Interface, metadataAPI.URL, metav1.ObjectMeta{Namespace: ns.GetName()}, func(caPEM []byte, svc *corev1.Service) {
+					cfg.MetadataAPIURL = &url.URL{
+						Scheme: "http",
+						Host:   fmt.Sprintf("%s.%s", svc.GetName(), svc.GetNamespace()),
+					}
+					next()
+				})
+			})
+		}
 	}
-
-	log.Println("using metadata API")
-
-	metadataAPI := httptest.NewServer(server.NewHandler(
-		middleware.NewKubernetesAuthenticator(
-			func(token string) (kubernetes.Interface, error) {
-				rc := rest.AnonymousClientConfig(e2e.RESTConfig)
-				rc.BearerToken = token
-
-				return kubernetes.NewForConfig(rc)
-			},
-			middleware.KubernetesAuthenticatorWithKubernetesIntermediary(&authenticate.KubernetesInterface{
-				Interface:       e2e.Interface,
-				TektonInterface: e2e.TektonInterface,
-			}),
-			middleware.KubernetesAuthenticatorWithChainToVaultTransitIntermediary(cfg.Vault.Client, cfg.Vault.TransitPath, cfg.Vault.TransitKey),
-			middleware.KubernetesAuthenticatorWithVaultResolver(cfg.Vault.Address, cfg.Vault.JWTAuthPath, cfg.Vault.JWTAuthRole),
-		),
-		server.WithTrustedProxyHops(1),
-	))
-	defer metadataAPI.Close()
-
-	metadataAPIURL, err := url.Parse(metadataAPI.URL)
-	require.NoError(t, err)
-
-	cfg.MetadataAPIURL = metadataAPIURL
-	next()
 }
 
 func doConfigDependencyManager(ctx context.Context) doConfigFunc {
@@ -379,7 +401,7 @@ func WithConfig(t *testing.T, ctx context.Context, opts []ConfigOption, fn func(
 		doConfigNamespace(ctx),
 		doConfigInit,
 		doConfigVault,
-		doConfigMetadataAPI,
+		doConfigMetadataAPI(ctx),
 		doConfigDependencyManager(ctx),
 		doConfigReconcilers,
 		doConfigPodEnforcementAdmission(ctx),
