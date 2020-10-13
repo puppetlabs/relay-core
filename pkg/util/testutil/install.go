@@ -46,7 +46,9 @@ func doInstall(ctx context.Context, cl client.Client, namespace, name string, pa
 }
 
 func doInstallAndWait(ctx context.Context, cl client.Client, namespace, name string, patchers ...ParseKubernetesManifestPatcherFunc) error {
-	doInstall(ctx, cl, namespace, name, patchers...)
+	if err := doInstall(ctx, cl, namespace, name, patchers...); err != nil {
+		return err
+	}
 
 	requested := time.Now()
 
