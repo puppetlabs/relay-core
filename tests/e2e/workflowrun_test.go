@@ -538,3 +538,108 @@ func TestWorkflowRunWithoutSteps(t *testing.T) {
 		require.NotNil(t, wr.Status.CompletionTime)
 	})
 }
+
+func TestWorkflowRunInGVisor(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	if e2e.GVisorRuntimeClassName == "" {
+		t.Skip("gVisor is not available on this platform")
+	}
+
+	WithConfig(t, ctx, []ConfigOption{
+		ConfigWithWorkflowRunReconciler,
+		ConfigWithPodEnforcementAdmission,
+	}, func(cfg *Config) {
+		tests := []struct {
+			Name           string
+			StepDefinition *nebulav1.WorkflowStep
+		}{
+			{
+				Name: "command",
+				StepDefinition: &nebulav1.WorkflowStep{
+					Name:    "my-test-step",
+					Image:   "alpine:latest",
+					Command: "dmesg",
+				},
+			},
+			{
+				Name: "input",
+				StepDefinition: &nebulav1.WorkflowStep{
+					Name:  "my-test-step",
+					Image: "alpine:latest",
+					Input: []string{"dmesg"},
+				},
+			},
+		}
+		for _, test := range tests {
+			t.Run(test.Name, func(t *testing.T) {
+				wr := &nebulav1.WorkflowRun{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: cfg.Namespace.GetName(),
+						Name:      fmt.Sprintf("my-test-run-%s", test.Name),
+					},
+					Spec: nebulav1.WorkflowRunSpec{
+						Name: "my-workflow-run-1234",
+						Workflow: nebulav1.Workflow{
+							Name: "my-workflow",
+							Steps: []*nebulav1.WorkflowStep{
+								test.StepDefinition,
+							},
+						},
+					},
+				}
+				require.NoError(t, e2e.ControllerRuntimeClient.Create(ctx, wr))
+
+				// Wait for step to succeed.
+				require.NoError(t, retry.Retry(ctx, 500*time.Millisecond, func() *retry.RetryError {
+					if err := e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{
+						Namespace: wr.GetNamespace(),
+						Name:      wr.GetName(),
+					}, wr); err != nil {
+						return retry.RetryPermanent(err)
+					}
+
+					if wr.Status.Steps["my-test-step"].Status == string(obj.WorkflowRunStatusSuccess) {
+						return retry.RetryPermanent(nil)
+					}
+
+					return retry.RetryTransient(fmt.Errorf("waiting for step to succeed"))
+				}))
+
+				// Get the logs from the pod.
+				pod := &corev1.Pod{}
+				require.NoError(t, retry.Retry(ctx, 500*time.Millisecond, func() *retry.RetryError {
+					pods := &corev1.PodList{}
+					if err := e2e.ControllerRuntimeClient.List(ctx, pods, client.InNamespace(wr.GetNamespace()), client.MatchingLabels{
+						// TODO: We shouldn't really hardcode this.
+						"tekton.dev/task": (&model.Step{Run: model.Run{ID: wr.Spec.Name}, Name: "my-test-step"}).Hash().HexEncoding(),
+					}); err != nil {
+						return retry.RetryPermanent(err)
+					}
+
+					if len(pods.Items) == 0 {
+						return retry.RetryTransient(fmt.Errorf("waiting for pod"))
+					}
+
+					pod = &pods.Items[0]
+					return retry.RetryPermanent(nil)
+				}))
+
+				podLogOptions := &corev1.PodLogOptions{
+					Container: "step-step",
+				}
+
+				logs := e2e.Interface.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, podLogOptions)
+				podLogs, err := logs.Stream()
+				require.NoError(t, err)
+				defer podLogs.Close()
+
+				buf := new(bytes.Buffer)
+				_, err = io.Copy(buf, podLogs)
+				require.NoError(t, err)
+				require.Contains(t, buf.String(), "gVisor")
+			})
+		}
+	})
+}

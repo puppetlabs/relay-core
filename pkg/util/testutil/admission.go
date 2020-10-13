@@ -51,7 +51,7 @@ func WithPodEnforcementAdmissionRegistration(t *testing.T, ctx context.Context, 
 	hash := sha1.Sum([]byte(namespaceSelector.String()))
 	name := fmt.Sprintf("pod-enforcement-%x.admission.controller.relay.sh", hash[:])
 
-	e2e.WithTestNamespace(t, ctx, func(ns *corev1.Namespace) {
+	e2e.WithUtilNamespace(t, ctx, func(ns *corev1.Namespace) {
 		WithServiceBoundToHostHTTP(t, ctx, e2e.RESTConfig, e2e.Interface, s.URL, metav1.ObjectMeta{Namespace: ns.GetName()}, func(caPEM []byte, svc *corev1.Service) {
 			// Set up webhook configuration in API server.
 			cfg := &admissionregistrationv1beta1.MutatingWebhookConfiguration{
@@ -128,7 +128,7 @@ func WithVolumeClaimAdmissionRegistration(t *testing.T, ctx context.Context, e2e
 	hash := sha1.Sum([]byte(namespaceSelector.String()))
 	name := fmt.Sprintf("volume-claim-%x.admission.controller.relay.sh", hash[:])
 
-	e2e.WithTestNamespace(t, ctx, func(ns *corev1.Namespace) {
+	e2e.WithUtilNamespace(t, ctx, func(ns *corev1.Namespace) {
 		WithServiceBoundToHostHTTP(t, ctx, e2e.RESTConfig, e2e.Interface, s.URL, metav1.ObjectMeta{Namespace: ns.GetName()}, func(caPEM []byte, svc *corev1.Service) {
 			cfg := &admissionregistrationv1beta1.MutatingWebhookConfiguration{
 				TypeMeta: metav1.TypeMeta{

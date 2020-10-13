@@ -46,7 +46,7 @@ func (e *EndToEndEnvironment) testNamespaceLabels(t *testing.T) map[string]strin
 	}
 }
 
-func (e *EndToEndEnvironment) WithTestNamespace(t *testing.T, ctx context.Context, fn func(ns *corev1.Namespace)) {
+func (e *EndToEndEnvironment) withNamespace(t *testing.T, ctx context.Context, labels map[string]string, fn func(ns *corev1.Namespace)) {
 	namePrefix := strings.Map(func(r rune) rune {
 		if r >= 'A' && r <= 'Z' {
 			return r | 0x20
@@ -64,7 +64,7 @@ func (e *EndToEndEnvironment) WithTestNamespace(t *testing.T, ctx context.Contex
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: fmt.Sprintf("relay-e2e-%s-", namePrefix),
-			Labels:       e.testNamespaceLabels(t),
+			Labels:       labels,
 		},
 	}
 	require.NoError(t, e.ControllerRuntimeClient.Create(ctx, ns))
@@ -88,6 +88,16 @@ func (e *EndToEndEnvironment) WithTestNamespace(t *testing.T, ctx context.Contex
 	}))
 
 	fn(ns)
+}
+
+func (e *EndToEndEnvironment) WithTestNamespace(t *testing.T, ctx context.Context, fn func(ns *corev1.Namespace)) {
+	e.withNamespace(t, ctx, e.testNamespaceLabels(t), fn)
+}
+
+// WithUtilNamespace creates a unique namespace for this environment that will
+// not be automatically matched by the namespace selector for this test.
+func (e *EndToEndEnvironment) WithUtilNamespace(t *testing.T, ctx context.Context, fn func(ns *corev1.Namespace)) {
+	e.withNamespace(t, ctx, map[string]string{"testing.relay.sh/harness": "util"}, fn)
 }
 
 func (e *EndToEndEnvironment) TestNamespaceSelector(t *testing.T) *metav1.LabelSelector {

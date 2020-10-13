@@ -322,7 +322,9 @@ func doConfigCleanup(t *testing.T, cfg *Config, next func()) {
 	if len(tl.Items) > 0 {
 		log.Printf("removing %d stale tenant(s)", len(tl.Items))
 		for _, t := range tl.Items {
-			del = append(del, &t)
+			func(t relayv1beta1.Tenant) {
+				del = append(del, &t)
+			}(t)
 		}
 	}
 
@@ -331,7 +333,9 @@ func doConfigCleanup(t *testing.T, cfg *Config, next func()) {
 	if len(wtl.Items) > 0 {
 		log.Printf("removing %d stale webhook trigger(s)", len(wtl.Items))
 		for _, wt := range wtl.Items {
-			del = append(del, &wt)
+			func(wt relayv1beta1.WebhookTrigger) {
+				del = append(del, &wt)
+			}(wt)
 		}
 	}
 
@@ -340,7 +344,9 @@ func doConfigCleanup(t *testing.T, cfg *Config, next func()) {
 	if len(wrl.Items) > 0 {
 		log.Printf("removing %d stale workflow run(s)", len(wrl.Items))
 		for _, wr := range wrl.Items {
-			del = append(del, &wr)
+			func(wr nebulav1.WorkflowRun) {
+				del = append(del, &wr)
+			}(wr)
 		}
 	}
 

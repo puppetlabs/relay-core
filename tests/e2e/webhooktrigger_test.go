@@ -790,3 +790,45 @@ func TestWebhookTriggerKnativeRevisionsWithTenantToolInjectionUsingCommand(t *te
 		e2e.ControllerRuntimeClient.Delete(ctx, &pv)
 	})
 }
+
+func TestWebhookTriggerInGVisor(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	if e2e.GVisorRuntimeClassName == "" {
+		t.Skip("gVisor is not available on this platform")
+	}
+
+	WithConfig(t, ctx, []ConfigOption{
+		ConfigWithWebhookTriggerReconciler,
+		ConfigWithPodEnforcementAdmission,
+	}, func(cfg *Config) {
+		tn := &relayv1beta1.Tenant{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-tenant",
+				Namespace: cfg.Namespace.GetName(),
+			},
+		}
+		CreateAndWaitForTenant(t, ctx, tn)
+
+		wt := &relayv1beta1.WebhookTrigger{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-trigger",
+				Namespace: cfg.Namespace.GetName(),
+			},
+			Spec: relayv1beta1.WebhookTriggerSpec{
+				Image: "alpine:latest",
+				Input: []string{
+					"apk --no-cache add socat",
+					`exec socat TCP-LISTEN:$PORT,crlf,reuseaddr,fork SYSTEM:'echo "HTTP/1.1 200 OK"; echo "Connection: close"; echo; dmesg;'`,
+				},
+				TenantRef: corev1.LocalObjectReference{
+					Name: tn.GetName(),
+				},
+			},
+		}
+		require.NoError(t, e2e.ControllerRuntimeClient.Create(ctx, wt))
+
+		assertWebhookTriggerResponseContains(t, ctx, "gVisor", wt)
+	})
+}

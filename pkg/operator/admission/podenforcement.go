@@ -50,10 +50,10 @@ func (peh *PodEnforcementHandler) Handle(ctx context.Context, req admission.Requ
 		return admission.Errored(http.StatusBadRequest, err)
 	}
 
-	pod.Spec.NodeSelector = PodNodeSelector
-	pod.Spec.Tolerations = PodTolerations
-
 	if !peh.standalone {
+		pod.Spec.NodeSelector = PodNodeSelector
+		pod.Spec.Tolerations = PodTolerations
+
 		pod.Spec.DNSPolicy = PodDNSPolicy
 		pod.Spec.DNSConfig = PodDNSConfig
 	}
