@@ -28,12 +28,7 @@ jobs:
     - export KUBECONFIG=/tmp/kubeconfig-kind
     - kind create cluster --image localhost/kindest/node-gvisor --config hack/kind-gvisor/config.yaml
     script:
-    - |
-      while sleep 9m; do
-        echo -e '--- OUT-OF-BAND: Waiting...' >&2
-      done &
     - RELAY_TEST_E2E_KUBECONFIG="${KUBECONFIG}" RELAY_TEST_E2E_GVISOR_HANDLER=runsc ./scripts/ci test
-    - kill %1
   - stage: build
     before_script:
     - if [ ! -d "$HOME/google-cloud-sdk/bin" ]; then rm -rf $HOME/google-cloud-sdk;
