@@ -11,7 +11,7 @@ import (
 )
 
 func doInstallHostpathProvisioner(ctx context.Context, cl client.Client) error {
-	return doInstall(ctx, cl, "hostpath-provisioner", "hostpath")
+	return doInstall(ctx, cl, "hostpath")
 }
 
 func InstallHostpathProvisioner(t *testing.T, ctx context.Context, cl client.Client) {

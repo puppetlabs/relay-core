@@ -55,6 +55,7 @@ func main() {
 	webhookServerPort := fs.Int("webhook-server-port", 443, "the port to listen on for webhook requests")
 	webhookServerKeyDir := fs.String("webhook-server-key-dir", "", "path to a directory containing two files, tls.key and tls.crt, to secure the webhook server")
 	tenantSandboxing := fs.Bool("tenant-sandboxing", false, "enables gVisor sandbox for tenant pods")
+	tenantSandboxRuntimeClassName := fs.String("tenant-sandbox-runtime-class-name", "runsc", "name of the runtime class providing the gVisor containerd runtime")
 	sentryDSN := fs.String("sentry-dsn", "", "the Sentry DSN to use for error reporting")
 	dynamicRBACBinding := fs.Bool("dynamic-rbac-binding", false, "enable if RBAC rules are set up dynamically for the operator to reduce unhelpful reported errors")
 	toolInjectionImage := fs.String("tool-injection-image", model.DefaultToolInjectionImage, "tool injection image to use")
@@ -183,11 +184,16 @@ func main() {
 		log.Fatal("Could not add all controllers to operator manager", err)
 	}
 
+	var podEnforcementHandlerOpts []admission.PodEnforcementHandlerOption
+	if *tenantSandboxing {
+		podEnforcementHandlerOpts = append(podEnforcementHandlerOpts, admission.PodEnforcementHandlerWithRuntimeClassName(*tenantSandboxRuntimeClassName))
+	}
+	if *standalone {
+		podEnforcementHandlerOpts = append(podEnforcementHandlerOpts, admission.PodEnforcementHandlerWithStandaloneMode(true))
+	}
+
 	dm.Manager.GetWebhookServer().Register("/mutate/pod-enforcement", &webhook.Admission{
-		Handler: admission.NewPodEnforcementHandler(
-			admission.PodEnforcementHandlerWithSandboxing(*tenantSandboxing),
-			admission.PodEnforcementHandlerWithStandaloneMode(*standalone),
-		),
+		Handler: admission.NewPodEnforcementHandler(podEnforcementHandlerOpts...),
 	})
 
 	dm.Manager.GetWebhookServer().Register("/mutate/volume-claim", &webhook.Admission{
