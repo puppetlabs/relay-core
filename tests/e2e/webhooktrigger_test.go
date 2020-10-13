@@ -688,7 +688,7 @@ func TestWebhookTriggerKnativeRevisionsWithTenantToolInjectionUsingCommand(t *te
 	WithConfig(t, ctx, []ConfigOption{
 		ConfigWithTenantReconciler,
 		ConfigWithWebhookTriggerReconciler,
-		ConfigWithPodEnforcementAdmission,
+		ConfigWithVolumeClaimAdmission,
 	}, func(cfg *Config) {
 		cfg.Vault.SetSecret(t, "my-tenant-id", "foo", "Hello")
 		cfg.Vault.SetConnection(t, "my-domain-id", "aws", "test", map[string]string{
