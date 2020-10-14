@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-go_test() {
-    go test -race -mod=vendor ./...
-}
-
 # this ensures that we are in the correct directory context
 cd "$(dirname "$0")"/..
 
-go_test
+GO_TEST_ARGS=( -race ./... )
+
+if ! command -v gotestsum >/dev/null 2>&1; then
+  go test "${GO_TEST_ARGS[@]}"
+else
+  gotestsum -f testname --no-summary output -- "${GO_TEST_ARGS[@]}"
+fi

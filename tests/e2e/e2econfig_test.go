@@ -2,6 +2,7 @@ package e2e_test
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http/httptest"
@@ -15,18 +16,20 @@ import (
 	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
-	"github.com/puppetlabs/relay-core/pkg/config"
-	"github.com/puppetlabs/relay-core/pkg/controller/tenant"
-	"github.com/puppetlabs/relay-core/pkg/controller/trigger"
-	"github.com/puppetlabs/relay-core/pkg/controller/workflow"
-	"github.com/puppetlabs/relay-core/pkg/dependency"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/middleware"
-	"github.com/puppetlabs/relay-core/pkg/obj"
+	"github.com/puppetlabs/relay-core/pkg/operator/admission"
+	"github.com/puppetlabs/relay-core/pkg/operator/config"
+	"github.com/puppetlabs/relay-core/pkg/operator/controller/tenant"
+	"github.com/puppetlabs/relay-core/pkg/operator/controller/trigger"
+	"github.com/puppetlabs/relay-core/pkg/operator/controller/workflow"
+	"github.com/puppetlabs/relay-core/pkg/operator/dependency"
+	"github.com/puppetlabs/relay-core/pkg/operator/obj"
 	"github.com/puppetlabs/relay-core/pkg/util/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -45,11 +48,14 @@ type Config struct {
 	blobStore         storage.BlobStore
 	dependencyManager *dependency.DependencyManager
 
-	withVault                    bool
-	withMetadataAPI              bool
-	withTenantReconciler         bool
-	withWebhookTriggerReconciler bool
-	withWorkflowRunReconciler    bool
+	withVault                     bool
+	withMetadataAPI               bool
+	withMetadataAPIBoundInCluster bool
+	withTenantReconciler          bool
+	withWebhookTriggerReconciler  bool
+	withWorkflowRunReconciler     bool
+	withPodEnforcementAdmission   bool
+	withVolumeClaimAdmission      bool
 }
 
 type ConfigOption func(cfg *Config)
@@ -66,6 +72,11 @@ func ConfigWithVault(cfg *Config) {
 
 func ConfigWithMetadataAPI(cfg *Config) {
 	cfg.withMetadataAPI = true
+}
+
+func ConfigWithMetadataAPIBoundInCluster(cfg *Config) {
+	ConfigWithMetadataAPI(cfg)
+	cfg.withMetadataAPIBoundInCluster = true
 }
 
 func ConfigWithTenantReconciler(cfg *Config) {
@@ -87,9 +98,19 @@ func ConfigWithAllReconcilers(cfg *Config) {
 	ConfigWithWorkflowRunReconciler(cfg)
 }
 
+func ConfigWithPodEnforcementAdmission(cfg *Config) {
+	cfg.withPodEnforcementAdmission = true
+}
+
+func ConfigWithVolumeClaimAdmission(cfg *Config) {
+	cfg.withVolumeClaimAdmission = true
+}
+
 func ConfigWithEverything(cfg *Config) {
 	ConfigWithMetadataAPI(cfg)
 	ConfigWithAllReconcilers(cfg)
+	ConfigWithPodEnforcementAdmission(cfg)
+	ConfigWithVolumeClaimAdmission(cfg)
 }
 
 type doConfigFunc func(t *testing.T, cfg *Config, next func())
@@ -141,38 +162,52 @@ func doConfigVault(t *testing.T, cfg *Config, next func()) {
 	})
 }
 
-func doConfigMetadataAPI(t *testing.T, cfg *Config, next func()) {
-	if !cfg.withMetadataAPI {
-		next()
-		return
+func doConfigMetadataAPI(ctx context.Context) doConfigFunc {
+	return func(t *testing.T, cfg *Config, next func()) {
+		if !cfg.withMetadataAPI {
+			next()
+			return
+		}
+
+		log.Println("using metadata API")
+
+		metadataAPI := httptest.NewServer(server.NewHandler(
+			middleware.NewKubernetesAuthenticator(
+				func(token string) (kubernetes.Interface, error) {
+					rc := rest.AnonymousClientConfig(e2e.RESTConfig)
+					rc.BearerToken = token
+
+					return kubernetes.NewForConfig(rc)
+				},
+				middleware.KubernetesAuthenticatorWithKubernetesIntermediary(&authenticate.KubernetesInterface{
+					Interface:       e2e.Interface,
+					TektonInterface: e2e.TektonInterface,
+				}),
+				middleware.KubernetesAuthenticatorWithChainToVaultTransitIntermediary(cfg.Vault.Client, cfg.Vault.TransitPath, cfg.Vault.TransitKey),
+				middleware.KubernetesAuthenticatorWithVaultResolver(cfg.Vault.Address, cfg.Vault.JWTAuthPath, cfg.Vault.JWTAuthRole),
+			),
+			server.WithTrustedProxyHops(1),
+		))
+		defer metadataAPI.Close()
+
+		if !cfg.withMetadataAPIBoundInCluster {
+			metadataAPIURL, err := url.Parse(metadataAPI.URL)
+			require.NoError(t, err)
+
+			cfg.MetadataAPIURL = metadataAPIURL
+			next()
+		} else {
+			e2e.WithUtilNamespace(t, ctx, func(ns *corev1.Namespace) {
+				testutil.WithServiceBoundToHostHTTP(t, ctx, e2e.RESTConfig, e2e.Interface, metadataAPI.URL, metav1.ObjectMeta{Namespace: ns.GetName()}, func(caPEM []byte, svc *corev1.Service) {
+					cfg.MetadataAPIURL = &url.URL{
+						Scheme: "http",
+						Host:   fmt.Sprintf("%s.%s", svc.GetName(), svc.GetNamespace()),
+					}
+					next()
+				})
+			})
+		}
 	}
-
-	log.Println("using metadata API")
-
-	metadataAPI := httptest.NewServer(server.NewHandler(
-		middleware.NewKubernetesAuthenticator(
-			func(token string) (kubernetes.Interface, error) {
-				rc := rest.AnonymousClientConfig(e2e.RESTConfig)
-				rc.BearerToken = token
-
-				return kubernetes.NewForConfig(rc)
-			},
-			middleware.KubernetesAuthenticatorWithKubernetesIntermediary(&authenticate.KubernetesInterface{
-				Interface:       e2e.Interface,
-				TektonInterface: e2e.TektonInterface,
-			}),
-			middleware.KubernetesAuthenticatorWithChainToVaultTransitIntermediary(cfg.Vault.Client, cfg.Vault.TransitPath, cfg.Vault.TransitKey),
-			middleware.KubernetesAuthenticatorWithVaultResolver(cfg.Vault.Address, cfg.Vault.JWTAuthPath, cfg.Vault.JWTAuthRole),
-		),
-		server.WithTrustedProxyHops(1),
-	))
-	defer metadataAPI.Close()
-
-	metadataAPIURL, err := url.Parse(metadataAPI.URL)
-	require.NoError(t, err)
-
-	cfg.MetadataAPIURL = metadataAPIURL
-	next()
 }
 
 func doConfigDependencyManager(ctx context.Context) doConfigFunc {
@@ -243,6 +278,32 @@ func doConfigReconcilers(t *testing.T, cfg *Config, next func()) {
 	next()
 }
 
+func doConfigPodEnforcementAdmission(ctx context.Context) doConfigFunc {
+	return func(t *testing.T, cfg *Config, next func()) {
+		if !cfg.withPodEnforcementAdmission {
+			next()
+			return
+		}
+
+		opts := []admission.PodEnforcementHandlerOption{
+			admission.PodEnforcementHandlerWithStandaloneMode(true),
+			admission.PodEnforcementHandlerWithRuntimeClassName(e2e.GVisorRuntimeClassName),
+		}
+		testutil.WithPodEnforcementAdmissionRegistration(t, ctx, e2e, cfg.Manager, opts, nil, next)
+	}
+}
+
+func doConfigVolumeClaimAdmission(ctx context.Context) doConfigFunc {
+	return func(t *testing.T, cfg *Config, next func()) {
+		if !cfg.withVolumeClaimAdmission {
+			next()
+			return
+		}
+
+		testutil.WithVolumeClaimAdmissionRegistration(t, ctx, e2e, cfg.Manager, nil, nil, next)
+	}
+}
+
 func doConfigLifecycle(t *testing.T, cfg *Config, next func()) {
 	var wg sync.WaitGroup
 
@@ -283,7 +344,9 @@ func doConfigCleanup(t *testing.T, cfg *Config, next func()) {
 	if len(tl.Items) > 0 {
 		log.Printf("removing %d stale tenant(s)", len(tl.Items))
 		for _, t := range tl.Items {
-			del = append(del, &t)
+			func(t relayv1beta1.Tenant) {
+				del = append(del, &t)
+			}(t)
 		}
 	}
 
@@ -292,7 +355,9 @@ func doConfigCleanup(t *testing.T, cfg *Config, next func()) {
 	if len(wtl.Items) > 0 {
 		log.Printf("removing %d stale webhook trigger(s)", len(wtl.Items))
 		for _, wt := range wtl.Items {
-			del = append(del, &wt)
+			func(wt relayv1beta1.WebhookTrigger) {
+				del = append(del, &wt)
+			}(wt)
 		}
 	}
 
@@ -301,7 +366,9 @@ func doConfigCleanup(t *testing.T, cfg *Config, next func()) {
 	if len(wrl.Items) > 0 {
 		log.Printf("removing %d stale workflow run(s)", len(wrl.Items))
 		for _, wr := range wrl.Items {
-			del = append(del, &wr)
+			func(wr nebulav1.WorkflowRun) {
+				del = append(del, &wr)
+			}(wr)
 		}
 	}
 
@@ -334,9 +401,11 @@ func WithConfig(t *testing.T, ctx context.Context, opts []ConfigOption, fn func(
 		doConfigNamespace(ctx),
 		doConfigInit,
 		doConfigVault,
-		doConfigMetadataAPI,
+		doConfigMetadataAPI(ctx),
 		doConfigDependencyManager(ctx),
 		doConfigReconcilers,
+		doConfigPodEnforcementAdmission(ctx),
+		doConfigVolumeClaimAdmission(ctx),
 		doConfigLifecycle,
 		doConfigUser(fn),
 		doConfigCleanup,

@@ -1,8 +1,8 @@
 package entrypoint
 
 import (
-	"github.com/puppetlabs/relay-core/pkg/image"
 	"github.com/puppetlabs/relay-core/pkg/model"
+	"github.com/puppetlabs/relay-core/pkg/util/image"
 )
 
 // This follows Kubernetes conventions documented at https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#notes.

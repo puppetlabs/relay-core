@@ -9,12 +9,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/puppetlabs/relay-core/pkg/dependency"
+	"github.com/puppetlabs/relay-core/pkg/operator/dependency"
 	"github.com/puppetlabs/relay-core/pkg/util/retry"
 	tekton "github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
 	tektonfake "github.com/tektoncd/pipeline/pkg/client/clientset/versioned/fake"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -38,6 +39,7 @@ var (
 func init() {
 	schemeBuilder := runtime.NewSchemeBuilder(
 		dependency.AddToScheme,
+		apiextensionsv1.AddToScheme,
 		apiextensionsv1beta1.AddToScheme,
 		cachingv1alpha1.AddToScheme,
 	)
@@ -245,6 +247,17 @@ func ParseApplyKubernetesManifest(ctx context.Context, cl client.Client, r io.Re
 	}
 
 	for i, obj := range objs {
+		md, err := meta.Accessor(obj)
+		if err != nil {
+			log.Printf("... applying %s (error retrieving object name: %+v)", obj.GetObjectKind().GroupVersionKind(), err)
+		} else {
+			name := md.GetName()
+			if md.GetNamespace() != "" {
+				name = md.GetNamespace() + "/" + name
+			}
+			log.Printf("... applying %s %s", obj.GetObjectKind().GroupVersionKind(), name)
+		}
+
 		if err := cl.Patch(ctx, obj, client.Apply, client.ForceOwnership, client.FieldOwner("relay-e2e")); err != nil {
 			return nil, fmt.Errorf("could not apply object #%d %T: %+v", i, obj, err)
 		}

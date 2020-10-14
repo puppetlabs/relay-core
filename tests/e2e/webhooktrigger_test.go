@@ -13,7 +13,6 @@ import (
 
 	"github.com/google/uuid"
 	_ "github.com/puppetlabs/horsehead/v2/storage/file"
-	"github.com/puppetlabs/relay-core/pkg/admission"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
 	"github.com/puppetlabs/relay-core/pkg/model"
@@ -21,14 +20,12 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/util/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 func waitForWebhookTriggerResponse(t *testing.T, ctx context.Context, wt *relayv1beta1.WebhookTrigger) (int, string, string) {
@@ -581,184 +578,106 @@ func TestWebhookTriggerKnativeRevisionsWithTenantToolInjectionUsingInput(t *test
 	WithConfig(t, ctx, []ConfigOption{
 		ConfigWithTenantReconciler,
 		ConfigWithWebhookTriggerReconciler,
+		ConfigWithVolumeClaimAdmission,
 	}, func(cfg *Config) {
-		hnd := testServerInjectorHandler{&webhook.Admission{Handler: admission.NewVolumeClaimHandler()}}
-		cfg.Manager.SetFields(hnd)
-
-		s := httptest.NewServer(hnd)
-		defer s.Close()
-
-		testutil.WithServiceBoundToHostHTTP(t, ctx, e2e.RESTConfig, e2e.Interface, s.URL, metav1.ObjectMeta{Namespace: cfg.Namespace.GetName()}, func(caPEM []byte, svc *corev1.Service) {
-			handler := &admissionregistrationv1beta1.MutatingWebhookConfiguration{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: admissionregistrationv1beta1.SchemeGroupVersion.Identifier(),
-					Kind:       "MutatingWebhookConfiguration",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "volume-claim",
-				},
-				Webhooks: []admissionregistrationv1beta1.MutatingWebhook{
-					{
-						Name: "volume-claim.admission.controller.relay.sh",
-						ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
-							Service: &admissionregistrationv1beta1.ServiceReference{
-								Namespace: svc.GetNamespace(),
-								Name:      svc.GetName(),
-							},
-							CABundle: caPEM,
-						},
-						Rules: []admissionregistrationv1beta1.RuleWithOperations{
-							{
-								Operations: []admissionregistrationv1beta1.OperationType{
-									admissionregistrationv1beta1.Create,
-									admissionregistrationv1beta1.Update,
-								},
-								Rule: admissionregistrationv1beta1.Rule{
-									APIGroups:   []string{""},
-									APIVersions: []string{"v1"},
-									Resources:   []string{"pods"},
-								},
-							},
-						},
-						FailurePolicy: func(fp admissionregistrationv1beta1.FailurePolicyType) *admissionregistrationv1beta1.FailurePolicyType {
-							return &fp
-						}(admissionregistrationv1beta1.Fail),
-						SideEffects: func(se admissionregistrationv1beta1.SideEffectClass) *admissionregistrationv1beta1.SideEffectClass {
-							return &se
-						}(admissionregistrationv1beta1.SideEffectClassNone),
-						ReinvocationPolicy: func(rp admissionregistrationv1beta1.ReinvocationPolicyType) *admissionregistrationv1beta1.ReinvocationPolicyType {
-							return &rp
-						}(admissionregistrationv1beta1.IfNeededReinvocationPolicy),
-						NamespaceSelector: &metav1.LabelSelector{
-							MatchLabels: map[string]string{
-								"testing.relay.sh/tools-volume-claim": "true",
-							},
-						},
-					},
-				},
-			}
-
-			require.NoError(t, e2e.ControllerRuntimeClient.Patch(ctx, handler, client.Apply, client.ForceOwnership, client.FieldOwner("relay-e2e")))
-			defer func() {
-				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-				defer cancel()
-
-				assert.NoError(t, e2e.ControllerRuntimeClient.Delete(ctx, handler))
-			}()
-
-			cfg.Vault.SetSecret(t, "my-tenant-id", "foo", "Hello")
-			cfg.Vault.SetConnection(t, "my-domain-id", "aws", "test", map[string]string{
-				"accessKeyID":     "AKIA123456789",
-				"secretAccessKey": "very-nice-key",
-			})
-
-			size, _ := resource.ParseQuantity("50Mi")
-			storageClassName := "relay-hostpath"
-			tn := &relayv1beta1.Tenant{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "my-tenant-" + uuid.New().String(),
-					Namespace: cfg.Namespace.GetName(),
-				},
-				Spec: relayv1beta1.TenantSpec{
-					TriggerEventSink: relayv1beta1.TriggerEventSink{
-						API: &relayv1beta1.APITriggerEventSink{
-							URL:   s.URL,
-							Token: "foobarbaz",
-						},
-					},
-					NamespaceTemplate: relayv1beta1.NamespaceTemplate{
-						Metadata: metav1.ObjectMeta{
-							Name: fmt.Sprintf("%s-child", cfg.Namespace.GetName()),
-							Labels: map[string]string{
-								"testing.relay.sh/tools-volume-claim": "true",
-							},
-						},
-					},
-					ToolInjection: relayv1beta1.ToolInjection{
-						VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
-							Spec: corev1.PersistentVolumeClaimSpec{
-								Resources: corev1.ResourceRequirements{
-									Requests: map[corev1.ResourceName]resource.Quantity{
-										corev1.ResourceStorage: size,
-									},
-								},
-								StorageClassName: &storageClassName,
-							},
-						},
-					},
-				},
-			}
-			CreateAndWaitForTenant(t, ctx, tn)
-
-			var pvc corev1.PersistentVolumeClaim
-			require.NoError(t, e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: tn.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany, Namespace: tn.Status.Namespace}, &pvc))
-
-			var pv corev1.PersistentVolume
-			require.NoError(t, e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: tn.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany}, &pv))
-
-			wt := &relayv1beta1.WebhookTrigger{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "my-trigger-" + uuid.New().String(),
-					Namespace: cfg.Namespace.GetName(),
-					Annotations: map[string]string{
-						model.RelayVaultEngineMountAnnotation:    cfg.Vault.SecretsPath,
-						model.RelayVaultConnectionPathAnnotation: "connections/my-domain-id",
-						model.RelayVaultSecretPathAnnotation:     "workflows/my-tenant-id",
-						model.RelayDomainIDAnnotation:            "my-domain-id",
-						model.RelayTenantIDAnnotation:            "my-tenant-id",
-					},
-				},
-				Spec: relayv1beta1.WebhookTriggerSpec{
-					Image: "alpine:latest",
-					Input: []string{
-						"apk --no-cache add socat",
-						`exec socat TCP-LISTEN:$PORT,crlf,reuseaddr,fork SYSTEM:'echo "HTTP/1.1 200 OK"; echo "Connection: close"; echo; echo "Hello, Relay!";'`,
-					},
-					Spec: relayv1beta1.NewUnstructuredObject(map[string]interface{}{
-						"secret": map[string]interface{}{
-							"$type": "Secret",
-							"name":  "foo",
-						},
-						"connection": map[string]interface{}{
-							"$type": "Connection",
-							"type":  "aws",
-							"name":  "test",
-						},
-						"foo": "bar",
-					}),
-					TenantRef: corev1.LocalObjectReference{
-						Name: tn.GetName(),
-					},
-				},
-			}
-			require.NoError(t, e2e.ControllerRuntimeClient.Create(ctx, wt))
-
-			assertWebhookTriggerResponseContains(t, ctx, "Hello, Relay!", wt)
-
-			pod := &corev1.Pod{}
-			require.NoError(t, retry.Retry(ctx, 500*time.Millisecond, func() *retry.RetryError {
-				pods := &corev1.PodList{}
-				if err := e2e.ControllerRuntimeClient.List(ctx, pods, client.InNamespace(tn.Spec.NamespaceTemplate.Metadata.Name), client.MatchingLabels{
-					model.RelayControllerWebhookTriggerIDLabel: wt.GetName(),
-				}); err != nil {
-					return retry.RetryPermanent(err)
-				}
-
-				if len(pods.Items) == 0 {
-					return retry.RetryTransient(fmt.Errorf("waiting for pod"))
-				}
-
-				pod = &pods.Items[0]
-				if pod.Status.PodIP == "" {
-					return retry.RetryTransient(fmt.Errorf("waiting for pod IP"))
-				}
-
-				return retry.RetryPermanent(nil)
-			}))
-
-			e2e.ControllerRuntimeClient.Delete(ctx, &pvc)
-			e2e.ControllerRuntimeClient.Delete(ctx, &pv)
+		cfg.Vault.SetSecret(t, "my-tenant-id", "foo", "Hello")
+		cfg.Vault.SetConnection(t, "my-domain-id", "aws", "test", map[string]string{
+			"accessKeyID":     "AKIA123456789",
+			"secretAccessKey": "very-nice-key",
 		})
+
+		size, _ := resource.ParseQuantity("50Mi")
+		storageClassName := "relay-hostpath"
+		tn := &relayv1beta1.Tenant{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-tenant-" + uuid.New().String(),
+				Namespace: cfg.Namespace.GetName(),
+			},
+			Spec: relayv1beta1.TenantSpec{
+				ToolInjection: relayv1beta1.ToolInjection{
+					VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
+						Spec: corev1.PersistentVolumeClaimSpec{
+							Resources: corev1.ResourceRequirements{
+								Requests: map[corev1.ResourceName]resource.Quantity{
+									corev1.ResourceStorage: size,
+								},
+							},
+							StorageClassName: &storageClassName,
+						},
+					},
+				},
+			},
+		}
+		CreateAndWaitForTenant(t, ctx, tn)
+
+		var pvc corev1.PersistentVolumeClaim
+		require.NoError(t, e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: tn.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany, Namespace: tn.Status.Namespace}, &pvc))
+
+		var pv corev1.PersistentVolume
+		require.NoError(t, e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: tn.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany}, &pv))
+
+		wt := &relayv1beta1.WebhookTrigger{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-trigger-" + uuid.New().String(),
+				Namespace: cfg.Namespace.GetName(),
+				Annotations: map[string]string{
+					model.RelayVaultEngineMountAnnotation:    cfg.Vault.SecretsPath,
+					model.RelayVaultConnectionPathAnnotation: "connections/my-domain-id",
+					model.RelayVaultSecretPathAnnotation:     "workflows/my-tenant-id",
+					model.RelayDomainIDAnnotation:            "my-domain-id",
+					model.RelayTenantIDAnnotation:            "my-tenant-id",
+				},
+			},
+			Spec: relayv1beta1.WebhookTriggerSpec{
+				Image: "alpine:latest",
+				Input: []string{
+					"apk --no-cache add socat",
+					`exec socat TCP-LISTEN:$PORT,crlf,reuseaddr,fork SYSTEM:'echo "HTTP/1.1 200 OK"; echo "Connection: close"; echo; echo "Hello, Relay!";'`,
+				},
+				Spec: relayv1beta1.NewUnstructuredObject(map[string]interface{}{
+					"secret": map[string]interface{}{
+						"$type": "Secret",
+						"name":  "foo",
+					},
+					"connection": map[string]interface{}{
+						"$type": "Connection",
+						"type":  "aws",
+						"name":  "test",
+					},
+					"foo": "bar",
+				}),
+				TenantRef: corev1.LocalObjectReference{
+					Name: tn.GetName(),
+				},
+			},
+		}
+		require.NoError(t, e2e.ControllerRuntimeClient.Create(ctx, wt))
+
+		assertWebhookTriggerResponseContains(t, ctx, "Hello, Relay!", wt)
+
+		pod := &corev1.Pod{}
+		require.NoError(t, retry.Retry(ctx, 500*time.Millisecond, func() *retry.RetryError {
+			pods := &corev1.PodList{}
+			if err := e2e.ControllerRuntimeClient.List(ctx, pods, client.InNamespace(tn.Status.Namespace), client.MatchingLabels{
+				model.RelayControllerWebhookTriggerIDLabel: wt.GetName(),
+			}); err != nil {
+				return retry.RetryPermanent(err)
+			}
+
+			if len(pods.Items) == 0 {
+				return retry.RetryTransient(fmt.Errorf("waiting for pod"))
+			}
+
+			pod = &pods.Items[0]
+			if pod.Status.PodIP == "" {
+				return retry.RetryTransient(fmt.Errorf("waiting for pod IP"))
+			}
+
+			return retry.RetryPermanent(nil)
+		}))
+
+		e2e.ControllerRuntimeClient.Delete(ctx, &pvc)
+		e2e.ControllerRuntimeClient.Delete(ctx, &pv)
 	})
 }
 
@@ -769,183 +688,147 @@ func TestWebhookTriggerKnativeRevisionsWithTenantToolInjectionUsingCommand(t *te
 	WithConfig(t, ctx, []ConfigOption{
 		ConfigWithTenantReconciler,
 		ConfigWithWebhookTriggerReconciler,
+		ConfigWithVolumeClaimAdmission,
 	}, func(cfg *Config) {
-		hnd := testServerInjectorHandler{&webhook.Admission{Handler: admission.NewVolumeClaimHandler()}}
-		cfg.Manager.SetFields(hnd)
-
-		s := httptest.NewServer(hnd)
-		defer s.Close()
-
-		testutil.WithServiceBoundToHostHTTP(t, ctx, e2e.RESTConfig, e2e.Interface, s.URL, metav1.ObjectMeta{Namespace: cfg.Namespace.GetName()}, func(caPEM []byte, svc *corev1.Service) {
-			handler := &admissionregistrationv1beta1.MutatingWebhookConfiguration{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: admissionregistrationv1beta1.SchemeGroupVersion.Identifier(),
-					Kind:       "MutatingWebhookConfiguration",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "volume-claim",
-				},
-				Webhooks: []admissionregistrationv1beta1.MutatingWebhook{
-					{
-						Name: "volume-claim.admission.controller.relay.sh",
-						ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
-							Service: &admissionregistrationv1beta1.ServiceReference{
-								Namespace: svc.GetNamespace(),
-								Name:      svc.GetName(),
-							},
-							CABundle: caPEM,
-						},
-						Rules: []admissionregistrationv1beta1.RuleWithOperations{
-							{
-								Operations: []admissionregistrationv1beta1.OperationType{
-									admissionregistrationv1beta1.Create,
-									admissionregistrationv1beta1.Update,
-								},
-								Rule: admissionregistrationv1beta1.Rule{
-									APIGroups:   []string{""},
-									APIVersions: []string{"v1"},
-									Resources:   []string{"pods"},
-								},
-							},
-						},
-						FailurePolicy: func(fp admissionregistrationv1beta1.FailurePolicyType) *admissionregistrationv1beta1.FailurePolicyType {
-							return &fp
-						}(admissionregistrationv1beta1.Fail),
-						SideEffects: func(se admissionregistrationv1beta1.SideEffectClass) *admissionregistrationv1beta1.SideEffectClass {
-							return &se
-						}(admissionregistrationv1beta1.SideEffectClassNone),
-						ReinvocationPolicy: func(rp admissionregistrationv1beta1.ReinvocationPolicyType) *admissionregistrationv1beta1.ReinvocationPolicyType {
-							return &rp
-						}(admissionregistrationv1beta1.IfNeededReinvocationPolicy),
-						NamespaceSelector: &metav1.LabelSelector{
-							MatchLabels: map[string]string{
-								"testing.relay.sh/tools-volume-claim": "true",
-							},
-						},
-					},
-				},
-			}
-
-			require.NoError(t, e2e.ControllerRuntimeClient.Patch(ctx, handler, client.Apply, client.ForceOwnership, client.FieldOwner("relay-e2e")))
-			defer func() {
-				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-				defer cancel()
-
-				assert.NoError(t, e2e.ControllerRuntimeClient.Delete(ctx, handler))
-			}()
-
-			cfg.Vault.SetSecret(t, "my-tenant-id", "foo", "Hello")
-			cfg.Vault.SetConnection(t, "my-domain-id", "aws", "test", map[string]string{
-				"accessKeyID":     "AKIA123456789",
-				"secretAccessKey": "very-nice-key",
-			})
-
-			size, _ := resource.ParseQuantity("50Mi")
-			storageClassName := "relay-hostpath"
-			tn := &relayv1beta1.Tenant{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "my-tenant-" + uuid.New().String(),
-					Namespace: cfg.Namespace.GetName(),
-				},
-				Spec: relayv1beta1.TenantSpec{
-					TriggerEventSink: relayv1beta1.TriggerEventSink{
-						API: &relayv1beta1.APITriggerEventSink{
-							URL:   s.URL,
-							Token: "foobarbaz",
-						},
-					},
-					NamespaceTemplate: relayv1beta1.NamespaceTemplate{
-						Metadata: metav1.ObjectMeta{
-							Name: fmt.Sprintf("%s-child", cfg.Namespace.GetName()),
-							Labels: map[string]string{
-								"testing.relay.sh/tools-volume-claim": "true",
-							},
-						},
-					},
-					ToolInjection: relayv1beta1.ToolInjection{
-						VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
-							Spec: corev1.PersistentVolumeClaimSpec{
-								Resources: corev1.ResourceRequirements{
-									Requests: map[corev1.ResourceName]resource.Quantity{
-										corev1.ResourceStorage: size,
-									},
-								},
-								StorageClassName: &storageClassName,
-							},
-						},
-					},
-				},
-			}
-			CreateAndWaitForTenant(t, ctx, tn)
-
-			var pvc corev1.PersistentVolumeClaim
-			require.NoError(t, e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: tn.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany, Namespace: tn.Status.Namespace}, &pvc))
-
-			var pv corev1.PersistentVolume
-			require.NoError(t, e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: tn.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany}, &pv))
-
-			wt := &relayv1beta1.WebhookTrigger{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "my-trigger-" + uuid.New().String(),
-					Namespace: cfg.Namespace.GetName(),
-					Annotations: map[string]string{
-						model.RelayVaultEngineMountAnnotation:    cfg.Vault.SecretsPath,
-						model.RelayVaultConnectionPathAnnotation: "connections/my-domain-id",
-						model.RelayVaultSecretPathAnnotation:     "workflows/my-tenant-id",
-						model.RelayDomainIDAnnotation:            "my-domain-id",
-						model.RelayTenantIDAnnotation:            "my-tenant-id",
-					},
-				},
-				Spec: relayv1beta1.WebhookTriggerSpec{
-					Image: "hashicorp/http-echo",
-					Args: []string{
-						"-listen", ":8080",
-						"-text", "Hello, Relay!",
-					},
-					Spec: relayv1beta1.NewUnstructuredObject(map[string]interface{}{
-						"secret": map[string]interface{}{
-							"$type": "Secret",
-							"name":  "foo",
-						},
-						"connection": map[string]interface{}{
-							"$type": "Connection",
-							"type":  "aws",
-							"name":  "test",
-						},
-						"foo": "bar",
-					}),
-					TenantRef: corev1.LocalObjectReference{
-						Name: tn.GetName(),
-					},
-				},
-			}
-			require.NoError(t, e2e.ControllerRuntimeClient.Create(ctx, wt))
-
-			assertWebhookTriggerResponseContains(t, ctx, "Hello, Relay!", wt)
-
-			pod := &corev1.Pod{}
-			require.NoError(t, retry.Retry(ctx, 500*time.Millisecond, func() *retry.RetryError {
-				pods := &corev1.PodList{}
-				if err := e2e.ControllerRuntimeClient.List(ctx, pods, client.InNamespace(tn.Spec.NamespaceTemplate.Metadata.Name), client.MatchingLabels{
-					model.RelayControllerWebhookTriggerIDLabel: wt.GetName(),
-				}); err != nil {
-					return retry.RetryPermanent(err)
-				}
-
-				if len(pods.Items) == 0 {
-					return retry.RetryTransient(fmt.Errorf("waiting for pod"))
-				}
-
-				pod = &pods.Items[0]
-				if pod.Status.PodIP == "" {
-					return retry.RetryTransient(fmt.Errorf("waiting for pod IP"))
-				}
-
-				return retry.RetryPermanent(nil)
-			}))
-
-			e2e.ControllerRuntimeClient.Delete(ctx, &pvc)
-			e2e.ControllerRuntimeClient.Delete(ctx, &pv)
+		cfg.Vault.SetSecret(t, "my-tenant-id", "foo", "Hello")
+		cfg.Vault.SetConnection(t, "my-domain-id", "aws", "test", map[string]string{
+			"accessKeyID":     "AKIA123456789",
+			"secretAccessKey": "very-nice-key",
 		})
+
+		size, _ := resource.ParseQuantity("50Mi")
+		storageClassName := "relay-hostpath"
+		tn := &relayv1beta1.Tenant{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-tenant-" + uuid.New().String(),
+				Namespace: cfg.Namespace.GetName(),
+			},
+			Spec: relayv1beta1.TenantSpec{
+				ToolInjection: relayv1beta1.ToolInjection{
+					VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
+						Spec: corev1.PersistentVolumeClaimSpec{
+							Resources: corev1.ResourceRequirements{
+								Requests: map[corev1.ResourceName]resource.Quantity{
+									corev1.ResourceStorage: size,
+								},
+							},
+							StorageClassName: &storageClassName,
+						},
+					},
+				},
+			},
+		}
+		CreateAndWaitForTenant(t, ctx, tn)
+
+		var pvc corev1.PersistentVolumeClaim
+		require.NoError(t, e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: tn.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany, Namespace: tn.Status.Namespace}, &pvc))
+
+		var pv corev1.PersistentVolume
+		require.NoError(t, e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: tn.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany}, &pv))
+
+		wt := &relayv1beta1.WebhookTrigger{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-trigger-" + uuid.New().String(),
+				Namespace: cfg.Namespace.GetName(),
+				Annotations: map[string]string{
+					model.RelayVaultEngineMountAnnotation:    cfg.Vault.SecretsPath,
+					model.RelayVaultConnectionPathAnnotation: "connections/my-domain-id",
+					model.RelayVaultSecretPathAnnotation:     "workflows/my-tenant-id",
+					model.RelayDomainIDAnnotation:            "my-domain-id",
+					model.RelayTenantIDAnnotation:            "my-tenant-id",
+				},
+			},
+			Spec: relayv1beta1.WebhookTriggerSpec{
+				Image: "hashicorp/http-echo",
+				Args: []string{
+					"-listen", ":8080",
+					"-text", "Hello, Relay!",
+				},
+				Spec: relayv1beta1.NewUnstructuredObject(map[string]interface{}{
+					"secret": map[string]interface{}{
+						"$type": "Secret",
+						"name":  "foo",
+					},
+					"connection": map[string]interface{}{
+						"$type": "Connection",
+						"type":  "aws",
+						"name":  "test",
+					},
+					"foo": "bar",
+				}),
+				TenantRef: corev1.LocalObjectReference{
+					Name: tn.GetName(),
+				},
+			},
+		}
+		require.NoError(t, e2e.ControllerRuntimeClient.Create(ctx, wt))
+
+		assertWebhookTriggerResponseContains(t, ctx, "Hello, Relay!", wt)
+
+		pod := &corev1.Pod{}
+		require.NoError(t, retry.Retry(ctx, 500*time.Millisecond, func() *retry.RetryError {
+			pods := &corev1.PodList{}
+			if err := e2e.ControllerRuntimeClient.List(ctx, pods, client.InNamespace(tn.Status.Namespace), client.MatchingLabels{
+				model.RelayControllerWebhookTriggerIDLabel: wt.GetName(),
+			}); err != nil {
+				return retry.RetryPermanent(err)
+			}
+
+			if len(pods.Items) == 0 {
+				return retry.RetryTransient(fmt.Errorf("waiting for pod"))
+			}
+
+			pod = &pods.Items[0]
+			if pod.Status.PodIP == "" {
+				return retry.RetryTransient(fmt.Errorf("waiting for pod IP"))
+			}
+
+			return retry.RetryPermanent(nil)
+		}))
+
+		e2e.ControllerRuntimeClient.Delete(ctx, &pvc)
+		e2e.ControllerRuntimeClient.Delete(ctx, &pv)
+	})
+}
+
+func TestWebhookTriggerInGVisor(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	if e2e.GVisorRuntimeClassName == "" {
+		t.Skip("gVisor is not available on this platform")
+	}
+
+	WithConfig(t, ctx, []ConfigOption{
+		ConfigWithWebhookTriggerReconciler,
+		ConfigWithPodEnforcementAdmission,
+	}, func(cfg *Config) {
+		tn := &relayv1beta1.Tenant{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-tenant",
+				Namespace: cfg.Namespace.GetName(),
+			},
+		}
+		CreateAndWaitForTenant(t, ctx, tn)
+
+		wt := &relayv1beta1.WebhookTrigger{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-trigger",
+				Namespace: cfg.Namespace.GetName(),
+			},
+			Spec: relayv1beta1.WebhookTriggerSpec{
+				Image: "alpine:latest",
+				Input: []string{
+					"apk --no-cache add socat",
+					`exec socat TCP-LISTEN:$PORT,crlf,reuseaddr,fork SYSTEM:'echo "HTTP/1.1 200 OK"; echo "Connection: close"; echo; dmesg;'`,
+				},
+				TenantRef: corev1.LocalObjectReference{
+					Name: tn.GetName(),
+				},
+			},
+		}
+		require.NoError(t, e2e.ControllerRuntimeClient.Create(ctx, wt))
+
+		assertWebhookTriggerResponseContains(t, ctx, "gVisor", wt)
 	})
 }
