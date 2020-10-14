@@ -15,6 +15,8 @@ import (
 )
 
 func (s *Server) PostValidate(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
 	if s.specSchemaRegistry != nil {
 		ctx := r.Context()
 
@@ -86,4 +88,6 @@ func (s *Server) PostValidate(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+
+	utilapi.WriteObjectOK(ctx, w, nil)
 }

@@ -100,8 +100,6 @@ func (ki *KubernetesIntermediary) next(ctx context.Context, state *Authenticatio
 
 	subject := pod.GetAnnotations()[KubernetesSubjectAnnotation]
 
-	var stepImage string
-
 	tok, found := pod.GetAnnotations()[KubernetesTokenAnnotation]
 	if !found || tok == "" {
 		// Right now we don't propagate annotations from TaskRuns to condition
@@ -112,14 +110,6 @@ func (ki *KubernetesIntermediary) next(ctx context.Context, state *Authenticatio
 		// XXX: This assumes that Tasks and Conditions have the same name. This
 		// is true for us, but not for Tekton generally.
 		name := pod.GetLabels()["tekton.dev/pipelineTask"]
-
-		for _, container := range pod.Spec.Containers {
-			if container.Name == model.ActionPodStepContainerName {
-				stepImage = container.Image
-
-				break
-			}
-		}
 
 		tr, err := ki.client.TektonV1alpha1().Conditions(ns.GetName()).Get(name, metav1.GetOptions{})
 		if errors.IsNotFound(err) {
@@ -134,6 +124,16 @@ func (ki *KubernetesIntermediary) next(ctx context.Context, state *Authenticatio
 		tok, found = tr.GetAnnotations()[KubernetesTokenAnnotation]
 		if !found || tok == "" {
 			return nil, nil, &NotFoundError{Reason: "kubernetes: subject and token annotation not present on pod or Tekton condition"}
+		}
+	}
+
+	var stepImage string
+
+	for _, container := range pod.Spec.Containers {
+		if container.Name == model.ActionPodStepContainerName {
+			stepImage = container.Image
+
+			break
 		}
 	}
 

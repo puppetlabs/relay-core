@@ -5,9 +5,9 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -35,9 +35,19 @@ func (rr *realRunner) Run(args ...string) error {
 
 	// FIXME Cannot abort due to errors here ...
 	// Integration tests will not have access to the Metadata API and would cause failures
-	err := getEnvironmentVariables(fmt.Sprintf("%s/environment", metadataAPIURL))
+	mu, err := url.Parse(metadataAPIURL)
 	if err != nil {
 		log.Println(err)
+	}
+
+	if mu != nil {
+		if err := getEnvironmentVariables(mu); err != nil {
+			log.Println(err)
+		}
+
+		if err := validateSchemas(mu); err != nil {
+			log.Println(err)
+		}
 	}
 
 	name, args := args[0], args[1:]
@@ -80,8 +90,10 @@ func (rr *realRunner) Run(args ...string) error {
 	return nil
 }
 
-func getEnvironmentVariables(url string) error {
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+func getEnvironmentVariables(mu *url.URL) error {
+	ee := &url.URL{Path: "/environment"}
+
+	req, err := http.NewRequest(http.MethodGet, mu.ResolveReference(ee).String(), nil)
 	if err != nil {
 		return err
 	}
@@ -105,6 +117,34 @@ func getEnvironmentVariables(url string) error {
 				}
 			}
 		}
+	}
+
+	return nil
+}
+
+// validateSchemas calls validation endpoints on the metadata-api to validate
+// step schemas.
+//
+// TODO: as part of our effort to catch early schema and documentation errors
+// in core steps, we are just capturing errors to a logging service and fixing
+// the step repos. This means a simple http call to the validate endpoint is
+// fired off and the response is ignored.
+//
+// Once we have determined that things are stable, we will
+// begin propagating these errors to the frontend and stopping the steps from
+// running if they don't validate.
+func validateSchemas(mu *url.URL) error {
+	ve := &url.URL{Path: "/validate"}
+
+	req, err := http.NewRequest(http.MethodPost, mu.ResolveReference(ve).String(), nil)
+	if err != nil {
+		return err
+	}
+
+	// We are ignoring the response for now because this endpoint just sends
+	// all validation errors to the error capturing system.
+	if _, err = http.DefaultClient.Do(req); err != nil {
+		return err
 	}
 
 	return nil
