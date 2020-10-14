@@ -4,12 +4,17 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
 	"syscall"
 
 	"github.com/puppetlabs/relay-core/pkg/entrypoint"
+	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
 )
 
 type realRunner struct {
@@ -22,6 +27,19 @@ func (rr *realRunner) Run(args ...string) error {
 	if len(args) == 0 {
 		return nil
 	}
+
+	path := os.Getenv("PATH")
+	os.Setenv("PATH", path+":/var/lib/puppet/relay")
+
+	metadataAPIURL := os.Getenv("METADATA_API_URL")
+
+	// FIXME Cannot abort due to errors here ...
+	// Integration tests will not have access to the Metadata API and would cause failures
+	err := getEnvironmentVariables(fmt.Sprintf("%s/environment", metadataAPIURL))
+	if err != nil {
+		log.Println(err)
+	}
+
 	name, args := args[0], args[1:]
 
 	// Receive system signals on "rr.signals"
@@ -57,6 +75,36 @@ func (rr *realRunner) Run(args ...string) error {
 	// Wait for command to exit
 	if err := cmd.Wait(); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func getEnvironmentVariables(url string) error {
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return err
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+
+	if resp != nil && resp.Body != nil {
+		var r evaluate.JSONResultEnvelope
+		json.NewDecoder(resp.Body).Decode(&r)
+
+		if r.Value.Data != nil {
+			switch t := r.Value.Data.(type) {
+			case map[string]interface{}:
+				for name, value := range t {
+					switch v := value.(type) {
+					case string:
+						os.Setenv(name, v)
+					}
+				}
+			}
+		}
 	}
 
 	return nil

@@ -97,7 +97,7 @@ func ConfigureWebhookTrigger(wt *WebhookTrigger, ksr *KnativeServiceResult) {
 				Reason:  WebhookTriggerStatusReasonServiceError,
 				Message: ksr.Error.Error(),
 			}
-		} else if ksr.KnativeService != nil && ksr.KnativeService.Object.Status.IsReady() {
+		} else if ksr.KnativeService != nil && ksr.KnativeService.Object.IsReady() {
 			return relayv1beta1.Condition{
 				Status:  corev1.ConditionTrue,
 				Reason:  WebhookTriggerStatusReasonServiceReady,
@@ -149,7 +149,7 @@ func ConfigureWebhookTrigger(wt *WebhookTrigger, ksr *KnativeServiceResult) {
 	if ksr.KnativeService != nil {
 		wt.Object.Status.Namespace = ksr.KnativeService.Key.Namespace
 
-		if ksr.KnativeService.Object.Status.IsReady() && ksr.KnativeService.Object.Status.URL != nil {
+		if ksr.KnativeService.Object.IsReady() && ksr.KnativeService.Object.Status.URL != nil {
 			wt.Object.Status.URL = ksr.KnativeService.Object.Status.URL.String()
 		} else {
 			wt.Object.Status.URL = ""
