@@ -18,15 +18,21 @@ env:
   - GO111MODULE: 'on'
   - RELAY_EMAIL: team-relay-ops@puppet.com
   - secure: QL8vS5o6H3/WyqelaJprcwUA/troTk67YeTs0m362327EsdQXEVnk0dlCcT+j460ALGgJ8l+j+Ywx9StFwx5FWOdvA02QMyiM1rNXtdJREACQe+3rODxwaoc+wMiX31Nnahg5uu/w3nXjY6wZpNto6pISZaSHxblm90uAGSlCKDd5PeEkH0CkQMDgN7JqwYeWohqXgIhkq/qTmnbNfwE4UTXo3/o3X9JqrZJV1aH1R0HKhH2qCM9BxldvnTVp36444qM8r/UGiZEjoqp2u1XZ47wmRMdKVcSSw013n6yhdT9vrGaCPKrGXVQt00/lU9TpCW0SR5CPsyMPhqIRI9EDKT3WwltV/t0x1ofuP3G2yEfoFxsktxQs4tF099u4QnTL74vat7KnnCX9QHkzONk0bUv9SzF8a9Z0bO9SDfG/pV+4f9DL6dTiC2Tp06kr7VEHkdURe/Xg+t/CzZ64derhmDxciiI+4wqq8xhktFcdMEBiRxs84ToccohzJrYyLFJ9HowKp4EIb8UYW5f5umN6iLUN/dNqyU8BXLo3zhw9plIT6GT4hlFdX8mFTKTAIkSUlezYzOlR2/j6x3yd3RWAFDFdGpQtTh3C306cvzkr0Ng2f+H3qUZBX8MskK/oK9sOM8nv7c9DLZOTxOdHPfDPm4751uhqZb5t+GTCE3va1Q=
-install: skip
+  - DOCKER_CONFIG: /tmp/.docker
+  - DOCKERHUB_USERNAME: relayshro
+  - secure: X/13IRN9ynZw6NNS/ydT9TSW7tk9AFHocQwA2jOXfvmid2tE+AXTa3NMGnvsHlfWAORevYpLCl8I7P8yu+MbQT+sCgTZ/B1NUpqx7v13FZiK8/nYHi/Ne7+upnRLQa95aKPXaet2qgv1k+uFs3WKiqCRE1oFLCbBf8RtpT7+JinR9FaZ63nVyX4pI3yFvp72CjsPOqHnf9MPP/qZ1A2ZdBDydzdkdgaq2KbkkurJlbCfm3iJ+QMookA1/SA+4lb9xCqJ5oigAgk4L6NOl7EEhSIAcHBhbNvOpeJo52kJepeHsfa/FD6eNUUMIuKPgqH+QyCg+s9ZAy5ZemxI2W5JoUeZGKYINMfUyntckpUtE6R2pLlD1HWsNS1ff40VGOuYCxBmwPlfWzwdAPxZazeYJ68XJi37hco37G8uD5FHbMFxlG64vONoJGdLZCkX7OhiiHd3WYEXD6PmVt82+0XnpNgvPFr8sEXOaRSxcUX+VUt8f/r/Ko1zg9KKGwn3FdRfp8xF0hPoguzDMlNd5fW+bVY71tdETwuPVnkUAjKrlPL5N5lrLr0xwfWEwoEL+SwJDe011h8rRdNQiswzQ5Eqna3ZTDR96aTdKiagN+XaCUEKip7hO4POebs/W5iLxQshZn/BgeS1qhoA/5PFTKokutUuWNFw8oJafZKBCDcsipc=
+install:
+- mkdir -p "${DOCKER_CONFIG}"
+- echo '{}' >"${DOCKER_CONFIG}/config.json"
+- docker login --username "${DOCKERHUB_USERNAME}" --password-stdin <<<"${DOCKERHUB_PASSWORD}"
 jobs:
   include:
   - stage: test
     before_script:
-    - docker build -t localhost/kindest/node-gvisor hack/kind-gvisor/
+    - docker build -t localhost/kindest/node-ci hack/kind-ci/
     - ( cd; GO111MODULE=on go get sigs.k8s.io/kind@v0.9.0 gotest.tools/gotestsum )
     - export KUBECONFIG=/tmp/kubeconfig-kind
-    - kind create cluster --image localhost/kindest/node-gvisor --config hack/kind-gvisor/config.yaml
+    - kind create cluster --image localhost/kindest/node-ci --config hack/kind-ci/config.yaml
     script:
     - RELAY_TEST_E2E_KUBECONFIG="${KUBECONFIG}" RELAY_TEST_E2E_GVISOR_HANDLER=runsc ./scripts/ci test
   - stage: build
