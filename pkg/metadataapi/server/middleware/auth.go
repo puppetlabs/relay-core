@@ -12,6 +12,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/manager/api"
 	"github.com/puppetlabs/relay-core/pkg/manager/builder"
 	"github.com/puppetlabs/relay-core/pkg/manager/configmap"
+	"github.com/puppetlabs/relay-core/pkg/manager/memory"
 	"github.com/puppetlabs/relay-core/pkg/manager/vault"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"k8s.io/client-go/kubernetes"
@@ -56,7 +57,7 @@ type KubernetesAuthenticator struct {
 
 var _ Authenticator = &KubernetesAuthenticator{}
 
-func (ka *KubernetesAuthenticator) intermediary(r *http.Request) authenticate.Intermediary {
+func (ka *KubernetesAuthenticator) intermediary(r *http.Request, mgrs *builder.MetadataBuilder) authenticate.Intermediary {
 	if ka.kubernetesClient == nil {
 		// In this case we expect the JWT to be specified in the Authorization
 		// header as a Bearer.
@@ -82,6 +83,10 @@ func (ka *KubernetesAuthenticator) intermediary(r *http.Request) authenticate.In
 
 	// Otherwise we chain to the Vault client to let it decrypt the token.
 	return ki.Chain(func(ctx context.Context, raw authenticate.Raw, md *authenticate.KubernetesIntermediaryMetadata) (authenticate.Intermediary, error) {
+		mgrs.SetActionMetadata(memory.NewActionMetadataManager(&model.ActionMetadata{
+			Image: md.Image,
+		}))
+
 		return authenticate.NewVaultTransitIntermediary(
 			ka.vaultClient,
 			ka.vaultTransitPath,
@@ -177,7 +182,7 @@ func (ka *KubernetesAuthenticator) Authenticate(r *http.Request) (*Credential, e
 	var tags []trackers.Tag
 
 	auth := authenticate.NewAuthenticator(
-		ka.intermediary(r),
+		ka.intermediary(r, mgrs),
 		ka.resolver(mgrs),
 		authenticate.AuthenticatorWithInjector(ka.injector(mgrs, &tags)),
 	)

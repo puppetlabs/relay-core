@@ -5,10 +5,20 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/middleware"
+	"github.com/puppetlabs/relay-core/pkg/workflow/validation"
 )
 
+type ServerOption func(*Server)
+
+func WithSchemaRegistry(reg validation.SchemaRegistry) ServerOption {
+	return func(s *Server) {
+		s.schemaRegistry = reg
+	}
+}
+
 type Server struct {
-	auth middleware.Authenticator
+	auth           middleware.Authenticator
+	schemaRegistry validation.SchemaRegistry
 }
 
 func (s *Server) Route(r *mux.Router) {
@@ -37,16 +47,26 @@ func (s *Server) Route(r *mux.Router) {
 
 	// State
 	r.HandleFunc("/state/{name}", s.GetState).Methods(http.MethodGet)
+
+	// Validation
+	r.HandleFunc("/validate", s.PostValidate).Methods(http.MethodPost)
 }
 
-func NewServer(auth middleware.Authenticator) *Server {
-	return &Server{
+func NewServer(auth middleware.Authenticator, opts ...ServerOption) *Server {
+	svr := &Server{
 		auth: auth,
 	}
+
+	for _, opt := range opts {
+		opt(svr)
+	}
+
+	return svr
 }
 
-func NewHandler(auth middleware.Authenticator) http.Handler {
+func NewHandler(auth middleware.Authenticator, opts ...ServerOption) http.Handler {
 	r := mux.NewRouter()
-	NewServer(auth).Route(r)
+	NewServer(auth, opts...).Route(r)
+
 	return r
 }

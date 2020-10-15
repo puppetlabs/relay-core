@@ -6,6 +6,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/util/retry"
 	tekton "github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
 	corev1 "k8s.io/api/core/v1"
@@ -24,6 +25,7 @@ const (
 
 type KubernetesIntermediaryMetadata struct {
 	NamespaceUID types.UID
+	Image        string
 }
 
 type KubernetesChainIntermediaryFunc func(ctx context.Context, raw Raw, md *KubernetesIntermediaryMetadata) (Intermediary, error)
@@ -138,8 +140,19 @@ func (ki *KubernetesIntermediary) next(ctx context.Context, state *Authenticatio
 		}
 	}
 
+	var stepImage string
+
+	for _, container := range pod.Spec.Containers {
+		if container.Name == model.ActionPodStepContainerName {
+			stepImage = container.Image
+
+			break
+		}
+	}
+
 	md := &KubernetesIntermediaryMetadata{
 		NamespaceUID: ns.GetUID(),
+		Image:        stepImage,
 	}
 
 	// Namespace validation.

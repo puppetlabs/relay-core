@@ -1,0 +1,12 @@
+{
+  "cluster": {
+    "name": "cluster-connection",
+    "connection": {
+      "server": "https://example.com:6443",
+      "certificateAuthority": "cert",
+      "token": "foobar"
+    }
+  },
+  "command": "get",
+  "args": "nodes"
+}

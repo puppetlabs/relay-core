@@ -25,6 +25,61 @@ var Domain = &impl.ErrorDomain{
 	Title: "Relay Metadata API",
 }
 
+// ActionSection defines a section of errors with the following scope:
+// Action errors
+var ActionSection = &impl.ErrorSection{
+	Key:   "action",
+	Title: "Action errors",
+}
+
+// ActionImageParseErrorCode is the code for an instance of "image_parse_error".
+const ActionImageParseErrorCode = "rma_action_image_parse_error"
+
+// IsActionImageParseError tests whether a given error is an instance of "image_parse_error".
+func IsActionImageParseError(err errawr.Error) bool {
+	return err != nil && err.Is(ActionImageParseErrorCode)
+}
+
+// IsActionImageParseError tests whether a given error is an instance of "image_parse_error".
+func (External) IsActionImageParseError(err errawr.Error) bool {
+	return IsActionImageParseError(err)
+}
+
+// ActionImageParseErrorBuilder is a builder for "image_parse_error" errors.
+type ActionImageParseErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "image_parse_error" from this builder.
+func (b *ActionImageParseErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "failed to parse the image and tag string for the container action.",
+		Technical: "failed to parse the image and tag string for the container action.",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "image_parse_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     ActionSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Image parse error",
+		Version:          1,
+	}
+}
+
+// NewActionImageParseErrorBuilder creates a new error builder for the code "image_parse_error".
+func NewActionImageParseErrorBuilder() *ActionImageParseErrorBuilder {
+	return &ActionImageParseErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewActionImageParseError creates a new error with the code "image_parse_error".
+func NewActionImageParseError() Error {
+	return NewActionImageParseErrorBuilder().Build()
+}
+
 // APISection defines a section of errors with the following scope:
 // API errors
 var APISection = &impl.ErrorSection{
@@ -132,6 +187,57 @@ func NewAPIMalformedRequestErrorBuilder() *APIMalformedRequestErrorBuilder {
 // NewAPIMalformedRequestError creates a new error with the code "malformed_request_error".
 func NewAPIMalformedRequestError() Error {
 	return NewAPIMalformedRequestErrorBuilder().Build()
+}
+
+// APIObjectSerializationErrorCode is the code for an instance of "object_serialization_error".
+const APIObjectSerializationErrorCode = "rma_api_object_serialization_error"
+
+// IsAPIObjectSerializationError tests whether a given error is an instance of "object_serialization_error".
+func IsAPIObjectSerializationError(err errawr.Error) bool {
+	return err != nil && err.Is(APIObjectSerializationErrorCode)
+}
+
+// IsAPIObjectSerializationError tests whether a given error is an instance of "object_serialization_error".
+func (External) IsAPIObjectSerializationError(err errawr.Error) bool {
+	return IsAPIObjectSerializationError(err)
+}
+
+// APIObjectSerializationErrorBuilder is a builder for "object_serialization_error" errors.
+type APIObjectSerializationErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "object_serialization_error" from this builder.
+func (b *APIObjectSerializationErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "The response object failed to serialize.",
+		Technical: "The response object failed to serialize.",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "object_serialization_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata: &impl.ErrorMetadata{HTTPErrorMetadata: &impl.HTTPErrorMetadata{
+			ErrorHeaders: impl.HTTPErrorMetadataHeaders{},
+			ErrorStatus:  422,
+		}},
+		ErrorSection:     APISection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Object serialization error",
+		Version:          1,
+	}
+}
+
+// NewAPIObjectSerializationErrorBuilder creates a new error builder for the code "object_serialization_error".
+func NewAPIObjectSerializationErrorBuilder() *APIObjectSerializationErrorBuilder {
+	return &APIObjectSerializationErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewAPIObjectSerializationError creates a new error with the code "object_serialization_error".
+func NewAPIObjectSerializationError() Error {
+	return NewAPIObjectSerializationErrorBuilder().Build()
 }
 
 // APIUnknownRequestMediaTypeErrorCode is the code for an instance of "unknown_request_media_type_error".
@@ -603,4 +709,110 @@ func NewModelWriteErrorBuilder() *ModelWriteErrorBuilder {
 // NewModelWriteError creates a new error with the code "write_error".
 func NewModelWriteError() Error {
 	return NewModelWriteErrorBuilder().Build()
+}
+
+// ValidationSection defines a section of errors with the following scope:
+// Validation errors
+var ValidationSection = &impl.ErrorSection{
+	Key:   "validation",
+	Title: "Validation errors",
+}
+
+// ValidationSchemaLookupErrorCode is the code for an instance of "schema_lookup_error".
+const ValidationSchemaLookupErrorCode = "rma_validation_schema_lookup_error"
+
+// IsValidationSchemaLookupError tests whether a given error is an instance of "schema_lookup_error".
+func IsValidationSchemaLookupError(err errawr.Error) bool {
+	return err != nil && err.Is(ValidationSchemaLookupErrorCode)
+}
+
+// IsValidationSchemaLookupError tests whether a given error is an instance of "schema_lookup_error".
+func (External) IsValidationSchemaLookupError(err errawr.Error) bool {
+	return IsValidationSchemaLookupError(err)
+}
+
+// ValidationSchemaLookupErrorBuilder is a builder for "schema_lookup_error" errors.
+type ValidationSchemaLookupErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "schema_lookup_error" from this builder.
+func (b *ValidationSchemaLookupErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "failed to lookup schema",
+		Technical: "failed to lookup schema",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "schema_lookup_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorSection:     ValidationSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Schema lookup error",
+		Version:          1,
+	}
+}
+
+// NewValidationSchemaLookupErrorBuilder creates a new error builder for the code "schema_lookup_error".
+func NewValidationSchemaLookupErrorBuilder() *ValidationSchemaLookupErrorBuilder {
+	return &ValidationSchemaLookupErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewValidationSchemaLookupError creates a new error with the code "schema_lookup_error".
+func NewValidationSchemaLookupError() Error {
+	return NewValidationSchemaLookupErrorBuilder().Build()
+}
+
+// ValidationSchemaValidationErrorCode is the code for an instance of "schema_validation_error".
+const ValidationSchemaValidationErrorCode = "rma_validation_schema_validation_error"
+
+// IsValidationSchemaValidationError tests whether a given error is an instance of "schema_validation_error".
+func IsValidationSchemaValidationError(err errawr.Error) bool {
+	return err != nil && err.Is(ValidationSchemaValidationErrorCode)
+}
+
+// IsValidationSchemaValidationError tests whether a given error is an instance of "schema_validation_error".
+func (External) IsValidationSchemaValidationError(err errawr.Error) bool {
+	return IsValidationSchemaValidationError(err)
+}
+
+// ValidationSchemaValidationErrorBuilder is a builder for "schema_validation_error" errors.
+type ValidationSchemaValidationErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "schema_validation_error" from this builder.
+func (b *ValidationSchemaValidationErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "could not validate schema",
+		Technical: "could not validate schema",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "schema_validation_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata: &impl.ErrorMetadata{HTTPErrorMetadata: &impl.HTTPErrorMetadata{
+			ErrorHeaders: impl.HTTPErrorMetadataHeaders{},
+			ErrorStatus:  422,
+		}},
+		ErrorSection:     ValidationSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Schema validation error",
+		Version:          1,
+	}
+}
+
+// NewValidationSchemaValidationErrorBuilder creates a new error builder for the code "schema_validation_error".
+func NewValidationSchemaValidationErrorBuilder() *ValidationSchemaValidationErrorBuilder {
+	return &ValidationSchemaValidationErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewValidationSchemaValidationError creates a new error with the code "schema_validation_error".
+func NewValidationSchemaValidationError() Error {
+	return NewValidationSchemaValidationErrorBuilder().Build()
 }

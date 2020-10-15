@@ -1,5 +1,11 @@
 package model
 
+// ActionPodStepContainerName is used to set the container name for step and
+// trigger on all action pods.
+//
+// TODO: move all references of "step-step" to this const
+const ActionPodStepContainerName = "step-step"
+
 type ActionType struct {
 	Singular string
 	Plural   string
