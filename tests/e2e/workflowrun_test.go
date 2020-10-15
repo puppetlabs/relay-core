@@ -619,11 +619,14 @@ func TestWorkflowRunInGVisor(t *testing.T) {
 						return retry.RetryPermanent(err)
 					}
 
-					if wr.Status.Steps["my-test-step"].Status == string(obj.WorkflowRunStatusSuccess) {
+					switch obj.WorkflowRunStatus(wr.Status.Steps["my-test-step"].Status) {
+					case obj.WorkflowRunStatusSuccess:
 						return retry.RetryPermanent(nil)
+					case obj.WorkflowRunStatusFailure:
+						return retry.RetryPermanent(fmt.Errorf("step failed"))
+					default:
+						return retry.RetryTransient(fmt.Errorf("waiting for step to succeed"))
 					}
-
-					return retry.RetryTransient(fmt.Errorf("waiting for step to succeed"))
 				}))
 
 				// Get the logs from the pod.
