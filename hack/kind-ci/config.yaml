@@ -4,3 +4,8 @@ containerdConfigPatches:
 - |-
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runsc]
     runtime_type = "io.containerd.runsc.v1"
+nodes:
+- role: control-plane
+  extraMounts:
+  - containerPath: /var/lib/kubelet/config.json
+    hostPath: /tmp/.docker/config.json
