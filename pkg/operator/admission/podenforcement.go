@@ -51,7 +51,12 @@ func (peh *PodEnforcementHandler) Handle(ctx context.Context, req admission.Requ
 	}
 
 	if !peh.standalone {
-		pod.Spec.NodeSelector = PodNodeSelector
+		if pod.Spec.NodeSelector == nil {
+			pod.Spec.NodeSelector = map[string]string{}
+		}
+		for key, value := range PodNodeSelector {
+			pod.Spec.NodeSelector[key] = value
+		}
 		pod.Spec.Tolerations = PodTolerations
 
 		pod.Spec.DNSPolicy = PodDNSPolicy
