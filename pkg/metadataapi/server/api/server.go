@@ -12,13 +12,13 @@ type ServerOption func(*Server)
 
 func WithSpecSchemaRegistry(reg validation.SchemaRegistry) ServerOption {
 	return func(s *Server) {
-		s.specSchemaRegistry = reg
+		s.schemaRegistry = reg
 	}
 }
 
 type Server struct {
-	auth               middleware.Authenticator
-	specSchemaRegistry validation.SchemaRegistry
+	auth           middleware.Authenticator
+	schemaRegistry validation.SchemaRegistry
 }
 
 func (s *Server) Route(r *mux.Router) {

@@ -13,11 +13,11 @@ import (
 )
 
 type Server struct {
-	auth               middleware.Authenticator
-	errorSensitivity   errawr.ErrorSensitivity
-	capturer           trackers.Capturer
-	trustedProxyHops   int
-	specSchemaRegistry validation.SchemaRegistry
+	auth             middleware.Authenticator
+	errorSensitivity errawr.ErrorSensitivity
+	capturer         trackers.Capturer
+	trustedProxyHops int
+	schemaRegistry   validation.SchemaRegistry
 }
 
 func (s *Server) Route(r *mux.Router) {
@@ -26,7 +26,7 @@ func (s *Server) Route(r *mux.Router) {
 	r.HandleFunc("/healthz", s.GetHealthz).Methods("GET")
 
 	// This has a different set of middleware so bind it under a subrouter.
-	api.NewServer(s.auth, api.WithSpecSchemaRegistry(s.specSchemaRegistry)).
+	api.NewServer(s.auth, api.WithSchemaRegistry(s.schemaRegistry)).
 		Route(r.NewRoute().Subrouter())
 }
 
@@ -50,9 +50,9 @@ func WithTrustedProxyHops(n int) Option {
 	}
 }
 
-func WithSpecSchemaRegistry(r validation.SchemaRegistry) Option {
+func WithSchemaRegistry(r validation.SchemaRegistry) Option {
 	return func(s *Server) {
-		s.specSchemaRegistry = r
+		s.SchemaRegistry = r
 	}
 }
 

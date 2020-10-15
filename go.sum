@@ -1633,6 +1633,7 @@ github.com/valyala/quicktemplate v1.2.0/go.mod h1:EH+4AkTd43SvgIbQHYu59/cJyxDoOV
 github.com/valyala/tcplisten v0.0.0-20161114210144-ceec8f93295a/go.mod h1:v3UYOV9WzVtRmSR+PDvWpU/qWl4Wa5LApYYX4ZtKbio=
 github.com/vdemeester/k8s-pkg-credentialprovider v0.0.0-20200107171650-7c61ffa44238/go.mod h1:JwQJCMWpUDqjZrB5jpw0f5VbN7U95zxFy1ZDpoEarGo=
 github.com/vdemeester/k8s-pkg-credentialprovider v1.13.12-1/go.mod h1:Fko0rTxEtDW2kju5Ky7yFJNS3IcNvW8IPsp4/e9oev0=
+github.com/vdemeester/k8s-pkg-credentialprovider v1.17.4 h1:czKEIG2Q3YRTgs6x/8xhjVMJD5byPo6cZuostkbTM74=
 github.com/vdemeester/k8s-pkg-credentialprovider v1.17.4/go.mod h1:inCTmtUdr5KJbreVojo06krnTgaeAz/Z7lynpPk/Q2c=
 github.com/vektah/gqlparser v1.1.2/go.mod h1:1ycwN7Ij5njmMkPPAOaRFY4rET2Enx7IkVv3vaXspKw=
 github.com/vmware/govmomi v0.20.3/go.mod h1:URlwyTFZX72RmxtxuaFL2Uj3fD1JTvZdx59bHWk6aFU=
@@ -2362,6 +2363,7 @@ k8s.io/code-generator v0.18.0/go.mod h1:+UHX5rSbxmR8kzS+FAv7um6dtYrZokQvjHpDSYRV
 k8s.io/component-base v0.17.0/go.mod h1:rKuRAokNMY2nn2A6LP/MiwpoaMRHpfRnrPaUJJj1Yoc=
 k8s.io/component-base v0.17.2/go.mod h1:zMPW3g5aH7cHJpKYQ/ZsGMcgbsA/VyhEugF3QT1awLs=
 k8s.io/component-base v0.17.4/go.mod h1:5BRqHMbbQPm2kKu35v3G+CpVq4K0RJKC7TRioF0I9lE=
+k8s.io/component-base v0.17.12 h1:cH5OVk8P6IbFWuYAfYbMdN7YZu66CpywBf+InR5yFA4=
 k8s.io/component-base v0.17.12/go.mod h1:/wdD58j0ahgzq/5F0CRM0isXDOAnBPo28ozDjD+cdPg=
 k8s.io/csi-translation-lib v0.17.0/go.mod h1:HEF7MEz7pOLJCnxabi45IPkhSsE/KmxPQksuCrHKWls=
 k8s.io/csi-translation-lib v0.17.4/go.mod h1:CsxmjwxEI0tTNMzffIAcgR9lX4wOh6AKHdxQrT7L0oo=
@@ -2384,6 +2386,7 @@ k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29/go.mod h1:F+5wygcW0wmRTnM
 k8s.io/kubectl v0.17.2/go.mod h1:y4rfLV0n6aPmvbRCqZQjvOp3ezxsFgpqL+zF5jH/lxk=
 k8s.io/kubernetes v1.13.0/go.mod h1:ocZa8+6APFNC2tX1DZASIbocyYT5jHzqFVsY5aoB7Jk=
 k8s.io/legacy-cloud-providers v0.17.0/go.mod h1:DdzaepJ3RtRy+e5YhNtrCYwlgyK87j/5+Yfp0L9Syp8=
+k8s.io/legacy-cloud-providers v0.17.4 h1:VvFqJGiYAr2gIdoNuqbeZLEdxIFeN4Yt6OLJS9l2oIE=
 k8s.io/legacy-cloud-providers v0.17.4/go.mod h1:FikRNoD64ECjkxO36gkDgJeiQWwyZTuBkhu+yxOc1Js=
 k8s.io/metrics v0.17.2/go.mod h1:3TkNHET4ROd+NfzNxkjoVfQ0Ob4iZnaHmSEA4vYpwLw=
 k8s.io/test-infra v0.0.0-20200514184223-ba32c8aae783/go.mod h1:bW6thaPZfL2hW7ecjx2WYwlP9KQLM47/xIJyttkVk5s=

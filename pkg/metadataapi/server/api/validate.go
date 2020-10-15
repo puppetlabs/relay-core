@@ -17,7 +17,7 @@ import (
 func (s *Server) PostValidate(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	if s.specSchemaRegistry != nil {
+	if s.schemaRegistry != nil {
 		ctx := r.Context()
 
 		managers := middleware.Managers(r)
@@ -69,7 +69,7 @@ func (s *Server) PostValidate(w http.ResponseWriter, r *http.Request) {
 
 				var captureErr error
 
-				schema, err := s.specSchemaRegistry.GetByImage(ref)
+				schema, err := s.schemaRegistry.GetByImage(ref)
 				if err != nil {
 					captureErr = err
 					if !goerrors.Is(err, &validation.SchemaDoesNotExistError{}) {
