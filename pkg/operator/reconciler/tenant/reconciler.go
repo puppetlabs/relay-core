@@ -73,7 +73,7 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 		return ctrl.Result{}, tdr.Error
 	}
 
-	pvc := obj.NewPersistentVolumeClaim(client.ObjectKey{Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany, Namespace: tn.Object.Spec.NamespaceTemplate.Metadata.GetName()})
+	pvc := obj.NewPersistentVolumeClaim(client.ObjectKey{Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany, Namespace: tn.Object.Status.Namespace})
 	_, err = pvc.Load(ctx, r.Client)
 	pvcr := obj.AsPersistentVolumeClaimResult(pvc, err)
 
@@ -177,7 +177,7 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 }
 
 func (r *Reconciler) cleanupToolInjectionResources(ctx context.Context, tn *obj.Tenant) error {
-	job := obj.NewJob(client.ObjectKey{Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadWriteOnce, Namespace: tn.Object.Spec.NamespaceTemplate.Metadata.GetName()})
+	job := obj.NewJob(client.ObjectKey{Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadWriteOnce, Namespace: tn.Object.Status.Namespace})
 	_, err := job.Load(ctx, r.Client)
 	if err != nil {
 		return err
@@ -228,7 +228,7 @@ func (r *Reconciler) createReadOnlyVolumeClaim(ctx context.Context, tn *obj.Tena
 	pvcn := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany,
-			Namespace:   tn.Object.Spec.NamespaceTemplate.Metadata.GetName(),
+			Namespace:   tn.Object.Status.Namespace,
 			Annotations: tn.Object.Spec.ToolInjection.VolumeClaimTemplate.Annotations,
 			Labels:      tn.Object.Spec.ToolInjection.VolumeClaimTemplate.Labels,
 		},
@@ -239,7 +239,7 @@ func (r *Reconciler) createReadOnlyVolumeClaim(ctx context.Context, tn *obj.Tena
 		},
 	}
 
-	key := client.ObjectKey{Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany, Namespace: tn.Object.Spec.NamespaceTemplate.Metadata.GetName()}
+	key := client.ObjectKey{Name: pvcn.GetName(), Namespace: pvcn.GetNamespace()}
 	pvcno, err := obj.ApplyPersistentVolumeClaim(ctx, r.Client, key, pvcn)
 	if err != nil {
 		return nil, err
@@ -252,7 +252,7 @@ func (r *Reconciler) createReadWriteVolumeClaim(ctx context.Context, tn *obj.Ten
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadWriteOnce,
-			Namespace: tn.Object.Spec.NamespaceTemplate.Metadata.GetName(),
+			Namespace: tn.Object.Status.Namespace,
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
 			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
@@ -261,7 +261,7 @@ func (r *Reconciler) createReadWriteVolumeClaim(ctx context.Context, tn *obj.Ten
 		},
 	}
 
-	key := client.ObjectKey{Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadWriteOnce, Namespace: tn.Object.Spec.NamespaceTemplate.Metadata.GetName()}
+	key := client.ObjectKey{Name: pvc.GetName(), Namespace: pvc.GetNamespace()}
 	pvco, err := obj.ApplyPersistentVolumeClaim(ctx, r.Client, key, pvc)
 	if err != nil {
 		return nil, err
@@ -295,13 +295,12 @@ func (r *Reconciler) initializeVolumeClaim(ctx context.Context, tn *obj.Tenant) 
 	j := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadWriteOnce,
-			Namespace: tn.Object.Spec.NamespaceTemplate.Metadata.GetName(),
+			Namespace: tn.Object.Status.Namespace,
 		},
 		Spec: batchv1.JobSpec{
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      model.ToolInjectionMountName,
-					Namespace: tn.Object.Spec.NamespaceTemplate.Metadata.GetName(),
+					Name: model.ToolInjectionMountName,
 				},
 				Spec: corev1.PodSpec{
 					Containers:    []corev1.Container{container},
@@ -327,7 +326,7 @@ func (r *Reconciler) initializeVolumeClaim(ctx context.Context, tn *obj.Tenant) 
 		},
 	}
 
-	key := client.ObjectKey{Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadWriteOnce, Namespace: tn.Object.Spec.NamespaceTemplate.Metadata.GetName()}
+	key := client.ObjectKey{Name: j.GetName(), Namespace: j.GetNamespace()}
 	job, err := obj.ApplyJob(ctx, r.Client, key, j)
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return nil, err

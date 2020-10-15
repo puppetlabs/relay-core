@@ -23,17 +23,12 @@ jobs:
   include:
   - stage: test
     before_script:
-    - curl -Lo ./kind "https://kind.sigs.k8s.io/dl/v0.8.1/kind-linux-amd64"
-    - chmod +x ./kind
+    - docker build -t localhost/kindest/node-gvisor hack/kind-gvisor/
+    - ( cd; GO111MODULE=on go get sigs.k8s.io/kind@v0.9.0 gotest.tools/gotestsum )
     - export KUBECONFIG=/tmp/kubeconfig-kind
-    - ./kind create cluster
+    - kind create cluster --image localhost/kindest/node-gvisor --config hack/kind-gvisor/config.yaml
     script:
-    - |
-      while sleep 9m; do
-        echo -e '--- OUT-OF-BAND: Waiting...' >&2
-      done &
-    - RELAY_TEST_E2E_KUBECONFIG="${KUBECONFIG}" ./scripts/ci test
-    - kill %1
+    - RELAY_TEST_E2E_KUBECONFIG="${KUBECONFIG}" RELAY_TEST_E2E_GVISOR_HANDLER=runsc ./scripts/ci test
   - stage: build
     before_script:
     - if [ ! -d "$HOME/google-cloud-sdk/bin" ]; then rm -rf $HOME/google-cloud-sdk;

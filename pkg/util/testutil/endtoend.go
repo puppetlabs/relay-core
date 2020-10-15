@@ -2,6 +2,7 @@ package testutil
 
 import (
 	"context"
+	"crypto/sha1"
 	"fmt"
 	"log"
 	"path"
@@ -33,9 +34,19 @@ type EndToEndEnvironment struct {
 	ControllerRuntimeClient client.Client
 	Interface               kubernetes.Interface
 	TektonInterface         tekton.Interface
+	GVisorRuntimeClassName  string
 }
 
-func (e *EndToEndEnvironment) WithTestNamespace(t *testing.T, ctx context.Context, fn func(ns *corev1.Namespace)) {
+func (e *EndToEndEnvironment) testNamespaceLabels(t *testing.T) map[string]string {
+	hash := sha1.Sum([]byte(t.Name()))
+
+	return map[string]string{
+		"testing.relay.sh/harness": "end-to-end",
+		"testing.relay.sh/test":    fmt.Sprintf("test-%x", hash[:]),
+	}
+}
+
+func (e *EndToEndEnvironment) withNamespace(t *testing.T, ctx context.Context, labels map[string]string, fn func(ns *corev1.Namespace)) {
 	namePrefix := strings.Map(func(r rune) rune {
 		if r >= 'A' && r <= 'Z' {
 			return r | 0x20
@@ -53,10 +64,7 @@ func (e *EndToEndEnvironment) WithTestNamespace(t *testing.T, ctx context.Contex
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: fmt.Sprintf("relay-e2e-%s-", namePrefix),
-			Labels: map[string]string{
-				"testing.relay.sh/harness":    "end-to-end",
-				"testing.relay.sh/tools-volume-claim": "true",
-			},
+			Labels:       labels,
 		},
 	}
 	require.NoError(t, e.ControllerRuntimeClient.Create(ctx, ns))
@@ -80,6 +88,22 @@ func (e *EndToEndEnvironment) WithTestNamespace(t *testing.T, ctx context.Contex
 	}))
 
 	fn(ns)
+}
+
+func (e *EndToEndEnvironment) WithTestNamespace(t *testing.T, ctx context.Context, fn func(ns *corev1.Namespace)) {
+	e.withNamespace(t, ctx, e.testNamespaceLabels(t), fn)
+}
+
+// WithUtilNamespace creates a unique namespace for this environment that will
+// not be automatically matched by the namespace selector for this test.
+func (e *EndToEndEnvironment) WithUtilNamespace(t *testing.T, ctx context.Context, fn func(ns *corev1.Namespace)) {
+	e.withNamespace(t, ctx, map[string]string{"testing.relay.sh/harness": "util"}, fn)
+}
+
+func (e *EndToEndEnvironment) TestNamespaceSelector(t *testing.T) *metav1.LabelSelector {
+	return &metav1.LabelSelector{
+		MatchLabels: e.testNamespaceLabels(t),
+	}
 }
 
 type EndToEndEnvironmentOption func(ctx context.Context, e *EndToEndEnvironment) error
@@ -208,6 +232,14 @@ func doEndToEndEnvironment(fn func(e *EndToEndEnvironment), opts ...EndToEndEnvi
 		ControllerRuntimeClient: client,
 		Interface:               ifc,
 		TektonInterface:         tkc,
+	}
+
+	if handler := viper.GetString("gvisor_handler"); handler != "" {
+		if err := doInstallGVisorRuntimeClass(ctx, e.ControllerRuntimeClient, handler); err != nil {
+			return true, fmt.Errorf("failed to configure gVisor: %+v", err)
+		}
+
+		e.GVisorRuntimeClassName = "runsc"
 	}
 
 	if viper.GetBool("install_environment") {
