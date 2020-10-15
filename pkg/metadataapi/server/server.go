@@ -52,7 +52,7 @@ func WithTrustedProxyHops(n int) Option {
 
 func WithSchemaRegistry(r validation.SchemaRegistry) Option {
 	return func(s *Server) {
-		s.SchemaRegistry = r
+		s.schemaRegistry = r
 	}
 }
 

@@ -10,7 +10,7 @@ import (
 
 type ServerOption func(*Server)
 
-func WithSpecSchemaRegistry(reg validation.SchemaRegistry) ServerOption {
+func WithSchemaRegistry(reg validation.SchemaRegistry) ServerOption {
 	return func(s *Server) {
 		s.schemaRegistry = reg
 	}

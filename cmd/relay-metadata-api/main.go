@@ -112,7 +112,7 @@ func main() {
 				return fmt.Errorf("failed to initialize step metadata schema registry: %+v", err)
 			}
 
-			serverOpts = append(serverOpts, server.WithSpecSchemaRegistry(reg))
+			serverOpts = append(serverOpts, server.WithSchemaRegistry(reg))
 		}
 
 		s := &http.Server{

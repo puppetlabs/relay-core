@@ -170,7 +170,7 @@ func TestValidationCapture(t *testing.T) {
 			capturer := alertstest.NewCapturer()
 
 			testutil.WithStepMetadataSchemaRegistry(t, filepath.Join("testdata/step-metadata.json"), func(reg validation.SchemaRegistry) {
-				h := api.NewHandler(sample.NewAuthenticator(c.sc, tokenGenerator.Key()), api.WithSpecSchemaRegistry(reg))
+				h := api.NewHandler(sample.NewAuthenticator(c.sc, tokenGenerator.Key()), api.WithSchemaRegistry(reg))
 				h = capturer.Middleware().Wrap(h)
 
 				req, err := http.NewRequest(http.MethodPost, "/validate", nil)
