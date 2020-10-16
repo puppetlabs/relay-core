@@ -5,6 +5,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -110,10 +111,7 @@ func getEnvironmentVariables(mu *url.URL) error {
 			switch t := r.Value.Data.(type) {
 			case map[string]interface{}:
 				for name, value := range t {
-					switch v := value.(type) {
-					case string:
-						os.Setenv(name, v)
-					}
+					os.Setenv(name, fmt.Sprintf("%v", value))
 				}
 			}
 		}

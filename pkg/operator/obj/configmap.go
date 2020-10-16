@@ -89,7 +89,7 @@ func ConfigureImmutableConfigMapForWebhookTrigger(ctx context.Context, cm *Confi
 				return errmark.MarkUser(err)
 			}
 
-			vars[name] = r.Value.(map[string]interface{})
+			vars[name] = r.Value
 		}
 
 		em.Set(ctx, vars)
@@ -150,7 +150,7 @@ func ConfigureImmutableConfigMapForWorkflowRun(ctx context.Context, cm *ConfigMa
 					return errmark.MarkUser(err)
 				}
 
-				vars[name] = r.Value.(map[string]interface{})
+				vars[name] = r.Value
 			}
 
 			em.Set(ctx, vars)
