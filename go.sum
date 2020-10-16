@@ -2319,6 +2319,7 @@ gopkg.in/yaml.v2 v2.2.8/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=
 gopkg.in/yaml.v2 v2.3.0 h1:clyUAQHOM3G0M3f5vQj7LuJrETvjVot3Z5el9nffUtU=
 gopkg.in/yaml.v2 v2.3.0/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=
 gopkg.in/yaml.v3 v3.0.0-20190709130402-674ba3eaed22/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
+gopkg.in/yaml.v3 v3.0.0-20190905181640-827449938966/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
 gopkg.in/yaml.v3 v3.0.0-20191010095647-fc94e3f71652 h1:VKvJ/mQ4BgCjZUDggYFxTe0qv9jPMHsZPD4Xt91Y5H4=
 gopkg.in/yaml.v3 v3.0.0-20191010095647-fc94e3f71652/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
 gotest.tools v2.2.0+incompatible h1:VsBPFP1AI068pPrMxtb/S8Zkgf9xEmTLJjfM+P5UIEo=
@@ -2431,6 +2432,8 @@ sigs.k8s.io/controller-runtime v0.5.11 h1:U/FjGJ61aR2T2mCrdlBCxEcWgLEwLmK6YZKf0N
 sigs.k8s.io/controller-runtime v0.5.11/go.mod h1:OTqxLuz7gVcrq+BHGUgedRu6b2VIKCEc7Pu4Jbwui0A=
 sigs.k8s.io/controller-tools v0.2.1 h1:HoCik83vXOpPi7KSJWdPRmiGntyOzK0v0BTV4U+pl8o=
 sigs.k8s.io/controller-tools v0.2.1/go.mod h1:cenyhL7t2e7izk/Zy7ZxDqQ9YEj0niU5VDL1PWMgZ5s=
+sigs.k8s.io/controller-tools v0.2.9 h1:DEZuCFWANX2zlZVMlf/XmhSq0HzmGCZ/GTdPJig62ig=
+sigs.k8s.io/controller-tools v0.2.9/go.mod h1:ArP7w60JQKkZf7UU2oWTVnEhoNGA+sOMyuSuS+JFNDQ=
 sigs.k8s.io/kustomize v2.0.3+incompatible/go.mod h1:MkjgH3RdOWrievjo6c9T245dYlB5QeXV4WCbnt/PEpU=
 sigs.k8s.io/structured-merge-diff v0.0.0-20190525122527-15d366b2352e/go.mod h1:wWxsB5ozmmv/SG7nM11ayaAW51xMvak/t1r0CSlcokI=
 sigs.k8s.io/structured-merge-diff v1.0.1-0.20191108220359-b1b620dd3f06/go.mod h1:/ULNhyfzRopfcjskuui0cTITekDduZ7ycKN3oUT9R18=
