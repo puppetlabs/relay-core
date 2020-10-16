@@ -287,6 +287,7 @@ func (r *Reconciler) initializeVolumeClaim(ctx context.Context, tn *obj.Tenant) 
 				MountPath: model.ToolInjectionMountPath,
 			},
 		},
+		ImagePullPolicy: corev1.PullAlways,
 	}
 
 	defaultLimit := int32(1)
