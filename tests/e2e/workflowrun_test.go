@@ -375,6 +375,9 @@ func TestWorkflowRun(t *testing.T) {
 									"$type": "Secret",
 									"name":  "secretAccessKey",
 								},
+								"ENVIRONMENT": "test",
+								"DRYRUN":      true,
+								"BACKOFF":     300,
 							}),
 							Input: []string{
 								"trap : TERM INT",
@@ -461,6 +464,9 @@ func TestWorkflowRun(t *testing.T) {
 		assert.Equal(t, map[string]interface{}{
 			"AWS_ACCESS_KEY_ID":     "AKIA123456789",
 			"AWS_SECRET_ACCESS_KEY": "that's-a-very-nice-key-you-have-there",
+			"ENVIRONMENT":           "test",
+			"DRYRUN":                true,
+			"BACKOFF":               float64(300),
 		}, result.Value.Data)
 
 		req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("%s/environment/AWS_ACCESS_KEY_ID", cfg.MetadataAPIURL), nil)
@@ -486,6 +492,42 @@ func TestWorkflowRun(t *testing.T) {
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(&result))
 		assert.True(t, result.Complete)
 		assert.Equal(t, "that's-a-very-nice-key-you-have-there", result.Value.Data)
+
+		req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("%s/environment/ENVIRONMENT", cfg.MetadataAPIURL), nil)
+		require.NoError(t, err)
+		req.Header.Set("X-Forwarded-For", pod.Status.PodIP)
+
+		resp, err = http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(&result))
+		assert.True(t, result.Complete)
+		assert.Equal(t, "test", result.Value.Data)
+
+		req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("%s/environment/DRYRUN", cfg.MetadataAPIURL), nil)
+		require.NoError(t, err)
+		req.Header.Set("X-Forwarded-For", pod.Status.PodIP)
+
+		resp, err = http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(&result))
+		assert.True(t, result.Complete)
+		assert.Equal(t, true, result.Value.Data)
+
+		req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("%s/environment/BACKOFF", cfg.MetadataAPIURL), nil)
+		require.NoError(t, err)
+		req.Header.Set("X-Forwarded-For", pod.Status.PodIP)
+
+		resp, err = http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(&result))
+		assert.True(t, result.Complete)
+		assert.Equal(t, float64(300), result.Value.Data)
 	})
 }
 
