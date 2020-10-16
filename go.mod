@@ -66,7 +66,7 @@ require (
 	knative.dev/pkg v0.0.0-20200702222342-ea4d6e985ba0
 	knative.dev/serving v0.16.0
 	sigs.k8s.io/controller-runtime v0.5.11
-	sigs.k8s.io/controller-tools v0.2.1
+	sigs.k8s.io/controller-tools v0.2.9
 )
 
 replace (
