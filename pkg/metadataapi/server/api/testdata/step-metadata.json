@@ -1,0 +1,206 @@
+[
+  {
+    "apiVersion": "integration/v1",
+    "kind": "Step",
+    "name": "kubernetes-step-kubectl",
+    "version": 3,
+    "summary": "Kubectl",
+    "description": "This Kubectl step container allows general `kubectl` use and can take `kubectl` commands.",
+    "icon": "https://raw.githubusercontent.com/relay-integrations/relay-kubernetes/master/media/logo.svg",
+    "build": {
+      "apiVersion": "build/v1",
+      "kind": "Docker"
+    },
+    "publish": {
+      "repository": "relaysh/kubernetes-step-kubectl"
+    },
+    "schemas": {
+      "spec": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "cluster": {
+            "type": "object",
+            "description": "A map of configuration and credentials for accessing a Kubernetes cluster.",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "A name for the Kubernetes cluster. Used for referencing it via kubectl contexts."
+              },
+              "connection": {
+                "type": "object",
+                "x-relay-connectionType": "kubernetes",
+                "description": "A Relay Kubernetes connection to use",
+                "properties": {
+                  "server": {
+                    "type": "string",
+                    "description": "Kubernetes cluster server"
+                  },
+                  "certificateAuthority": {
+                    "type": "string",
+                    "description": "Kubernetes cluster ca.crt PEM-encoded content"
+                  },
+                  "token": {
+                    "type": "string",
+                    "description": "Kubernetes cluster token"
+                  }
+                },
+                "required": [
+                  "server",
+                  "certificateAuthority",
+                  "token"
+                ]
+              }
+            },
+            "required": [
+              "name",
+              "connection"
+            ]
+          },
+          "command": {
+            "type": "string",
+            "description": "The command to pass to kubectl. For example, `apply`."
+          },
+          "args": {
+            "type": "string",
+            "description": "A string of arguments for commands other than `apply`."
+          },
+          "file": {
+            "type": "string",
+            "description": "A resource file to use when command is `apply`."
+          },
+          "namespace": {
+            "type": "string",
+            "description": "The namespace to run the command under.",
+            "default": "default"
+          },
+          "git": {
+            "type": "object",
+            "description": "A map of git configuration. If you're using HTTPS, only name and repository are required.",
+            "properties": {
+              "ssh_key": {
+                "type": "string",
+                "description": "The SSH key to use when cloning the git repository. You can pass the key to Relay as a secret. See the example below."
+              },
+              "known_hosts": {
+                "type": "string",
+                "description": "SSH known hosts file. Use a Relay secret to pass the contents of the file into the workflow as a base64-encoded string. See the example below."
+              },
+              "name": {
+                "type": "string",
+                "description": "A directory name for the git clone."
+              },
+              "branch": {
+                "type": "string",
+                "description": "The Git branch to clone.",
+                "default": "master"
+              },
+              "repository": {
+                "type": "string",
+                "description": "The git repository URL."
+              }
+            },
+            "required": [
+              "ssh_key",
+              "name",
+              "repository"
+            ]
+          }
+        },
+        "required": [
+          "cluster",
+          "command"
+        ],
+        "additionalProperties": false
+      },
+      "outputs": {}
+    },
+    "id": "steps/kubernetes/kubernetes-step-kubectl",
+    "tags": [],
+    "associatedContent": {
+      "integration": "integrations/kubernetes",
+      "workflows": [
+        "workflows/datadog-k8s-rollback"
+      ]
+    },
+    "homepage": "https://raw.githubusercontent.com/relay-integrations/relay-kubernetes/master/steps/kubernetes-step-kubectl",
+    "readme": "# kubernetes-step-kubectl\n\nThis Kubectl step container allows general `kubectl` use and can take `kubectl` commands.\n\n## Examples\n\nHere is an example of the step in a Relay workflow:\n\n```YAML\nsteps:\n\n...\n\n- name: kubectl\n  image: relaysh/kubernetes-step-kubectl\n  spec:\n    command: apply\n    args: \n    - \"-k\"\n    - \"dir/\"\n    file: infra/resources.yaml\n    namespace: default\n    cluster:\n      name: my-cluster\n      connection: !Connection { type: kubernetes, name: my-cluster }\n    git: \n      ssh_key:\n        $type: Secret\n        name: ssh_key\n      known_hosts:\n        $type: Secret\n        name: known_hosts\n      name: my-git-repo\n      branch: dev\n      repository: path/to/your/repo\n```\n"
+  },
+  {
+    "apiVersion": "integration/v1",
+    "kind": "Step",
+    "name": "message-send",
+    "tags": [
+      "collaboration",
+      "messaging",
+      "alerts",
+      "alerting"
+    ],
+    "version": 1,
+    "summary": "Send a message to a Slack channel",
+    "description": "This step sends a message to a Slack channel.\n",
+    "build": {
+      "apiVersion": "build/v1",
+      "kind": "Docker"
+    },
+    "publish": {
+      "repository": "relaysh/slack-step-message-send"
+    },
+    "schemas": {
+      "spec": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "connection": {
+            "type": "object",
+            "x-relay-connectionType": "slack",
+            "description": "A Relay Slack connection to use",
+            "properties": {
+              "apiToken": {
+                "type": "string",
+                "description": "The Slack App OAuth token to use"
+              }
+            },
+            "required": [
+              "apiToken"
+            ]
+          },
+          "channel": {
+            "type": "string",
+            "description": "Channel to send message to."
+          },
+          "username": {
+            "type": "string",
+            "description": "Username to send message as."
+          },
+          "message": {
+            "type": "string",
+            "description": "Message to send."
+          }
+        },
+        "required": [
+          "connection",
+          "channel",
+          "username",
+          "message"
+        ],
+        "additionalProperties": false
+      },
+      "outputs": {}
+    },
+    "id": "steps/slack/message-send",
+    "associatedContent": {
+      "integration": "integrations/slack",
+      "workflows": [
+        "workflows/datadog-to-slack",
+        "workflows/dynamodb-capacity-monitor",
+        "workflows/pagerduty-production-incident-policy",
+        "workflows/pagerduty-to-slack",
+        "workflows/pulumi-preview"
+      ]
+    },
+    "icon": "https://raw.githubusercontent.com/relay-integrations/relay-slack/master/media/logo.svg",
+    "homepage": "https://raw.githubusercontent.com/relay-integrations/relay-slack/master/steps/message-send",
+    "readme": "# slack-step-message-send\n\nThis [Slack](https://slack.com) step sends a message to a desired channel.\n\nIn order to connect to Slack you will need to **Create a new Slack app** at [https://api.slack.com/apps/](https://api.slack.com/apps?new_app=1), then:\n\n* Give it a name like \"Notifications from Relay.sh\"\n* Select the workspace you want to target for notifications\n* Navigate to **Add features and functionality**\n  * Click **Permissions**\n  * On the **OAuth and Permissions** page, go to **Scopes**\n  * Under **Bot Token Scopes**, add `chat:write`, `chat:write.public`, `chat:write.customize`\n* For some organizations your Slack app may require approval before it can be installed.\n* Once approved and installed, you'll see a **Bot User OAuth Access Token** on the site.\n* In Relay, go to the **Connections** tab and click **Add connection**. Choose **Slack** from the drop-down.\n* Give the connection a name which you'll reference in your workflows and paste the token in.\n\n## Example  \n\n```yaml\nsteps:\n# ...\n- name: notify-slack\n  image: relaysh/slack-step-message-send\n  spec:\n    channel: nebula-workflows\n    connection: !Connection { type: slack, name: my-slack-account}\n    message: \"hello Relay!\"\n    username: \"Relay Workflows\"\n```\n"
+  }
+]

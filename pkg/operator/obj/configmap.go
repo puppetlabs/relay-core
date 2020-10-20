@@ -89,7 +89,7 @@ func ConfigureImmutableConfigMapForWebhookTrigger(ctx context.Context, cm *Confi
 				return errmark.MarkUser(err)
 			}
 
-			vars[name] = r.Value.(map[string]interface{})
+			vars[name] = r.Value
 		}
 
 		em.Set(ctx, vars)
@@ -124,7 +124,7 @@ func ConfigureImmutableConfigMapForWorkflowRun(ctx context.Context, cm *ConfigMa
 
 	ev := evaluate.NewEvaluator()
 
-	scripts := make(map[string]string)
+	configMapData := make(map[string]string)
 
 	for _, step := range wr.Object.Spec.Workflow.Steps {
 		sm := ModelStep(wr, step)
@@ -150,7 +150,7 @@ func ConfigureImmutableConfigMapForWorkflowRun(ctx context.Context, cm *ConfigMa
 					return errmark.MarkUser(err)
 				}
 
-				vars[name] = r.Value.(map[string]interface{})
+				vars[name] = r.Value
 			}
 
 			em.Set(ctx, vars)
@@ -168,13 +168,13 @@ func ConfigureImmutableConfigMapForWorkflowRun(ctx context.Context, cm *ConfigMa
 		}
 
 		if len(step.Input) > 0 {
-			scripts[scriptConfigMapKey(sm)] = model.ScriptForInput(step.Input)
+			configMapData[scriptConfigMapKey(sm)] = model.ScriptForInput(step.Input)
 		}
 	}
 
-	if len(scripts) > 0 {
+	if len(configMapData) > 0 {
 		if _, err := configmap.MutateConfigMap(ctx, lcm, func(cm *corev1.ConfigMap) {
-			for name, value := range scripts {
+			for name, value := range configMapData {
 				cm.Data[name] = value
 			}
 		}); err != nil {

@@ -36,7 +36,7 @@ require (
 	github.com/prometheus/client_golang v1.6.0 // indirect
 	github.com/puppetlabs/errawr-gen v1.0.1
 	github.com/puppetlabs/errawr-go/v2 v2.2.0
-	github.com/puppetlabs/horsehead/v2 v2.10.0
+	github.com/puppetlabs/horsehead/v2 v2.16.0
 	github.com/puppetlabs/paesslerag-gval v1.0.2-0.20191119012647-d2c694821b5b
 	github.com/puppetlabs/paesslerag-jsonpath v0.1.2-0.20200512062544-1e26d7ca225e
 	github.com/rancher/remotedialer v0.2.5
@@ -66,7 +66,7 @@ require (
 	knative.dev/pkg v0.0.0-20200702222342-ea4d6e985ba0
 	knative.dev/serving v0.16.0
 	sigs.k8s.io/controller-runtime v0.5.11
-	sigs.k8s.io/controller-tools v0.2.1
+	sigs.k8s.io/controller-tools v0.2.9
 )
 
 replace (

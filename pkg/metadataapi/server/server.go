@@ -9,6 +9,7 @@ import (
 	"github.com/puppetlabs/horsehead/v2/instrumentation/alerts/trackers"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/api"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/middleware"
+	"github.com/puppetlabs/relay-core/pkg/workflow/validation"
 )
 
 type Server struct {
@@ -16,6 +17,7 @@ type Server struct {
 	errorSensitivity errawr.ErrorSensitivity
 	capturer         trackers.Capturer
 	trustedProxyHops int
+	schemaRegistry   validation.SchemaRegistry
 }
 
 func (s *Server) Route(r *mux.Router) {
@@ -24,7 +26,8 @@ func (s *Server) Route(r *mux.Router) {
 	r.HandleFunc("/healthz", s.GetHealthz).Methods("GET")
 
 	// This has a different set of middleware so bind it under a subrouter.
-	api.NewServer(s.auth).Route(r.NewRoute().Subrouter())
+	api.NewServer(s.auth, api.WithSchemaRegistry(s.schemaRegistry)).
+		Route(r.NewRoute().Subrouter())
 }
 
 type Option func(s *Server)
@@ -44,6 +47,12 @@ func WithCapturer(capturer trackers.Capturer) Option {
 func WithTrustedProxyHops(n int) Option {
 	return func(s *Server) {
 		s.trustedProxyHops = n
+	}
+}
+
+func WithSchemaRegistry(r validation.SchemaRegistry) Option {
+	return func(s *Server) {
+		s.schemaRegistry = r
 	}
 }
 

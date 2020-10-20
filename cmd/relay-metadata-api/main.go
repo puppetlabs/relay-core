@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 
 	"github.com/inconshreveable/log15"
@@ -17,6 +18,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/middleware"
 	"github.com/puppetlabs/relay-core/pkg/util/lifecycleutil"
+	"github.com/puppetlabs/relay-core/pkg/workflow/validation"
 )
 
 func main() {
@@ -97,6 +99,20 @@ func main() {
 				WithAppPackages([]string{"github.com/puppetlabs/relay-core"})
 
 			serverOpts = append(serverOpts, server.WithCapturer(capturer))
+		}
+
+		if cfg.StepMetadataURL != "" {
+			u, err := url.Parse(cfg.StepMetadataURL)
+			if err != nil {
+				return fmt.Errorf("failed to parse step metadata URL: %+v", err)
+			}
+
+			reg, err := validation.NewStepMetadataSchemaRegistry(u)
+			if err != nil {
+				return fmt.Errorf("failed to initialize step metadata schema registry: %+v", err)
+			}
+
+			serverOpts = append(serverOpts, server.WithSchemaRegistry(reg))
 		}
 
 		s := &http.Server{

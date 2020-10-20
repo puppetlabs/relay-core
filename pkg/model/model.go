@@ -41,6 +41,7 @@ type MetadataManagers interface {
 	Secrets() SecretManager
 	Spec() SpecGetterManager
 	State() StateGetterManager
+	ActionMetadata() ActionMetadataManager
 	StepOutputs() StepOutputManager
 }
 
