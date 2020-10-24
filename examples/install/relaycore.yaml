@@ -1,0 +1,10 @@
+apiVersion: install.relay.sh/v1alpha1
+kind: RelayCore
+metadata:
+  name: relay-core-test
+  namespace: default
+spec:
+  environment: dev
+  operator:
+    standalone: true
+    storageAddr: file:///tmp

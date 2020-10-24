@@ -23,36 +23,146 @@ import (
 
 // RelayCoreSpec defines the desired state of RelayCore
 type RelayCoreSpec struct {
-	Operator    OperatorConfig    `json:"operator"`
-	MetadataAPI MetadataAPIConfig `json:"metadataAPI"`
+	// +kubebuilder:default="dev"
+	// +optional
+	Environment string `json:"environment"`
+
+	// +kubebuilder:default={image: "relaysh/relay-operator:latest"}
+	// +optional
+	Operator *OperatorConfig `json:"operator"`
+
+	// +kubebuilder:default={image: "relaysh/relay-metadata-api:latest"}
+	// +optional
+	MetadataAPI *MetadataAPIConfig `json:"metadataAPI"`
+
+	// +kubebuilder:default={sidecar: {image: "vault:latest"}}
+	// +optional
+	Vault *VaultConfig `json:"vault"`
 }
 
 // OperatorConfig is the configuration for the relay-operator deployment
 type OperatorConfig struct {
-	Image           string            `json:"image"`
+	// +kubebuilder:default="relaysh/relay-operator:latest"
+	// +optional
+	Image string `json:"image"`
+
+	// +kubebuilder:default="IfNotPresent"
+	// +optional
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy"`
-	Env             []corev1.EnvVar   `json:"env"`
-	NodeSelector    map[string]string `json:"nodeSelector"`
 
 	// +optional
-	Standalone *bool `json:"standalone,omitempty"`
+	Env []corev1.EnvVar `json:"env"`
 
-	StorageAddr  string       `json:"storageAddr"`
-	VaultSidecar VaultSidecar `json:"vaultSidecar"`
-	Workers      int32        `json:"workers"`
+	// GenerateJWTSigningKey will generate a JWT signing key and store it in a
+	// Secret for use by the operator pods. If this field is set to true, then
+	// the below JWTSigningKeySecretName is ignored.
+	//
+	// +kubebuilder:default=false
+	GenerateJWTSigningKey bool `json:"generateJWTSigningKey"`
+
+	// JWTSigningKeySecretName is the name of the secret object that holds a
+	// JWT signing key.  The secret object MUST have a data field called
+	// "key.pem".  This field is ignored if GenerateJWTSigningKey is true.
+	//
+	// +optional
+	JWTSigningKeySecretName *string `json:"jwtSigningKeySecretName"`
+
+	// MetricsEnabled enables the metrics server for the operator deployment
+	// and creates a service that can be used to scrape those metrics.
+	//
+	// +optional
+	MetricsEnabled bool `json:"metricsEnabled"`
+
+	// TenantSandboxingRuntimeClassName sets the class to use for sandboxing
+	// application kernels on tenant pods. If this is set to a value, then
+	// tenant sandboxing is enabled in the operator.
+	// TODO: should this be an kubebuilder enum of supported runtimes?
+	//
+	// +optional
+	TenantSandboxingRuntimeClassName *string `json:"tenantSandboxingRuntimeClassName"`
+
+	// +optional
+	NodeSelector map[string]string `json:"nodeSelector"`
+
+	// +kubebuilder:default=false
+	Standalone bool `json:"standalone"`
+
+	// +optional
+	StorageAddr string `json:"storageAddr"`
+
+	// +kubebuilder:default=2
+	// +optional
+	Workers int32 `json:"workers"`
+
+	// +kubebuilder:default={image: "relaysh/relay-runtime-tools:latest"}
+	ToolInjection *ToolInjectionConfig `json:"toolInjection,omitempty"`
 }
 
 // MetadataAPIConfig is the configuration for the relay-metadata-api deployment
 type MetadataAPIConfig struct {
-	Image           string            `json:"image"`
+	// +kubebuilder:default="relaysh/relay-metadata-api:latest"
+	// +optional
+	Image string `json:"image"`
+
+	// +kubebuilder:default="IfNotPresent"
+	// +optional
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy"`
-	Env             []corev1.EnvVar   `json:"env"`
-	NodeSelector    map[string]string `json:"nodeSelector"`
-	VaultSidecar    VaultSidecar      `json:"vaultSidecar"`
+
+	// +optional
+	Env []corev1.EnvVar `json:"env"`
+
+	// +optional
+	NodeSelector map[string]string `json:"nodeSelector"`
+
+	// +kubebuilder:default=1
+	// +optional
+	Replicas int32 `json:"replicas"`
+
+	// +optional
+	URL *string `json:"url,omitempty"`
+}
+
+type VaultConfig struct {
+	// +kubebuilder:default="metadata-api"
+	// +optional
+	TransitKey string `json:"transitKey"`
+
+	// +kubebuilder:default="transit-tenants"
+	// +optional
+	TransitPath string `json:"transitPath"`
+
+	// +kubebuilder:default={image: "vault:latest"}
+	// +optional
+	Sidecar *VaultSidecar `json:"sidecar"`
 }
 
 type VaultSidecar struct {
-	Image           string            `json:"image"`
+	// +kubebuilder:default="vault:latest"
+	// +optional
+	Image string `json:"image"`
+
+	// +kubebuilder:default="IfNotPresent"
+	// +optional
+	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy"`
+
+	// +kubebuilder:default={limits: {cpu: "50m", memory: "64Mi"}, requests: {cpu: "25m", memory: "32Mi"}}
+	// +optional
+	Resources corev1.ResourceRequirements `json:"resources"`
+
+	// +kubebuilder:default={mountPath: "/var/run/vault/config", name: "vault-agent-conf", readOnly: true}
+	// +optional
+	ConfigVolumeMounts corev1.VolumeMount `json:"configVolumeMount"`
+
+	// +kubebuilder:default={mountPath: "/var/run/secrets/kubernetes.io/serviceaccount@vault", name: "vault-agent-sa-token", readOnly: true}
+	// +optional
+	ServiceAccountVolumeMount corev1.VolumeMount `json:"serviceAccountVolumeMount"`
+}
+
+type ToolInjectionConfig struct {
+	Image string `json:"image"`
+
+	// +kubebuilder:default="IfNotPresent"
+	// +optional
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy"`
 }
 
@@ -61,7 +171,7 @@ type RelayCoreStatus struct {
 }
 
 // +kubebuilder:object:root=true
-
+// +kubebuilder:subresource:status
 // RelayCore is the Schema for the relaycores API
 type RelayCore struct {
 	metav1.TypeMeta   `json:",inline"`

@@ -32,7 +32,12 @@ spec:
           spec:
             description: RelayCoreSpec defines the desired state of RelayCore
             properties:
+              environment:
+                default: dev
+                type: string
               metadataAPI:
+                default:
+                  image: relaysh/relay-metadata-api:latest
                 description: MetadataAPIConfig is the configuration for the relay-metadata-api deployment
                 properties:
                   env:
@@ -115,33 +120,26 @@ spec:
                       type: object
                     type: array
                   image:
+                    default: relaysh/relay-metadata-api:latest
                     type: string
                   imagePullPolicy:
+                    default: IfNotPresent
                     description: PullPolicy describes a policy for if/when to pull a container image
                     type: string
                   nodeSelector:
                     additionalProperties:
                       type: string
                     type: object
-                  vaultSidecar:
-                    properties:
-                      image:
-                        type: string
-                      imagePullPolicy:
-                        description: PullPolicy describes a policy for if/when to pull a container image
-                        type: string
-                    required:
-                    - image
-                    - imagePullPolicy
-                    type: object
-                required:
-                - env
-                - image
-                - imagePullPolicy
-                - nodeSelector
-                - vaultSidecar
+                  replicas:
+                    default: 1
+                    format: int32
+                    type: integer
+                  url:
+                    type: string
                 type: object
               operator:
+                default:
+                  image: relaysh/relay-operator:latest
                 description: OperatorConfig is the configuration for the relay-operator deployment
                 properties:
                   env:
@@ -224,44 +222,142 @@ spec:
                       type: object
                     type: array
                   image:
+                    default: relaysh/relay-operator:latest
                     type: string
                   imagePullPolicy:
+                    default: IfNotPresent
                     description: PullPolicy describes a policy for if/when to pull a container image
                     type: string
+                  metricsEnabled:
+                    type: boolean
                   nodeSelector:
                     additionalProperties:
                       type: string
                     type: object
                   standalone:
+                    default: false
                     type: boolean
                   storageAddr:
                     type: string
-                  vaultSidecar:
+                  toolInjection:
+                    default:
+                      image: relaysh/relay-runtime-tools:latest
                     properties:
                       image:
                         type: string
                       imagePullPolicy:
+                        default: IfNotPresent
                         description: PullPolicy describes a policy for if/when to pull a container image
                         type: string
                     required:
                     - image
-                    - imagePullPolicy
                     type: object
                   workers:
+                    default: 2
                     format: int32
                     type: integer
                 required:
-                - env
-                - image
-                - imagePullPolicy
-                - nodeSelector
-                - storageAddr
-                - vaultSidecar
-                - workers
+                - standalone
                 type: object
-            required:
-            - metadataAPI
-            - operator
+              vaultSidecar:
+                default:
+                  image: vault:latest
+                properties:
+                  configVolumeMount:
+                    default:
+                      mountPath: /var/run/vault/config
+                      name: vault-agent-conf
+                      readOnly: true
+                    description: VolumeMount describes a mounting of a Volume within a container.
+                    properties:
+                      mountPath:
+                        description: Path within the container at which the volume should be mounted.  Must not contain ':'.
+                        type: string
+                      mountPropagation:
+                        description: mountPropagation determines how mounts are propagated from the host to container and the other way around. When not set, MountPropagationNone is used. This field is beta in 1.10.
+                        type: string
+                      name:
+                        description: This must match the Name of a Volume.
+                        type: string
+                      readOnly:
+                        description: Mounted read-only if true, read-write otherwise (false or unspecified). Defaults to false.
+                        type: boolean
+                      subPath:
+                        description: Path within the volume from which the container's volume should be mounted. Defaults to "" (volume's root).
+                        type: string
+                      subPathExpr:
+                        description: Expanded path within the volume from which the container's volume should be mounted. Behaves similarly to SubPath but environment variable references $(VAR_NAME) are expanded using the container's environment. Defaults to "" (volume's root). SubPathExpr and SubPath are mutually exclusive.
+                        type: string
+                    required:
+                    - mountPath
+                    - name
+                    type: object
+                  image:
+                    default: vault:latest
+                    type: string
+                  imagePullPolicy:
+                    default: IfNotPresent
+                    description: PullPolicy describes a policy for if/when to pull a container image
+                    type: string
+                  resources:
+                    default:
+                      limits:
+                        cpu: 50m
+                        memory: 64Mi
+                      requests:
+                        cpu: 25m
+                        memory: 32Mi
+                    description: ResourceRequirements describes the compute resource requirements.
+                    properties:
+                      limits:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        description: 'Limits describes the maximum amount of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                        type: object
+                      requests:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        description: 'Requests describes the minimum amount of compute resources required. If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                        type: object
+                    type: object
+                  serviceAccountVolumeMount:
+                    default:
+                      mountPath: /var/run/secrets/kubernetes.io/serviceaccount@vault
+                      name: vault-agent-sa-token
+                      readOnly: true
+                    description: VolumeMount describes a mounting of a Volume within a container.
+                    properties:
+                      mountPath:
+                        description: Path within the container at which the volume should be mounted.  Must not contain ':'.
+                        type: string
+                      mountPropagation:
+                        description: mountPropagation determines how mounts are propagated from the host to container and the other way around. When not set, MountPropagationNone is used. This field is beta in 1.10.
+                        type: string
+                      name:
+                        description: This must match the Name of a Volume.
+                        type: string
+                      readOnly:
+                        description: Mounted read-only if true, read-write otherwise (false or unspecified). Defaults to false.
+                        type: boolean
+                      subPath:
+                        description: Path within the volume from which the container's volume should be mounted. Defaults to "" (volume's root).
+                        type: string
+                      subPathExpr:
+                        description: Expanded path within the volume from which the container's volume should be mounted. Behaves similarly to SubPath but environment variable references $(VAR_NAME) are expanded using the container's environment. Defaults to "" (volume's root). SubPathExpr and SubPath are mutually exclusive.
+                        type: string
+                    required:
+                    - mountPath
+                    - name
+                    type: object
+                type: object
             type: object
           status:
             description: RelayCoreStatus defines the observed state of RelayCore
@@ -269,6 +365,8 @@ spec:
         type: object
     served: true
     storage: true
+    subresources:
+      status: {}
 status:
   acceptedNames:
     kind: ""
