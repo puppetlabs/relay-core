@@ -42,22 +42,30 @@ type RelayCoreSpec struct {
 
 // OperatorConfig is the configuration for the relay-operator deployment
 type OperatorConfig struct {
+	// StorageAddr is the storage address URI for log storage.
+	//
+	// +optional
+	StorageAddr string `json:"storageAddr"`
+
 	// +kubebuilder:default="relaysh/relay-operator:latest"
+	//
 	// +optional
 	Image string `json:"image"`
 
 	// +kubebuilder:default="IfNotPresent"
+	//
 	// +optional
-	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy"`
+	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 
 	// +optional
-	Env []corev1.EnvVar `json:"env"`
+	Env []corev1.EnvVar `json:"env,omitempty"`
 
 	// GenerateJWTSigningKey will generate a JWT signing key and store it in a
 	// Secret for use by the operator pods. If this field is set to true, then
 	// the below JWTSigningKeySecretName is ignored.
 	//
 	// +kubebuilder:default=false
+	// +optional
 	GenerateJWTSigningKey bool `json:"generateJWTSigningKey"`
 
 	// JWTSigningKeySecretName is the name of the secret object that holds a
@@ -79,23 +87,38 @@ type OperatorConfig struct {
 	// TODO: should this be an kubebuilder enum of supported runtimes?
 	//
 	// +optional
-	TenantSandboxingRuntimeClassName *string `json:"tenantSandboxingRuntimeClassName"`
+	TenantSandboxingRuntimeClassName *string `json:"tenantSandboxingRuntimeClassName,omitempty"`
 
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector"`
 
+	// SentryDSNSecretName is the secret that holds the DSN address for Sentry
+	// error and stacktrace collection. The secret object MUST have a data
+	// field called "dsn".
+	//
+	// +optional
+	SentryDSNSecretName *string `json:"sentryDSNSecretName,omitempty"`
+
 	// +kubebuilder:default=false
+	// +optional
 	Standalone bool `json:"standalone"`
 
-	// +optional
-	StorageAddr string `json:"storageAddr"`
-
+	// Workers is the number of workers the operator should run to process workflows
+	//
 	// +kubebuilder:default=2
 	// +optional
-	Workers int32 `json:"workers"`
+	Workers int32 `json:"workers,omitempty"`
 
+	// ToolInjection is the configuration for the entrypointer and tool injection runtime tooling.
+	//
 	// +kubebuilder:default={image: "relaysh/relay-runtime-tools:latest"}
 	ToolInjection *ToolInjectionConfig `json:"toolInjection,omitempty"`
+
+	// WebhookTLSSecretName is the name of the secret that holds the tls cert files for webhooks.
+	// The secret object MUST have two data fields called "tls.key" and "tls.crt".
+	//
+	// +optional
+	WebhookTLSSecretName *string `json:"webhookTLSSecretName"`
 }
 
 // MetadataAPIConfig is the configuration for the relay-metadata-api deployment
@@ -117,6 +140,16 @@ type MetadataAPIConfig struct {
 	// +kubebuilder:default=1
 	// +optional
 	Replicas int32 `json:"replicas"`
+
+	// SentryDSNSecretName is the secret that holds the DSN address for Sentry
+	// error and stacktrace collection. The secret object MUST have a data
+	// field called "dsn".
+	//
+	// +optional
+	SentryDSNSecretName *string `json:"sentryDSNSecretName,omitempty"`
+
+	// +optional
+	TLSSecretName *string `json:"tlsSecretName"`
 
 	// +optional
 	URL *string `json:"url,omitempty"`
@@ -156,6 +189,11 @@ type VaultSidecar struct {
 	// +kubebuilder:default={mountPath: "/var/run/secrets/kubernetes.io/serviceaccount@vault", name: "vault-agent-sa-token", readOnly: true}
 	// +optional
 	ServiceAccountVolumeMount corev1.VolumeMount `json:"serviceAccountVolumeMount"`
+
+	// ServerAddr is the address to the vault server the sidecar agent should connect to.
+	//
+	// +kubebuilder:default="http://vault:8200"
+	ServerAddr string `json:"serverAddr"`
 }
 
 type ToolInjectionConfig struct {

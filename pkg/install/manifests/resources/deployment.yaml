@@ -29,7 +29,10 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - configmaps
+  - serviceaccounts
   - services
+  - secrets
   verbs:
   - create
   - get

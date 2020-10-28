@@ -134,6 +134,11 @@ spec:
                     default: 1
                     format: int32
                     type: integer
+                  sentryDSNSecretName:
+                    description: SentryDSNSecretName is the secret that holds the DSN address for Sentry error and stacktrace collection. The secret object MUST have a data field called "dsn".
+                    type: string
+                  tlsSecretName:
+                    type: string
                   url:
                     type: string
                 type: object
@@ -221,6 +226,10 @@ spec:
                       - name
                       type: object
                     type: array
+                  generateJWTSigningKey:
+                    default: false
+                    description: GenerateJWTSigningKey will generate a JWT signing key and store it in a Secret for use by the operator pods. If this field is set to true, then the below JWTSigningKeySecretName is ignored.
+                    type: boolean
                   image:
                     default: relaysh/relay-operator:latest
                     type: string
@@ -228,20 +237,32 @@ spec:
                     default: IfNotPresent
                     description: PullPolicy describes a policy for if/when to pull a container image
                     type: string
+                  jwtSigningKeySecretName:
+                    description: JWTSigningKeySecretName is the name of the secret object that holds a JWT signing key.  The secret object MUST have a data field called "key.pem".  This field is ignored if GenerateJWTSigningKey is true.
+                    type: string
                   metricsEnabled:
+                    description: MetricsEnabled enables the metrics server for the operator deployment and creates a service that can be used to scrape those metrics.
                     type: boolean
                   nodeSelector:
                     additionalProperties:
                       type: string
                     type: object
+                  sentryDSNSecretName:
+                    description: SentryDSNSecretName is the secret that holds the DSN address for Sentry error and stacktrace collection. The secret object MUST have a data field called "dsn".
+                    type: string
                   standalone:
                     default: false
                     type: boolean
                   storageAddr:
+                    description: StorageAddr is the storage address URI for log storage.
+                    type: string
+                  tenantSandboxingRuntimeClassName:
+                    description: 'TenantSandboxingRuntimeClassName sets the class to use for sandboxing application kernels on tenant pods. If this is set to a value, then tenant sandboxing is enabled in the operator. TODO: should this be an kubebuilder enum of supported runtimes?'
                     type: string
                   toolInjection:
                     default:
                       image: relaysh/relay-runtime-tools:latest
+                    description: ToolInjection is the configuration for the entrypointer and tool injection runtime tooling.
                     properties:
                       image:
                         type: string
@@ -252,111 +273,131 @@ spec:
                     required:
                     - image
                     type: object
+                  webhookTLSSecretName:
+                    description: WebhookTLSSecretName is the name of the secret that holds the tls cert files for webhooks. The secret object MUST have two data fields called "tls.key" and "tls.crt".
+                    type: string
                   workers:
                     default: 2
+                    description: Workers is the number of workers the operator should run to process workflows
                     format: int32
                     type: integer
-                required:
-                - standalone
                 type: object
-              vaultSidecar:
+              vault:
                 default:
-                  image: vault:latest
+                  sidecar:
+                    image: vault:latest
                 properties:
-                  configVolumeMount:
+                  sidecar:
                     default:
-                      mountPath: /var/run/vault/config
-                      name: vault-agent-conf
-                      readOnly: true
-                    description: VolumeMount describes a mounting of a Volume within a container.
+                      image: vault:latest
                     properties:
-                      mountPath:
-                        description: Path within the container at which the volume should be mounted.  Must not contain ':'.
-                        type: string
-                      mountPropagation:
-                        description: mountPropagation determines how mounts are propagated from the host to container and the other way around. When not set, MountPropagationNone is used. This field is beta in 1.10.
-                        type: string
-                      name:
-                        description: This must match the Name of a Volume.
-                        type: string
-                      readOnly:
-                        description: Mounted read-only if true, read-write otherwise (false or unspecified). Defaults to false.
-                        type: boolean
-                      subPath:
-                        description: Path within the volume from which the container's volume should be mounted. Defaults to "" (volume's root).
-                        type: string
-                      subPathExpr:
-                        description: Expanded path within the volume from which the container's volume should be mounted. Behaves similarly to SubPath but environment variable references $(VAR_NAME) are expanded using the container's environment. Defaults to "" (volume's root). SubPathExpr and SubPath are mutually exclusive.
-                        type: string
-                    required:
-                    - mountPath
-                    - name
-                    type: object
-                  image:
-                    default: vault:latest
-                    type: string
-                  imagePullPolicy:
-                    default: IfNotPresent
-                    description: PullPolicy describes a policy for if/when to pull a container image
-                    type: string
-                  resources:
-                    default:
-                      limits:
-                        cpu: 50m
-                        memory: 64Mi
-                      requests:
-                        cpu: 25m
-                        memory: 32Mi
-                    description: ResourceRequirements describes the compute resource requirements.
-                    properties:
-                      limits:
-                        additionalProperties:
-                          anyOf:
-                          - type: integer
-                          - type: string
-                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                          x-kubernetes-int-or-string: true
-                        description: 'Limits describes the maximum amount of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                      configVolumeMount:
+                        default:
+                          mountPath: /var/run/vault/config
+                          name: vault-agent-conf
+                          readOnly: true
+                        description: VolumeMount describes a mounting of a Volume within a container.
+                        properties:
+                          mountPath:
+                            description: Path within the container at which the volume should be mounted.  Must not contain ':'.
+                            type: string
+                          mountPropagation:
+                            description: mountPropagation determines how mounts are propagated from the host to container and the other way around. When not set, MountPropagationNone is used. This field is beta in 1.10.
+                            type: string
+                          name:
+                            description: This must match the Name of a Volume.
+                            type: string
+                          readOnly:
+                            description: Mounted read-only if true, read-write otherwise (false or unspecified). Defaults to false.
+                            type: boolean
+                          subPath:
+                            description: Path within the volume from which the container's volume should be mounted. Defaults to "" (volume's root).
+                            type: string
+                          subPathExpr:
+                            description: Expanded path within the volume from which the container's volume should be mounted. Behaves similarly to SubPath but environment variable references $(VAR_NAME) are expanded using the container's environment. Defaults to "" (volume's root). SubPathExpr and SubPath are mutually exclusive.
+                            type: string
+                        required:
+                        - mountPath
+                        - name
                         type: object
-                      requests:
-                        additionalProperties:
-                          anyOf:
-                          - type: integer
-                          - type: string
-                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                          x-kubernetes-int-or-string: true
-                        description: 'Requests describes the minimum amount of compute resources required. If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                      image:
+                        default: vault:latest
+                        type: string
+                      imagePullPolicy:
+                        default: IfNotPresent
+                        description: PullPolicy describes a policy for if/when to pull a container image
+                        type: string
+                      resources:
+                        default:
+                          limits:
+                            cpu: 50m
+                            memory: 64Mi
+                          requests:
+                            cpu: 25m
+                            memory: 32Mi
+                        description: ResourceRequirements describes the compute resource requirements.
+                        properties:
+                          limits:
+                            additionalProperties:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                              x-kubernetes-int-or-string: true
+                            description: 'Limits describes the maximum amount of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                            type: object
+                          requests:
+                            additionalProperties:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                              x-kubernetes-int-or-string: true
+                            description: 'Requests describes the minimum amount of compute resources required. If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                            type: object
                         type: object
-                    type: object
-                  serviceAccountVolumeMount:
-                    default:
-                      mountPath: /var/run/secrets/kubernetes.io/serviceaccount@vault
-                      name: vault-agent-sa-token
-                      readOnly: true
-                    description: VolumeMount describes a mounting of a Volume within a container.
-                    properties:
-                      mountPath:
-                        description: Path within the container at which the volume should be mounted.  Must not contain ':'.
+                      serverAddr:
+                        default: http://vault:8200
+                        description: ServerAddr is the address to the vault server the sidecar agent should connect to.
                         type: string
-                      mountPropagation:
-                        description: mountPropagation determines how mounts are propagated from the host to container and the other way around. When not set, MountPropagationNone is used. This field is beta in 1.10.
-                        type: string
-                      name:
-                        description: This must match the Name of a Volume.
-                        type: string
-                      readOnly:
-                        description: Mounted read-only if true, read-write otherwise (false or unspecified). Defaults to false.
-                        type: boolean
-                      subPath:
-                        description: Path within the volume from which the container's volume should be mounted. Defaults to "" (volume's root).
-                        type: string
-                      subPathExpr:
-                        description: Expanded path within the volume from which the container's volume should be mounted. Behaves similarly to SubPath but environment variable references $(VAR_NAME) are expanded using the container's environment. Defaults to "" (volume's root). SubPathExpr and SubPath are mutually exclusive.
-                        type: string
+                      serviceAccountVolumeMount:
+                        default:
+                          mountPath: /var/run/secrets/kubernetes.io/serviceaccount@vault
+                          name: vault-agent-sa-token
+                          readOnly: true
+                        description: VolumeMount describes a mounting of a Volume within a container.
+                        properties:
+                          mountPath:
+                            description: Path within the container at which the volume should be mounted.  Must not contain ':'.
+                            type: string
+                          mountPropagation:
+                            description: mountPropagation determines how mounts are propagated from the host to container and the other way around. When not set, MountPropagationNone is used. This field is beta in 1.10.
+                            type: string
+                          name:
+                            description: This must match the Name of a Volume.
+                            type: string
+                          readOnly:
+                            description: Mounted read-only if true, read-write otherwise (false or unspecified). Defaults to false.
+                            type: boolean
+                          subPath:
+                            description: Path within the volume from which the container's volume should be mounted. Defaults to "" (volume's root).
+                            type: string
+                          subPathExpr:
+                            description: Expanded path within the volume from which the container's volume should be mounted. Behaves similarly to SubPath but environment variable references $(VAR_NAME) are expanded using the container's environment. Defaults to "" (volume's root). SubPathExpr and SubPath are mutually exclusive.
+                            type: string
+                        required:
+                        - mountPath
+                        - name
+                        type: object
                     required:
-                    - mountPath
-                    - name
+                    - serverAddr
                     type: object
+                  transitKey:
+                    default: metadata-api
+                    type: string
+                  transitPath:
+                    default: transit-tenants
+                    type: string
                 type: object
             type: object
           status:

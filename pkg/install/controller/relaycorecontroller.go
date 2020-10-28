@@ -19,11 +19,10 @@ package controller
 import (
 	"context"
 	"fmt"
-	"strconv"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -32,12 +31,15 @@ import (
 	installerv1alpha1 "github.com/puppetlabs/relay-core/pkg/install/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
-	ownerKey          = ".metadata.controller"
-	jwtSigningKeyPath = "/var/run/secrets/puppet/relay/jwt/key.pem"
+	ownerKey                = ".metadata.controller"
+	jwtSigningKeyDirPath    = "/var/run/secrets/puppet/relay/jwt"
+	jwtSigningKeyPath       = "/var/run/secrets/puppet/relay/jwt/private-key.pem"
+	webhookTLSDirPath       = "/var/run/secrets/puppet/relay/webhook-tls"
+	vaultAgentConfigDirPath = "/var/run/vault/config"
+	vaultAgentSATokenPath   = "/var/run/secrets/kubernetes.io/serviceaccount@vault"
 )
 
 // RelayCoreReconciler reconciles a RelayCore object
@@ -49,9 +51,11 @@ type RelayCoreReconciler struct {
 
 // +kubebuilder:rbac:groups=install.relay.sh,resources=relaycores,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=install.relay.sh,resources=relaycores/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;watch;patch;create;update
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;patch;create;update
-// +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;patch;create;update
-
+// +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;watch;patch;create;update
+// +kubebuilder:rbac:groups=core,resources=services,verbs=get;watch;patch;create;update
+// +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;watch;patch;create;update
 func (r *RelayCoreReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
 	log := r.Log.WithValues("relaycore", req.NamespacedName)
@@ -61,12 +65,177 @@ func (r *RelayCoreReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
+	// here we ensure all the required *SecretName secrets exist. If the
+	// required secrets don't exist, we must requeue and check the next cycle.
+	if !relayCore.Spec.Operator.GenerateJWTSigningKey {
+		if relayCore.Spec.Operator.JWTSigningKeySecretName != nil {
+			key := client.ObjectKey{
+				Name:      *relayCore.Spec.Operator.JWTSigningKeySecretName,
+				Namespace: relayCore.Namespace,
+			}
+
+			if err := r.checkSecret(ctx, key); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+	}
+
+	if relayCore.Spec.Operator.SentryDSNSecretName != nil {
+		key := client.ObjectKey{
+			Name:      *relayCore.Spec.Operator.SentryDSNSecretName,
+			Namespace: relayCore.Namespace,
+		}
+
+		if err := r.checkSecret(ctx, key); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	if relayCore.Spec.MetadataAPI.TLSSecretName != nil {
+		key := client.ObjectKey{
+			Name:      *relayCore.Spec.MetadataAPI.TLSSecretName,
+			Namespace: relayCore.Namespace,
+		}
+
+		if err := r.checkSecret(ctx, key); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
 	log.Info("reconciling relay core")
-	if err := r.desiredOperator(ctx, req, relayCore); err != nil {
+
+	osm := newOperatorStateManager(relayCore, r.labels(relayCore))
+	operatorName := fmt.Sprintf("%s-operator", relayCore.Name)
+
+	operatorVaultConfigMap := corev1.ConfigMap{}
+	operatorVaultConfigMap.Name = fmt.Sprintf("%s-vault", operatorName)
+	operatorVaultConfigMap.Namespace = relayCore.Namespace
+
+	_, err := ctrl.CreateOrUpdate(ctx, r, &operatorVaultConfigMap, func() error {
+		osm.vaultAgentManager.configMap(&operatorVaultConfigMap)
+
+		return ctrl.SetControllerReference(relayCore, &operatorVaultConfigMap, r.Scheme)
+	})
+	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if err := r.desiredMetadataAPI(ctx, req, relayCore); err != nil {
+	operatorVaultServiceAccount := corev1.ServiceAccount{}
+	operatorVaultServiceAccount.Name = fmt.Sprintf("%s-vault", operatorName)
+	operatorVaultServiceAccount.Namespace = relayCore.Namespace
+
+	_, err = ctrl.CreateOrUpdate(ctx, r, &operatorVaultServiceAccount, func() error {
+		return ctrl.SetControllerReference(relayCore, &operatorVaultServiceAccount, r.Scheme)
+	})
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	ovk, err := client.ObjectKeyFromObject(&operatorVaultServiceAccount)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if err := r.Get(ctx, ovk, &operatorVaultServiceAccount); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	operatorServiceAccount := corev1.ServiceAccount{}
+	operatorServiceAccount.Name = operatorName
+	operatorServiceAccount.Namespace = relayCore.Namespace
+
+	_, err = ctrl.CreateOrUpdate(ctx, r, &operatorServiceAccount, func() error {
+		return ctrl.SetControllerReference(relayCore, &operatorServiceAccount, r.Scheme)
+	})
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	operatorDeployment := appsv1.Deployment{}
+	operatorDeployment.Name = operatorName
+	operatorDeployment.Namespace = relayCore.Namespace
+
+	_, err = ctrl.CreateOrUpdate(ctx, r, &operatorDeployment, func() error {
+		vaultToken := operatorVaultServiceAccount.Secrets[0]
+		osm.deployment(&operatorDeployment, vaultToken.Name)
+
+		return ctrl.SetControllerReference(relayCore, &operatorDeployment, r.Scheme)
+	})
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	msm := newMetadataAPIStateManager(relayCore, r.labels(relayCore))
+	metadataAPIName := fmt.Sprintf("%s-metadata-api", relayCore.Name)
+
+	metadataAPIVaultConfigMap := corev1.ConfigMap{}
+	metadataAPIVaultConfigMap.Name = fmt.Sprintf("%s-vault", metadataAPIName)
+	metadataAPIVaultConfigMap.Namespace = relayCore.Namespace
+
+	_, err = ctrl.CreateOrUpdate(ctx, r, &metadataAPIVaultConfigMap, func() error {
+		msm.vaultAgentManager.configMap(&metadataAPIVaultConfigMap)
+
+		return ctrl.SetControllerReference(relayCore, &metadataAPIVaultConfigMap, r.Scheme)
+	})
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	metadataAPIVaultServiceAccount := corev1.ServiceAccount{}
+	metadataAPIVaultServiceAccount.Name = fmt.Sprintf("%s-vault", metadataAPIName)
+	metadataAPIVaultServiceAccount.Namespace = relayCore.Namespace
+
+	_, err = ctrl.CreateOrUpdate(ctx, r, &metadataAPIVaultServiceAccount, func() error {
+		return ctrl.SetControllerReference(relayCore, &metadataAPIVaultServiceAccount, r.Scheme)
+	})
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	mvk, err := client.ObjectKeyFromObject(&metadataAPIVaultServiceAccount)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if err := r.Get(ctx, mvk, &metadataAPIVaultServiceAccount); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	metadataAPIServiceAccount := corev1.ServiceAccount{}
+	metadataAPIServiceAccount.Name = metadataAPIName
+	metadataAPIServiceAccount.Namespace = relayCore.Namespace
+
+	_, err = ctrl.CreateOrUpdate(ctx, r, &metadataAPIServiceAccount, func() error {
+		return ctrl.SetControllerReference(relayCore, &metadataAPIServiceAccount, r.Scheme)
+	})
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	metadataAPIDeployment := appsv1.Deployment{}
+	metadataAPIDeployment.Name = metadataAPIName
+	metadataAPIDeployment.Namespace = relayCore.Namespace
+
+	_, err = ctrl.CreateOrUpdate(ctx, r, &metadataAPIDeployment, func() error {
+		vaultToken := metadataAPIVaultServiceAccount.Secrets[0]
+		msm.deployment(&metadataAPIDeployment, vaultToken.Name)
+
+		return ctrl.SetControllerReference(relayCore, &metadataAPIDeployment, r.Scheme)
+	})
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	metadataAPIService := corev1.Service{}
+	metadataAPIService.Name = metadataAPIName
+	metadataAPIService.Namespace = relayCore.Namespace
+
+	_, err = ctrl.CreateOrUpdate(ctx, r, &metadataAPIService, func() error {
+		msm.httpService(&metadataAPIService)
+
+		return ctrl.SetControllerReference(relayCore, &metadataAPIService, r.Scheme)
+	})
+	if err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -81,257 +250,19 @@ func (r *RelayCoreReconciler) labels(relayCore *installerv1alpha1.RelayCore) map
 	}
 }
 
-func (r *RelayCoreReconciler) desiredOperator(ctx context.Context, req ctrl.Request, relayCore *installerv1alpha1.RelayCore) error {
-	name := fmt.Sprintf("%s-operator", relayCore.Name)
-	labels := r.labels(relayCore)
-	labels["app.kubernetes.io/name"] = "operator"
-
-	dep := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: relayCore.Namespace,
-		},
-		Spec: appsv1.DeploymentSpec{
-			Selector: &metav1.LabelSelector{
-				MatchLabels: labels,
-			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: labels,
-				},
-				Spec: corev1.PodSpec{
-					NodeSelector: relayCore.Spec.Operator.NodeSelector,
-					Containers: []corev1.Container{
-						{
-							Name:            "operator",
-							Image:           relayCore.Spec.Operator.Image,
-							ImagePullPolicy: relayCore.Spec.Operator.ImagePullPolicy,
-							Env:             r.desiredOperatorEnv(relayCore),
-							Command:         r.desiredOperatorCommand(relayCore),
-						},
-						r.vaultSidecarContainer(relayCore),
-					},
-				},
-			},
-		},
-	}
-
-	if err := ctrl.SetControllerReference(relayCore, dep, r.Scheme); err != nil {
-		return err
-	}
-
-	result, err := ctrl.CreateOrUpdate(ctx, r, dep, func() error {
-		return nil
-	})
-
-	if err != nil {
-		return err
-	}
-
-	r.Log.Info("reconciled operator deployment", "result", result)
+func (r *RelayCoreReconciler) desiredOperatorSigningKeySecret(ctx context.Context, relaycore *installerv1alpha1.RelayCore) error {
+	// if the secret exists for this deployment, then we don't need to create it again
+	// otherwise we generate a keypair and create a new secret
 
 	return nil
 }
 
-func (r *RelayCoreReconciler) desiredOperatorCommand(relayCore *installerv1alpha1.RelayCore) []string {
-	cmd := []string{"relay-operator"}
-
-	cmd = append(cmd, "-storage-addr", relayCore.Spec.Operator.StorageAddr)
-
-	if relayCore.Spec.Operator.Standalone {
-		cmd = append(cmd, "-standalone")
-	}
-
-	if relayCore.Spec.Operator.MetricsEnabled {
-		cmd = append(cmd, "-metrics-enabled", "-metrics-server-bind-addr", "0.0.0.0:3050")
-	}
-
-	if relayCore.Spec.Operator.TenantSandboxingRuntimeClassName != nil {
-		cmd = append(cmd,
-			"-tenant-sandboxing",
-			"-tenant-sandbox-runtime-class-name",
-			relayCore.Spec.Operator.TenantSandboxingRuntimeClassName,
-		)
-	}
-
-	metadataAPIURL := fmt.Sprintf("http://%s-metadata-api.%s.svc.cluster.local", relayCore.GetName(), relayCore.GetNamespace())
-	if relayCore.Spec.MetadataAPI.URL != nil {
-		metadataAPIURL = *relayCore.Spec.MetadataAPI.URL
-	}
-
-	// TODO make these configurable
-	cmd = append(cmd,
-		"-environment",
-		relayCore.Spec.Environment,
-		"-num-workers",
-		strconv.Itoa(int(relayCore.Spec.Operator.Workers)),
-		// TODO convert to generateJWTSigningKey field
-		"-jwt-signing-key-file",
-		jwtSigningKeyPath,
-		"-vault-transit-path",
-		relayCore.Spec.Vault.TransitPath,
-		"-vault-transit-key",
-		relayCore.Spec.Vault.TransitKey,
-		"-metadata-api-url",
-		metadataAPIURL,
-		"-webhook-server-key-dir",
-		"/var/run/secrets/puppet/relay/webhook-tls",
-		"-sentry-dsn",
-		"$(RELAY_OPERATOR_SENTRY_DSN)",
-		"-dynamic-rbac-binding",
-		"-tool-injection-image",
-		relayCore.Spec.Operator.ToolInjection.Image,
-	)
-
-	return cmd
-}
-
-func (r *RelayCoreReconciler) desiredOperatorEnv(relayCore *installerv1alpha1.RelayCore) []corev1.EnvVar {
-	env := []corev1.EnvVar{{Name: "VAULT_ADDR", Value: "http://localhost:8200"}}
-
-	if relayCore.Spec.Operator.Env != nil {
-		env = append(env, relayCore.Spec.Operator.Env...)
-	}
-
-	return env
-}
-
-func (r *RelayCoreReconciler) desiredMetadataAPI(ctx context.Context, req ctrl.Request, relayCore *installerv1alpha1.RelayCore) error {
-	name := fmt.Sprintf("%s-metadata-api", relayCore.Name)
-	labels := r.labels(relayCore)
-	labels["app.kubernetes.io/name"] = "metadata-api"
-
-	dep := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: relayCore.Namespace,
-		},
-		Spec: appsv1.DeploymentSpec{
-			Replicas: &relayCore.Spec.MetadataAPI.Replicas,
-			Selector: &metav1.LabelSelector{
-				MatchLabels: labels,
-			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: labels,
-				},
-				Spec: corev1.PodSpec{
-					NodeSelector: relayCore.Spec.MetadataAPI.NodeSelector,
-					Containers: []corev1.Container{
-						{
-							Name:            "metadata-api",
-							Image:           relayCore.Spec.MetadataAPI.Image,
-							ImagePullPolicy: relayCore.Spec.MetadataAPI.ImagePullPolicy,
-							Env:             r.desiredMetadataAPIEnv(relayCore),
-							Ports: []corev1.ContainerPort{
-								{
-									Name:          "http",
-									ContainerPort: int32(7000),
-									Protocol:      corev1.ProtocolTCP,
-								},
-							},
-							LivenessProbe: &corev1.Probe{
-								Handler: corev1.Handler{
-									HTTPGet: &corev1.HTTPGetAction{
-										Path:   "/healthz",
-										Port:   intstr.FromString("https"),
-										Scheme: corev1.URISchemeHTTPS,
-									},
-								},
-							},
-							ReadinessProbe: &corev1.Probe{
-								Handler: corev1.Handler{
-									HTTPGet: &corev1.HTTPGetAction{
-										Path:   "/healthz",
-										Port:   intstr.FromString("https"),
-										Scheme: corev1.URISchemeHTTPS,
-									},
-								},
-							},
-						},
-						r.vaultSidecarContainer(relayCore),
-					},
-				},
-			},
-		},
-	}
-
-	if err := ctrl.SetControllerReference(relayCore, dep, r.Scheme); err != nil {
+func (r *RelayCoreReconciler) checkSecret(ctx context.Context, key types.NamespacedName) error {
+	if err := r.Get(ctx, key, &corev1.Secret{}); err != nil {
 		return err
 	}
-
-	result, err := ctrl.CreateOrUpdate(ctx, r, dep, func() error {
-		return nil
-	})
-
-	if err != nil {
-		return err
-	}
-
-	r.Log.Info("reconciled metadata-api deployment", "result", result)
-
-	srv := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: relayCore.Namespace,
-		},
-		Spec: corev1.ServiceSpec{
-			Selector: labels,
-			Ports: []corev1.ServicePort{
-				{
-					Name:       "https",
-					Port:       int32(443),
-					Protocol:   corev1.ProtocolTCP,
-					TargetPort: intstr.FromString("https"),
-				},
-			},
-		},
-	}
-
-	if err := ctrl.SetControllerReference(relayCore, srv, r.Scheme); err != nil {
-		return err
-	}
-
-	result, err = ctrl.CreateOrUpdate(ctx, r, srv, func() error {
-		return nil
-	})
-
-	r.Log.Info("reconciled metadata-api service", "result", result)
 
 	return nil
-}
-
-func (r *RelayCoreReconciler) desiredMetadataAPIEnv(relayCore *installerv1alpha1.RelayCore) []corev1.EnvVar {
-	env := []corev1.EnvVar{{Name: "VAULT_ADDR", Value: "http://localhost:8200"}}
-
-	if relayCore.Spec.MetadataAPI.Env != nil {
-		env = append(env, relayCore.Spec.MetadataAPI.Env...)
-	}
-
-	return env
-}
-
-func (r *RelayCoreReconciler) vaultSidecarContainer(relayCore *installerv1alpha1.RelayCore) corev1.Container {
-	c := corev1.Container{
-		Name:            "vault",
-		Image:           relayCore.Spec.Vault.Sidecar.Image,
-		ImagePullPolicy: relayCore.Spec.Vault.Sidecar.ImagePullPolicy,
-		Command: []string{
-			"vault",
-			"agent",
-			"-config=/var/run/vault/config/agent.hcl",
-		},
-		Resources: relayCore.Spec.Vault.Sidecar.Resources,
-	}
-
-	// volumeMounts := []corev1.VolumeMount{
-	// 	relayCore.Spec.VaultSidecar.ConfigVolumeMounts,
-	// 	relayCore.Spec.VaultSidecar.ServiceAccountVolumeMount,
-	// }
-
-	// c.VolumeMounts = volumeMounts
-
-	return c
 }
 
 func (r *RelayCoreReconciler) relayCores(obj handler.MapObject) []ctrl.Request {
