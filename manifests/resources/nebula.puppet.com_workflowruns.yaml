@@ -8,6 +8,10 @@ metadata:
   creationTimestamp: null
   name: workflowruns.nebula.puppet.com
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.status
+    name: Status
+    type: string
   group: nebula.puppet.com
   names:
     kind: WorkflowRun
