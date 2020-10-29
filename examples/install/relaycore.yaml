@@ -1,10 +1,18 @@
 apiVersion: install.relay.sh/v1alpha1
 kind: RelayCore
 metadata:
-  name: relay-core-test
-  namespace: default
+  name: relay-core-v1
+  namespace: relay-system
 spec:
   environment: dev
   operator:
     standalone: true
     storageAddr: file:///tmp
+    webhookTLSSecretName: relay-tasks-webhook-tls-crt
+    jwtSigningKeySecretName: jwt-signing-keys
+    vaultAgentRole: relay-tasks
+  metadataAPI:
+    vaultAgentRole: relay-metadata-api
+  vault:
+    sidecar:
+      serverAddr: http://vault.relay-system.svc.cluster.local:8200

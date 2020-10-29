@@ -40,6 +40,7 @@ const (
 	webhookTLSDirPath       = "/var/run/secrets/puppet/relay/webhook-tls"
 	vaultAgentConfigDirPath = "/var/run/vault/config"
 	vaultAgentSATokenPath   = "/var/run/secrets/kubernetes.io/serviceaccount@vault"
+	metadataAPITLSDirPath   = "/var/run/secrets/puppet/relay/tls"
 )
 
 // RelayCoreReconciler reconciles a RelayCore object
@@ -51,10 +52,10 @@ type RelayCoreReconciler struct {
 
 // +kubebuilder:rbac:groups=install.relay.sh,resources=relaycores,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=install.relay.sh,resources=relaycores/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;watch;patch;create;update
+// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;patch;create;update
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;patch;create;update
-// +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;watch;patch;create;update
-// +kubebuilder:rbac:groups=core,resources=services,verbs=get;watch;patch;create;update
+// +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch;patch;create;update
+// +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;patch;create;update
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;watch;patch;create;update
 func (r *RelayCoreReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
@@ -80,9 +81,9 @@ func (r *RelayCoreReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		}
 	}
 
-	if relayCore.Spec.Operator.SentryDSNSecretName != nil {
+	if relayCore.Spec.SentryDSNSecretName != nil {
 		key := client.ObjectKey{
-			Name:      *relayCore.Spec.Operator.SentryDSNSecretName,
+			Name:      *relayCore.Spec.SentryDSNSecretName,
 			Namespace: relayCore.Namespace,
 		}
 
@@ -242,6 +243,10 @@ func (r *RelayCoreReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	return ctrl.Result{}, nil
 }
 
+func (r *RelayCoreReconciler) updateStatus(ctx context.Context, relayCore *installerv1alpha1.RelayCore) error {
+	return r.Status().Update(ctx, relayCore)
+}
+
 func (r *RelayCoreReconciler) labels(relayCore *installerv1alpha1.RelayCore) map[string]string {
 	return map[string]string{
 		"install.relay.sh/relay-core":  relayCore.Name,
@@ -267,6 +272,7 @@ func (r *RelayCoreReconciler) checkSecret(ctx context.Context, key types.Namespa
 
 func (r *RelayCoreReconciler) relayCores(obj handler.MapObject) []ctrl.Request {
 	ctx := context.Background()
+
 	listOptions := []client.ListOption{
 		client.InNamespace(obj.Meta.GetNamespace()),
 	}
@@ -299,6 +305,8 @@ func (r *RelayCoreReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&installerv1alpha1.RelayCore{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.Service{}).
+		Owns(&corev1.ServiceAccount{}).
+		Owns(&corev1.ConfigMap{}).
 		Watches(
 			&source.Kind{Type: &installerv1alpha1.RelayCore{}},
 			&handler.EnqueueRequestsFromMapFunc{

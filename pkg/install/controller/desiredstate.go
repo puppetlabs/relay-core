@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+	"net/url"
 	"strconv"
 
 	installerv1alpha1 "github.com/puppetlabs/relay-core/pkg/install/api/v1alpha1"
@@ -28,12 +29,12 @@ type operatorStateManager struct {
 	baseLabels        map[string]string
 }
 
-// TODO add affinity to spec
 func (m *operatorStateManager) deployment(deployment *appsv1.Deployment, vaultTokenSecretName string) {
 	setDeploymentLabels(m.baseLabels, deployment)
 
 	template := &deployment.Spec.Template.Spec
 
+	template.Affinity = m.rc.Spec.Operator.Affinity
 	template.Volumes = []corev1.Volume{
 		{
 			Name: "vault-agent-sa-token",
@@ -131,20 +132,16 @@ func (m *operatorStateManager) deploymentCommand() []string {
 		)
 	}
 
-	if m.rc.Spec.Operator.SentryDSNSecretName != nil {
+	if m.rc.Spec.SentryDSNSecretName != nil {
 		cmd = append(cmd,
 			"-sentry-dsn",
 			"$(RELAY_OPERATOR_SENTRY_DSN)",
 		)
 	}
 
-	metadataAPIURL := fmt.Sprintf("http://%s-metadata-api.%s.svc.cluster.local", m.rc.GetName(), m.rc.GetNamespace())
-	if m.rc.Spec.MetadataAPI.URL != nil {
-		metadataAPIURL = *m.rc.Spec.MetadataAPI.URL
-	}
 	cmd = append(cmd,
 		"-metadata-api-url",
-		metadataAPIURL,
+		metadataAPIURL(m.rc),
 	)
 
 	if m.rc.Spec.Operator.WebhookTLSSecretName != nil {
@@ -160,13 +157,13 @@ func (m *operatorStateManager) deploymentCommand() []string {
 func (m *operatorStateManager) deploymentEnv() []corev1.EnvVar {
 	env := []corev1.EnvVar{{Name: "VAULT_ADDR", Value: "http://localhost:8200"}}
 
-	if m.rc.Spec.Operator.SentryDSNSecretName != nil {
+	if m.rc.Spec.SentryDSNSecretName != nil {
 		env = append(env, corev1.EnvVar{
 			Name: "RELAY_OPERATOR_SENTRY_DSN",
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: *m.rc.Spec.Operator.SentryDSNSecretName,
+						Name: *m.rc.Spec.SentryDSNSecretName,
 					},
 					Key: "dsn",
 				},
@@ -232,7 +229,6 @@ type metadataAPIStateManager struct {
 	baseLabels        map[string]string
 }
 
-// TODO add affinity to spec
 func (m *metadataAPIStateManager) deployment(deployment *appsv1.Deployment, vaultTokenSecretName string) {
 	setDeploymentLabels(m.baseLabels, deployment)
 
@@ -240,6 +236,7 @@ func (m *metadataAPIStateManager) deployment(deployment *appsv1.Deployment, vaul
 
 	template := &deployment.Spec.Template.Spec
 
+	template.Affinity = m.rc.Spec.MetadataAPI.Affinity
 	template.Volumes = []corev1.Volume{
 		{
 			Name: "vault-agent-sa-token",
@@ -261,6 +258,17 @@ func (m *metadataAPIStateManager) deployment(deployment *appsv1.Deployment, vaul
 		},
 	}
 
+	if m.rc.Spec.MetadataAPI.TLSSecretName != nil {
+		template.Volumes = append(template.Volumes, corev1.Volume{
+			Name: "tls-crt",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: *m.rc.Spec.MetadataAPI.TLSSecretName,
+				},
+			},
+		})
+	}
+
 	if len(template.Containers) == 0 {
 		template.Containers = make([]corev1.Container, 2)
 	}
@@ -279,15 +287,22 @@ func (m *metadataAPIStateManager) deployment(deployment *appsv1.Deployment, vaul
 }
 
 func (m *metadataAPIStateManager) deploymentEnv() []corev1.EnvVar {
-	env := []corev1.EnvVar{{Name: "VAULT_ADDR", Value: "http://localhost:8200"}}
+	env := []corev1.EnvVar{
+		{Name: "VAULT_ADDR", Value: "http://localhost:8200"},
+		{Name: "RELAY_METADATA_API_VAULT_TRANSIT_PATH", Value: m.rc.Spec.Vault.TransitPath},
+		{Name: "RELAY_METADATA_API_VAULT_TRANSIT_KEY", Value: m.rc.Spec.Vault.TransitKey},
+		{Name: "RELAY_METADATA_API_VAULT_AUTH_PATH", Value: m.rc.Spec.MetadataAPI.VaultAuthPath},
+		{Name: "RELAY_METADATA_API_VAULT_AUTH_ROLE", Value: m.rc.Spec.MetadataAPI.VaultAuthRole},
+		{Name: "RELAY_METADATA_API_STEP_METADATA_URL", Value: m.rc.Spec.MetadataAPI.StepMetadataURL},
+	}
 
-	if m.rc.Spec.MetadataAPI.SentryDSNSecretName != nil {
+	if m.rc.Spec.SentryDSNSecretName != nil {
 		env = append(env, corev1.EnvVar{
 			Name: "RELAY_METADATA_API_SENTRY_DSN",
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: *m.rc.Spec.MetadataAPI.SentryDSNSecretName,
+						Name: *m.rc.Spec.SentryDSNSecretName,
 					},
 					Key: "dsn",
 				},
@@ -339,6 +354,16 @@ func (m *metadataAPIStateManager) serverContainer(container *corev1.Container) {
 				Scheme: probeScheme,
 			},
 		},
+	}
+
+	if m.rc.Spec.MetadataAPI.TLSSecretName != nil {
+		container.VolumeMounts = []corev1.VolumeMount{
+			{
+				Name:      "tls-crt",
+				MountPath: metadataAPITLSDirPath,
+				ReadOnly:  true,
+			},
+		}
 	}
 }
 
@@ -430,14 +455,30 @@ func (m *vaultAgentManager) configMap(configMap *corev1.ConfigMap) {
       address = "%s"
     }`
 
-	role := fmt.Sprintf("%s-vault-%s", m.rc.Name, m.component.String())
-	config := fmt.Sprintf(configFmt, role, m.rc.Spec.Vault.Sidecar.ServerAddr)
+	config := fmt.Sprintf(configFmt, m.getRole(), m.rc.Spec.Vault.Sidecar.ServerAddr)
 
 	if configMap.Data == nil {
 		configMap.Data = make(map[string]string)
 	}
 
 	configMap.Data["agent.hcl"] = config
+}
+
+func (m *vaultAgentManager) getRole() string {
+	role := fmt.Sprintf("%s-vault-%s", m.rc.Name, m.component.String())
+
+	switch m.component {
+	case componentOperator:
+		if m.rc.Spec.Operator.VaultAgentRole != nil {
+			role = *m.rc.Spec.Operator.VaultAgentRole
+		}
+	case componentMetadataAPI:
+		if m.rc.Spec.MetadataAPI.VaultAgentRole != nil {
+			role = *m.rc.Spec.MetadataAPI.VaultAgentRole
+		}
+	}
+
+	return role
 }
 
 func newVaultAgentManager(rc *installerv1alpha1.RelayCore, component component) *vaultAgentManager {
@@ -460,4 +501,22 @@ func setDeploymentLabels(labels map[string]string, deployment *appsv1.Deployment
 	deployment.Spec.Selector = &metav1.LabelSelector{
 		MatchLabels: labels,
 	}
+}
+
+func metadataAPIURL(rc *installerv1alpha1.RelayCore) string {
+	if rc.Spec.MetadataAPI.URL != nil {
+		return *rc.Spec.MetadataAPI.URL
+	}
+
+	scheme := "http"
+	if rc.Spec.MetadataAPI.TLSSecretName != nil {
+		scheme = "https"
+	}
+
+	u := url.URL{
+		Scheme: scheme,
+		Host:   fmt.Sprintf("%s-metadata-api.%s.svc.cluster.local", rc.Name, rc.Namespace),
+	}
+
+	return u.String()
 }
