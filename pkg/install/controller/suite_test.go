@@ -30,7 +30,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	installerv1alpha1 "github.com/puppetlabs/relay-core/pkg/install/api/v1alpha1"
+	installerv1alpha1 "github.com/puppetlabs/relay-core/pkg/apis/install.relay.sh/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
 

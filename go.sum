@@ -2381,6 +2381,7 @@ k8s.io/kube-openapi v0.0.0-20200121204235-bf4fb3bd569c/go.mod h1:GRQhZsXIAJ1xR0C
 k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29 h1:NeQXVJ2XFSkRoPzRo8AId01ZER+j8oV4SZADT4iBOXQ=
 k8s.io/kube-openapi v0.0.0-20200410145947-bcb3869e6f29/go.mod h1:F+5wygcW0wmRTnM3cOgIqGivxkwSWIWT5YdsDbeAOaU=
 k8s.io/kubectl v0.17.2/go.mod h1:y4rfLV0n6aPmvbRCqZQjvOp3ezxsFgpqL+zF5jH/lxk=
+k8s.io/kubernetes v1.13.0 h1:qTfB+u5M92k2fCCCVP2iuhgwwSOv1EkAkvQY1tQODD8=
 k8s.io/kubernetes v1.13.0/go.mod h1:ocZa8+6APFNC2tX1DZASIbocyYT5jHzqFVsY5aoB7Jk=
 k8s.io/legacy-cloud-providers v0.17.0/go.mod h1:DdzaepJ3RtRy+e5YhNtrCYwlgyK87j/5+Yfp0L9Syp8=
 k8s.io/legacy-cloud-providers v0.17.4 h1:VvFqJGiYAr2gIdoNuqbeZLEdxIFeN4Yt6OLJS9l2oIE=
@@ -2426,10 +2427,6 @@ sigs.k8s.io/boskos v0.0.0-20200530174753-71e795271860/go.mod h1:L1ubP7d1CCMSQSjK
 sigs.k8s.io/controller-runtime v0.5.0/go.mod h1:REiJzC7Y00U+2YkMbT8wxgrsX5USpXKGhb2sCtAXiT8=
 sigs.k8s.io/controller-runtime v0.5.11 h1:U/FjGJ61aR2T2mCrdlBCxEcWgLEwLmK6YZKf0NC0a24=
 sigs.k8s.io/controller-runtime v0.5.11/go.mod h1:OTqxLuz7gVcrq+BHGUgedRu6b2VIKCEc7Pu4Jbwui0A=
-sigs.k8s.io/controller-tools v0.2.1 h1:HoCik83vXOpPi7KSJWdPRmiGntyOzK0v0BTV4U+pl8o=
-sigs.k8s.io/controller-tools v0.2.1/go.mod h1:cenyhL7t2e7izk/Zy7ZxDqQ9YEj0niU5VDL1PWMgZ5s=
-sigs.k8s.io/controller-tools v0.2.9 h1:DEZuCFWANX2zlZVMlf/XmhSq0HzmGCZ/GTdPJig62ig=
-sigs.k8s.io/controller-tools v0.2.9/go.mod h1:ArP7w60JQKkZf7UU2oWTVnEhoNGA+sOMyuSuS+JFNDQ=
 sigs.k8s.io/controller-tools v0.4.0 h1:9zIdrc6q9RKke8+DnVPVBVZ+cfF9L0TwM01cxNnklYo=
 sigs.k8s.io/controller-tools v0.4.0/go.mod h1:G9rHdZMVlBDocIxGkK3jHLWqcTMNvveypYJwrvYKjWU=
 sigs.k8s.io/kustomize v2.0.3+incompatible/go.mod h1:MkjgH3RdOWrievjo6c9T245dYlB5QeXV4WCbnt/PEpU=

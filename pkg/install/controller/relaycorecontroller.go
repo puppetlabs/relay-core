@@ -18,7 +18,6 @@ package controller
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -28,7 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	installerv1alpha1 "github.com/puppetlabs/relay-core/pkg/install/api/v1alpha1"
+	installerv1alpha1 "github.com/puppetlabs/relay-core/pkg/apis/install.relay.sh/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -52,11 +51,18 @@ type RelayCoreReconciler struct {
 
 // +kubebuilder:rbac:groups=install.relay.sh,resources=relaycores,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=install.relay.sh,resources=relaycores/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;patch;create;update
+// +kubebuilder:rbac:groups=core,resources=configmaps;serviceaccounts;services;secrets;namespaces;persistentvolumes,verbs=get;list;watch;patch;create;update
+// +kubebuilder:rbac:groups=core,resources=pods;limitranges;persistentvolumeclaims,verbs=get;list;watch
+// +kubebuilder:rbac:groups=tekton.dev,resources=pipelineruns;taskruns;pipelines;tasks;conditions,verbs=get;list;watch
+// +kubebuilder:rbac:groups=batch;extensions,resources=jobs,verbs=get;list;watch
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;patch;create;update
-// +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch;patch;create;update
-// +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;patch;create;update
-// +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;watch;patch;create;update
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings,verbs=get;list;watch;patch;create;update
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles;rolebindings,verbs=get;list;watch
+// +kubebuilder:rbac:groups=networking.k8s.io,resources=networkpolicies,verbs=get;list;watch
+// +kubebuilder:rbac:groups=nebula.puppet.com,resources=workflowruns;workflowruns/status,verbs=get;list;watch;patch;update
+// +kubebuilder:rbac:groups=relay.sh,resources=tenants;tenants/status;webhooktriggers;webhooktriggers/status,verbs=get;list;watch;patch;update
+// +kubebuilder:rbac:groups=serving.knative.dev,resources=services,verbs=get;list;watch
+
 func (r *RelayCoreReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
 	log := r.Log.WithValues("relaycore", req.NamespacedName)
@@ -65,6 +71,8 @@ func (r *RelayCoreReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	if err := r.Get(ctx, req.NamespacedName, relayCore); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
+
+	// Validate and set defaults
 
 	// here we ensure all the required *SecretName secrets exist. If the
 	// required secrets don't exist, we must requeue and check the next cycle.
@@ -105,138 +113,15 @@ func (r *RelayCoreReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	log.Info("reconciling relay core")
 
-	osm := newOperatorStateManager(relayCore, r.labels(relayCore))
-	operatorName := fmt.Sprintf("%s-operator", relayCore.Name)
+	// reconcile objects for each manager type
 
-	operatorVaultConfigMap := corev1.ConfigMap{}
-	operatorVaultConfigMap.Name = fmt.Sprintf("%s-vault", operatorName)
-	operatorVaultConfigMap.Namespace = relayCore.Namespace
-
-	_, err := ctrl.CreateOrUpdate(ctx, r, &operatorVaultConfigMap, func() error {
-		osm.vaultAgentManager.configMap(&operatorVaultConfigMap)
-
-		return ctrl.SetControllerReference(relayCore, &operatorVaultConfigMap, r.Scheme)
-	})
-	if err != nil {
+	osm := newOperatorStateManager(relayCore, r)
+	if err := osm.reconcile(ctx); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	operatorVaultServiceAccount := corev1.ServiceAccount{}
-	operatorVaultServiceAccount.Name = fmt.Sprintf("%s-vault", operatorName)
-	operatorVaultServiceAccount.Namespace = relayCore.Namespace
-
-	_, err = ctrl.CreateOrUpdate(ctx, r, &operatorVaultServiceAccount, func() error {
-		return ctrl.SetControllerReference(relayCore, &operatorVaultServiceAccount, r.Scheme)
-	})
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	ovk, err := client.ObjectKeyFromObject(&operatorVaultServiceAccount)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	if err := r.Get(ctx, ovk, &operatorVaultServiceAccount); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	operatorServiceAccount := corev1.ServiceAccount{}
-	operatorServiceAccount.Name = operatorName
-	operatorServiceAccount.Namespace = relayCore.Namespace
-
-	_, err = ctrl.CreateOrUpdate(ctx, r, &operatorServiceAccount, func() error {
-		return ctrl.SetControllerReference(relayCore, &operatorServiceAccount, r.Scheme)
-	})
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	operatorDeployment := appsv1.Deployment{}
-	operatorDeployment.Name = operatorName
-	operatorDeployment.Namespace = relayCore.Namespace
-
-	_, err = ctrl.CreateOrUpdate(ctx, r, &operatorDeployment, func() error {
-		vaultToken := operatorVaultServiceAccount.Secrets[0]
-		osm.deployment(&operatorDeployment, vaultToken.Name)
-
-		return ctrl.SetControllerReference(relayCore, &operatorDeployment, r.Scheme)
-	})
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	msm := newMetadataAPIStateManager(relayCore, r.labels(relayCore))
-	metadataAPIName := fmt.Sprintf("%s-metadata-api", relayCore.Name)
-
-	metadataAPIVaultConfigMap := corev1.ConfigMap{}
-	metadataAPIVaultConfigMap.Name = fmt.Sprintf("%s-vault", metadataAPIName)
-	metadataAPIVaultConfigMap.Namespace = relayCore.Namespace
-
-	_, err = ctrl.CreateOrUpdate(ctx, r, &metadataAPIVaultConfigMap, func() error {
-		msm.vaultAgentManager.configMap(&metadataAPIVaultConfigMap)
-
-		return ctrl.SetControllerReference(relayCore, &metadataAPIVaultConfigMap, r.Scheme)
-	})
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	metadataAPIVaultServiceAccount := corev1.ServiceAccount{}
-	metadataAPIVaultServiceAccount.Name = fmt.Sprintf("%s-vault", metadataAPIName)
-	metadataAPIVaultServiceAccount.Namespace = relayCore.Namespace
-
-	_, err = ctrl.CreateOrUpdate(ctx, r, &metadataAPIVaultServiceAccount, func() error {
-		return ctrl.SetControllerReference(relayCore, &metadataAPIVaultServiceAccount, r.Scheme)
-	})
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	mvk, err := client.ObjectKeyFromObject(&metadataAPIVaultServiceAccount)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	if err := r.Get(ctx, mvk, &metadataAPIVaultServiceAccount); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	metadataAPIServiceAccount := corev1.ServiceAccount{}
-	metadataAPIServiceAccount.Name = metadataAPIName
-	metadataAPIServiceAccount.Namespace = relayCore.Namespace
-
-	_, err = ctrl.CreateOrUpdate(ctx, r, &metadataAPIServiceAccount, func() error {
-		return ctrl.SetControllerReference(relayCore, &metadataAPIServiceAccount, r.Scheme)
-	})
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	metadataAPIDeployment := appsv1.Deployment{}
-	metadataAPIDeployment.Name = metadataAPIName
-	metadataAPIDeployment.Namespace = relayCore.Namespace
-
-	_, err = ctrl.CreateOrUpdate(ctx, r, &metadataAPIDeployment, func() error {
-		vaultToken := metadataAPIVaultServiceAccount.Secrets[0]
-		msm.deployment(&metadataAPIDeployment, vaultToken.Name)
-
-		return ctrl.SetControllerReference(relayCore, &metadataAPIDeployment, r.Scheme)
-	})
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	metadataAPIService := corev1.Service{}
-	metadataAPIService.Name = metadataAPIName
-	metadataAPIService.Namespace = relayCore.Namespace
-
-	_, err = ctrl.CreateOrUpdate(ctx, r, &metadataAPIService, func() error {
-		msm.httpService(&metadataAPIService)
-
-		return ctrl.SetControllerReference(relayCore, &metadataAPIService, r.Scheme)
-	})
-	if err != nil {
+	msm := newMetadataAPIStateManager(relayCore, r)
+	if err := msm.reconcile(ctx); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -245,14 +130,6 @@ func (r *RelayCoreReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 func (r *RelayCoreReconciler) updateStatus(ctx context.Context, relayCore *installerv1alpha1.RelayCore) error {
 	return r.Status().Update(ctx, relayCore)
-}
-
-func (r *RelayCoreReconciler) labels(relayCore *installerv1alpha1.RelayCore) map[string]string {
-	return map[string]string{
-		"install.relay.sh/relay-core":  relayCore.Name,
-		"app.kubernetes.io/name":       "relay-operator",
-		"app.kubernetes.io/managed-by": "relay-install-operator",
-	}
 }
 
 func (r *RelayCoreReconciler) desiredOperatorSigningKeySecret(ctx context.Context, relaycore *installerv1alpha1.RelayCore) error {

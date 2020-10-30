@@ -23,18 +23,26 @@ import (
 
 // RelayCoreSpec defines the desired state of RelayCore
 type RelayCoreSpec struct {
+	// Environment is the environment this instance is running in.
+	//
 	// +kubebuilder:default="dev"
 	// +optional
 	Environment string `json:"environment"`
 
+	// Operator is the configuration for the workflow run operator.
+	//
 	// +kubebuilder:default={image: "relaysh/relay-operator:latest"}
 	// +optional
 	Operator *OperatorConfig `json:"operator"`
 
+	// MetadataAPI is the configuration for the step metadata-api server.
+	//
 	// +kubebuilder:default={image: "relaysh/relay-metadata-api:latest"}
 	// +optional
 	MetadataAPI *MetadataAPIConfig `json:"metadataAPI"`
 
+	// Vault is the configuration for accessing vault from the operator and metadata-api.
+	//
 	// +kubebuilder:default={sidecar: {image: "vault:latest"}}
 	// +optional
 	Vault *VaultConfig `json:"vault"`
@@ -55,12 +63,10 @@ type OperatorConfig struct {
 	StorageAddr string `json:"storageAddr"`
 
 	// +kubebuilder:default="relaysh/relay-operator:latest"
-	//
 	// +optional
 	Image string `json:"image"`
 
 	// +kubebuilder:default="IfNotPresent"
-	//
 	// +optional
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 
@@ -245,6 +251,15 @@ type ToolInjectionConfig struct {
 
 // RelayCoreStatus defines the observed state of RelayCore
 type RelayCoreStatus struct {
+	Status                    string                 `json:"status"`
+	OperatorServiceAccount    corev1.ObjectReference `json:"operatorServiceAccount"`
+	MetadataAPIServiceAccount corev1.ObjectReference `json:"metadataAPIServiceAccount"`
+	Vault                     VaultStatusSummary     `json:"vault"`
+}
+
+type VaultStatusSummary struct {
+	OperatorRole    string `json:"operatorRole"`
+	MetadataAPIRole string `json:"metadataAPIRole"`
 }
 
 // +kubebuilder:object:root=true

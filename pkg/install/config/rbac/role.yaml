@@ -18,8 +18,22 @@ rules:
   - update
   - watch
 - apiGroups:
+  - batch
+  - extensions
+  resources:
+  - jobs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - ""
   resources:
+  - configmaps
+  - namespaces
+  - persistentvolumes
+  - secrets
+  - serviceaccounts
   - services
   verbs:
   - create
@@ -27,6 +41,16 @@ rules:
   - list
   - patch
   - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - limitranges
+  - persistentvolumeclaims
+  - pods
+  verbs:
+  - get
+  - list
   - watch
 - apiGroups:
   - install.relay.sh
@@ -48,3 +72,76 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - nebula.puppet.com
+  resources:
+  - workflowruns
+  - workflowruns/status
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - networkpolicies
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterrolebindings
+  - clusterroles
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
+  - roles
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - relay.sh
+  resources:
+  - tenants
+  - tenants/status
+  - webhooktriggers
+  - webhooktriggers/status
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - serving.knative.dev
+  resources:
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - tekton.dev
+  resources:
+  - conditions
+  - pipelineruns
+  - pipelines
+  - taskruns
+  - tasks
+  verbs:
+  - get
+  - list
+  - watch
