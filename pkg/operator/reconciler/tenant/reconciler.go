@@ -141,9 +141,18 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 			return ctrl.Result{Requeue: true}, nil
 		}
 
-		_, err = r.createReadOnlyVolume(ctx, tn, pv.Object)
+		pvr, err := r.createReadOnlyVolume(ctx, tn, pv.Object)
 		if err != nil {
 			return ctrl.Result{}, err
+		}
+
+		ok, err = pvr.Load(ctx, r.Client)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+
+		if pvr.Object.Status.Phase != corev1.VolumeAvailable {
+			return ctrl.Result{Requeue: true}, nil
 		}
 
 		pvcr := obj.AsPersistentVolumeClaimResult(r.createReadOnlyVolumeClaim(ctx, tn))
