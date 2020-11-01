@@ -23,6 +23,7 @@ const (
 	RelayControllerTokenHashAnnotation                = "controller.relay.sh/token-hash"
 	RelayControllerDependencyOfAnnotation             = "controller.relay.sh/dependency-of"
 	RelayControllerToolInjectionImageDigestAnnotation = "controller.relay.sh/tool-injection-image-digest"
+	RelayControllerToolsVolumeAnnotation              = "controller.relay.sh/tools-volume"
 	RelayControllerToolsVolumeClaimAnnotation         = "controller.relay.sh/tools-volume-claim"
 
 	RelayControllerTenantNameLabel          = "controller.relay.sh/tenant-name"

@@ -39,6 +39,14 @@ func (pvc *PersistentVolumeClaim) Owned(ctx context.Context, owner Owner) error 
 	return Own(pvc.Object, owner)
 }
 
+func (pvc *PersistentVolumeClaim) Label(ctx context.Context, name, value string) {
+	Label(&pvc.Object.ObjectMeta, name, value)
+}
+
+func (pvc *PersistentVolumeClaim) Annotate(ctx context.Context, name, value string) {
+	Annotate(&pvc.Object.ObjectMeta, name, value)
+}
+
 func (pvc *PersistentVolumeClaim) LabelAnnotateFrom(ctx context.Context, from metav1.ObjectMeta) {
 	CopyLabelsAndAnnotations(&pvc.Object.ObjectMeta, from)
 }

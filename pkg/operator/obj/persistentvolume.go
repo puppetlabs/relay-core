@@ -67,7 +67,9 @@ func ApplyPersistentVolume(ctx context.Context, cl client.Client, key client.Obj
 		}
 
 		if exists {
+			p.Object.Spec.AccessModes = pv.Spec.AccessModes
 			p.Object.Spec.Capacity = pv.Spec.Capacity
+			p.Object.Spec.ClaimRef = pv.Spec.ClaimRef
 		} else {
 			p.Object.Spec = pv.Spec
 		}
