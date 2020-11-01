@@ -9,8 +9,8 @@ const (
 	ToolInjectionMountName = "relay-runtime-tools"
 	ToolInjectionMountPath = "/var/lib/puppet/relay/"
 
-	ToolInjectionVolumeClaimSuffixReadOnlyMany  = "-volume-rox"
-	ToolInjectionVolumeClaimSuffixReadWriteOnce = "-volume-rwo"
+	ToolInjectionVolumeClaimSuffixReadOnlyMany  = "-inject"
+	ToolInjectionVolumeClaimSuffixReadWriteOnce = "-init"
 )
 
 const (

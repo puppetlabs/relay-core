@@ -213,7 +213,7 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 }
 
 func (r *Reconciler) cleanupToolInjectionResources(ctx context.Context, tn *obj.Tenant) error {
-	job := obj.NewJob(client.ObjectKey{Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadWriteOnce, Namespace: tn.Object.Status.Namespace})
+	job := obj.NewJob(client.ObjectKey{Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadWriteOnce, Namespace: tn.Object.GetNamespace()})
 	_, err := job.Load(ctx, r.Client)
 	if err != nil {
 		return err
@@ -224,7 +224,7 @@ func (r *Reconciler) cleanupToolInjectionResources(ctx context.Context, tn *obj.
 		return err
 	}
 
-	pvcRWO := obj.NewPersistentVolumeClaim(client.ObjectKey{Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadWriteOnce, Namespace: tn.Object.Status.Namespace})
+	pvcRWO := obj.NewPersistentVolumeClaim(client.ObjectKey{Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadWriteOnce, Namespace: tn.Object.GetNamespace()})
 	_, err = pvcRWO.Load(ctx, r.Client)
 	if err != nil {
 		return err
@@ -271,7 +271,7 @@ func (r *Reconciler) createReadWriteVolumeClaim(ctx context.Context, tn *obj.Ten
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadWriteOnce,
-			Namespace: tn.Object.Status.Namespace,
+			Namespace: tn.Object.GetNamespace(),
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
 			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
@@ -310,7 +310,7 @@ func (r *Reconciler) initializeVolumeClaim(ctx context.Context, image string, tn
 	j := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadWriteOnce,
-			Namespace: tn.Object.Status.Namespace,
+			Namespace: tn.Object.GetNamespace(),
 		},
 		Spec: batchv1.JobSpec{
 			Template: corev1.PodTemplateSpec{
