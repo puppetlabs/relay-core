@@ -4,6 +4,7 @@ import (
 	"context"
 
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
+	"github.com/puppetlabs/relay-core/pkg/model"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -232,5 +233,16 @@ func ConfigureTenant(t *Tenant, td *TenantDepsResult, pvc *PersistentVolumeClaim
 				Type:      relayv1beta1.TenantReady,
 			},
 		},
+	}
+
+	if td.TenantDeps != nil {
+		if vc := td.TenantDeps.ToolInjection.VolumeClaimTemplate; vc != nil {
+			if pvc != nil && pvc.Error == nil {
+				digest := pvc.PersistentVolumeClaim.Object.ObjectMeta.GetAnnotations()[model.RelayControllerToolInjectionImageDigestAnnotation]
+				t.Object.Status.ToolInjection = relayv1beta1.ToolInjectionStatus{
+					ImageDigest: digest,
+				}
+			}
+		}
 	}
 }
