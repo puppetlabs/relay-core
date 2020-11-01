@@ -69,9 +69,6 @@ func TestWorkflowRunWithTenantToolInjectionUsingInput(t *testing.T) {
 		var pvc corev1.PersistentVolumeClaim
 		require.NoError(t, e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: tenant.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany, Namespace: tenant.Status.Namespace}, &pvc))
 
-		var pv corev1.PersistentVolume
-		require.NoError(t, e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: tenant.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany}, &pv))
-
 		wr := &nebulav1.WorkflowRun{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: tenant.Status.Namespace,
@@ -164,7 +161,6 @@ func TestWorkflowRunWithTenantToolInjectionUsingInput(t *testing.T) {
 		require.Contains(t, str, model.EntrypointCommand)
 
 		e2e.ControllerRuntimeClient.Delete(ctx, &pvc)
-		e2e.ControllerRuntimeClient.Delete(ctx, &pv)
 	})
 }
 
@@ -209,9 +205,6 @@ func TestWorkflowRunWithTenantToolInjectionUsingCommand(t *testing.T) {
 
 		var pvc corev1.PersistentVolumeClaim
 		require.NoError(t, e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: tenant.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany, Namespace: tenant.Status.Namespace}, &pvc))
-
-		var pv corev1.PersistentVolume
-		require.NoError(t, e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: tenant.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany}, &pv))
 
 		wr := &nebulav1.WorkflowRun{
 			ObjectMeta: metav1.ObjectMeta{
@@ -304,7 +297,6 @@ func TestWorkflowRunWithTenantToolInjectionUsingCommand(t *testing.T) {
 		require.Contains(t, str, model.EntrypointCommand)
 
 		e2e.ControllerRuntimeClient.Delete(ctx, &pvc)
-		e2e.ControllerRuntimeClient.Delete(ctx, &pv)
 	})
 }
 

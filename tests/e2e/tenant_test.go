@@ -321,10 +321,6 @@ func TestTenantToolInjection(t *testing.T) {
 		require.Equal(t, child, tenant.Status.Namespace)
 		require.NoError(t, e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: child}, &ns))
 
-		var pv corev1.PersistentVolume
-		require.NoError(t, e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: tenant.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany}, &pv))
-		e2e.ControllerRuntimeClient.Delete(ctx, &pv)
-
 		var pvc corev1.PersistentVolumeClaim
 		require.NoError(t, e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: tenant.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany, Namespace: tenant.Status.Namespace}, &pvc))
 		e2e.ControllerRuntimeClient.Delete(ctx, &pvc)
