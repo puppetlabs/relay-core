@@ -191,6 +191,18 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 		}
 
 		if !ok {
+			pvList := &corev1.PersistentVolumeList{}
+			err = r.Client.List(ctx, pvList, client.MatchingFields{
+				"status.phase": string(corev1.VolumeAvailable),
+			})
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+
+			if len(pvList.Items) <= 0 {
+				return ctrl.Result{Requeue: true}, nil
+			}
+
 			pvcROX, err = r.createReadOnlyVolumeClaim(ctx, tn)
 			if err != nil {
 				return ctrl.Result{}, err
