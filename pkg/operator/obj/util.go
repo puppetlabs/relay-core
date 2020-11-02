@@ -48,6 +48,11 @@ func CreateOrUpdate(ctx context.Context, cl client.Client, key client.ObjectKey,
 	return cl.Create(ctx, obj)
 }
 
+func Patch(ctx context.Context, cl client.Client, key client.ObjectKey, obj runtime.Object, original runtime.Object) error {
+	klog.Infof("patching %T %s", obj, key)
+	return cl.Patch(ctx, obj, client.MergeFrom(original))
+}
+
 func Exists(key client.ObjectKey, obj runtime.Object) (bool, error) {
 	accessor, err := meta.Accessor(obj)
 	if err != nil {

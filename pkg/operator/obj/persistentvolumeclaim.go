@@ -23,6 +23,10 @@ func (pvc *PersistentVolumeClaim) Persist(ctx context.Context, cl client.Client)
 	return CreateOrUpdate(ctx, cl, pvc.Key, pvc.Object)
 }
 
+func (pvc *PersistentVolumeClaim) Patch(ctx context.Context, cl client.Client, original *corev1.PersistentVolumeClaim) error {
+	return Patch(ctx, cl, pvc.Key, pvc.Object, original)
+}
+
 func (pvc *PersistentVolumeClaim) Load(ctx context.Context, cl client.Client) (bool, error) {
 	return GetIgnoreNotFound(ctx, cl, pvc.Key, pvc.Object)
 }
@@ -33,6 +37,14 @@ func (pvc *PersistentVolumeClaim) Delete(ctx context.Context, cl client.Client) 
 
 func (pvc *PersistentVolumeClaim) Owned(ctx context.Context, owner Owner) error {
 	return Own(pvc.Object, owner)
+}
+
+func (pvc *PersistentVolumeClaim) Label(ctx context.Context, name, value string) {
+	Label(&pvc.Object.ObjectMeta, name, value)
+}
+
+func (pvc *PersistentVolumeClaim) Annotate(ctx context.Context, name, value string) {
+	Annotate(&pvc.Object.ObjectMeta, name, value)
 }
 
 func (pvc *PersistentVolumeClaim) LabelAnnotateFrom(ctx context.Context, from metav1.ObjectMeta) {
@@ -66,6 +78,7 @@ func ApplyPersistentVolumeClaim(ctx context.Context, cl client.Client, key clien
 		}
 	}
 
+	p.LabelAnnotateFrom(ctx, pvc.ObjectMeta)
 	if err := p.Persist(ctx, cl); err != nil {
 		return nil, err
 	}

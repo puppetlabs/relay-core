@@ -9,8 +9,8 @@ const (
 	ToolInjectionMountName = "relay-runtime-tools"
 	ToolInjectionMountPath = "/var/lib/puppet/relay/"
 
-	ToolInjectionVolumeClaimSuffixReadOnlyMany  = "-volume-rox"
-	ToolInjectionVolumeClaimSuffixReadWriteOnce = "-volume-rwo"
+	ToolInjectionVolumeClaimSuffixReadOnlyMany  = "-inject"
+	ToolInjectionVolumeClaimSuffixReadWriteOnce = "-init"
 )
 
 const (
@@ -20,14 +20,17 @@ const (
 	RelayVaultSecretPathAnnotation     = "relay.sh/vault-secret-path"
 	RelayVaultConnectionPathAnnotation = "relay.sh/vault-connection-path"
 
-	RelayControllerTokenHashAnnotation        = "controller.relay.sh/token-hash"
-	RelayControllerDependencyOfAnnotation     = "controller.relay.sh/dependency-of"
-	RelayControllerToolsVolumeClaimAnnotation = "controller.relay.sh/tools-volume-claim"
+	RelayControllerTokenHashAnnotation                = "controller.relay.sh/token-hash"
+	RelayControllerDependencyOfAnnotation             = "controller.relay.sh/dependency-of"
+	RelayControllerToolInjectionImageDigestAnnotation = "controller.relay.sh/tool-injection-image-digest"
+	RelayControllerToolsVolumeAnnotation              = "controller.relay.sh/tools-volume"
+	RelayControllerToolsVolumeClaimAnnotation         = "controller.relay.sh/tools-volume-claim"
 
-	RelayControllerTenantNameLabel       = "controller.relay.sh/tenant-name"
-	RelayControllerTenantWorkloadLabel   = "controller.relay.sh/tenant-workload"
-	RelayControllerWorkflowRunIDLabel    = "controller.relay.sh/run-id"
-	RelayControllerWebhookTriggerIDLabel = "controller.relay.sh/webhook-trigger-id"
+	RelayControllerTenantNameLabel          = "controller.relay.sh/tenant-name"
+	RelayControllerTenantWorkloadLabel      = "controller.relay.sh/tenant-workload"
+	RelayControllerToolInjectionVolumeLabel = "controller.relay.sh/tool-injection"
+	RelayControllerWorkflowRunIDLabel       = "controller.relay.sh/run-id"
+	RelayControllerWebhookTriggerIDLabel    = "controller.relay.sh/webhook-trigger-id"
 )
 
 // MetadataManagers are the managers used by actions accessing the metadata

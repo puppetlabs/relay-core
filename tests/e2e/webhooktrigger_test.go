@@ -613,9 +613,6 @@ func TestWebhookTriggerKnativeRevisionsWithTenantToolInjectionUsingInput(t *test
 		var pvc corev1.PersistentVolumeClaim
 		require.NoError(t, e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: tn.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany, Namespace: tn.Status.Namespace}, &pvc))
 
-		var pv corev1.PersistentVolume
-		require.NoError(t, e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: tn.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany}, &pv))
-
 		wt := &relayv1beta1.WebhookTrigger{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "my-trigger-" + uuid.New().String(),
@@ -677,7 +674,6 @@ func TestWebhookTriggerKnativeRevisionsWithTenantToolInjectionUsingInput(t *test
 		}))
 
 		e2e.ControllerRuntimeClient.Delete(ctx, &pvc)
-		e2e.ControllerRuntimeClient.Delete(ctx, &pv)
 	})
 }
 
@@ -722,9 +718,6 @@ func TestWebhookTriggerKnativeRevisionsWithTenantToolInjectionUsingCommand(t *te
 
 		var pvc corev1.PersistentVolumeClaim
 		require.NoError(t, e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: tn.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany, Namespace: tn.Status.Namespace}, &pvc))
-
-		var pv corev1.PersistentVolume
-		require.NoError(t, e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: tn.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany}, &pv))
 
 		wt := &relayv1beta1.WebhookTrigger{
 			ObjectMeta: metav1.ObjectMeta{
@@ -787,7 +780,6 @@ func TestWebhookTriggerKnativeRevisionsWithTenantToolInjectionUsingCommand(t *te
 		}))
 
 		e2e.ControllerRuntimeClient.Delete(ctx, &pvc)
-		e2e.ControllerRuntimeClient.Delete(ctx, &pv)
 	})
 }
 
