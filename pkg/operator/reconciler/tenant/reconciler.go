@@ -153,8 +153,9 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 				return ctrl.Result{Requeue: true}, nil
 			}
 
+			volume = pv.Object.GetName()
 			original := tn.Object.DeepCopy()
-			tn.Annotate(ctx, model.RelayControllerToolsVolumeAnnotation, pv.Object.GetName())
+			tn.Annotate(ctx, model.RelayControllerToolsVolumeAnnotation, volume)
 			err = tn.Patch(ctx, r.Client, original)
 			if err != nil {
 				return ctrl.Result{}, err
@@ -167,9 +168,13 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 		}
 
 		pv := obj.NewPersistentVolume(client.ObjectKey{Name: volume})
-		_, err = pv.Load(ctx, r.Client)
+		ok, err = pv.Load(ctx, r.Client)
 		if err != nil {
 			return ctrl.Result{}, err
+		}
+
+		if !ok {
+			return ctrl.Result{Requeue: true}, nil
 		}
 
 		if pv.Object.Status.Phase != corev1.VolumeBound {
