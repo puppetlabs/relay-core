@@ -74,13 +74,24 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 		return ctrl.Result{}, tdr.Error
 	}
 
-	obj.ConfigureTenant(tn, tdr, nil)
+	pvcROX := obj.NewPersistentVolumeClaim(client.ObjectKey{Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany, Namespace: tn.Object.Status.Namespace})
+	_, err = pvcROX.Load(ctx, r.Client)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	obj.ConfigureTenant(tn, tdr, obj.AsPersistentVolumeClaimResult(pvcROX, err))
 
 	if err := tn.PersistStatus(ctx, r.Client); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if tn.Object.Spec.ToolInjection.VolumeClaimTemplate != nil {
+	if tn.Ready() {
+		return ctrl.Result{}, nil
+	}
+
+	if tn.Object.Spec.ToolInjection.VolumeClaimTemplate != nil &&
+		pvcROX.Object.Status.Phase != corev1.ClaimBound {
 		annotations := tn.Object.GetAnnotations()
 		if annotations == nil {
 			annotations = map[string]string{}
