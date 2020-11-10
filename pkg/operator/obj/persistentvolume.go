@@ -22,12 +22,24 @@ func (pv *PersistentVolume) Persist(ctx context.Context, cl client.Client) error
 	return CreateOrUpdate(ctx, cl, pv.Key, pv.Object)
 }
 
+func (pv *PersistentVolume) Patch(ctx context.Context, cl client.Client, original *corev1.PersistentVolume) error {
+	return Patch(ctx, cl, pv.Key, pv.Object, original)
+}
+
 func (pv *PersistentVolume) Load(ctx context.Context, cl client.Client) (bool, error) {
 	return GetIgnoreNotFound(ctx, cl, pv.Key, pv.Object)
 }
 
 func (pv *PersistentVolume) Owned(ctx context.Context, owner Owner) error {
 	return Own(pv.Object, owner)
+}
+
+func (pv *PersistentVolume) Label(ctx context.Context, name, value string) {
+	Label(&pv.Object.ObjectMeta, name, value)
+}
+
+func (pv *PersistentVolume) Annotate(ctx context.Context, name, value string) {
+	Annotate(&pv.Object.ObjectMeta, name, value)
 }
 
 func (pv *PersistentVolume) LabelAnnotateFrom(ctx context.Context, from metav1.ObjectMeta) {
@@ -55,15 +67,30 @@ func ApplyPersistentVolume(ctx context.Context, cl client.Client, key client.Obj
 		}
 
 		if exists {
+			p.Object.Spec.AccessModes = pv.Spec.AccessModes
 			p.Object.Spec.Capacity = pv.Spec.Capacity
+			p.Object.Spec.ClaimRef = pv.Spec.ClaimRef
 		} else {
 			p.Object.Spec = pv.Spec
 		}
 	}
 
+	p.LabelAnnotateFrom(ctx, pv.ObjectMeta)
 	if err := p.Persist(ctx, cl); err != nil {
 		return nil, err
 	}
 
 	return p, nil
+}
+
+type PersistentVolumeResult struct {
+	PersistentVolume *PersistentVolume
+	Error            error
+}
+
+func AsPersistentVolumeResult(pv *PersistentVolume, err error) *PersistentVolumeResult {
+	return &PersistentVolumeResult{
+		PersistentVolume: pv,
+		Error:            err,
+	}
 }

@@ -4,7 +4,9 @@ import (
 	"context"
 
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
+	"github.com/puppetlabs/relay-core/pkg/model"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -44,6 +46,10 @@ func (t *Tenant) PersistStatus(ctx context.Context, cl client.Client) error {
 	return cl.Status().Update(ctx, t.Object)
 }
 
+func (t *Tenant) Patch(ctx context.Context, cl client.Client, original *relayv1beta1.Tenant) error {
+	return Patch(ctx, cl, t.Key, t.Object, original)
+}
+
 func (t *Tenant) Finalizing() bool {
 	return !t.Object.GetDeletionTimestamp().IsZero()
 }
@@ -58,6 +64,18 @@ func (t *Tenant) RemoveFinalizer(ctx context.Context, name string) bool {
 
 func (t *Tenant) Load(ctx context.Context, cl client.Client) (bool, error) {
 	return GetIgnoreNotFound(ctx, cl, t.Key, t.Object)
+}
+
+func (t *Tenant) Label(ctx context.Context, name, value string) {
+	Label(&t.Object.ObjectMeta, name, value)
+}
+
+func (t *Tenant) Annotate(ctx context.Context, name, value string) {
+	Annotate(&t.Object.ObjectMeta, name, value)
+}
+
+func (t *Tenant) LabelAnnotateFrom(ctx context.Context, from metav1.ObjectMeta) {
+	CopyLabelsAndAnnotations(&t.Object.ObjectMeta, from)
 }
 
 func (t *Tenant) Managed() bool {
@@ -232,5 +250,16 @@ func ConfigureTenant(t *Tenant, td *TenantDepsResult, pvc *PersistentVolumeClaim
 				Type:      relayv1beta1.TenantReady,
 			},
 		},
+	}
+
+	if td.TenantDeps != nil {
+		if vc := td.TenantDeps.ToolInjection.VolumeClaimTemplate; vc != nil {
+			if pvc != nil && pvc.Error == nil {
+				digest := t.Object.ObjectMeta.GetAnnotations()[model.RelayControllerToolInjectionImageDigestAnnotation]
+				t.Object.Status.ToolInjection = relayv1beta1.ToolInjectionStatus{
+					ImageDigest: digest,
+				}
+			}
+		}
 	}
 }

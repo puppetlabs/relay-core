@@ -8,6 +8,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/operator/config"
 	"github.com/puppetlabs/relay-core/pkg/operator/obj"
+	"github.com/puppetlabs/relay-core/pkg/util/image"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -73,99 +74,162 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 		return ctrl.Result{}, tdr.Error
 	}
 
-	pvc := obj.NewPersistentVolumeClaim(client.ObjectKey{Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany, Namespace: tn.Object.Status.Namespace})
-	_, err = pvc.Load(ctx, r.Client)
-	pvcr := obj.AsPersistentVolumeClaimResult(pvc, err)
+	pvcROX := obj.NewPersistentVolumeClaim(client.ObjectKey{Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany, Namespace: tn.Object.Status.Namespace})
+	_, err = pvcROX.Load(ctx, r.Client)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 
-	obj.ConfigureTenant(tn, tdr, pvcr)
+	obj.ConfigureTenant(tn, tdr, obj.AsPersistentVolumeClaimResult(pvcROX, err))
 
 	if err := tn.PersistStatus(ctx, r.Client); err != nil {
 		return ctrl.Result{}, err
 	}
 
 	if tn.Ready() {
-		if tn.Object.Spec.ToolInjection.VolumeClaimTemplate != nil {
-			err := r.cleanupToolInjectionResources(ctx, tn)
-			if err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-
 		return ctrl.Result{}, nil
 	}
 
-	if tn.Object.Spec.ToolInjection.VolumeClaimTemplate != nil {
-		pvc, err := r.createReadWriteVolumeClaim(ctx, tn)
-		if err != nil {
-			return ctrl.Result{}, err
+	if tn.Object.Spec.ToolInjection.VolumeClaimTemplate != nil &&
+		pvcROX.Object.Status.Phase != corev1.ClaimBound {
+		annotations := tn.Object.GetAnnotations()
+		if annotations == nil {
+			annotations = map[string]string{}
 		}
 
-		if pvc.Object.Status.Phase != corev1.ClaimBound {
-			return ctrl.Result{Requeue: true}, nil
-		}
-
-		job, err := r.initializeVolumeClaim(ctx, tn)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-
-		complete := false
-		failed := false
-		for _, cond := range job.Object.Status.Conditions {
-			switch cond.Type {
-			case batchv1.JobComplete:
-				switch cond.Status {
-				case corev1.ConditionTrue:
-					complete = true
+		volume, ok := annotations[model.RelayControllerToolsVolumeAnnotation]
+		if !ok {
+			reference, ok := annotations[model.RelayControllerToolInjectionImageDigestAnnotation]
+			if !ok {
+				tii := model.DefaultToolInjectionImage
+				if r.Config.ToolInjectionImage != "" {
+					tii = r.Config.ToolInjectionImage
 				}
-			case batchv1.JobFailed:
-				switch cond.Status {
-				case corev1.ConditionTrue:
-					failed = true
+
+				reference, err = image.ValidateImage(tii)
+				if err != nil {
+					return ctrl.Result{}, err
+				}
+
+				original := tn.Object.DeepCopy()
+				tn.Annotate(ctx, model.RelayControllerToolInjectionImageDigestAnnotation, reference)
+				err = tn.Patch(ctx, r.Client, original)
+				if err != nil {
+					return ctrl.Result{}, err
 				}
 			}
-		}
 
-		if !complete && !failed {
-			return ctrl.Result{Requeue: true}, nil
-		}
-
-		pv := obj.NewPersistentVolume(client.ObjectKey{Name: pvc.Object.Spec.VolumeName})
-		ok, err := pv.Load(ctx, r.Client)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-
-		if !ok ||
-			(pv.Object.Spec.GCEPersistentDisk == nil && pv.Object.Spec.HostPath == nil) {
-			return ctrl.Result{Requeue: true}, nil
-		}
-
-		_, err = r.createReadOnlyVolume(ctx, tn, pv.Object)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-
-		pvcr := obj.AsPersistentVolumeClaimResult(r.createReadOnlyVolumeClaim(ctx, tn))
-		if pvcr.Error != nil {
-			return ctrl.Result{}, pvcr.Error
-		}
-
-		if pvcr.PersistentVolumeClaim.Object.Status.Phase != corev1.ClaimBound {
-			return ctrl.Result{Requeue: true}, nil
-		}
-
-		obj.ConfigureTenant(tn, tdr, pvcr)
-
-		if err := tn.PersistStatus(ctx, r.Client); err != nil {
-			return ctrl.Result{}, err
-		}
-
-		if tn.Ready() {
-			err := r.cleanupToolInjectionResources(ctx, tn)
+			pvcRWO, err := r.createReadWriteVolumeClaim(ctx, tn)
 			if err != nil {
 				return ctrl.Result{}, err
 			}
+
+			if pvcRWO.Object.Status.Phase != corev1.ClaimBound {
+				return ctrl.Result{Requeue: true}, nil
+			}
+
+			pv := obj.NewPersistentVolume(client.ObjectKey{Name: pvcRWO.Object.Spec.VolumeName})
+			ok, err = pv.Load(ctx, r.Client)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+
+			if !ok || pv.Object.Status.Phase != corev1.VolumeBound {
+				return ctrl.Result{Requeue: true}, nil
+			}
+
+			job, err := r.initializeVolumeClaim(ctx, reference, tn)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+
+			complete := false
+			failed := false
+			for _, cond := range job.Object.Status.Conditions {
+				switch cond.Type {
+				case batchv1.JobComplete:
+					switch cond.Status {
+					case corev1.ConditionTrue:
+						complete = true
+					}
+				case batchv1.JobFailed:
+					switch cond.Status {
+					case corev1.ConditionTrue:
+						failed = true
+					}
+				}
+			}
+
+			if !complete && !failed {
+				return ctrl.Result{Requeue: true}, nil
+			}
+
+			volume = pv.Object.GetName()
+			original := tn.Object.DeepCopy()
+			tn.Annotate(ctx, model.RelayControllerToolsVolumeAnnotation, volume)
+			err = tn.Patch(ctx, r.Client, original)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+
+		err := r.cleanupToolInjectionResources(ctx, tn)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+
+		pv := obj.NewPersistentVolume(client.ObjectKey{Name: volume})
+		ok, err = pv.Load(ctx, r.Client)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+
+		if !ok {
+			return ctrl.Result{Requeue: true}, nil
+		}
+
+		if pv.Object.Status.Phase != corev1.VolumeBound {
+			original := pv.Object.DeepCopy()
+			pv.Label(ctx, model.RelayControllerToolInjectionVolumeLabel, tn.Object.GetName())
+			pv.Object.Spec.ClaimRef = nil
+			pv.Object.Spec.AccessModes = []corev1.PersistentVolumeAccessMode{corev1.ReadOnlyMany}
+
+			err = pv.Patch(ctx, r.Client, original)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+
+		pvcROX := obj.NewPersistentVolumeClaim(client.ObjectKey{Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany, Namespace: tn.Object.Status.Namespace})
+		ok, err = pvcROX.Load(ctx, r.Client)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+
+		if !ok {
+			pvList := &corev1.PersistentVolumeList{}
+			err = r.Client.List(ctx, pvList, client.MatchingFields{
+				"status.phase": string(corev1.VolumeAvailable),
+			})
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+
+			if len(pvList.Items) <= 0 {
+				return ctrl.Result{Requeue: true}, nil
+			}
+
+			pvcROX, err = r.createReadOnlyVolumeClaim(ctx, tn)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+
+		_, err = pvcROX.Load(ctx, r.Client)
+		obj.ConfigureTenant(tn, tdr, obj.AsPersistentVolumeClaimResult(pvcROX, err))
+
+		if err := tn.PersistStatus(ctx, r.Client); err != nil {
+			return ctrl.Result{}, err
 		}
 	}
 
@@ -177,7 +241,7 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 }
 
 func (r *Reconciler) cleanupToolInjectionResources(ctx context.Context, tn *obj.Tenant) error {
-	job := obj.NewJob(client.ObjectKey{Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadWriteOnce, Namespace: tn.Object.Status.Namespace})
+	job := obj.NewJob(client.ObjectKey{Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadWriteOnce, Namespace: tn.Object.GetNamespace()})
 	_, err := job.Load(ctx, r.Client)
 	if err != nil {
 		return err
@@ -188,40 +252,18 @@ func (r *Reconciler) cleanupToolInjectionResources(ctx context.Context, tn *obj.
 		return err
 	}
 
-	return nil
-}
-
-func (r *Reconciler) createReadOnlyVolume(ctx context.Context, tn *obj.Tenant, pv *corev1.PersistentVolume) (*obj.PersistentVolume, error) {
-	pvn := &corev1.PersistentVolume{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany,
-		},
-		Spec: corev1.PersistentVolumeSpec{
-			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadOnlyMany},
-			Capacity:         pv.Spec.Capacity,
-			StorageClassName: pv.Spec.StorageClassName,
-		},
-	}
-
-	pvn.Spec.AccessModes = []corev1.PersistentVolumeAccessMode{corev1.ReadOnlyMany}
-
-	if pv.Spec.GCEPersistentDisk != nil {
-		pvn.Spec.PersistentVolumeSource = corev1.PersistentVolumeSource{
-			GCEPersistentDisk: pv.Spec.GCEPersistentDisk,
-		}
-	} else if pv.Spec.HostPath != nil {
-		pvn.Spec.PersistentVolumeSource = corev1.PersistentVolumeSource{
-			HostPath: pv.Spec.HostPath,
-		}
-	}
-
-	key := client.ObjectKey{Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany}
-	pvno, err := obj.ApplyPersistentVolume(ctx, r.Client, key, pvn)
+	pvcRWO := obj.NewPersistentVolumeClaim(client.ObjectKey{Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadWriteOnce, Namespace: tn.Object.GetNamespace()})
+	_, err = pvcRWO.Load(ctx, r.Client)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return pvno, nil
+	_, err = pvcRWO.Delete(ctx, r.Client)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (r *Reconciler) createReadOnlyVolumeClaim(ctx context.Context, tn *obj.Tenant) (*obj.PersistentVolumeClaim, error) {
@@ -236,6 +278,11 @@ func (r *Reconciler) createReadOnlyVolumeClaim(ctx context.Context, tn *obj.Tena
 			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadOnlyMany},
 			Resources:        tn.Object.Spec.ToolInjection.VolumeClaimTemplate.Spec.Resources,
 			StorageClassName: tn.Object.Spec.ToolInjection.VolumeClaimTemplate.Spec.StorageClassName,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					model.RelayControllerToolInjectionVolumeLabel: tn.Object.GetName(),
+				},
+			},
 		},
 	}
 
@@ -252,7 +299,7 @@ func (r *Reconciler) createReadWriteVolumeClaim(ctx context.Context, tn *obj.Ten
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadWriteOnce,
-			Namespace: tn.Object.Status.Namespace,
+			Namespace: tn.Object.GetNamespace(),
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
 			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
@@ -270,15 +317,10 @@ func (r *Reconciler) createReadWriteVolumeClaim(ctx context.Context, tn *obj.Ten
 	return pvco, err
 }
 
-func (r *Reconciler) initializeVolumeClaim(ctx context.Context, tn *obj.Tenant) (*obj.Job, error) {
-	tii := model.DefaultToolInjectionImage
-	if r.Config.ToolInjectionImage != "" {
-		tii = r.Config.ToolInjectionImage
-	}
-
+func (r *Reconciler) initializeVolumeClaim(ctx context.Context, image string, tn *obj.Tenant) (*obj.Job, error) {
 	container := corev1.Container{
 		Name:    model.ToolInjectionMountName,
-		Image:   tii,
+		Image:   image,
 		Command: []string{"cp"},
 		Args:    []string{"-r", model.ToolInjectionImagePath, model.ToolInjectionMountPath},
 		VolumeMounts: []corev1.VolumeMount{
@@ -296,7 +338,7 @@ func (r *Reconciler) initializeVolumeClaim(ctx context.Context, tn *obj.Tenant) 
 	j := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadWriteOnce,
-			Namespace: tn.Object.Status.Namespace,
+			Namespace: tn.Object.GetNamespace(),
 		},
 		Spec: batchv1.JobSpec{
 			Template: corev1.PodTemplateSpec{

@@ -265,6 +265,13 @@ spec:
               description: ObservedGeneration is the generation of the resource specification that this status matches.
               format: int64
               type: integer
+            toolInjection:
+              description: ToolInjection contains specific status data for tool injection
+              properties:
+                imageDigest:
+                  description: ImageDigest is the specific image digest used for tool injection
+                  type: string
+              type: object
           type: object
       required:
       - spec

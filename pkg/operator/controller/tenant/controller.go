@@ -6,6 +6,8 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/operator/config"
 	"github.com/puppetlabs/relay-core/pkg/operator/reconciler/filter"
 	"github.com/puppetlabs/relay-core/pkg/operator/reconciler/tenant"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -33,5 +35,14 @@ func add(mgr manager.Manager, r reconcile.Reconciler, cfg *config.WorkflowContro
 }
 
 func Add(mgr manager.Manager, cfg *config.WorkflowControllerConfig) error {
+	mgr.GetFieldIndexer().IndexField(&corev1.PersistentVolume{}, "status.phase", func(o runtime.Object) []string {
+		var res []string
+		vol, ok := o.(*corev1.PersistentVolume)
+		if ok {
+			res = append(res, string(vol.Status.Phase))
+		}
+		return res
+	})
+
 	return add(mgr, tenant.NewReconciler(mgr.GetClient(), cfg), cfg)
 }
