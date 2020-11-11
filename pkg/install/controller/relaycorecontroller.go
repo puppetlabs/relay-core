@@ -51,17 +51,17 @@ type RelayCoreReconciler struct {
 
 // +kubebuilder:rbac:groups=install.relay.sh,resources=relaycores,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=install.relay.sh,resources=relaycores/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core,resources=configmaps;serviceaccounts;services;secrets;namespaces;persistentvolumes,verbs=get;list;watch;patch;create;update
-// +kubebuilder:rbac:groups=core,resources=pods;limitranges;persistentvolumeclaims,verbs=get;list;watch
-// +kubebuilder:rbac:groups=tekton.dev,resources=pipelineruns;taskruns;pipelines;tasks;conditions,verbs=get;list;watch
-// +kubebuilder:rbac:groups=batch;extensions,resources=jobs,verbs=get;list;watch
+// +kubebuilder:rbac:groups=core,resources=configmaps;limitranges;serviceaccounts;services;secrets;namespaces;persistentvolumes;persistentvolumeclaims,verbs=get;list;watch;patch;create;update;delete
+// +kubebuilder:rbac:groups=core,resources=pods;pods/log,verbs=get;list;watch
+// +kubebuilder:rbac:groups=tekton.dev,resources=pipelineruns;taskruns;pipelines;tasks;conditions,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=batch;extensions,resources=jobs,verbs=get;list;watch;patch;create;update;delete
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;patch;create;update
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings,verbs=get;list;watch;patch;create;update
-// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles;rolebindings,verbs=get;list;watch
-// +kubebuilder:rbac:groups=networking.k8s.io,resources=networkpolicies,verbs=get;list;watch
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles;rolebindings,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=networking.k8s.io,resources=networkpolicies,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=nebula.puppet.com,resources=workflowruns;workflowruns/status,verbs=get;list;watch;patch;update
 // +kubebuilder:rbac:groups=relay.sh,resources=tenants;tenants/status;webhooktriggers;webhooktriggers/status,verbs=get;list;watch;patch;update
-// +kubebuilder:rbac:groups=serving.knative.dev,resources=services,verbs=get;list;watch
+// +kubebuilder:rbac:groups=serving.knative.dev,resources=services,verbs=get;list;watch;create;update;patch;delete
 
 func (r *RelayCoreReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
@@ -125,18 +125,15 @@ func (r *RelayCoreReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, err
 	}
 
+	if err := r.updateStatus(ctx, relayCore); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	return ctrl.Result{}, nil
 }
 
 func (r *RelayCoreReconciler) updateStatus(ctx context.Context, relayCore *installerv1alpha1.RelayCore) error {
 	return r.Status().Update(ctx, relayCore)
-}
-
-func (r *RelayCoreReconciler) desiredOperatorSigningKeySecret(ctx context.Context, relaycore *installerv1alpha1.RelayCore) error {
-	// if the secret exists for this deployment, then we don't need to create it again
-	// otherwise we generate a keypair and create a new secret
-
-	return nil
 }
 
 func (r *RelayCoreReconciler) checkSecret(ctx context.Context, key types.NamespacedName) error {

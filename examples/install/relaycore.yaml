@@ -10,9 +10,6 @@ spec:
     storageAddr: file:///tmp
     webhookTLSSecretName: relay-tasks-webhook-tls-crt
     jwtSigningKeySecretName: jwt-signing-keys
-    vaultAgentRole: relay-tasks
-  metadataAPI:
-    vaultAgentRole: relay-metadata-api
   vault:
     sidecar:
       serverAddr: http://vault.relay-system.svc.cluster.local:8200

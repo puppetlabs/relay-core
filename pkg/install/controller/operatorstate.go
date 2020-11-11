@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	installerv1alpha1 "github.com/puppetlabs/relay-core/pkg/apis/install.relay.sh/v1alpha1"
+	"github.com/puppetlabs/relay-core/pkg/install/jwt"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -18,8 +19,10 @@ import (
 type operatorObjects struct {
 	deployment                     appsv1.Deployment
 	serviceAccount                 corev1.ServiceAccount
+	signingKeysSecret              corev1.Secret
 	clusterRole                    rbacv1.ClusterRole
 	clusterRoleBinding             rbacv1.ClusterRoleBinding
+	delegateClusterRole            rbacv1.ClusterRole
 	vaultConfigMap                 corev1.ConfigMap
 	vaultServiceAccount            corev1.ServiceAccount
 	vaultServiceAccountTokenSecret corev1.Secret
@@ -30,12 +33,15 @@ func newOperatorObjects(rc *installerv1alpha1.RelayCore) *operatorObjects {
 	vaultName := fmt.Sprintf("%s-vault", name)
 	objectMeta := metav1.ObjectMeta{Name: name, Namespace: rc.Namespace}
 	vaultObjectMeta := metav1.ObjectMeta{Name: vaultName, Namespace: rc.Namespace}
+	signingKeysSecretObjectMeta := metav1.ObjectMeta{Name: fmt.Sprintf("%s-signing-keys", name), Namespace: rc.Namespace}
 
 	return &operatorObjects{
 		deployment:                     appsv1.Deployment{ObjectMeta: objectMeta},
 		serviceAccount:                 corev1.ServiceAccount{ObjectMeta: objectMeta},
+		signingKeysSecret:              corev1.Secret{ObjectMeta: signingKeysSecretObjectMeta},
 		clusterRole:                    rbacv1.ClusterRole{ObjectMeta: metav1.ObjectMeta{Name: objectMeta.Name}},
 		clusterRoleBinding:             rbacv1.ClusterRoleBinding{ObjectMeta: metav1.ObjectMeta{Name: objectMeta.Name}},
+		delegateClusterRole:            rbacv1.ClusterRole{ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf("%s-delegate", objectMeta.Name)}},
 		vaultConfigMap:                 corev1.ConfigMap{ObjectMeta: vaultObjectMeta},
 		vaultServiceAccount:            corev1.ServiceAccount{ObjectMeta: vaultObjectMeta},
 		vaultServiceAccountTokenSecret: corev1.Secret{ObjectMeta: vaultObjectMeta},
@@ -51,16 +57,6 @@ type operatorStateManager struct {
 	baseLabels        map[string]string
 }
 
-// _, err = ctrl.CreateOrUpdate(ctx, r, &operatorDelegateClusterRole, func() error {
-// 	osm.delegateClusterRole(&operatorDelegateClusterRole)
-
-// 	// return ctrl.SetControllerReference(relayCore, &operatorDelegateClusterRole, r.Scheme)
-// 	return nil
-// })
-// if err != nil {
-// 	return ctrl.Result{}, err
-// }
-
 func (m *operatorStateManager) reconcile(ctx context.Context) error {
 	if _, err := ctrl.CreateOrUpdate(ctx, m, &m.objects.vaultConfigMap, func() error {
 		m.vaultAgentManager.configMap(&m.objects.vaultConfigMap)
@@ -75,6 +71,8 @@ func (m *operatorStateManager) reconcile(ctx context.Context) error {
 	}); err != nil {
 		return err
 	}
+
+	m.rc.Status.Vault.OperatorServiceAccount = m.objects.vaultServiceAccount.Name
 
 	if _, err := ctrl.CreateOrUpdate(ctx, m, &m.objects.vaultServiceAccountTokenSecret, func() error {
 		m.vaultAgentManager.serviceAccountTokenSecret(
@@ -93,6 +91,8 @@ func (m *operatorStateManager) reconcile(ctx context.Context) error {
 		return err
 	}
 
+	m.rc.Status.OperatorServiceAccount = m.objects.serviceAccount.Name
+
 	if _, err := ctrl.CreateOrUpdate(ctx, m, &m.objects.clusterRole, func() error {
 		m.clusterRole(&m.objects.clusterRole)
 
@@ -109,6 +109,30 @@ func (m *operatorStateManager) reconcile(ctx context.Context) error {
 		return err
 	}
 
+	if _, err := ctrl.CreateOrUpdate(ctx, m, &m.objects.delegateClusterRole, func() error {
+		m.delegateClusterRole(&m.objects.delegateClusterRole)
+
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	if m.rc.Spec.Operator.GenerateJWTSigningKey {
+		if _, err := ctrl.CreateOrUpdate(ctx, m, &m.objects.signingKeysSecret, func() error {
+			if m.objects.signingKeysSecret.CreationTimestamp.IsZero() {
+				if err := m.signingKeysSecret(&m.objects.signingKeysSecret); err != nil {
+					return err
+				}
+			}
+
+			return ctrl.SetControllerReference(m.rc, &m.objects.signingKeysSecret, m.scheme)
+		}); err != nil {
+			return err
+		}
+
+		m.rc.Status.Vault.JWTSigningKeySecret = m.objects.signingKeysSecret.Name
+	}
+
 	if _, err := ctrl.CreateOrUpdate(ctx, m, &m.objects.deployment, func() error {
 		m.deployment(&m.objects.deployment)
 
@@ -116,6 +140,8 @@ func (m *operatorStateManager) reconcile(ctx context.Context) error {
 	}); err != nil {
 		return err
 	}
+
+	m.rc.Status.Vault.OperatorRole = m.vaultAgentManager.getRole()
 
 	return nil
 }
@@ -141,16 +167,19 @@ func (m *operatorStateManager) deployment(deployment *appsv1.Deployment) {
 		})
 	}
 
+	signingKeySecretName := m.objects.signingKeysSecret.Name
 	if m.rc.Spec.Operator.JWTSigningKeySecretName != nil {
-		template.Volumes = append(template.Volumes, corev1.Volume{
-			Name: "jwt-signing-key",
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName: *m.rc.Spec.Operator.JWTSigningKeySecretName,
-				},
-			},
-		})
+		signingKeySecretName = *m.rc.Spec.Operator.JWTSigningKeySecretName
 	}
+
+	template.Volumes = append(template.Volumes, corev1.Volume{
+		Name: "jwt-signing-key",
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: signingKeySecretName,
+			},
+		},
+	})
 
 	if len(template.Containers) == 0 {
 		template.Containers = make([]corev1.Container, 2)
@@ -180,7 +209,6 @@ func (m *operatorStateManager) deploymentCommand() []string {
 		m.rc.Spec.Operator.ToolInjection.Image,
 		"-num-workers",
 		strconv.Itoa(int(m.rc.Spec.Operator.Workers)),
-		// TODO convert to generateJWTSigningKey field
 		"-jwt-signing-key-file",
 		jwtSigningKeyPath,
 		"-vault-transit-path",
@@ -269,13 +297,27 @@ func (m *operatorStateManager) serverContainer(container *corev1.Container) {
 		})
 	}
 
-	if m.rc.Spec.Operator.JWTSigningKeySecretName != nil {
-		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
-			Name:      "jwt-signing-key",
-			ReadOnly:  true,
-			MountPath: jwtSigningKeyDirPath,
-		})
+	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+		Name:      "jwt-signing-key",
+		ReadOnly:  true,
+		MountPath: jwtSigningKeyDirPath,
+	})
+}
+
+func (m *operatorStateManager) signingKeysSecret(sec *corev1.Secret) error {
+	pair, err := jwt.GenerateSigningKeys()
+	if err != nil {
+		return err
 	}
+
+	if sec.Data == nil {
+		sec.Data = make(map[string][]byte)
+	}
+
+	sec.Data["private-key.pem"] = pair.PrivateKey
+	sec.Data["public-key.pem"] = pair.PublicKey
+
+	return nil
 }
 
 func (m *operatorStateManager) metricsService(svc *corev1.Service) {
@@ -331,6 +373,46 @@ func (m *operatorStateManager) clusterRole(clusterRole *rbacv1.ClusterRole) {
 	}
 }
 
+func (m *operatorStateManager) delegateClusterRole(clusterRole *rbacv1.ClusterRole) {
+	clusterRole.Rules = []rbacv1.PolicyRule{
+		{
+			APIGroups: []string{""},
+			Resources: []string{"pods/log"},
+			Verbs:     []string{"get", "list", "watch"},
+		},
+		{
+			APIGroups: []string{""},
+			Resources: []string{"configmaps", "serviceaccounts", "secrets", "limitranges", "persistentvolumes", "persistentvolumeclaims"},
+			Verbs:     []string{"create", "update", "patch", "delete"},
+		},
+		{
+			APIGroups: []string{"batch", "extensions"},
+			Resources: []string{"jobs"},
+			Verbs:     []string{"create", "update", "patch", "delete"},
+		},
+		{
+			APIGroups: []string{"rbac.authorization.k8s.io"},
+			Resources: []string{"roles", "rolebindings"},
+			Verbs:     []string{"create", "update", "patch", "delete"},
+		},
+		{
+			APIGroups: []string{"networking.k8s.io"},
+			Resources: []string{"networkpolicies"},
+			Verbs:     []string{"create", "update", "patch", "delete"},
+		},
+		{
+			APIGroups: []string{"tekton.dev"},
+			Resources: []string{"pipelineruns", "taskruns", "pipelines", "tasks", "conditions"},
+			Verbs:     []string{"create", "update", "patch", "delete"},
+		},
+		{
+			APIGroups: []string{"serving.knative.dev"},
+			Resources: []string{"services"},
+			Verbs:     []string{"create", "update", "patch", "delete"},
+		},
+	}
+}
+
 func (m *operatorStateManager) clusterRoleBinding(clusterRoleBinding *rbacv1.ClusterRoleBinding) {
 	clusterRoleBinding.RoleRef = rbacv1.RoleRef{
 		APIGroup: "rbac.authorization.k8s.io",
@@ -346,46 +428,6 @@ func (m *operatorStateManager) clusterRoleBinding(clusterRoleBinding *rbacv1.Clu
 		},
 	}
 }
-
-// func (m *operatorStateManager) delegateClusterRole(clusterRole *rbacv1.ClusterRole) {
-// 	clusterRole.Rules = []rbacv1.PolicyRule{
-// 		{
-// 			APIGroups: []string{""},
-// 			Resources: []string{"pods/log"},
-// 			Verbs:     []string{"get", "list", "watch"},
-// 		},
-// 		{
-// 			APIGroups: []string{""},
-// 			Resources: []string{"configmaps", "serviceaccounts", "secrets", "limitranges", "persistentvolumes", "persistentvolumeclaims"},
-// 			Verbs:     []string{"create", "update", "patch", "delete"},
-// 		},
-// 		{
-// 			APIGroups: []string{"batch", "extensions"},
-// 			Resources: []string{"jobs"},
-// 			Verbs:     []string{"create", "update", "patch", "delete"},
-// 		},
-// 		{
-// 			APIGroups: []string{"rbac.authorization.k8s.io"},
-// 			Resources: []string{"roles", "rolebindings"},
-// 			Verbs:     []string{"create", "update", "patch", "delete"},
-// 		},
-// 		{
-// 			APIGroups: []string{"networking.k8s.io"},
-// 			Resources: []string{"networkpolicies"},
-// 			Verbs:     []string{"create", "update", "patch", "delete"},
-// 		},
-// 		{
-// 			APIGroups: []string{"tekton.dev"},
-// 			Resources: []string{"pipelineruns", "taskruns", "pipelines", "tasks", "conditions"},
-// 			Verbs:     []string{"create", "update", "patch", "delete"},
-// 		},
-// 		{
-// 			APIGroups: []string{"serving.knative.dev"},
-// 			Resources: []string{"services"},
-// 			Verbs:     []string{"create", "update", "patch", "delete"},
-// 		},
-// 	}
-// }
 
 func newOperatorStateManager(rc *installerv1alpha1.RelayCore, r *RelayCoreReconciler) *operatorStateManager {
 	m := &operatorStateManager{

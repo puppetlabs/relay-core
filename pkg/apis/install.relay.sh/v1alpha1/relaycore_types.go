@@ -31,21 +31,19 @@ type RelayCoreSpec struct {
 
 	// Operator is the configuration for the workflow run operator.
 	//
-	// +kubebuilder:default={image: "relaysh/relay-operator:latest"}
 	// +optional
-	Operator *OperatorConfig `json:"operator"`
+	Operator *OperatorConfig `json:"operator,omitempty"`
 
 	// MetadataAPI is the configuration for the step metadata-api server.
 	//
-	// +kubebuilder:default={image: "relaysh/relay-metadata-api:latest"}
 	// +optional
-	MetadataAPI *MetadataAPIConfig `json:"metadataAPI"`
+	MetadataAPI *MetadataAPIConfig `json:"metadataAPI,omitempty"`
 
 	// Vault is the configuration for accessing vault from the operator and metadata-api.
 	//
 	// +kubebuilder:default={sidecar: {image: "vault:latest"}}
 	// +optional
-	Vault *VaultConfig `json:"vault"`
+	Vault *VaultConfig `json:"vault,omitempty"`
 
 	// SentryDSNSecretName is the secret that holds the DSN address for Sentry
 	// error and stacktrace collection. The secret object MUST have a data
@@ -86,11 +84,12 @@ type OperatorConfig struct {
 	// "key.pem".  This field is ignored if GenerateJWTSigningKey is true.
 	//
 	// +optional
-	JWTSigningKeySecretName *string `json:"jwtSigningKeySecretName"`
+	JWTSigningKeySecretName *string `json:"jwtSigningKeySecretName,omitempty"`
 
 	// MetricsEnabled enables the metrics server for the operator deployment
 	// and creates a service that can be used to scrape those metrics.
 	//
+	// +kubebuilder:default=false
 	// +optional
 	MetricsEnabled bool `json:"metricsEnabled"`
 
@@ -103,7 +102,7 @@ type OperatorConfig struct {
 	TenantSandboxingRuntimeClassName *string `json:"tenantSandboxingRuntimeClassName,omitempty"`
 
 	// +optional
-	NodeSelector map[string]string `json:"nodeSelector"`
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
 	// Affinity is an optional set of affinity constraints to apply to operator
 	// pods.
@@ -133,7 +132,7 @@ type OperatorConfig struct {
 	// "tls.key" and "tls.crt".
 	//
 	// +optional
-	WebhookTLSSecretName *string `json:"webhookTLSSecretName"`
+	WebhookTLSSecretName *string `json:"webhookTLSSecretName,omitempty"`
 
 	// VaultAgentRole is the role to use when configuring the vault agent.
 	//
@@ -152,10 +151,10 @@ type MetadataAPIConfig struct {
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy"`
 
 	// +optional
-	Env []corev1.EnvVar `json:"env"`
+	Env []corev1.EnvVar `json:"env,omitempty"`
 
 	// +optional
-	NodeSelector map[string]string `json:"nodeSelector"`
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
 	// Affinity is an optional set of affinity constraints to apply to
 	// metadata-api pods.
@@ -172,7 +171,7 @@ type MetadataAPIConfig struct {
 	// have two data fields called "tls.key" and "tls.crt".
 	//
 	// +optional
-	TLSSecretName *string `json:"tlsSecretName"`
+	TLSSecretName *string `json:"tlsSecretName,omitempty"`
 
 	// URL is the URL of the metadata-api that will be used by workflows and
 	// the operator. This defaults to:
@@ -251,25 +250,39 @@ type ToolInjectionConfig struct {
 
 // RelayCoreStatus defines the observed state of RelayCore
 type RelayCoreStatus struct {
-	Status                    string                 `json:"status"`
-	OperatorServiceAccount    corev1.ObjectReference `json:"operatorServiceAccount"`
-	MetadataAPIServiceAccount corev1.ObjectReference `json:"metadataAPIServiceAccount"`
-	Vault                     VaultStatusSummary     `json:"vault"`
+	// +optional
+	Status string `json:"status,omitempty"`
+	// +optional
+	OperatorServiceAccount string `json:"operatorServiceAccount,omitempty"`
+	// +optional
+	MetadataAPIServiceAccount string `json:"metadataAPIServiceAccount,omitempty"`
+	// +optional
+	Vault VaultStatusSummary `json:"vault,omitempty"`
 }
 
 type VaultStatusSummary struct {
-	OperatorRole    string `json:"operatorRole"`
-	MetadataAPIRole string `json:"metadataAPIRole"`
+	// +optional
+	JWTSigningKeySecret string `json:"jwtSigningKeySecret,omitempty"`
+	// +optional
+	OperatorRole string `json:"operatorRole,omitempty"`
+	// +optional
+	MetadataAPIRole string `json:"metadataAPIRole,omitempty"`
+	// +optional
+	OperatorServiceAccount string `json:"operatorServiceAccount,omitempty"`
+	// +optional
+	MetadataAPIServiceAccount string `json:"metadataAPIServiceAccount,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// RelayCore is the Schema for the relaycores API
+
 type RelayCore struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   RelayCoreSpec   `json:"spec,omitempty"`
+	Spec RelayCoreSpec `json:"spec"`
+
+	// +optional
 	Status RelayCoreStatus `json:"status,omitempty"`
 }
 

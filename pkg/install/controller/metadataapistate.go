@@ -68,6 +68,8 @@ func (m *metadataAPIStateManager) reconcile(ctx context.Context) error {
 		return err
 	}
 
+	m.rc.Status.Vault.MetadataAPIServiceAccount = m.objects.vaultServiceAccount.Name
+
 	if _, err := ctrl.CreateOrUpdate(ctx, m, &m.objects.vaultServiceAccountTokenSecret, func() error {
 		m.vaultAgentManager.serviceAccountTokenSecret(
 			&m.objects.vaultServiceAccount,
@@ -84,6 +86,8 @@ func (m *metadataAPIStateManager) reconcile(ctx context.Context) error {
 	}); err != nil {
 		return err
 	}
+
+	m.rc.Status.MetadataAPIServiceAccount = m.objects.serviceAccount.Name
 
 	if _, err := ctrl.CreateOrUpdate(ctx, m, &m.objects.clusterRole, func() error {
 		m.clusterRole(&m.objects.clusterRole)
@@ -108,6 +112,8 @@ func (m *metadataAPIStateManager) reconcile(ctx context.Context) error {
 	}); err != nil {
 		return err
 	}
+
+	m.rc.Status.Vault.MetadataAPIRole = m.vaultAgentManager.getRole()
 
 	if _, err := ctrl.CreateOrUpdate(ctx, m, &m.objects.service, func() error {
 		m.httpService(&m.objects.service)
