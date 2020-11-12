@@ -248,16 +248,20 @@ func (wtd *WebhookTriggerDeps) AnnotateTriggerToken(ctx context.Context, target 
 	claims.KubernetesNamespaceUID = string(wtd.TenantDeps.Namespace.Object.GetUID())
 	claims.KubernetesServiceAccountToken = sat
 
-	// FIXME These annotations are not actually being set right now ...
-	// claims.RelayDomainID = annotations[model.RelayDomainIDAnnotation]
-	// claims.RelayTenantID = annotations[model.RelayTenantIDAnnotation]
+	// FIXME This annotation is not being set right now ...
+	claims.RelayDomainID = annotations[model.RelayDomainIDAnnotation]
 
-	claims.RelayTenantID = strings.TrimPrefix(labels[model.RelayControllerTenantNameLabel], "workflow-")
+	// FIXME This annotation is not being set right now ...
+	if tenant, ok := annotations[model.RelayTenantIDAnnotation]; ok {
+		claims.RelayTenantID = tenant
+	} else {
+		claims.RelayTenantID = strings.TrimPrefix(labels[model.RelayControllerTenantNameLabel], "workflow-")
+	}
 
 	claims.RelayName = mt.Name
 	claims.RelayTriggerID = labels[model.RelayWorkflowTriggerIDLabel]
 
-	idh.Set("parents", claims.RelayTenantID, claims.RelayTriggerID, claims.RelayName)
+	idh.Set("parents", claims.RelayDomainID, claims.RelayTenantID, claims.RelayTriggerID)
 
 	claims.RelayKubernetesImmutableConfigMapName = wtd.ImmutableConfigMap.Key.Name
 	claims.RelayKubernetesMutableConfigMapName = wtd.MutableConfigMap.Key.Name
