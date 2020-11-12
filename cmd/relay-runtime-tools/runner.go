@@ -4,6 +4,8 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -16,6 +18,7 @@ import (
 
 	"github.com/puppetlabs/relay-core/pkg/entrypoint"
 	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
+	"github.com/puppetlabs/relay-pls/pkg/plspb"
 )
 
 type realRunner struct {
@@ -61,12 +64,40 @@ func (rr *realRunner) Run(args ...string) error {
 	signal.Notify(rr.signals)
 	defer signal.Reset()
 
+	logOut, err := postLog(mu, &plspb.LogCreateRequest{
+		Name: "stdout",
+	})
+	if err != nil {
+		log.Println(err)
+	}
+
+	logErr, err := postLog(mu, &plspb.LogCreateRequest{
+		Name: "stderr",
+	})
+	if err != nil {
+		log.Println(err)
+	}
+
 	cmd := exec.Command(name, args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+
 	// dedicated PID group used to forward signals to
 	// main process and all children
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+	stderrPipe, err := cmd.StderrPipe()
+	if err != nil {
+		return err
+	}
+
+	doneOut := make(chan bool)
+	doneErr := make(chan bool)
+
+	scannerOut := bufio.NewScanner(stdoutPipe)
+	scannerErr := bufio.NewScanner(stderrPipe)
 
 	// Start defined command
 	if err := cmd.Start(); err != nil {
@@ -83,12 +114,33 @@ func (rr *realRunner) Run(args ...string) error {
 		}
 	}()
 
+	go scan(mu, scannerOut, os.Stdout, logOut.GetLogId(), doneOut)
+	go scan(mu, scannerErr, os.Stderr, logErr.GetLogId(), doneErr)
+
+	<-doneOut
+	<-doneErr
+
 	// Wait for command to exit
 	if err := cmd.Wait(); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func scan(mu *url.URL, scanner *bufio.Scanner, out *os.File, id string, done chan<- bool) {
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		postLogMessage(mu, &plspb.LogMessageAppendRequest{
+			LogId:   id,
+			Payload: []byte(line),
+		})
+
+		out.WriteString(line)
+		out.WriteString("\n")
+	}
+	done <- true
 }
 
 func getEnvironmentVariables(mu *url.URL) error {
@@ -118,6 +170,60 @@ func getEnvironmentVariables(mu *url.URL) error {
 	}
 
 	return nil
+}
+
+func postLog(mu *url.URL, request *plspb.LogCreateRequest) (*plspb.LogCreateResponse, error) {
+	le := &url.URL{Path: "/logs"}
+
+	buf, err := json.Marshal(request)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, mu.ResolveReference(le).String(), bytes.NewBuffer(buf))
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	response := &plspb.LogCreateResponse{}
+	err = json.NewDecoder(resp.Body).Decode(response)
+	if err != nil {
+		return nil, err
+	}
+
+	return response, nil
+}
+
+func postLogMessage(mu *url.URL, request *plspb.LogMessageAppendRequest) (*plspb.LogMessageAppendResponse, error) {
+	lme := &url.URL{Path: "/logs/messages"}
+
+	buf, err := json.Marshal(request)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, mu.ResolveReference(lme).String(), bytes.NewBuffer(buf))
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	response := &plspb.LogMessageAppendResponse{}
+	err = json.NewDecoder(resp.Body).Decode(response)
+	if err != nil {
+		return nil, err
+	}
+
+	return response, nil
 }
 
 // validateSchemas calls validation endpoints on the metadata-api to validate

@@ -9,7 +9,9 @@ import (
 
 	vaultapi "github.com/hashicorp/vault/api"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
+	"github.com/puppetlabs/relay-pls/pkg/plspb"
 	"github.com/spf13/viper"
+	"google.golang.org/grpc"
 	yaml "gopkg.in/yaml.v3"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -43,6 +45,9 @@ type Config struct {
 	// TLSCertFile is the relative path to a PEM-encoded X509 certificate
 	// bundle corresponding to the private key.
 	TLSCertificateFile string
+
+	// LogServiceURL is the HTTP(S) url to the log service
+	LogServiceURL string
 
 	// StepMetadataURL is the HTTP(S) url to the relaysh core step metadata
 	// json file.
@@ -174,6 +179,19 @@ func (c *Config) KubernetesClient() (*authenticate.KubernetesInterface, error) {
 	return authenticate.NewKubernetesInterfaceForConfig(cfg)
 }
 
+func (c *Config) LogServiceClient(url string) (plspb.LogClient, error) {
+	if url == "" {
+		return nil, nil
+	}
+
+	conn, err := grpc.Dial(url, grpc.WithInsecure(), grpc.WithBlock())
+	if err != nil {
+		return nil, err
+	}
+
+	return plspb.NewLogClient(conn), nil
+}
+
 func (c *Config) VaultTransitClient() (*vaultapi.Client, error) {
 	// Transit is authoritative so can safely fall back to the default config.
 	cfg := vaultapi.DefaultConfig()
@@ -247,6 +265,8 @@ func NewConfig() *Config {
 
 		TLSKeyFile:         viper.GetString("tls_key_file"),
 		TLSCertificateFile: viper.GetString("tls_certificate_file"),
+
+		LogServiceURL: viper.GetString("log_service_url"),
 
 		StepMetadataURL: viper.GetString("step_metadata_url"),
 

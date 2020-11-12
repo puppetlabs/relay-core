@@ -24,8 +24,9 @@ type Claims struct {
 	// our SaaS service, tenants correspond to workflows.
 	RelayTenantID string `json:"relay.sh/tenant-id,omitempty"`
 
-	RelayRunID string `json:"relay.sh/run-id,omitempty"`
-	RelayName  string `json:"relay.sh/name,omitempty"`
+	RelayName      string `json:"relay.sh/name,omitempty"`
+	RelayRunID     string `json:"relay.sh/run-id,omitempty"`
+	RelayTriggerID string `json:"relay.sh/trigger-id,omitempty"`
 
 	RelayKubernetesImmutableConfigMapName string `json:"relay.sh/k8s/immutable-config-map-name,omitempty"`
 	RelayKubernetesMutableConfigMapName   string `json:"relay.sh/k8s/mutable-config-map-name,omitempty"`

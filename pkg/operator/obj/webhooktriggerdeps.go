@@ -6,6 +6,7 @@ import (
 	"math"
 	"net/url"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/puppetlabs/horsehead/v2/jsonutil"
@@ -241,15 +242,22 @@ func (wtd *WebhookTriggerDeps) AnnotateTriggerToken(ctx context.Context, target 
 	}
 
 	annotations := wtd.WebhookTrigger.Object.GetAnnotations()
+	labels := wtd.WebhookTrigger.Object.GetLabels()
 
 	claims.KubernetesNamespaceName = wtd.TenantDeps.Namespace.Name
 	claims.KubernetesNamespaceUID = string(wtd.TenantDeps.Namespace.Object.GetUID())
 	claims.KubernetesServiceAccountToken = sat
 
-	claims.RelayDomainID = annotations[model.RelayDomainIDAnnotation]
-	claims.RelayTenantID = annotations[model.RelayTenantIDAnnotation]
+	// FIXME These annotations are not actually being set right now ...
+	// claims.RelayDomainID = annotations[model.RelayDomainIDAnnotation]
+	// claims.RelayTenantID = annotations[model.RelayTenantIDAnnotation]
+
+	claims.RelayTenantID = strings.TrimPrefix(labels[model.RelayControllerTenantNameLabel], "workflow-")
+
 	claims.RelayName = mt.Name
-	idh.Set("parents", claims.RelayDomainID, claims.RelayTenantID)
+	claims.RelayTriggerID = labels[model.RelayWorkflowTriggerIDLabel]
+
+	idh.Set("parents", claims.RelayTenantID, claims.RelayTriggerID, claims.RelayName)
 
 	claims.RelayKubernetesImmutableConfigMapName = wtd.ImmutableConfigMap.Key.Name
 	claims.RelayKubernetesMutableConfigMapName = wtd.MutableConfigMap.Key.Name
