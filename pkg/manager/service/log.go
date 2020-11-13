@@ -19,9 +19,8 @@ func (m *LogManager) PostLog(ctx context.Context, lcr *plspb.LogCreateRequest) (
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	context := lcr.Context
-	if context == "" {
-		context = m.logContext
+	if lcr.Context == "" {
+		lcr.Context = m.logContext
 	}
 
 	if m.logClient != nil {
