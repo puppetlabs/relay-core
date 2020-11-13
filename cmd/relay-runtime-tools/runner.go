@@ -114,8 +114,8 @@ func (rr *realRunner) Run(args ...string) error {
 		}
 	}()
 
-	go scan(mu, scannerOut, os.Stdout, logOut.GetLogId(), doneOut)
-	go scan(mu, scannerErr, os.Stderr, logErr.GetLogId(), doneErr)
+	go scan(mu, scannerOut, os.Stdout, logOut, doneOut)
+	go scan(mu, scannerErr, os.Stderr, logErr, doneErr)
 
 	<-doneOut
 	<-doneErr
@@ -128,14 +128,16 @@ func (rr *realRunner) Run(args ...string) error {
 	return nil
 }
 
-func scan(mu *url.URL, scanner *bufio.Scanner, out *os.File, id string, done chan<- bool) {
+func scan(mu *url.URL, scanner *bufio.Scanner, out *os.File, log *plspb.LogCreateResponse, done chan<- bool) {
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		postLogMessage(mu, &plspb.LogMessageAppendRequest{
-			LogId:   id,
-			Payload: []byte(line),
-		})
+		if log != nil {
+			postLogMessage(mu, &plspb.LogMessageAppendRequest{
+				LogId:   log.GetLogId(),
+				Payload: []byte(line),
+			})
+		}
 
 		out.WriteString(line)
 		out.WriteString("\n")
