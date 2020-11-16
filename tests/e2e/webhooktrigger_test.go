@@ -14,7 +14,7 @@ import (
 	"github.com/google/uuid"
 	_ "github.com/puppetlabs/horsehead/v2/storage/file"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
-	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
+	exprmodel "github.com/puppetlabs/relay-core/pkg/expr/model"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/util/retry"
 	"github.com/puppetlabs/relay-core/pkg/util/testutil"
@@ -300,7 +300,7 @@ func TestWebhookTriggerHasAccessToMetadataAPI(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 
-		var result evaluate.JSONResultEnvelope
+		var result exprmodel.JSONResultEnvelope
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(&result))
 		assert.True(t, result.Complete)
 		assert.Equal(t, map[string]interface{}{

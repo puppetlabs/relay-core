@@ -15,7 +15,7 @@ import (
 	"syscall"
 
 	"github.com/puppetlabs/relay-core/pkg/entrypoint"
-	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
+	"github.com/puppetlabs/relay-core/pkg/expr/model"
 )
 
 type realRunner struct {
@@ -104,7 +104,7 @@ func getEnvironmentVariables(mu *url.URL) error {
 	}
 
 	if resp != nil && resp.Body != nil {
-		var r evaluate.JSONResultEnvelope
+		var r model.JSONResultEnvelope
 		json.NewDecoder(resp.Body).Decode(&r)
 
 		if r.Value.Data != nil {

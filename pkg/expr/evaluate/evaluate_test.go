@@ -8,8 +8,10 @@ import (
 	"testing"
 
 	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
+	jsonpath "github.com/puppetlabs/paesslerag-jsonpath"
 	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
 	"github.com/puppetlabs/relay-core/pkg/expr/fn"
+	"github.com/puppetlabs/relay-core/pkg/expr/model"
 	"github.com/puppetlabs/relay-core/pkg/expr/parse"
 	"github.com/puppetlabs/relay-core/pkg/expr/resolve"
 	"github.com/puppetlabs/relay-core/pkg/expr/testutil"
@@ -26,7 +28,7 @@ type test struct {
 	Query                string
 	Into                 interface{}
 	ExpectedValue        interface{}
-	ExpectedUnresolvable evaluate.Unresolvable
+	ExpectedUnresolvable model.Unresolvable
 	ExpectedError        error
 }
 
@@ -45,7 +47,7 @@ func (tt test) Run(t *testing.T) {
 	}
 
 	var v interface{}
-	var u evaluate.Unresolvable
+	var u model.Unresolvable
 	if tt.Query != "" {
 		r, err := ev.EvaluateQuery(context.Background(), tree, tt.Query)
 		check(t, err)
@@ -102,13 +104,13 @@ func TestEvaluate(t *testing.T) {
 	fns := resolve.NewMemoryInvocationResolver(
 		fn.NewMap(map[string]fn.Descriptor{
 			"foo": fn.DescriptorFuncs{
-				PositionalInvokerFunc: func(args []interface{}) (fn.Invoker, error) {
-					return fn.InvokerFunc(func(ctx context.Context) (interface{}, error) {
+				PositionalInvokerFunc: func(args []model.Evaluable) (fn.Invoker, error) {
+					return fn.EvaluatedPositionalInvoker(args, func(ctx context.Context, args []interface{}) (interface{}, error) {
 						return fmt.Sprintf("~~%v~~", args), nil
 					}), nil
 				},
-				KeywordInvokerFunc: func(args map[string]interface{}) (fn.Invoker, error) {
-					return fn.InvokerFunc(func(ctx context.Context) (interface{}, error) {
+				KeywordInvokerFunc: func(args map[string]model.Evaluable) (fn.Invoker, error) {
+					return fn.EvaluatedKeywordInvoker(args, func(ctx context.Context, args map[string]interface{}) (interface{}, error) {
 						return fmt.Sprintf("~~%v~~", args["whiz"]), nil
 					}), nil
 				},
@@ -128,8 +130,8 @@ func TestEvaluate(t *testing.T) {
 			ExpectedValue: map[string]interface{}{
 				"baz": testutil.JSONData("foo.bar"),
 			},
-			ExpectedUnresolvable: evaluate.Unresolvable{
-				Data: []evaluate.UnresolvableData{
+			ExpectedUnresolvable: model.Unresolvable{
+				Data: []model.UnresolvableData{
 					{Query: "foo.bar"},
 				},
 			},
@@ -140,8 +142,8 @@ func TestEvaluate(t *testing.T) {
 			ExpectedValue: map[string]interface{}{
 				"foo": testutil.JSONSecret("bar"),
 			},
-			ExpectedUnresolvable: evaluate.Unresolvable{
-				Secrets: []evaluate.UnresolvableSecret{
+			ExpectedUnresolvable: model.Unresolvable{
+				Secrets: []model.UnresolvableSecret{
 					{Name: "bar"},
 				},
 			},
@@ -152,8 +154,8 @@ func TestEvaluate(t *testing.T) {
 			ExpectedValue: map[string]interface{}{
 				"foo": testutil.JSONConnection("blort", "bar"),
 			},
-			ExpectedUnresolvable: evaluate.Unresolvable{
-				Connections: []evaluate.UnresolvableConnection{
+			ExpectedUnresolvable: model.Unresolvable{
+				Connections: []model.UnresolvableConnection{
 					{Type: "blort", Name: "bar"},
 				},
 			},
@@ -164,8 +166,8 @@ func TestEvaluate(t *testing.T) {
 			ExpectedValue: map[string]interface{}{
 				"foo": testutil.JSONOutput("baz", "bar"),
 			},
-			ExpectedUnresolvable: evaluate.Unresolvable{
-				Outputs: []evaluate.UnresolvableOutput{
+			ExpectedUnresolvable: model.Unresolvable{
+				Outputs: []model.UnresolvableOutput{
 					{From: "baz", Name: "bar"},
 				},
 			},
@@ -176,8 +178,8 @@ func TestEvaluate(t *testing.T) {
 			ExpectedValue: map[string]interface{}{
 				"foo": testutil.JSONParameter("bar"),
 			},
-			ExpectedUnresolvable: evaluate.Unresolvable{
-				Parameters: []evaluate.UnresolvableParameter{
+			ExpectedUnresolvable: model.Unresolvable{
+				Parameters: []model.UnresolvableParameter{
 					{Name: "bar"},
 				},
 			},
@@ -280,7 +282,7 @@ func TestEvaluate(t *testing.T) {
 				Path: "data",
 				Cause: &evaluate.InvalidTypeError{
 					Type: "Data",
-					Cause: &resolve.DataQueryError{
+					Cause: &model.DataQueryError{
 						Query: "fo{o.b}ar",
 					},
 				},
@@ -292,8 +294,8 @@ func TestEvaluate(t *testing.T) {
 			ExpectedValue: map[string]interface{}{
 				"foo": testutil.JSONInvocation("foo", "bar"),
 			},
-			ExpectedUnresolvable: evaluate.Unresolvable{
-				Invocations: []evaluate.UnresolvableInvocation{
+			ExpectedUnresolvable: model.Unresolvable{
+				Invocations: []model.UnresolvableInvocation{
 					{Name: "foo", Cause: fn.ErrFunctionNotFound},
 				},
 			},
@@ -320,26 +322,26 @@ func TestEvaluate(t *testing.T) {
 				"g": testutil.JSONData("foo.bar"),
 				"h": testutil.JSONConnection("blort", "bar"),
 			},
-			ExpectedUnresolvable: evaluate.Unresolvable{
-				Secrets: []evaluate.UnresolvableSecret{
+			ExpectedUnresolvable: model.Unresolvable{
+				Secrets: []model.UnresolvableSecret{
 					{Name: "foo"},
 				},
-				Outputs: []evaluate.UnresolvableOutput{
+				Outputs: []model.UnresolvableOutput{
 					{From: "baz", Name: "bar"},
 				},
-				Parameters: []evaluate.UnresolvableParameter{
+				Parameters: []model.UnresolvableParameter{
 					{Name: "quux"},
 				},
-				Invocations: []evaluate.UnresolvableInvocation{
+				Invocations: []model.UnresolvableInvocation{
 					{Name: "foo", Cause: fn.ErrFunctionNotFound},
 				},
-				Answers: []evaluate.UnresolvableAnswer{
+				Answers: []model.UnresolvableAnswer{
 					{AskRef: "baz", Name: "bar"},
 				},
-				Data: []evaluate.UnresolvableData{
+				Data: []model.UnresolvableData{
 					{Query: "foo.bar"},
 				},
-				Connections: []evaluate.UnresolvableConnection{
+				Connections: []model.UnresolvableConnection{
 					{Type: "blort", Name: "bar"},
 				},
 			},
@@ -361,8 +363,8 @@ func TestEvaluate(t *testing.T) {
 				},
 				"bar": testutil.JSONParameter("frob"),
 			},
-			ExpectedUnresolvable: evaluate.Unresolvable{
-				Parameters: []evaluate.UnresolvableParameter{
+			ExpectedUnresolvable: model.Unresolvable{
+				Parameters: []model.UnresolvableParameter{
 					{Name: "bar"},
 					{Name: "frob"},
 				},
@@ -444,7 +446,7 @@ func TestEvaluate(t *testing.T) {
 			},
 		},
 		{
-			Name: "resolvable secret in invocation argument",
+			Name: "resolvable parameter in invocation argument",
 			Data: `{
 				"aws": {"$fn.jsonUnmarshal": {"$type": "Parameter", "name": "aws"}}
 			}`,
@@ -461,15 +463,15 @@ func TestEvaluate(t *testing.T) {
 			},
 		},
 		{
-			Name: "unresolvable secret in invocation argument",
+			Name: "unresolvable parameter in invocation argument",
 			Data: `{
 				"aws": {"$fn.jsonUnmarshal": {"$type": "Parameter", "name": "aws"}}
 			}`,
 			ExpectedValue: map[string]interface{}{
-				"aws": testutil.JSONInvocation("jsonUnmarshal", testutil.JSONParameter("aws")),
+				"aws": testutil.JSONInvocation("jsonUnmarshal", []interface{}{testutil.JSONParameter("aws")}),
 			},
-			ExpectedUnresolvable: evaluate.Unresolvable{
-				Parameters: []evaluate.UnresolvableParameter{
+			ExpectedUnresolvable: model.Unresolvable{
+				Parameters: []model.UnresolvableParameter{
 					{Name: "aws"},
 				},
 			},
@@ -495,8 +497,8 @@ func TestEvaluate(t *testing.T) {
 					map[string]interface{}{"first": "bar"},
 				)),
 			},
-			ExpectedUnresolvable: evaluate.Unresolvable{
-				Parameters: []evaluate.UnresolvableParameter{
+			ExpectedUnresolvable: model.Unresolvable{
+				Parameters: []model.UnresolvableParameter{
 					{Name: "second"},
 				},
 			},
@@ -529,8 +531,8 @@ func TestEvaluate(t *testing.T) {
 					"foobar",
 				})},
 			},
-			ExpectedUnresolvable: evaluate.Unresolvable{
-				Parameters: []evaluate.UnresolvableParameter{
+			ExpectedUnresolvable: model.Unresolvable{
+				Parameters: []model.UnresolvableParameter{
 					{Name: "first"},
 				},
 			},
@@ -598,8 +600,8 @@ func TestEvaluate(t *testing.T) {
 			ExpectedValue: map[string]interface{}{
 				"foo": testutil.JSONEncoding(transfer.Base64EncodingType, testutil.JSONSecret("bar")),
 			},
-			ExpectedUnresolvable: evaluate.Unresolvable{
-				Secrets: []evaluate.UnresolvableSecret{
+			ExpectedUnresolvable: model.Unresolvable{
+				Secrets: []model.UnresolvableSecret{
 					{Name: "bar"},
 				},
 			},
@@ -621,11 +623,25 @@ func TestEvaluate(t *testing.T) {
 			Data: `{"$fn.foo": {"whiz": "bang", "not": "this"}}`,
 			Opts: []evaluate.Option{
 				evaluate.WithInvocationResolver(fns),
-				evaluate.WithInvokeFunc(func(ctx context.Context, i fn.Invoker) (interface{}, error) {
-					return "nope", nil
+				evaluate.WithInvokeFunc(func(ctx context.Context, i fn.Invoker) (*model.Result, error) {
+					return &model.Result{Value: "nope"}, nil
 				}),
 			},
 			ExpectedValue: "nope",
+		},
+		{
+			Name: "bad invocation",
+			Data: `{"$fn.append": [1, 2, 3]}`,
+			ExpectedError: &evaluate.InvocationError{
+				Name: "append",
+				Cause: &fn.PositionalArgError{
+					Arg: 1,
+					Cause: &fn.UnexpectedTypeError{
+						Wanted: []reflect.Type{reflect.TypeOf([]interface{}(nil))},
+						Got:    reflect.TypeOf(float64(0)),
+					},
+				},
+			},
 		},
 	}.RunAll(t)
 }
@@ -637,6 +653,18 @@ func TestEvaluateQuery(t *testing.T) {
 			Data:          `{"foo": "bar"}`,
 			Query:         `foo`,
 			ExpectedValue: "bar",
+		},
+		{
+			Name:          "nonexistent key",
+			Data:          `{"foo": [{"bar": "baz"}]}`,
+			Query:         `foo[0].quux`,
+			ExpectedError: &jsonpath.UnknownKeyError{Key: "quux"},
+		},
+		{
+			Name:          "nonexistent index",
+			Data:          `{"foo": [{"bar": "baz"}]}`,
+			Query:         `foo[1].quux`,
+			ExpectedError: &jsonpath.IndexOutOfBoundsError{Index: 1},
 		},
 		{
 			Name: "traverses parameter",
@@ -716,8 +744,8 @@ func TestEvaluateQuery(t *testing.T) {
 				"foo": {"$type": "Parameter", "name": "bar"}
 			}`,
 			Query: "foo.bar.baz",
-			ExpectedUnresolvable: evaluate.Unresolvable{
-				Parameters: []evaluate.UnresolvableParameter{
+			ExpectedUnresolvable: model.Unresolvable{
+				Parameters: []model.UnresolvableParameter{
 					{Name: "bar"},
 				},
 			},
@@ -734,8 +762,8 @@ func TestEvaluateQuery(t *testing.T) {
 				evaluate.WithLanguage(evaluate.LanguageJSONPath),
 			},
 			ExpectedValue: []interface{}{"gggggg"},
-			ExpectedUnresolvable: evaluate.Unresolvable{
-				Secrets: []evaluate.UnresolvableSecret{
+			ExpectedUnresolvable: model.Unresolvable{
+				Secrets: []model.UnresolvableSecret{
 					{Name: "bar"},
 					{Name: "foo"},
 				},
@@ -874,8 +902,8 @@ func TestEvaluateQuery(t *testing.T) {
 				evaluate.WithLanguage(evaluate.LanguageJSONPathTemplate),
 			},
 			ExpectedValue: "undo map[$fn.concat:[deployment.v1.apps/ map[$type:Parameter name:deployment]]]",
-			ExpectedUnresolvable: evaluate.Unresolvable{
-				Parameters: []evaluate.UnresolvableParameter{
+			ExpectedUnresolvable: model.Unresolvable{
+				Parameters: []model.UnresolvableParameter{
 					{Name: "deployment"},
 				},
 			},
@@ -915,8 +943,8 @@ func TestEvaluateIntoBasic(t *testing.T) {
 			Data:          `{"foo": {"bar": {"$type": "Secret", "name": "foo"}}}`,
 			Into:          &root{Foo: foo{Bar: "masked"}},
 			ExpectedValue: &root{},
-			ExpectedUnresolvable: evaluate.Unresolvable{
-				Secrets: []evaluate.UnresolvableSecret{
+			ExpectedUnresolvable: model.Unresolvable{
+				Secrets: []model.UnresolvableSecret{
 					{Name: "foo"},
 				},
 			},
@@ -959,8 +987,8 @@ func TestEvaluateIntoStepHelper(t *testing.T) {
 			}`,
 			Into:          &awsSpec{},
 			ExpectedValue: &awsSpec{AWS: &awsDetails{Region: "us-west-2"}},
-			ExpectedUnresolvable: evaluate.Unresolvable{
-				Secrets: []evaluate.UnresolvableSecret{
+			ExpectedUnresolvable: model.Unresolvable{
+				Secrets: []model.UnresolvableSecret{
 					{Name: "aws.accessKeyID"},
 					{Name: "aws.secretAccessKey"},
 				},
@@ -1034,7 +1062,7 @@ func TestJSON(t *testing.T) {
 				}
 			}`,
 			Opts: []evaluate.Option{
-				evaluate.WithResultMapper(evaluate.NewJSONResultMapper()),
+				evaluate.WithResultMapper(model.NewJSONResultMapper()),
 			},
 			ExpectedValue: []byte(`{"foo":"Hello, world!"}`),
 		},
@@ -1047,7 +1075,7 @@ func TestJSON(t *testing.T) {
 				}
 			}`,
 			Opts: []evaluate.Option{
-				evaluate.WithResultMapper(evaluate.NewJSONResultMapper()),
+				evaluate.WithResultMapper(model.NewJSONResultMapper()),
 			},
 			ExpectedValue: []byte(`{"foo":{"$encoding":"base64","data":"SGVsbG8sIJCiikU="}}`),
 		},

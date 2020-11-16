@@ -6,6 +6,7 @@ import (
 
 	utilapi "github.com/puppetlabs/horsehead/v2/httputil/api"
 	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
+	"github.com/puppetlabs/relay-core/pkg/expr/model"
 	"github.com/puppetlabs/relay-core/pkg/manager/resolve"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/errors"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/middleware"
@@ -80,7 +81,7 @@ check:
 	// Not being complete means there are unresolved "expressions" for this tree. These can include
 	// parameters, outputs, secrets, etc.
 	if !rv.Complete() {
-		uerr, ok := rv.Unresolvable.AsError().(*evaluate.UnresolvableError)
+		uerr, ok := rv.Unresolvable.AsError().(*model.UnresolvableError)
 		if !ok {
 			// This should never happen.
 			utilapi.WriteError(ctx, w, errors.NewModelReadError().WithCause(uerr).Bug())

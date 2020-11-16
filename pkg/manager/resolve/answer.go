@@ -3,6 +3,7 @@ package resolve
 import (
 	"context"
 
+	exprmodel "github.com/puppetlabs/relay-core/pkg/expr/model"
 	"github.com/puppetlabs/relay-core/pkg/expr/resolve"
 	"github.com/puppetlabs/relay-core/pkg/model"
 )
@@ -22,7 +23,7 @@ var _ resolve.AnswerTypeResolver = &AnswerTypeResolver{}
 func (atr *AnswerTypeResolver) ResolveAnswer(ctx context.Context, askRef, name string) (interface{}, error) {
 	s, err := atr.m.Get(ctx, name)
 	if err == model.ErrNotFound {
-		return nil, &resolve.AnswerNotFoundError{AskRef: askRef, Name: name}
+		return nil, &exprmodel.AnswerNotFoundError{AskRef: askRef, Name: name}
 	} else if err != nil {
 		return nil, err
 	}

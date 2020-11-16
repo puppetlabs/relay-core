@@ -5,6 +5,7 @@ import (
 
 	utilapi "github.com/puppetlabs/horsehead/v2/httputil/api"
 	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
+	"github.com/puppetlabs/relay-core/pkg/expr/model"
 	"github.com/puppetlabs/relay-core/pkg/manager/resolve"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/errors"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/middleware"
@@ -40,7 +41,7 @@ func (s *Server) GetSpec(w http.ResponseWriter, r *http.Request) {
 		evaluate.WithSecretTypeResolver(resolve.NewSecretTypeResolver(managers.Secrets())),
 	).ScopeTo(spec.Tree)
 
-	var rv *evaluate.Result
+	var rv *model.Result
 	var rerr error
 	if query := r.URL.Query().Get("q"); query != "" {
 		rv, rerr = ev.EvaluateQuery(ctx, query)
@@ -52,5 +53,5 @@ func (s *Server) GetSpec(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	utilapi.WriteObjectOK(ctx, w, evaluate.NewJSONResultEnvelope(rv))
+	utilapi.WriteObjectOK(ctx, w, model.NewJSONResultEnvelope(rv))
 }

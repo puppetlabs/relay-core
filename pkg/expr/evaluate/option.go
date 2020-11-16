@@ -1,6 +1,9 @@
 package evaluate
 
-import "github.com/puppetlabs/relay-core/pkg/expr/resolve"
+import (
+	"github.com/puppetlabs/relay-core/pkg/expr/model"
+	"github.com/puppetlabs/relay-core/pkg/expr/resolve"
+)
 
 type Option func(e *Evaluator)
 
@@ -58,7 +61,7 @@ func WithInvokeFunc(fn InvokeFunc) Option {
 	}
 }
 
-func WithResultMapper(rm ResultMapper) Option {
+func WithResultMapper(rm model.ResultMapper) Option {
 	return func(e *Evaluator) {
 		e.resultMapper = rm
 	}

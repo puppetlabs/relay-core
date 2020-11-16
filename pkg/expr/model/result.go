@@ -1,10 +1,9 @@
-package evaluate
+package model
 
 import (
 	"sort"
 
 	"github.com/puppetlabs/horsehead/v2/datastructure"
-	"github.com/puppetlabs/relay-core/pkg/expr/resolve"
 )
 
 type UnresolvableData struct {
@@ -97,31 +96,31 @@ func (u *Unresolvable) AsError() error {
 	err := &UnresolvableError{}
 
 	for _, d := range u.Data {
-		err.Causes = append(err.Causes, &resolve.DataNotFoundError{Query: d.Query})
+		err.Causes = append(err.Causes, &DataNotFoundError{Query: d.Query})
 	}
 
 	for _, s := range u.Secrets {
-		err.Causes = append(err.Causes, &resolve.SecretNotFoundError{Name: s.Name})
+		err.Causes = append(err.Causes, &SecretNotFoundError{Name: s.Name})
 	}
 
 	for _, c := range u.Connections {
-		err.Causes = append(err.Causes, &resolve.ConnectionNotFoundError{Type: c.Type, Name: c.Name})
+		err.Causes = append(err.Causes, &ConnectionNotFoundError{Type: c.Type, Name: c.Name})
 	}
 
 	for _, o := range u.Outputs {
-		err.Causes = append(err.Causes, &resolve.OutputNotFoundError{From: o.From, Name: o.Name})
+		err.Causes = append(err.Causes, &OutputNotFoundError{From: o.From, Name: o.Name})
 	}
 
 	for _, p := range u.Parameters {
-		err.Causes = append(err.Causes, &resolve.ParameterNotFoundError{Name: p.Name})
+		err.Causes = append(err.Causes, &ParameterNotFoundError{Name: p.Name})
 	}
 
 	for _, a := range u.Answers {
-		err.Causes = append(err.Causes, &resolve.AnswerNotFoundError{AskRef: a.AskRef, Name: a.Name})
+		err.Causes = append(err.Causes, &AnswerNotFoundError{AskRef: a.AskRef, Name: a.Name})
 	}
 
 	for _, i := range u.Invocations {
-		err.Causes = append(err.Causes, &resolve.FunctionResolutionError{Name: i.Name, Cause: i.Cause})
+		err.Causes = append(err.Causes, &FunctionResolutionError{Name: i.Name, Cause: i.Cause})
 	}
 
 	if len(err.Causes) == 0 {
@@ -131,7 +130,7 @@ func (u *Unresolvable) AsError() error {
 	return err
 }
 
-func (u *Unresolvable) extends(other Unresolvable) {
+func (u *Unresolvable) Extends(other Unresolvable) {
 	// Data
 	if len(u.Data) == 0 {
 		u.Data = append(u.Data, other.Data...)
@@ -253,10 +252,38 @@ func (r *Result) Complete() bool {
 	return r.Unresolvable.AsError() == nil
 }
 
-func (r *Result) extends(other *Result) *Result {
+func (r *Result) Extends(other *Result) *Result {
 	// For convenience, we can copy in the information from another result,
 	// which extends the unresolvables here.
 
-	r.Unresolvable.extends(other.Unresolvable)
+	r.Unresolvable.Extends(other.Unresolvable)
+	return r
+}
+
+func CombineResultSlice(s []*Result) *Result {
+	vs := make([]interface{}, len(s))
+	r := &Result{
+		Value: vs,
+	}
+
+	for i, ri := range s {
+		vs[i] = ri.Value
+		r.Extends(ri)
+	}
+
+	return r
+}
+
+func CombineResultMap(m map[string]*Result) *Result {
+	vm := make(map[string]interface{}, len(m))
+	r := &Result{
+		Value: vm,
+	}
+
+	for key, ri := range m {
+		vm[key] = ri.Value
+		r.Extends(ri)
+	}
+
 	return r
 }

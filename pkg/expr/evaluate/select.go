@@ -5,9 +5,10 @@ import (
 
 	gval "github.com/puppetlabs/paesslerag-gval"
 	jsonpath "github.com/puppetlabs/paesslerag-jsonpath"
+	"github.com/puppetlabs/relay-core/pkg/expr/model"
 )
 
-func variableSelector(e *Evaluator, r *Result) func(path gval.Evaluables) gval.Evaluable {
+func variableSelector(e *Evaluator, r *model.Result) func(path gval.Evaluables) gval.Evaluable {
 	visitor := variableVisitor(e, r)
 
 	return func(path gval.Evaluables) gval.Evaluable {
@@ -25,8 +26,8 @@ func variableSelector(e *Evaluator, r *Result) func(path gval.Evaluables) gval.E
 					nv = pv.Value
 					return nil
 				})
-				if ferr, ok := err.(*jsonpath.ForcePropagation); ok {
-					return nil, ferr.Cause
+				if perr, ok := err.(jsonpath.PropagatableError); ok {
+					return nil, perr
 				} else if err != nil {
 					return nil, err
 				} else if nv == nil {
@@ -41,16 +42,16 @@ func variableSelector(e *Evaluator, r *Result) func(path gval.Evaluables) gval.E
 	}
 }
 
-func variableVisitor(e *Evaluator, r *Result) jsonpath.VariableVisitor {
+func variableVisitor(e *Evaluator, r *model.Result) jsonpath.VariableVisitor {
 	return jsonpath.VariableVisitorFuncs{
 		VisitChildFunc: func(ctx context.Context, parameter interface{}, key interface{}, next func(ctx context.Context, pv jsonpath.PathValue) error) error {
 			return jsonpath.DefaultVariableVisitor().VisitChild(ctx, parameter, key, func(ctx context.Context, pv jsonpath.PathValue) error {
 				// Expand just this value without recursing.
 				nr, err := e.evaluate(ctx, pv.Value, 1)
 				if err != nil {
-					return &jsonpath.ForcePropagation{Cause: err}
+					return err
 				} else if !nr.Complete() {
-					r.extends(nr)
+					r.Extends(nr)
 					return nil
 				}
 
