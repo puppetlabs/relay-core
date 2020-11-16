@@ -14,14 +14,6 @@ const (
 )
 
 const (
-	RelayAccountIDLabel           = "managed.relay.sh/account-id"
-	RelayWorkflowIDLabel          = "managed.relay.sh/workflow-id"
-	RelayWorkflowNameLabel        = "managed.relay.sh/workflow-name"
-	RelayWorkflowTriggerIDLabel   = "managed.relay.sh/workflow-trigger-id"
-	RelayWorkflowTriggerNameLabel = "managed.relay.sh/workflow-trigger-name"
-
-	RelayExpirationTimeAnnotation = "managed.relay.sh/expiration-time"
-
 	RelayDomainIDAnnotation            = "relay.sh/domain-id"
 	RelayTenantIDAnnotation            = "relay.sh/tenant-id"
 	RelayVaultEngineMountAnnotation    = "relay.sh/vault-engine-mount"

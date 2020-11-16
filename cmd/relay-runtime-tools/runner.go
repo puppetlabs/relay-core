@@ -64,19 +64,13 @@ func (rr *realRunner) Run(args ...string) error {
 	signal.Notify(rr.signals)
 	defer signal.Reset()
 
-	logOut, err := postLog(mu, &plspb.LogCreateRequest{
+	logOut, _ := postLog(mu, &plspb.LogCreateRequest{
 		Name: "stdout",
 	})
-	if err != nil {
-		log.Println(err)
-	}
 
-	logErr, err := postLog(mu, &plspb.LogCreateRequest{
+	logErr, _ := postLog(mu, &plspb.LogCreateRequest{
 		Name: "stderr",
 	})
-	if err != nil {
-		log.Println(err)
-	}
 
 	cmd := exec.Command(name, args...)
 

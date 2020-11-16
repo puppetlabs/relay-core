@@ -71,7 +71,7 @@ func main() {
 				return err
 			}
 
-			lc, err := cfg.LogServiceClient(cfg.LogServiceURL)
+			lc, err := cfg.LogServiceClient()
 			if err != nil {
 				return err
 			}

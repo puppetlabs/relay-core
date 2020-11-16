@@ -14,6 +14,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/manager/builder"
 	"github.com/puppetlabs/relay-core/pkg/manager/configmap"
 	"github.com/puppetlabs/relay-core/pkg/manager/memory"
+	"github.com/puppetlabs/relay-core/pkg/manager/reject"
 	"github.com/puppetlabs/relay-core/pkg/manager/service"
 	"github.com/puppetlabs/relay-core/pkg/manager/vault"
 	"github.com/puppetlabs/relay-core/pkg/model"
@@ -169,18 +170,21 @@ func (ka *KubernetesAuthenticator) injector(mgrs *builder.MetadataBuilder, tags 
 		logContext := ""
 		switch action.Type().Singular {
 		case model.ActionTypeTrigger.Singular:
-			logContext = fmt.Sprintf("tenants/%s/triggers/%s", claims.RelayTenantID, claims.RelayTriggerID)
+			logContext = fmt.Sprintf("tenants/%s/triggers/%s", claims.RelayTenantID, claims.RelayName)
 		case model.ActionTypeStep.Singular:
 			logContext = fmt.Sprintf("tenants/%s/runs/%s/steps/%s", claims.RelayTenantID, claims.RelayRunID, claims.RelayName)
 		}
 
-		mgrs.SetLogs(service.NewLogManager(ka.logServiceClient, logContext))
+		if ka.logServiceClient != nil && logContext != "" {
+			mgrs.SetLogs(service.NewLogManager(ka.logServiceClient, logContext))
+		} else {
+			mgrs.SetLogs(reject.LogManager)
+		}
 
 		ts := []trackers.Tag{
 			{Key: "relay.domain.id", Value: claims.RelayDomainID},
 			{Key: "relay.tenant.id", Value: claims.RelayTenantID},
 			{Key: "relay.run.id", Value: claims.RelayRunID},
-			{Key: "relay.trigger.id", Value: claims.RelayTriggerID},
 			{Key: "relay.action.type", Value: action.Type().Singular},
 			{Key: "relay.action.name", Value: claims.RelayName},
 		}

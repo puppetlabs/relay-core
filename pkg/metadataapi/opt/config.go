@@ -179,12 +179,12 @@ func (c *Config) KubernetesClient() (*authenticate.KubernetesInterface, error) {
 	return authenticate.NewKubernetesInterfaceForConfig(cfg)
 }
 
-func (c *Config) LogServiceClient(url string) (plspb.LogClient, error) {
-	if url == "" {
+func (c *Config) LogServiceClient() (plspb.LogClient, error) {
+	if c.LogServiceURL == "" {
 		return nil, nil
 	}
 
-	conn, err := grpc.Dial(url, grpc.WithInsecure(), grpc.WithBlock())
+	conn, err := grpc.Dial(c.LogServiceURL, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		return nil, err
 	}
