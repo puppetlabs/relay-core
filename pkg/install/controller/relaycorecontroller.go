@@ -123,7 +123,7 @@ func (r *RelayCoreReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	log.Info("reconciling relay-metadata-api")
-	msm := newMetadataAPIStateManager(relayCore, r)
+	msm := newMetadataAPIStateManager(relayCore, r, log)
 	if err := msm.reconcile(ctx); err != nil {
 		return ctrl.Result{}, err
 	}

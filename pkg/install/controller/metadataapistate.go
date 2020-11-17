@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/go-logr/logr"
 	installerv1alpha1 "github.com/puppetlabs/relay-core/pkg/apis/install.relay.sh/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -47,6 +48,7 @@ func newMetadataAPIObjects(rc *installerv1alpha1.RelayCore) *metadataAPIObjects 
 type metadataAPIStateManager struct {
 	client.Client
 	objects           *metadataAPIObjects
+	log               logr.Logger
 	rc                *installerv1alpha1.RelayCore
 	scheme            *runtime.Scheme
 	vaultAgentManager *vaultAgentManager
@@ -54,6 +56,9 @@ type metadataAPIStateManager struct {
 }
 
 func (m *metadataAPIStateManager) reconcile(ctx context.Context) error {
+	log := m.log.WithValues("application", "relay-metadata-api")
+
+	log.Info("processing vault ConfigMap")
 	if _, err := ctrl.CreateOrUpdate(ctx, m, &m.objects.vaultConfigMap, func() error {
 		m.vaultAgentManager.configMap(&m.objects.vaultConfigMap)
 
@@ -62,6 +67,7 @@ func (m *metadataAPIStateManager) reconcile(ctx context.Context) error {
 		return err
 	}
 
+	log.Info("processing vault ServiceAccount")
 	if _, err := ctrl.CreateOrUpdate(ctx, m, &m.objects.vaultServiceAccount, func() error {
 		return ctrl.SetControllerReference(m.rc, &m.objects.vaultServiceAccount, m.scheme)
 	}); err != nil {
@@ -70,6 +76,7 @@ func (m *metadataAPIStateManager) reconcile(ctx context.Context) error {
 
 	m.rc.Status.Vault.MetadataAPIServiceAccount = m.objects.vaultServiceAccount.Name
 
+	log.Info("processing vault ServiceAccount token Secret")
 	if _, err := ctrl.CreateOrUpdate(ctx, m, &m.objects.vaultServiceAccountTokenSecret, func() error {
 		m.vaultAgentManager.serviceAccountTokenSecret(
 			&m.objects.vaultServiceAccount,
@@ -81,6 +88,7 @@ func (m *metadataAPIStateManager) reconcile(ctx context.Context) error {
 		return err
 	}
 
+	log.Info("processing ServiceAccount")
 	if _, err := ctrl.CreateOrUpdate(ctx, m, &m.objects.serviceAccount, func() error {
 		return ctrl.SetControllerReference(m.rc, &m.objects.serviceAccount, m.scheme)
 	}); err != nil {
@@ -89,6 +97,7 @@ func (m *metadataAPIStateManager) reconcile(ctx context.Context) error {
 
 	m.rc.Status.MetadataAPIServiceAccount = m.objects.serviceAccount.Name
 
+	log.Info("processing ClusterRole")
 	if _, err := ctrl.CreateOrUpdate(ctx, m, &m.objects.clusterRole, func() error {
 		m.clusterRole(&m.objects.clusterRole)
 
@@ -97,6 +106,7 @@ func (m *metadataAPIStateManager) reconcile(ctx context.Context) error {
 		return err
 	}
 
+	log.Info("processing ClusterRoleBinding")
 	if _, err := ctrl.CreateOrUpdate(ctx, m, &m.objects.clusterRoleBinding, func() error {
 		m.clusterRoleBinding(&m.objects.clusterRoleBinding)
 
@@ -105,6 +115,7 @@ func (m *metadataAPIStateManager) reconcile(ctx context.Context) error {
 		return err
 	}
 
+	log.Info("processing Deployment")
 	if _, err := ctrl.CreateOrUpdate(ctx, m, &m.objects.deployment, func() error {
 		m.deployment(&m.objects.deployment)
 
@@ -115,6 +126,7 @@ func (m *metadataAPIStateManager) reconcile(ctx context.Context) error {
 
 	m.rc.Status.Vault.MetadataAPIRole = m.vaultAgentManager.getRole()
 
+	log.Info("processing Service")
 	if _, err := ctrl.CreateOrUpdate(ctx, m, &m.objects.service, func() error {
 		m.httpService(&m.objects.service)
 
@@ -287,10 +299,11 @@ func (m *metadataAPIStateManager) clusterRoleBinding(clusterRoleBinding *rbacv1.
 	}
 }
 
-func newMetadataAPIStateManager(rc *installerv1alpha1.RelayCore, r *RelayCoreReconciler) *metadataAPIStateManager {
+func newMetadataAPIStateManager(rc *installerv1alpha1.RelayCore, r *RelayCoreReconciler, log logr.Logger) *metadataAPIStateManager {
 	m := &metadataAPIStateManager{
 		Client:            r.Client,
 		objects:           newMetadataAPIObjects(rc),
+		log:               log,
 		rc:                rc,
 		scheme:            r.Scheme,
 		vaultAgentManager: newVaultAgentManager(rc, componentMetadataAPI),
