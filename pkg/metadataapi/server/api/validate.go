@@ -83,7 +83,7 @@ func (s *Server) PostValidate(w http.ResponseWriter, r *http.Request) {
 
 				if captureErr != nil {
 					report := capture.Capture(captureErr)
-					report.Report(ctx)
+					report.AsWarning().Report(ctx)
 				}
 			}
 		}

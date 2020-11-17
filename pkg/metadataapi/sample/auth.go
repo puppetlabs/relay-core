@@ -8,6 +8,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/manager/builder"
 	mlog "github.com/puppetlabs/relay-core/pkg/manager/log"
 	"github.com/puppetlabs/relay-core/pkg/manager/memory"
+	"github.com/puppetlabs/relay-core/pkg/manager/service"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/opt"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/middleware"
 	"github.com/puppetlabs/relay-core/pkg/model"
@@ -99,6 +100,9 @@ func NewAuthenticator(sc *opt.SampleConfig, key interface{}) *Authenticator {
 
 			environmentManager := memory.NewEnvironmentManager(envOpts...)
 
+			var logOpts []service.LogManagerOption
+			logManager := service.NewLogManager(nil, "", logOpts...)
+
 			var specOpts []memory.SpecManagerOption
 			if sc.Spec != nil {
 				specOpts = append(specOpts, memory.SpecManagerWithInitialSpec(sc.Spec.Interface()))
@@ -127,6 +131,7 @@ func NewAuthenticator(sc *opt.SampleConfig, key interface{}) *Authenticator {
 			a.mgrs[step.Hash()] = func(mgrs *builder.MetadataBuilder) {
 				mgrs.SetConditions(conditionManager)
 				mgrs.SetEnvironment(environmentManager)
+				mgrs.SetLogs(logManager)
 				mgrs.SetParameters(parameterManager)
 				mgrs.SetSpec(specManager)
 				mgrs.SetState(stateManager)

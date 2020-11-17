@@ -35,6 +35,10 @@ func (s *Server) Route(r *mux.Router) {
 	r.HandleFunc("/environment", s.GetEnvironment).Methods(http.MethodGet)
 	r.HandleFunc("/environment/{name}", s.GetEnvironmentVariable).Methods(http.MethodGet)
 
+	// Logs
+	r.HandleFunc("/logs", s.PostLog).Methods(http.MethodPost)
+	r.HandleFunc("/logs/{logId}/messages", s.PostLogMessage).Methods(http.MethodPost)
+
 	// Outputs
 	r.HandleFunc("/outputs/{name}", s.PutOutput).Methods(http.MethodPut)
 	r.HandleFunc("/outputs/{stepName}/{name}", s.GetOutput).Methods(http.MethodGet)

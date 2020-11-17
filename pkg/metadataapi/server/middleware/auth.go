@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/http"
 
@@ -13,8 +14,11 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/manager/builder"
 	"github.com/puppetlabs/relay-core/pkg/manager/configmap"
 	"github.com/puppetlabs/relay-core/pkg/manager/memory"
+	"github.com/puppetlabs/relay-core/pkg/manager/reject"
+	"github.com/puppetlabs/relay-core/pkg/manager/service"
 	"github.com/puppetlabs/relay-core/pkg/manager/vault"
 	"github.com/puppetlabs/relay-core/pkg/model"
+	"github.com/puppetlabs/relay-pls/pkg/plspb"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -40,6 +44,9 @@ type KubernetesAuthenticator struct {
 	// Client for using a Kubernetes pod-lookup intermediary instead of Bearer
 	// request headers.
 	kubernetesClient *authenticate.KubernetesInterface
+
+	// Log Service
+	logServiceClient plspb.LogClient
 
 	// Uses Vault for token decryption (Kubernetes intermediary).
 	vaultClient      *vaultapi.Client
@@ -160,6 +167,20 @@ func (ka *KubernetesAuthenticator) injector(mgrs *builder.MetadataBuilder, tags 
 		mgrs.SetSpec(configmap.NewSpecManager(action, immutableMap))
 		mgrs.SetState(configmap.NewStateManager(action, mutableMap))
 
+		logContext := ""
+		switch action.Type().Singular {
+		case model.ActionTypeTrigger.Singular:
+			logContext = fmt.Sprintf("tenants/%s/triggers/%s", claims.RelayTenantID, claims.RelayName)
+		case model.ActionTypeStep.Singular:
+			logContext = fmt.Sprintf("tenants/%s/runs/%s/steps/%s", claims.RelayTenantID, claims.RelayRunID, claims.RelayName)
+		}
+
+		if ka.logServiceClient != nil && logContext != "" {
+			mgrs.SetLogs(service.NewLogManager(ka.logServiceClient, logContext))
+		} else {
+			mgrs.SetLogs(reject.LogManager)
+		}
+
 		ts := []trackers.Tag{
 			{Key: "relay.domain.id", Value: claims.RelayDomainID},
 			{Key: "relay.tenant.id", Value: claims.RelayTenantID},
@@ -204,6 +225,12 @@ type KubernetesAuthenticatorOption func(ka *KubernetesAuthenticator)
 func KubernetesAuthenticatorWithKubernetesIntermediary(client *authenticate.KubernetesInterface) KubernetesAuthenticatorOption {
 	return func(ka *KubernetesAuthenticator) {
 		ka.kubernetesClient = client
+	}
+}
+
+func KubernetesAuthenticatorWithLogServiceIntermediary(client plspb.LogClient) KubernetesAuthenticatorOption {
+	return func(ka *KubernetesAuthenticator) {
+		ka.logServiceClient = client
 	}
 }
 

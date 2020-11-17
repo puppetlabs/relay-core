@@ -97,6 +97,13 @@ type SecretKeySelector struct {
 	Key string `json:"key"`
 }
 
+type ToolInjectionStatus struct {
+	// ImageDigest is the specific image digest used for tool injection
+	//
+	// +optional
+	ImageDigest string `json:"imageDigest,omitempty"`
+}
+
 type TenantStatus struct {
 	// ObservedGeneration is the generation of the resource specification that
 	// this status matches.
@@ -116,6 +123,11 @@ type TenantStatus struct {
 	// +listType=map
 	// +listMapKey=type
 	Conditions []TenantCondition `json:"conditions,omitempty"`
+
+	// ToolInjection contains specific status data for tool injection
+	//
+	// +optional
+	ToolInjection ToolInjectionStatus `json:"toolInjection,omitempty"`
 }
 
 type TenantConditionType string

@@ -15,7 +15,7 @@ require (
 	github.com/containerd/continuity v0.0.0-20200413184840-d3ef23f19fbb // indirect
 	github.com/go-logr/logr v0.1.0
 	github.com/gofrs/flock v0.7.1
-	github.com/golang/protobuf v1.4.2
+	github.com/golang/protobuf v1.4.3
 	github.com/gomarkdown/markdown v0.0.0-20200513213024-62c5e2c608cc
 	github.com/google/go-containerregistry v0.1.3
 	github.com/google/uuid v1.1.2
@@ -41,6 +41,7 @@ require (
 	github.com/puppetlabs/horsehead/v2 v2.16.0
 	github.com/puppetlabs/paesslerag-gval v1.0.2-0.20191119012647-d2c694821b5b
 	github.com/puppetlabs/paesslerag-jsonpath v0.1.2-0.20200512062544-1e26d7ca225e
+	github.com/puppetlabs/relay-pls v0.0.0-20201031183836-037cec6c0067
 	github.com/rancher/remotedialer v0.2.5
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/shurcooL/vfsgen v0.0.0-20181202132449-6a9ea43bcacd
@@ -55,7 +56,8 @@ require (
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
 	google.golang.org/api v0.31.0 // indirect
 	google.golang.org/genproto v0.0.0-20200914193844-75d14daec038
-	google.golang.org/grpc v1.32.0 // indirect
+	google.golang.org/grpc v1.33.1
+	google.golang.org/protobuf v1.25.0
 	gopkg.in/square/go-jose.v2 v2.4.1
 	gopkg.in/yaml.v2 v2.3.0
 	gopkg.in/yaml.v3 v3.0.0-20191010095647-fc94e3f71652
