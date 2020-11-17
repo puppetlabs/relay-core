@@ -71,9 +71,15 @@ func main() {
 				return err
 			}
 
+			lc, err := cfg.LogServiceClient()
+			if err != nil {
+				return err
+			}
+
 			auth = middleware.NewKubernetesAuthenticator(
 				cfg.KubernetesClientFactory,
 				middleware.KubernetesAuthenticatorWithKubernetesIntermediary(kc),
+				middleware.KubernetesAuthenticatorWithLogServiceIntermediary(lc),
 				middleware.KubernetesAuthenticatorWithChainToVaultTransitIntermediary(vc, cfg.VaultTransitPath, cfg.VaultTransitKey),
 				middleware.KubernetesAuthenticatorWithVaultResolver(cfg.VaultAuthURL, cfg.VaultAuthPath, cfg.VaultAuthRole),
 			)
