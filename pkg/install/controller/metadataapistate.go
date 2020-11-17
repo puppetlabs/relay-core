@@ -169,11 +169,16 @@ func (m *metadataAPIStateManager) deployment(deployment *appsv1.Deployment) {
 func (m *metadataAPIStateManager) deploymentEnv() []corev1.EnvVar {
 	env := []corev1.EnvVar{
 		{Name: "VAULT_ADDR", Value: "http://localhost:8200"},
+		{Name: "RELAY_METADATA_API_ENVIRONMENT", Value: m.rc.Spec.Environment},
 		{Name: "RELAY_METADATA_API_VAULT_TRANSIT_PATH", Value: m.rc.Spec.Vault.TransitPath},
 		{Name: "RELAY_METADATA_API_VAULT_TRANSIT_KEY", Value: m.rc.Spec.Vault.TransitKey},
 		{Name: "RELAY_METADATA_API_VAULT_AUTH_PATH", Value: m.rc.Spec.MetadataAPI.VaultAuthPath},
 		{Name: "RELAY_METADATA_API_VAULT_AUTH_ROLE", Value: m.rc.Spec.MetadataAPI.VaultAuthRole},
 		{Name: "RELAY_METADATA_API_STEP_METADATA_URL", Value: m.rc.Spec.MetadataAPI.StepMetadataURL},
+	}
+
+	if m.rc.Spec.Debug {
+		env = append(env, corev1.EnvVar{Name: "RELAY_METADATA_API_DEBUG", Value: "true"})
 	}
 
 	if m.rc.Spec.SentryDSNSecretName != nil {

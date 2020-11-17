@@ -21,13 +21,31 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type Status string
+
+const (
+	StatusPending = "pending"
+	StatusCreated = "created"
+	StatusRunning = "running"
+)
+
+const (
+	StepLogStorageVolumeName = "step-log-storage"
+)
+
 // RelayCoreSpec defines the desired state of RelayCore
 type RelayCoreSpec struct {
 	// Environment is the environment this instance is running in.
 	//
 	// +kubebuilder:default="dev"
 	// +optional
-	Environment string `json:"environment"`
+	Environment string `json:"environment,omitempty"`
+
+	// Debug enabled debug logging and tools where possible.
+	//
+	// +kubebuilder:default=false
+	// +optional
+	Debug bool `json:"debug"`
 
 	// Operator is the configuration for the workflow run operator.
 	//
@@ -55,11 +73,6 @@ type RelayCoreSpec struct {
 
 // OperatorConfig is the configuration for the relay-operator deployment
 type OperatorConfig struct {
-	// StorageAddr is the storage address URI for log storage.
-	//
-	// +optional
-	StorageAddr string `json:"storageAddr"`
-
 	// +kubebuilder:default="relaysh/relay-operator:latest"
 	// +optional
 	Image string `json:"image"`
@@ -114,6 +127,20 @@ type OperatorConfig struct {
 	// +optional
 	Standalone bool `json:"standalone"`
 
+	// StorageAddr is the storage address URI for log storage.
+	//
+	// +optional
+	StorageAddr *string `json:"storageAddr,omitempty"`
+
+	// LogStoragePVCName is the name of a PVC to store logs in. This field is
+	// here to support the development environment and may be removed at a
+	// later date when the PLS implementation is rolled in.
+	//
+	// DEPRECATED
+	//
+	// +optional
+	LogStoragePVCName *string `json:"logStoragePVCName,omitempty"`
+
 	// Workers is the number of workers the operator should run to process
 	// workflows
 	//
@@ -127,17 +154,30 @@ type OperatorConfig struct {
 	// +kubebuilder:default={image: "relaysh/relay-runtime-tools:latest"}
 	ToolInjection *ToolInjectionConfig `json:"toolInjection,omitempty"`
 
-	// WebhookTLSSecretName is the name of the secret that holds the tls cert
-	// files for webhooks. The secret object MUST have two data fields called
-	// "tls.key" and "tls.crt".
+	// AdmissionWebhookServer is the configuration for the
+	// admissionregistration webhook server.  If this field is set, then the
+	// admission webhook server is enabled and MutatingWebhooks are created.
 	//
 	// +optional
-	WebhookTLSSecretName *string `json:"webhookTLSSecretName,omitempty"`
+	AdmissionWebhookServer *AdmissionWebhookServerConfig `json:"admissionWebhookServer,omitempty"`
 
 	// VaultAgentRole is the role to use when configuring the vault agent.
 	//
 	// +optional
 	VaultAgentRole *string `json:"vaultAgentRole,omitempty"`
+}
+
+type AdmissionWebhookServerConfig struct {
+	// TLSSecretName is the name of the secret that holds the tls cert
+	// files for webhooks. The secret object MUST have two data fields called
+	// "tls.key" and "tls.crt".
+	TLSSecretName string `json:"tlsSecretName,omitempty"`
+	// CABundleSecretName is the name of the secret that holds the ca
+	// certificate bundle for the admission webhook config.  The secret object
+	// MUST have a field called "ca.crt".
+	//
+	// +optional
+	CABundleSecretName *string `json:"caBundleSecretName,omitempty"`
 }
 
 // MetadataAPIConfig is the configuration for the relay-metadata-api deployment
@@ -148,7 +188,7 @@ type MetadataAPIConfig struct {
 
 	// +kubebuilder:default="IfNotPresent"
 	// +optional
-	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy"`
+	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 
 	// +optional
 	Env []corev1.EnvVar `json:"env,omitempty"`
@@ -164,7 +204,7 @@ type MetadataAPIConfig struct {
 
 	// +kubebuilder:default=1
 	// +optional
-	Replicas int32 `json:"replicas"`
+	Replicas int32 `json:"replicas,omitempty"`
 
 	// TLSSecretName is the name of the secret that holds the TLS certificate
 	// for enabling HTTPS on the metadata-api server. The secret object MUST
@@ -185,7 +225,7 @@ type MetadataAPIConfig struct {
 	//
 	// +kubebuilder:default="https://relay.sh/step-metadata.json"
 	// +optional
-	StepMetadataURL string `json:"stepMetadataURL"`
+	StepMetadataURL string `json:"stepMetadataURL,omitempty"`
 
 	// VaultAgentRole is the role to use when configuring the vault agent.
 	//
@@ -194,11 +234,11 @@ type MetadataAPIConfig struct {
 
 	// +kubebuilder:default="tenant"
 	// +optional
-	VaultAuthRole string `json:"vaultAuthRole"`
+	VaultAuthRole string `json:"vaultAuthRole,omitempty"`
 
 	// +kubebuilder:default="auth/jwt-tenants"
 	// +optional
-	VaultAuthPath string `json:"vaultAuthPath"`
+	VaultAuthPath string `json:"vaultAuthPath,omitempty"`
 }
 
 type VaultConfig struct {
@@ -209,6 +249,10 @@ type VaultConfig struct {
 	// +kubebuilder:default="transit-tenants"
 	// +optional
 	TransitPath string `json:"transitPath"`
+
+	// +kubebuilder:default="customers"
+	// +optional
+	TenantPath string `json:"tenantPath"`
 
 	// Sidecar is the configuration for the vault sidecar containers used by
 	// the operator and the metadata-api.
@@ -251,7 +295,7 @@ type ToolInjectionConfig struct {
 // RelayCoreStatus defines the observed state of RelayCore
 type RelayCoreStatus struct {
 	// +optional
-	Status string `json:"status,omitempty"`
+	Status Status `json:"status,omitempty"`
 	// +optional
 	OperatorServiceAccount string `json:"operatorServiceAccount,omitempty"`
 	// +optional

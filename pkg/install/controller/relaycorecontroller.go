@@ -58,6 +58,7 @@ type RelayCoreReconciler struct {
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;patch;create;update
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings,verbs=get;list;watch;patch;create;update
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles;rolebindings,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=mutatingwebhookconfiguration,verbs=get;list;watch;create;update;patch
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=networkpolicies,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=nebula.puppet.com,resources=workflowruns;workflowruns/status,verbs=get;list;watch;patch;update
 // +kubebuilder:rbac:groups=relay.sh,resources=tenants;tenants/status;webhooktriggers;webhooktriggers/status,verbs=get;list;watch;patch;update
@@ -115,16 +116,22 @@ func (r *RelayCoreReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	// reconcile objects for each manager type
 
-	osm := newOperatorStateManager(relayCore, r)
+	log.Info("reconciling relay-operator")
+	osm := newOperatorStateManager(relayCore, r, log)
 	if err := osm.reconcile(ctx); err != nil {
 		return ctrl.Result{}, err
 	}
 
+	log.Info("reconciling relay-metadata-api")
 	msm := newMetadataAPIStateManager(relayCore, r)
 	if err := msm.reconcile(ctx); err != nil {
 		return ctrl.Result{}, err
 	}
 
+	// TODO hook up the controller-runtime event system to change status to
+	// running when everything is working
+	log.Info("relay core created; updating status")
+	relayCore.Status.Status = installerv1alpha1.StatusCreated
 	if err := r.updateStatus(ctx, relayCore); err != nil {
 		return ctrl.Result{}, err
 	}
