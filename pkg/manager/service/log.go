@@ -6,6 +6,7 @@ import (
 
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-pls/pkg/plspb"
+	"google.golang.org/protobuf/proto"
 )
 
 type LogManager struct {
@@ -15,27 +16,57 @@ type LogManager struct {
 
 var _ model.LogManager = &LogManager{}
 
-func (m *LogManager) PostLog(ctx context.Context, lcr *plspb.LogCreateRequest) (*plspb.LogCreateResponse, error) {
+func (m *LogManager) PostLog(ctx context.Context, value interface{}) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	if lcr.Context == "" {
-		lcr.Context = m.logContext
-	}
+	incoming, ok := value.(string)
+	if ok {
+		request := &plspb.LogCreateRequest{}
 
-	if m.logClient != nil {
-		return m.logClient.Create(ctx, lcr)
+		err := proto.Unmarshal([]byte(incoming), request)
+		if err != nil {
+			return nil, err
+		}
+
+		if request.Context == "" {
+			request.Context = m.logContext
+		}
+
+		if m.logClient != nil {
+			response, err := m.logClient.Create(ctx, request)
+			if err != nil {
+				return nil, err
+			}
+
+			return proto.Marshal(response)
+		}
 	}
 
 	return nil, nil
 }
 
-func (m *LogManager) PostLogMessage(ctx context.Context, message *plspb.LogMessageAppendRequest) (*plspb.LogMessageAppendResponse, error) {
+func (m *LogManager) PostLogMessage(ctx context.Context, logID string, value interface{}) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	if m.logClient != nil {
-		return m.logClient.MessageAppend(ctx, message)
+	incoming, ok := value.(string)
+	if ok {
+		request := &plspb.LogMessageAppendRequest{}
+
+		err := proto.Unmarshal([]byte(incoming), request)
+		if err != nil {
+			return nil, err
+		}
+
+		if m.logClient != nil {
+			response, err := m.logClient.MessageAppend(ctx, request)
+			if err != nil {
+				return nil, err
+			}
+
+			return proto.Marshal(response)
+		}
 	}
 
 	return nil, nil

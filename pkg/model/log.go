@@ -2,11 +2,9 @@ package model
 
 import (
 	"context"
-
-	"github.com/puppetlabs/relay-pls/pkg/plspb"
 )
 
 type LogManager interface {
-	PostLog(ctx context.Context, log *plspb.LogCreateRequest) (*plspb.LogCreateResponse, error)
-	PostLogMessage(ctx context.Context, message *plspb.LogMessageAppendRequest) (*plspb.LogMessageAppendResponse, error)
+	PostLog(ctx context.Context, value interface{}) ([]byte, error)
+	PostLogMessage(ctx context.Context, logID string, value interface{}) ([]byte, error)
 }

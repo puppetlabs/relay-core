@@ -37,7 +37,7 @@ func (s *Server) Route(r *mux.Router) {
 
 	// Logs
 	r.HandleFunc("/logs", s.PostLog).Methods(http.MethodPost)
-	r.HandleFunc("/logs/messages", s.PostLogMessage).Methods(http.MethodPost)
+	r.HandleFunc("/logs/{logId}/messages", s.PostLogMessage).Methods(http.MethodPost)
 
 	// Outputs
 	r.HandleFunc("/outputs/{name}", s.PutOutput).Methods(http.MethodPut)

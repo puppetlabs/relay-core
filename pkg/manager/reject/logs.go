@@ -4,16 +4,15 @@ import (
 	"context"
 
 	"github.com/puppetlabs/relay-core/pkg/model"
-	"github.com/puppetlabs/relay-pls/pkg/plspb"
 )
 
 type logManager struct{}
 
-func (*logManager) PostLog(ctx context.Context, log *plspb.LogCreateRequest) (*plspb.LogCreateResponse, error) {
+func (*logManager) PostLog(ctx context.Context, value interface{}) ([]byte, error) {
 	return nil, model.ErrRejected
 }
 
-func (*logManager) PostLogMessage(ctx context.Context, message *plspb.LogMessageAppendRequest) (*plspb.LogMessageAppendResponse, error) {
+func (*logManager) PostLogMessage(ctx context.Context, logID string, value interface{}) ([]byte, error) {
 	return nil, model.ErrRejected
 }
 

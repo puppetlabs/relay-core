@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -19,6 +20,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/entrypoint"
 	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
 	"github.com/puppetlabs/relay-pls/pkg/plspb"
+	"google.golang.org/protobuf/proto"
 )
 
 type realRunner struct {
@@ -146,6 +148,7 @@ func getEnvironmentVariables(mu *url.URL) error {
 	if err != nil {
 		return err
 	}
+
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err
@@ -171,7 +174,7 @@ func getEnvironmentVariables(mu *url.URL) error {
 func postLog(mu *url.URL, request *plspb.LogCreateRequest) (*plspb.LogCreateResponse, error) {
 	le := &url.URL{Path: "/logs"}
 
-	buf, err := json.Marshal(request)
+	buf, err := proto.Marshal(request)
 	if err != nil {
 		return nil, err
 	}
@@ -181,13 +184,20 @@ func postLog(mu *url.URL, request *plspb.LogCreateRequest) (*plspb.LogCreateResp
 		return nil, err
 	}
 
+	req.Header.Set("Content-Type", "application/octet-stream")
+
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
 	response := &plspb.LogCreateResponse{}
-	err = json.NewDecoder(resp.Body).Decode(response)
+	err = proto.Unmarshal(body, response)
 	if err != nil {
 		return nil, err
 	}
@@ -196,9 +206,9 @@ func postLog(mu *url.URL, request *plspb.LogCreateRequest) (*plspb.LogCreateResp
 }
 
 func postLogMessage(mu *url.URL, request *plspb.LogMessageAppendRequest) (*plspb.LogMessageAppendResponse, error) {
-	lme := &url.URL{Path: "/logs/messages"}
+	lme := &url.URL{Path: fmt.Sprintf("/logs/%s/messages", request.GetLogId())}
 
-	buf, err := json.Marshal(request)
+	buf, err := proto.Marshal(request)
 	if err != nil {
 		return nil, err
 	}
@@ -208,13 +218,20 @@ func postLogMessage(mu *url.URL, request *plspb.LogMessageAppendRequest) (*plspb
 		return nil, err
 	}
 
+	req.Header.Set("Content-Type", "application/octet-stream")
+
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
 	response := &plspb.LogMessageAppendResponse{}
-	err = json.NewDecoder(resp.Body).Decode(response)
+	err = proto.Unmarshal(body, response)
 	if err != nil {
 		return nil, err
 	}

@@ -8,6 +8,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/manager/builder"
 	mlog "github.com/puppetlabs/relay-core/pkg/manager/log"
 	"github.com/puppetlabs/relay-core/pkg/manager/memory"
+	"github.com/puppetlabs/relay-core/pkg/manager/service"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/opt"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/middleware"
 	"github.com/puppetlabs/relay-core/pkg/model"
@@ -99,8 +100,8 @@ func NewAuthenticator(sc *opt.SampleConfig, key interface{}) *Authenticator {
 
 			environmentManager := memory.NewEnvironmentManager(envOpts...)
 
-			var logOpts []memory.LogManagerOption
-			logManager := memory.NewLogManager(logOpts...)
+			var logOpts []service.LogManagerOption
+			logManager := service.NewLogManager(nil, "", logOpts...)
 
 			var specOpts []memory.SpecManagerOption
 			if sc.Spec != nil {

@@ -3,7 +3,6 @@ package api_test
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -18,6 +17,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/api"
 	"github.com/puppetlabs/relay-pls/pkg/plspb"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestPostLog(t *testing.T) {
@@ -73,45 +73,49 @@ func TestPostLog(t *testing.T) {
 		Name:    "stdout",
 	}
 
-	buf, err := json.Marshal(ls)
+	buf, err := proto.Marshal(ls)
 	require.NoError(t, err)
 
 	req, err := http.NewRequest(http.MethodPost, "/logs", bytes.NewBuffer(buf))
 	require.NoError(t, err)
 	req.Header.Set("Authorization", "Bearer "+currentTaskToken)
+	req.Header.Set("Content-Type", "application/octet-stream")
 
 	resp := httptest.NewRecorder()
 	h.ServeHTTP(resp, req)
 	require.Equal(t, http.StatusCreated, resp.Result().StatusCode)
 
 	log := &plspb.LogCreateResponse{}
-	err = json.NewDecoder(resp.Body).Decode(log)
+	err = proto.Unmarshal(resp.Body.Bytes(), log)
 	require.NoError(t, err)
 
+	// FIXME Create a new log ID for now (rather than use the response)
+	// Until a reliable means of mocking the service is available
+	// This testing is primarily for the means of validating the API (not the service)
+	id := uuid.New().String()
+
 	for i := 0; i < 10; i++ {
-		u := &url.URL{Path: fmt.Sprintf("/logs/messages")}
+		u := &url.URL{Path: fmt.Sprintf("/logs/%s/messages", id)}
 
 		lm := &plspb.LogMessageAppendRequest{
-			LogId:   log.GetLogId(),
+			LogId:   id,
 			Payload: []byte(uuid.New().String()),
 		}
 
-		buf, err := json.Marshal(lm)
+		buf, err := proto.Marshal(lm)
 		require.NoError(t, err)
 
 		req, err = http.NewRequest(http.MethodPost, u.String(), bytes.NewBuffer(buf))
 		require.NoError(t, err)
 		req.Header.Set("Authorization", "Bearer "+currentTaskToken)
+		req.Header.Set("Content-Type", "application/octet-stream")
 
 		resp = httptest.NewRecorder()
 		h.ServeHTTP(resp, req)
 		require.Equal(t, http.StatusAccepted, resp.Result().StatusCode)
 
 		out := &plspb.LogMessageAppendResponse{}
-		err = json.NewDecoder(resp.Body).Decode(out)
+		err = proto.Unmarshal(resp.Body.Bytes(), out)
 		require.NoError(t, err)
-
-		require.NotEmpty(t, out.GetLogMessageId())
-		require.Equal(t, log.GetLogId(), out.GetLogId())
 	}
 }
