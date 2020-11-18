@@ -4,7 +4,7 @@ set -euo pipefail
 # this ensures that we are in the correct directory context
 cd "$(dirname "$0")"/..
 
-RELAY_CORE_REPO_BASE="${RELAY_CORE_REPO_BASE:-relaysh}"
+RELAY_CORE_REPO_BASE="${RELAY_CORE_REPO_BASE:-gcr.io/nebula-235818}"
 
 do_build() {
   TARGET="$1"
