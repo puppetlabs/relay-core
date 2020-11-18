@@ -13,7 +13,7 @@ require (
 	github.com/aws/aws-sdk-go v1.31.12 // indirect
 	github.com/census-instrumentation/opencensus-proto v0.3.0 // indirect
 	github.com/containerd/continuity v0.0.0-20200413184840-d3ef23f19fbb // indirect
-	github.com/gobuffalo/flect v0.2.0 // indirect
+	github.com/go-logr/logr v0.1.0
 	github.com/gofrs/flock v0.7.1
 	github.com/golang/protobuf v1.4.3
 	github.com/gomarkdown/markdown v0.0.0-20200513213024-62c5e2c608cc
@@ -32,6 +32,8 @@ require (
 	github.com/keybase/go-crypto v0.0.0-20200123153347-de78d2cb44f4 // indirect
 	github.com/lib/pq v1.3.0 // indirect
 	github.com/mitchellh/mapstructure v1.3.1
+	github.com/onsi/ginkgo v1.12.1
+	github.com/onsi/gomega v1.10.1
 	github.com/opencontainers/runc v1.0.0-rc6 // indirect
 	github.com/prometheus/client_golang v1.6.0 // indirect
 	github.com/puppetlabs/errawr-gen v1.0.1
@@ -68,7 +70,7 @@ require (
 	knative.dev/pkg v0.0.0-20200702222342-ea4d6e985ba0
 	knative.dev/serving v0.16.0
 	sigs.k8s.io/controller-runtime v0.5.11
-	sigs.k8s.io/controller-tools v0.2.9
+	sigs.k8s.io/controller-tools v0.4.0
 )
 
 replace (
