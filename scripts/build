@@ -33,6 +33,6 @@ do_build() {
   fi
 }
 
-for TARGET in relay-operator relay-metadata-api relay-metrics relay-runtime-tools; do
+for TARGET in relay-operator relay-metadata-api relay-metrics relay-runtime-tools relay-installer; do
   do_build "${TARGET}"
 done

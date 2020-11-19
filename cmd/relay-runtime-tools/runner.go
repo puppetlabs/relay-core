@@ -4,8 +4,11 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -16,6 +19,8 @@ import (
 
 	"github.com/puppetlabs/relay-core/pkg/entrypoint"
 	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
+	"github.com/puppetlabs/relay-pls/pkg/plspb"
+	"google.golang.org/protobuf/proto"
 )
 
 type realRunner struct {
@@ -61,12 +66,34 @@ func (rr *realRunner) Run(args ...string) error {
 	signal.Notify(rr.signals)
 	defer signal.Reset()
 
+	logOut, _ := postLog(mu, &plspb.LogCreateRequest{
+		Name: "stdout",
+	})
+
+	logErr, _ := postLog(mu, &plspb.LogCreateRequest{
+		Name: "stderr",
+	})
+
 	cmd := exec.Command(name, args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+
 	// dedicated PID group used to forward signals to
 	// main process and all children
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+	stderrPipe, err := cmd.StderrPipe()
+	if err != nil {
+		return err
+	}
+
+	doneOut := make(chan bool)
+	doneErr := make(chan bool)
+
+	scannerOut := bufio.NewScanner(stdoutPipe)
+	scannerErr := bufio.NewScanner(stderrPipe)
 
 	// Start defined command
 	if err := cmd.Start(); err != nil {
@@ -83,12 +110,35 @@ func (rr *realRunner) Run(args ...string) error {
 		}
 	}()
 
+	go scan(mu, scannerOut, os.Stdout, logOut, doneOut)
+	go scan(mu, scannerErr, os.Stderr, logErr, doneErr)
+
+	<-doneOut
+	<-doneErr
+
 	// Wait for command to exit
 	if err := cmd.Wait(); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func scan(mu *url.URL, scanner *bufio.Scanner, out *os.File, log *plspb.LogCreateResponse, done chan<- bool) {
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		if log != nil {
+			postLogMessage(mu, &plspb.LogMessageAppendRequest{
+				LogId:   log.GetLogId(),
+				Payload: []byte(line),
+			})
+		}
+
+		out.WriteString(line)
+		out.WriteString("\n")
+	}
+	done <- true
 }
 
 func getEnvironmentVariables(mu *url.URL) error {
@@ -98,6 +148,7 @@ func getEnvironmentVariables(mu *url.URL) error {
 	if err != nil {
 		return err
 	}
+
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err
@@ -118,6 +169,74 @@ func getEnvironmentVariables(mu *url.URL) error {
 	}
 
 	return nil
+}
+
+func postLog(mu *url.URL, request *plspb.LogCreateRequest) (*plspb.LogCreateResponse, error) {
+	le := &url.URL{Path: "/logs"}
+
+	buf, err := proto.Marshal(request)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, mu.ResolveReference(le).String(), bytes.NewBuffer(buf))
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Content-Type", "application/octet-stream")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	response := &plspb.LogCreateResponse{}
+	err = proto.Unmarshal(body, response)
+	if err != nil {
+		return nil, err
+	}
+
+	return response, nil
+}
+
+func postLogMessage(mu *url.URL, request *plspb.LogMessageAppendRequest) (*plspb.LogMessageAppendResponse, error) {
+	lme := &url.URL{Path: fmt.Sprintf("/logs/%s/messages", request.GetLogId())}
+
+	buf, err := proto.Marshal(request)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, mu.ResolveReference(lme).String(), bytes.NewBuffer(buf))
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Content-Type", "application/octet-stream")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	response := &plspb.LogMessageAppendResponse{}
+	err = proto.Unmarshal(body, response)
+	if err != nil {
+		return nil, err
+	}
+
+	return response, nil
 }
 
 // validateSchemas calls validation endpoints on the metadata-api to validate

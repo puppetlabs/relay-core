@@ -41,6 +41,7 @@ type MetadataManagers interface {
 	Events() EventManager
 	Environment() EnvironmentGetterManager
 	Parameters() ParameterGetterManager
+	Logs() LogManager
 	Secrets() SecretManager
 	Spec() SpecGetterManager
 	State() StateGetterManager
