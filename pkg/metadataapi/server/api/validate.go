@@ -71,8 +71,8 @@ func (s *Server) PostValidate(w http.ResponseWriter, r *http.Request) {
 
 				schema, err := s.schemaRegistry.GetByImage(ref)
 				if err != nil {
-					captureErr = err
-					if !goerrors.Is(err, &validation.SchemaDoesNotExistError{}) {
+					var noTrackCause *validation.SchemaDoesNotExistError
+					if !goerrors.As(err, &noTrackCause) {
 						captureErr = errors.NewValidationSchemaLookupError().WithCause(err)
 					}
 				} else {

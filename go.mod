@@ -32,8 +32,6 @@ require (
 	github.com/keybase/go-crypto v0.0.0-20200123153347-de78d2cb44f4 // indirect
 	github.com/lib/pq v1.3.0 // indirect
 	github.com/mitchellh/mapstructure v1.3.1
-	github.com/onsi/ginkgo v1.12.1
-	github.com/onsi/gomega v1.10.1
 	github.com/opencontainers/runc v1.0.0-rc6 // indirect
 	github.com/prometheus/client_golang v1.6.0 // indirect
 	github.com/puppetlabs/errawr-gen v1.0.1
