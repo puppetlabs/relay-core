@@ -248,7 +248,9 @@ func (wtd *WebhookTriggerDeps) AnnotateTriggerToken(ctx context.Context, target 
 
 	claims.RelayDomainID = annotations[model.RelayDomainIDAnnotation]
 	claims.RelayTenantID = annotations[model.RelayTenantIDAnnotation]
+
 	claims.RelayName = mt.Name
+
 	idh.Set("parents", claims.RelayDomainID, claims.RelayTenantID)
 
 	claims.RelayKubernetesImmutableConfigMapName = wtd.ImmutableConfigMap.Key.Name
