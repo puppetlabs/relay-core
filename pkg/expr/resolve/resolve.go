@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/puppetlabs/relay-core/pkg/expr/fn"
+	"github.com/puppetlabs/relay-core/pkg/expr/model"
 )
 
 type DataTypeResolver interface {
@@ -79,6 +80,6 @@ func (f AnswerTypeResolverFunc) ResolveAnswer(ctx context.Context, askRef, name 
 }
 
 type InvocationResolver interface {
-	ResolveInvocationPositional(ctx context.Context, name string, args []interface{}) (fn.Invoker, error)
-	ResolveInvocation(ctx context.Context, name string, args map[string]interface{}) (fn.Invoker, error)
+	ResolveInvocationPositional(ctx context.Context, name string, args []model.Evaluable) (fn.Invoker, error)
+	ResolveInvocation(ctx context.Context, name string, args map[string]model.Evaluable) (fn.Invoker, error)
 }

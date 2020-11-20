@@ -5,9 +5,10 @@ import (
 	"reflect"
 
 	"github.com/mitchellh/mapstructure"
+	"github.com/puppetlabs/relay-core/pkg/expr/model"
 )
 
-func mapstructureHookFunc(ctx context.Context, e *Evaluator, u *Unresolvable) mapstructure.DecodeHookFunc {
+func mapstructureHookFunc(ctx context.Context, e *Evaluator, u *model.Unresolvable) mapstructure.DecodeHookFunc {
 	return func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
 		depth := -1
 
@@ -27,7 +28,7 @@ func mapstructureHookFunc(ctx context.Context, e *Evaluator, u *Unresolvable) ma
 		if err != nil {
 			return nil, err
 		} else if !r.Complete() {
-			u.extends(r.Unresolvable)
+			u.Extends(r.Unresolvable)
 
 			// We return the zero value of the type to eliminate confusion.
 			return reflect.Zero(to).Interface(), nil

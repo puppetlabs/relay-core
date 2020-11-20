@@ -9,6 +9,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/expr/convert"
 	"github.com/puppetlabs/relay-core/pkg/expr/fn"
 	"github.com/puppetlabs/relay-core/pkg/expr/fnlib"
+	"github.com/puppetlabs/relay-core/pkg/expr/model"
 	"github.com/stretchr/testify/require"
 )
 
@@ -32,23 +33,28 @@ func TestConvertMarkdown(t *testing.T) {
 
 	for _, test := range tcs {
 		t.Run(fmt.Sprintf("%s", test.Name), func(t *testing.T) {
-			invoker, err := desc.PositionalInvoker([]interface{}{test.ConvertType.String(), test.Markdown})
+			invoker, err := desc.PositionalInvoker([]model.Evaluable{
+				model.StaticEvaluable(test.ConvertType.String()),
+				model.StaticEvaluable(test.Markdown),
+			})
 			require.NoError(t, err)
 
 			r, err := invoker.Invoke(context.Background())
 			require.NoError(t, err)
 
-			require.Equal(t, test.Expected, r)
+			require.True(t, r.Complete())
+			require.Equal(t, test.Expected, r.Value)
 
-			invoker, err = desc.KeywordInvoker(map[string]interface{}{
-				"to":      test.ConvertType.String(),
-				"content": test.Markdown,
+			invoker, err = desc.KeywordInvoker(map[string]model.Evaluable{
+				"to":      model.StaticEvaluable(test.ConvertType.String()),
+				"content": model.StaticEvaluable(test.Markdown),
 			})
 
 			r, err = invoker.Invoke(context.Background())
 			require.NoError(t, err)
 
-			require.Equal(t, test.Expected, r)
+			require.True(t, r.Complete())
+			require.Equal(t, test.Expected, r.Value)
 		})
 	}
 }
@@ -66,9 +72,9 @@ func TestConvertMarkdownFunction(t *testing.T) {
 		{
 			Name: "keyword invoker with unsupported convert type",
 			Invoker: func() (fn.Invoker, error) {
-				return desc.KeywordInvoker(map[string]interface{}{
-					"to":      "foo",
-					"content": "bar",
+				return desc.KeywordInvoker(map[string]model.Evaluable{
+					"to":      model.StaticEvaluable("foo"),
+					"content": model.StaticEvaluable("bar"),
 				})
 			},
 			ExpectedInvokerError: convert.ErrConvertTypeNotSupported,
@@ -76,9 +82,9 @@ func TestConvertMarkdownFunction(t *testing.T) {
 		{
 			Name: "keyword invoker with invalid to keyword type",
 			Invoker: func() (fn.Invoker, error) {
-				return desc.KeywordInvoker(map[string]interface{}{
-					"to":      false,
-					"content": "bar",
+				return desc.KeywordInvoker(map[string]model.Evaluable{
+					"to":      model.StaticEvaluable(false),
+					"content": model.StaticEvaluable("bar"),
 				})
 			},
 			ExpectedInvokerError: &fn.KeywordArgError{
@@ -94,9 +100,9 @@ func TestConvertMarkdownFunction(t *testing.T) {
 		{
 			Name: "keyword invoker with invalid content keyword type",
 			Invoker: func() (fn.Invoker, error) {
-				return desc.KeywordInvoker(map[string]interface{}{
-					"to":      "jira",
-					"content": false,
+				return desc.KeywordInvoker(map[string]model.Evaluable{
+					"to":      model.StaticEvaluable("jira"),
+					"content": model.StaticEvaluable(false),
 				})
 			},
 			ExpectedInvokerError: &fn.KeywordArgError{
@@ -112,8 +118,8 @@ func TestConvertMarkdownFunction(t *testing.T) {
 		{
 			Name: "keyword invoker with missing to keyword",
 			Invoker: func() (fn.Invoker, error) {
-				return desc.KeywordInvoker(map[string]interface{}{
-					"content": "bar",
+				return desc.KeywordInvoker(map[string]model.Evaluable{
+					"content": model.StaticEvaluable("bar"),
 				})
 			},
 			ExpectedInvokeError: &fn.KeywordArgError{
@@ -124,8 +130,8 @@ func TestConvertMarkdownFunction(t *testing.T) {
 		{
 			Name: "keyword invoker with missing content",
 			Invoker: func() (fn.Invoker, error) {
-				return desc.KeywordInvoker(map[string]interface{}{
-					"to": "jira",
+				return desc.KeywordInvoker(map[string]model.Evaluable{
+					"to": model.StaticEvaluable("jira"),
 				})
 			},
 			ExpectedInvokeError: &fn.KeywordArgError{

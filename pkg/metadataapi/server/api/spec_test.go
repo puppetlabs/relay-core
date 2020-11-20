@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
+	"github.com/puppetlabs/relay-core/pkg/expr/model"
 	"github.com/puppetlabs/relay-core/pkg/expr/serialize"
 	sdktestutil "github.com/puppetlabs/relay-core/pkg/expr/testutil"
 	"github.com/puppetlabs/relay-core/pkg/manager/memory"
@@ -98,7 +98,7 @@ func TestGetSpec(t *testing.T) {
 	h.ServeHTTP(resp, req)
 	require.Equal(t, http.StatusOK, resp.Result().StatusCode)
 
-	var r evaluate.JSONResultEnvelope
+	var r model.JSONResultEnvelope
 	require.NoError(t, json.NewDecoder(resp.Result().Body).Decode(&r))
 	require.Equal(t, map[string]interface{}{
 		"superParameter": "nice-value",
@@ -128,7 +128,7 @@ func TestGetSpec(t *testing.T) {
 	h.ServeHTTP(resp, req)
 	require.Equal(t, http.StatusOK, resp.Result().StatusCode)
 
-	r = evaluate.JSONResultEnvelope{}
+	r = model.JSONResultEnvelope{}
 	require.NoError(t, json.NewDecoder(resp.Result().Body).Decode(&r))
 	require.Equal(t, "value", r.Value.Data)
 	require.True(t, r.Complete)
@@ -143,7 +143,7 @@ func TestGetSpec(t *testing.T) {
 	h.ServeHTTP(resp, req)
 	require.Equal(t, http.StatusOK, resp.Result().StatusCode)
 
-	r = evaluate.JSONResultEnvelope{}
+	r = model.JSONResultEnvelope{}
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&r))
 	require.Equal(t, "value", r.Value.Data)
 	require.True(t, r.Complete)

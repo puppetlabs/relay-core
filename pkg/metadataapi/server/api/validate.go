@@ -7,6 +7,7 @@ import (
 	utilapi "github.com/puppetlabs/horsehead/v2/httputil/api"
 	"github.com/puppetlabs/horsehead/v2/instrumentation/alerts/trackers"
 	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
+	"github.com/puppetlabs/relay-core/pkg/expr/model"
 	"github.com/puppetlabs/relay-core/pkg/manager/resolve"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/errors"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/middleware"
@@ -43,7 +44,7 @@ func (s *Server) PostValidate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		env := evaluate.NewJSONResultEnvelope(rv)
+		env := model.NewJSONResultEnvelope(rv)
 
 		if env.Complete {
 			am, err := managers.ActionMetadata().Get(ctx)

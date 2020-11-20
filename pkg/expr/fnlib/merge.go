@@ -6,6 +6,7 @@ import (
 	"reflect"
 
 	"github.com/puppetlabs/relay-core/pkg/expr/fn"
+	"github.com/puppetlabs/relay-core/pkg/expr/model"
 )
 
 func merge(dst, src map[string]interface{}, deep bool) {
@@ -23,12 +24,12 @@ func merge(dst, src map[string]interface{}, deep bool) {
 	}
 }
 
-func mergeCast(os []interface{}) ([]map[string]interface{}, error) {
+func mergeCast(os []interface{}, errFn func(i int, err error) error) ([]map[string]interface{}, error) {
 	objs := make([]map[string]interface{}, len(os))
 	for i, o := range os {
 		obj, ok := o.(map[string]interface{})
 		if !ok {
-			return nil, fmt.Errorf("array index %d: %+v", i, &fn.UnexpectedTypeError{
+			return nil, errFn(i, &fn.UnexpectedTypeError{
 				Wanted: []reflect.Type{reflect.TypeOf(map[string]interface{}(nil))},
 				Got:    reflect.TypeOf(o),
 			})
@@ -45,18 +46,20 @@ var mergeDescriptor = fn.DescriptorFuncs{
 
 Merges are performed deeply by default. Use the keyword form and set mode: shallow to perform a shallow merge.`
 	},
-	PositionalInvokerFunc: func(args []interface{}) (fn.Invoker, error) {
+	PositionalInvokerFunc: func(args []model.Evaluable) (fn.Invoker, error) {
 		if len(args) == 0 {
 			return fn.StaticInvoker(map[string]interface{}{}), nil
 		}
 
-		return fn.InvokerFunc(func(ctx context.Context) (interface{}, error) {
-			objs, err := mergeCast(args)
-			if err != nil {
-				return nil, &fn.PositionalArgError{
-					Arg:   1,
+		return fn.EvaluatedPositionalInvoker(args, func(ctx context.Context, args []interface{}) (interface{}, error) {
+			objs, err := mergeCast(args, func(i int, err error) error {
+				return &fn.PositionalArgError{
+					Arg:   i + 1,
 					Cause: err,
 				}
+			})
+			if err != nil {
+				return nil, err
 			}
 
 			r := make(map[string]interface{})
@@ -66,18 +69,17 @@ Merges are performed deeply by default. Use the keyword form and set mode: shall
 			return r, nil
 		}), nil
 	},
-	KeywordInvokerFunc: func(args map[string]interface{}) (fn.Invoker, error) {
-		oi, found := args["objects"]
-		if !found {
+	KeywordInvokerFunc: func(args map[string]model.Evaluable) (fn.Invoker, error) {
+		if _, found := args["objects"]; !found {
 			return nil, &fn.KeywordArgError{Arg: "objects", Cause: fn.ErrArgNotFound}
 		}
 
-		mode, found := args["mode"]
-		if !found {
-			mode = "deep"
-		}
+		return fn.EvaluatedKeywordInvoker(args, func(ctx context.Context, args map[string]interface{}) (interface{}, error) {
+			mode, found := args["mode"]
+			if !found {
+				mode = "deep"
+			}
 
-		return fn.InvokerFunc(func(ctx context.Context) (interface{}, error) {
 			var deep bool
 			switch mode {
 			case "deep":
@@ -91,12 +93,20 @@ Merges are performed deeply by default. Use the keyword form and set mode: shall
 				}
 			}
 
-			os, ok := oi.([]interface{})
+			os, ok := args["objects"].([]interface{})
 			if !ok {
-
+				return nil, &fn.KeywordArgError{
+					Arg: "objects",
+					Cause: &fn.UnexpectedTypeError{
+						Wanted: []reflect.Type{reflect.TypeOf([]interface{}(nil))},
+						Got:    reflect.TypeOf(args["objects"]),
+					},
+				}
 			}
 
-			objs, err := mergeCast(os)
+			objs, err := mergeCast(os, func(i int, err error) error {
+				return fmt.Errorf("array index %d: %+v", i, err)
+			})
 			if err != nil {
 				return nil, &fn.KeywordArgError{
 					Arg:   "objects",

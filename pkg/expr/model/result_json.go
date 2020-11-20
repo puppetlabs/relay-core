@@ -1,4 +1,4 @@
-package evaluate
+package model
 
 import "github.com/puppetlabs/horsehead/v2/encoding/transfer"
 

@@ -43,7 +43,7 @@ type UnexpectedTypeError struct {
 func (e *UnexpectedTypeError) Error() string {
 	wanted := make([]string, len(e.Wanted))
 	for i, w := range e.Wanted {
-		wanted[i] = fmt.Sprintf("%s", w)
+		wanted[i] = fmt.Sprintf("%v", w)
 	}
 
 	return fmt.Sprintf("fn: unexpected type %s (wanted %s)", e.Got, strings.Join(wanted, ", "))

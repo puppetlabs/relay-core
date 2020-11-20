@@ -1,5 +1,7 @@
 package fn
 
+import "github.com/puppetlabs/relay-core/pkg/expr/model"
+
 // Descriptor is a type that describes how a function can be invoked by a caller
 type Descriptor interface {
 	// Description returns a string that describes what the function does
@@ -7,20 +9,20 @@ type Descriptor interface {
 	// PositionalInvoker takes a slice of values that act like positional arguments
 	// to the function. Enforcing order and length constraints is up to the author
 	// of the function.
-	PositionalInvoker(args []interface{}) (Invoker, error)
+	PositionalInvoker(args []model.Evaluable) (Invoker, error)
 	// KeywordInvoker takes its arguments as a map. This acts like labeled or named argments
 	// to the function. Enforcing name and length constraints is up to the author
 	// of the function.
-	KeywordInvoker(args map[string]interface{}) (Invoker, error)
+	KeywordInvoker(args map[string]model.Evaluable) (Invoker, error)
 }
 
-// DescriptorFuncs is an adapter that takes anonymous functions that handle methods defined
-// in the Descriptor interface. This is a convenience type that allows simple wrapping of
-// one-off functions.
+// DescriptorFuncs is an adapter that takes anonymous functions that handle
+// methods defined in the Descriptor interface. This is a convenience type that
+// allows simple wrapping of one-off functions.
 type DescriptorFuncs struct {
 	DescriptionFunc       func() string
-	PositionalInvokerFunc func(args []interface{}) (Invoker, error)
-	KeywordInvokerFunc    func(args map[string]interface{}) (Invoker, error)
+	PositionalInvokerFunc func(args []model.Evaluable) (Invoker, error)
+	KeywordInvokerFunc    func(args map[string]model.Evaluable) (Invoker, error)
 }
 
 var _ Descriptor = DescriptorFuncs{}
@@ -33,7 +35,7 @@ func (df DescriptorFuncs) Description() string {
 	return df.DescriptionFunc()
 }
 
-func (df DescriptorFuncs) PositionalInvoker(args []interface{}) (Invoker, error) {
+func (df DescriptorFuncs) PositionalInvoker(args []model.Evaluable) (Invoker, error) {
 	if df.PositionalInvokerFunc == nil {
 		return nil, ErrPositionalArgsNotAccepted
 	}
@@ -41,7 +43,7 @@ func (df DescriptorFuncs) PositionalInvoker(args []interface{}) (Invoker, error)
 	return df.PositionalInvokerFunc(args)
 }
 
-func (df DescriptorFuncs) KeywordInvoker(args map[string]interface{}) (Invoker, error) {
+func (df DescriptorFuncs) KeywordInvoker(args map[string]model.Evaluable) (Invoker, error) {
 	if df.KeywordInvokerFunc == nil {
 		return nil, ErrKeywordArgsNotAccepted
 	}
