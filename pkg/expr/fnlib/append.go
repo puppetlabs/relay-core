@@ -5,16 +5,17 @@ import (
 	"reflect"
 
 	"github.com/puppetlabs/relay-core/pkg/expr/fn"
+	"github.com/puppetlabs/relay-core/pkg/expr/model"
 )
 
 var appendDescriptor = fn.DescriptorFuncs{
 	DescriptionFunc: func() string { return "Adds new items to a given array, returning a new array" },
-	PositionalInvokerFunc: func(args []interface{}) (fn.Invoker, error) {
+	PositionalInvokerFunc: func(args []model.Evaluable) (fn.Invoker, error) {
 		if len(args) < 2 {
 			return nil, &fn.ArityError{Wanted: []int{2}, Variadic: true, Got: len(args)}
 		}
 
-		fn := fn.InvokerFunc(func(ctx context.Context) (m interface{}, err error) {
+		fn := fn.EvaluatedPositionalInvoker(args, func(ctx context.Context, args []interface{}) (interface{}, error) {
 			base, ok := args[0].([]interface{})
 			if !ok {
 				return nil, &fn.PositionalArgError{

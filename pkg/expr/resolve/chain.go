@@ -2,6 +2,8 @@ package resolve
 
 import (
 	"context"
+
+	"github.com/puppetlabs/relay-core/pkg/expr/model"
 )
 
 type chainDataTypeResolvers struct {
@@ -11,7 +13,7 @@ type chainDataTypeResolvers struct {
 func (cr *chainDataTypeResolvers) ResolveData(ctx context.Context, query string) (interface{}, error) {
 	for _, r := range cr.resolvers {
 		s, err := r.ResolveData(ctx, query)
-		if _, ok := err.(*DataNotFoundError); ok {
+		if _, ok := err.(*model.DataNotFoundError); ok {
 			continue
 		} else if err != nil {
 			return "", err
@@ -20,7 +22,7 @@ func (cr *chainDataTypeResolvers) ResolveData(ctx context.Context, query string)
 		return s, nil
 	}
 
-	return "", &DataNotFoundError{Query: query}
+	return "", &model.DataNotFoundError{Query: query}
 }
 
 func ChainDataTypeResolvers(resolvers ...DataTypeResolver) DataTypeResolver {
@@ -34,7 +36,7 @@ type chainSecretTypeResolvers struct {
 func (cr *chainSecretTypeResolvers) ResolveSecret(ctx context.Context, name string) (string, error) {
 	for _, r := range cr.resolvers {
 		s, err := r.ResolveSecret(ctx, name)
-		if _, ok := err.(*SecretNotFoundError); ok {
+		if _, ok := err.(*model.SecretNotFoundError); ok {
 			continue
 		} else if err != nil {
 			return "", err
@@ -43,7 +45,7 @@ func (cr *chainSecretTypeResolvers) ResolveSecret(ctx context.Context, name stri
 		return s, nil
 	}
 
-	return "", &SecretNotFoundError{Name: name}
+	return "", &model.SecretNotFoundError{Name: name}
 }
 
 func ChainSecretTypeResolvers(resolvers ...SecretTypeResolver) SecretTypeResolver {
@@ -57,7 +59,7 @@ type chainConnectionTypeResolvers struct {
 func (cr *chainConnectionTypeResolvers) ResolveConnection(ctx context.Context, connectionType, name string) (interface{}, error) {
 	for _, r := range cr.resolvers {
 		o, err := r.ResolveConnection(ctx, connectionType, name)
-		if _, ok := err.(*ConnectionNotFoundError); ok {
+		if _, ok := err.(*model.ConnectionNotFoundError); ok {
 			continue
 		} else if err != nil {
 			return "", err
@@ -66,7 +68,7 @@ func (cr *chainConnectionTypeResolvers) ResolveConnection(ctx context.Context, c
 		return o, nil
 	}
 
-	return "", &ConnectionNotFoundError{Type: connectionType, Name: name}
+	return "", &model.ConnectionNotFoundError{Type: connectionType, Name: name}
 }
 
 func ChainConnectionTypeResolvers(resolvers ...ConnectionTypeResolver) ConnectionTypeResolver {
@@ -80,7 +82,7 @@ type chainOutputTypeResolvers struct {
 func (cr *chainOutputTypeResolvers) ResolveOutput(ctx context.Context, from, name string) (interface{}, error) {
 	for _, r := range cr.resolvers {
 		o, err := r.ResolveOutput(ctx, from, name)
-		if _, ok := err.(*OutputNotFoundError); ok {
+		if _, ok := err.(*model.OutputNotFoundError); ok {
 			continue
 		} else if err != nil {
 			return "", err
@@ -89,7 +91,7 @@ func (cr *chainOutputTypeResolvers) ResolveOutput(ctx context.Context, from, nam
 		return o, nil
 	}
 
-	return "", &OutputNotFoundError{From: from, Name: name}
+	return "", &model.OutputNotFoundError{From: from, Name: name}
 }
 
 func ChainOutputTypeResolvers(resolvers ...OutputTypeResolver) OutputTypeResolver {
@@ -103,7 +105,7 @@ type chainParameterTypeResolvers struct {
 func (cr *chainParameterTypeResolvers) ResolveParameter(ctx context.Context, name string) (interface{}, error) {
 	for _, r := range cr.resolvers {
 		p, err := r.ResolveParameter(ctx, name)
-		if _, ok := err.(*ParameterNotFoundError); ok {
+		if _, ok := err.(*model.ParameterNotFoundError); ok {
 			continue
 		} else if err != nil {
 			return nil, err
@@ -112,7 +114,7 @@ func (cr *chainParameterTypeResolvers) ResolveParameter(ctx context.Context, nam
 		return p, nil
 	}
 
-	return nil, &ParameterNotFoundError{Name: name}
+	return nil, &model.ParameterNotFoundError{Name: name}
 }
 
 func ChainParameterTypeResolvers(resolvers ...ParameterTypeResolver) ParameterTypeResolver {
@@ -126,7 +128,7 @@ type chainAnswerTypeResolvers struct {
 func (cr *chainAnswerTypeResolvers) ResolveAnswer(ctx context.Context, askRef, name string) (interface{}, error) {
 	for _, r := range cr.resolvers {
 		p, err := r.ResolveAnswer(ctx, askRef, name)
-		if _, ok := err.(*AnswerNotFoundError); ok {
+		if _, ok := err.(*model.AnswerNotFoundError); ok {
 			continue
 		} else if err != nil {
 			return nil, err
@@ -135,7 +137,7 @@ func (cr *chainAnswerTypeResolvers) ResolveAnswer(ctx context.Context, askRef, n
 		return p, nil
 	}
 
-	return nil, &AnswerNotFoundError{AskRef: askRef, Name: name}
+	return nil, &model.AnswerNotFoundError{AskRef: askRef, Name: name}
 }
 
 func ChainAnswerTypeResolvers(resolvers ...AnswerTypeResolver) AnswerTypeResolver {

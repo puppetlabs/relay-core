@@ -6,16 +6,17 @@ import (
 
 	"github.com/puppetlabs/relay-core/pkg/expr/convert"
 	"github.com/puppetlabs/relay-core/pkg/expr/fn"
+	"github.com/puppetlabs/relay-core/pkg/expr/model"
 )
 
 var convertMarkdownDescriptor = fn.DescriptorFuncs{
 	DescriptionFunc: func() string { return "Converts a string in markdown format to another applicable syntax" },
-	PositionalInvokerFunc: func(args []interface{}) (fn.Invoker, error) {
+	PositionalInvokerFunc: func(args []model.Evaluable) (fn.Invoker, error) {
 		if len(args) != 2 {
 			return nil, &fn.ArityError{Wanted: []int{2}, Variadic: false, Got: len(args)}
 		}
 
-		fn := fn.InvokerFunc(func(ctx context.Context) (m interface{}, err error) {
+		fn := fn.EvaluatedPositionalInvoker(args, func(ctx context.Context, args []interface{}) (m interface{}, err error) {
 			to, found := args[0].(string)
 			if !found {
 				return nil, &fn.PositionalArgError{
@@ -46,30 +47,26 @@ var convertMarkdownDescriptor = fn.DescriptorFuncs{
 		})
 		return fn, nil
 	},
-	KeywordInvokerFunc: func(args map[string]interface{}) (fn.Invoker, error) {
-		to, found := args["to"]
-		if !found {
-			return nil, &fn.KeywordArgError{Arg: "to", Cause: fn.ErrArgNotFound}
+	KeywordInvokerFunc: func(args map[string]model.Evaluable) (fn.Invoker, error) {
+		for _, arg := range []string{"to", "content"} {
+			if _, found := args[arg]; !found {
+				return nil, &fn.KeywordArgError{Arg: arg, Cause: fn.ErrArgNotFound}
+			}
 		}
 
-		content, found := args["content"]
-		if !found {
-			return nil, &fn.KeywordArgError{Arg: "content", Cause: fn.ErrArgNotFound}
-		}
-
-		return fn.InvokerFunc(func(ctx context.Context) (interface{}, error) {
-			ct, ok := to.(string)
+		return fn.EvaluatedKeywordInvoker(args, func(ctx context.Context, args map[string]interface{}) (interface{}, error) {
+			ct, ok := args["to"].(string)
 			if !ok {
 				return nil, &fn.KeywordArgError{
 					Arg: "to",
 					Cause: &fn.UnexpectedTypeError{
 						Wanted: []reflect.Type{reflect.TypeOf("")},
-						Got:    reflect.TypeOf(to),
+						Got:    reflect.TypeOf(args["to"]),
 					},
 				}
 			}
 
-			switch md := content.(type) {
+			switch md := args["content"].(type) {
 			case string:
 				r, err := convert.ConvertMarkdown(convert.ConvertType(ct), []byte(md))
 				if err != nil {
@@ -81,7 +78,7 @@ var convertMarkdownDescriptor = fn.DescriptorFuncs{
 					Arg: "content",
 					Cause: &fn.UnexpectedTypeError{
 						Wanted: []reflect.Type{reflect.TypeOf("")},
-						Got:    reflect.TypeOf(content),
+						Got:    reflect.TypeOf(md),
 					},
 				}
 			}

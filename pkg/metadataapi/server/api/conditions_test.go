@@ -69,7 +69,7 @@ func TestGetConditions(t *testing.T) {
 				}),
 			},
 			ExpectedError: errors.NewExpressionUnresolvableError([]string{
-				`resolve: parameter "param1" could not be found`,
+				`model: parameter "param1" could not be found`,
 			}),
 		},
 		{

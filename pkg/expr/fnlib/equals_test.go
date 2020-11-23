@@ -2,10 +2,12 @@ package fnlib_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/puppetlabs/relay-core/pkg/expr/fn"
 	"github.com/puppetlabs/relay-core/pkg/expr/fnlib"
+	"github.com/puppetlabs/relay-core/pkg/expr/model"
 	"github.com/stretchr/testify/require"
 )
 
@@ -85,7 +87,7 @@ func TestConditionals(t *testing.T) {
 		{
 			descriptor:    equals,
 			args:          []interface{}{1, 2, 3},
-			expectedError: &fn.ArityError{Wanted: []int{2}, Variadic: true, Got: 3},
+			expectedError: &fn.ArityError{Wanted: []int{2}, Got: 3},
 		},
 		{
 			descriptor:     notEquals,
@@ -145,23 +147,29 @@ func TestConditionals(t *testing.T) {
 		{
 			descriptor:    notEquals,
 			args:          []interface{}{1, 2, 3},
-			expectedError: &fn.ArityError{Wanted: []int{2}, Variadic: true, Got: 3},
+			expectedError: &fn.ArityError{Wanted: []int{2}, Got: 3},
 		},
 	}
 
-	for _, c := range cases {
-		invoker, err := c.descriptor.PositionalInvoker(c.args)
-		if c.expectedError != nil {
-			require.EqualError(t, err, c.expectedError.Error())
+	for i, c := range cases {
+		t.Run(fmt.Sprintf("%d %v", i, c.args), func(t *testing.T) {
+			args := make([]model.Evaluable, len(c.args))
+			for i, arg := range c.args {
+				args[i] = model.StaticEvaluable(arg)
+			}
 
-			continue
-		}
+			invoker, err := c.descriptor.PositionalInvoker(args)
+			if c.expectedError != nil {
+				require.EqualError(t, err, c.expectedError.Error())
+			} else {
+				require.NoError(t, err)
 
-		require.NoError(t, err)
+				r, err := invoker.Invoke(context.Background())
+				require.NoError(t, err)
 
-		r, err := invoker.Invoke(context.Background())
-		require.NoError(t, err)
-
-		require.Equal(t, c.expectedResult, r)
+				require.True(t, r.Complete())
+				require.Equal(t, c.expectedResult, r.Value)
+			}
+		})
 	}
 }

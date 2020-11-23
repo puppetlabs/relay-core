@@ -13,7 +13,7 @@ import (
 	"github.com/google/uuid"
 	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
-	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
+	exprmodel "github.com/puppetlabs/relay-core/pkg/expr/model"
 	"github.com/puppetlabs/relay-core/pkg/expr/testutil"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/operator/obj"
@@ -431,7 +431,7 @@ func TestWorkflowRun(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 
-		var result evaluate.JSONResultEnvelope
+		var result exprmodel.JSONResultEnvelope
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(&result))
 		assert.True(t, result.Complete)
 		assert.Equal(t, map[string]interface{}{

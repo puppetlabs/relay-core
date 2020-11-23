@@ -5,6 +5,7 @@ import (
 
 	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
 	"github.com/puppetlabs/relay-core/pkg/expr/fn"
+	"github.com/puppetlabs/relay-core/pkg/expr/model"
 	"github.com/puppetlabs/relay-core/pkg/expr/parse"
 	"github.com/puppetlabs/relay-core/pkg/expr/resolve"
 )
@@ -26,7 +27,7 @@ func (jt *JSONTree) UnmarshalJSON(data []byte) error {
 func (jt JSONTree) MarshalJSON() ([]byte, error) {
 	r, err := evaluate.NewEvaluator(
 		evaluate.WithInvocationResolver(resolve.NewMemoryInvocationResolver(fn.NewMap(map[string]fn.Descriptor{}))),
-		evaluate.WithResultMapper(evaluate.NewJSONResultMapper()),
+		evaluate.WithResultMapper(model.NewJSONResultMapper()),
 	).EvaluateAll(context.Background(), jt.Tree)
 	if err != nil {
 		return nil, err

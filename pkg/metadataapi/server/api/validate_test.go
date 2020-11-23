@@ -34,7 +34,7 @@ func TestValidationCapture(t *testing.T) {
 		validationReport *alertstest.ReporterRecorder
 	}{
 		{
-			description: "missing spec schema",
+			description: "missing spec schema should not send a report",
 			sc: &opt.SampleConfig{
 				Connections: map[memory.ConnectionKey]map[string]interface{}{
 					memory.ConnectionKey{Type: "aws", Name: "test-aws-connection"}: {
@@ -72,18 +72,9 @@ func TestValidationCapture(t *testing.T) {
 					},
 				},
 			},
-			validationReport: &alertstest.ReporterRecorder{
-				Tags: []trackers.Tag{
-					{
-						Key:   "relay.spec.validation-error",
-						Value: "relaysh/image",
-					},
-				},
-				Err: errors.NewValidationSchemaLookupError().WithCause(&validation.SchemaDoesNotExistError{Name: "relaysh/image"}),
-			},
 		},
 		{
-			description: "invalid spec schema",
+			description: "invalid spec schema should send a report",
 			sc: &opt.SampleConfig{
 				Connections: map[memory.ConnectionKey]map[string]interface{}{
 					memory.ConnectionKey{Type: "kubernetes", Name: "test-kubernetes-connection"}: {
@@ -127,7 +118,7 @@ func TestValidationCapture(t *testing.T) {
 			},
 		},
 		{
-			description: "valid spec schema",
+			description: "valid spec schema should not send a report",
 			sc: &opt.SampleConfig{
 				Connections: map[memory.ConnectionKey]map[string]interface{}{
 					memory.ConnectionKey{Type: "kubernetes", Name: "test-kubernetes-connection"}: {
@@ -185,6 +176,7 @@ func TestValidationCapture(t *testing.T) {
 					require.Len(t, capturer.ReporterRecorders, 1)
 					report := capturer.ReporterRecorders[0]
 
+					t.Logf("validation report to be sent: %+v", report.Err)
 					require.Equal(t, c.validationReport, report)
 				} else {
 					require.Len(t, capturer.ReporterRecorders, 0)

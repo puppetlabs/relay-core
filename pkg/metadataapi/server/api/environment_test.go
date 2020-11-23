@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
+	"github.com/puppetlabs/relay-core/pkg/expr/model"
 	"github.com/puppetlabs/relay-core/pkg/expr/serialize"
 	sdktestutil "github.com/puppetlabs/relay-core/pkg/expr/testutil"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/opt"
@@ -72,7 +72,7 @@ func TestGetEnvironment(t *testing.T) {
 	h.ServeHTTP(resp, req)
 	require.Equal(t, http.StatusOK, resp.Result().StatusCode)
 
-	var r evaluate.JSONResultEnvelope
+	var r model.JSONResultEnvelope
 	require.NoError(t, json.NewDecoder(resp.Result().Body).Decode(&r))
 	require.Equal(t, map[string]interface{}{
 		"superSecret": "test-secret-value",

@@ -1,4 +1,4 @@
-package evaluate
+package model
 
 import (
 	"context"

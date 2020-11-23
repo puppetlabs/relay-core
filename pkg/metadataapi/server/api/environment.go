@@ -6,6 +6,7 @@ import (
 	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
 	utilapi "github.com/puppetlabs/horsehead/v2/httputil/api"
 	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
+	"github.com/puppetlabs/relay-core/pkg/expr/model"
 	"github.com/puppetlabs/relay-core/pkg/manager/resolve"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/errors"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/middleware"
@@ -77,7 +78,7 @@ func (s *Server) GetEnvironment(w http.ResponseWriter, r *http.Request) {
 		evs[name] = rv.Value
 	}
 
-	env := &evaluate.JSONResultEnvelope{
+	env := &model.JSONResultEnvelope{
 		Value:    transfer.JSONInterface{Data: evs},
 		Complete: complete,
 	}

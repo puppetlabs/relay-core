@@ -8,7 +8,7 @@ require (
 	contrib.go.opencensus.io/exporter/ocagent v0.7.1-0.20200907061046-05415f1de66d // indirect
 	contrib.go.opencensus.io/exporter/prometheus v0.2.1-0.20200609204449-6bcf6f8577f0 // indirect
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.2 // indirect
-	github.com/PaesslerAG/gval v1.0.2-0.20190803062529-6fceb06ca162 // indirect
+	github.com/PaesslerAG/gval v1.1.0 // indirect
 	github.com/PaesslerAG/jsonpath v0.1.1 // indirect
 	github.com/aws/aws-sdk-go v1.31.12 // indirect
 	github.com/census-instrumentation/opencensus-proto v0.3.0 // indirect
@@ -32,15 +32,13 @@ require (
 	github.com/keybase/go-crypto v0.0.0-20200123153347-de78d2cb44f4 // indirect
 	github.com/lib/pq v1.3.0 // indirect
 	github.com/mitchellh/mapstructure v1.3.1
-	github.com/onsi/ginkgo v1.12.1
-	github.com/onsi/gomega v1.10.1
 	github.com/opencontainers/runc v1.0.0-rc6 // indirect
 	github.com/prometheus/client_golang v1.6.0 // indirect
 	github.com/puppetlabs/errawr-gen v1.0.1
 	github.com/puppetlabs/errawr-go/v2 v2.2.0
 	github.com/puppetlabs/horsehead/v2 v2.16.0
 	github.com/puppetlabs/paesslerag-gval v1.0.2-0.20191119012647-d2c694821b5b
-	github.com/puppetlabs/paesslerag-jsonpath v0.1.2-0.20200512062544-1e26d7ca225e
+	github.com/puppetlabs/paesslerag-jsonpath v0.1.2-0.20201115225516-4a6f3d111e98
 	github.com/puppetlabs/relay-pls v0.0.0-20201031183836-037cec6c0067
 	github.com/rancher/remotedialer v0.2.5
 	github.com/robfig/cron/v3 v3.0.1
