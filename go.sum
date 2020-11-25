@@ -1463,6 +1463,8 @@ github.com/puppetlabs/paesslerag-jsonpath v0.1.2-0.20201115225516-4a6f3d111e98 h
 github.com/puppetlabs/paesslerag-jsonpath v0.1.2-0.20201115225516-4a6f3d111e98/go.mod h1:fU2lLssuZDiOPlZS0sPObg4WPO1Cg1QSGJD3QTbjH7g=
 github.com/puppetlabs/relay-pls v0.0.0-20201031183836-037cec6c0067 h1:LUW1I4JXOJV0/mlamZoCNfGp8u3VTwxYZbQrnTLZe8g=
 github.com/puppetlabs/relay-pls v0.0.0-20201031183836-037cec6c0067/go.mod h1:xtYyc7gvvVZtfAn5kM89ihJj6v5zdBjNjMfp+a6z+8o=
+github.com/puppetlabs/relay-pls v0.0.0-20201125074651-13575df50b51 h1:NwccjCOhZOi0l4w68vPJOV99ctreO/YlrY+RNiz7Llc=
+github.com/puppetlabs/relay-pls v0.0.0-20201125074651-13575df50b51/go.mod h1:xtYyc7gvvVZtfAn5kM89ihJj6v5zdBjNjMfp+a6z+8o=
 github.com/quasilyte/go-consistent v0.0.0-20190521200055-c6f3937de18c/go.mod h1:5STLWrekHfjyYwxBRVRXNOSewLJ3PWfDJd1VyTS21fI=
 github.com/quasilyte/go-ruleguard v0.1.2-0.20200318202121-b00d7a75d3d8/go.mod h1:CGFX09Ci3pq9QZdj86B+VGIdNj4VyCo2iPOGS9esB/k=
 github.com/rancher/remotedialer v0.2.5 h1:rNMMcJp5fU7FZ3wGFKSmDrXrSt8MYo5na4CzXddIr2A=
