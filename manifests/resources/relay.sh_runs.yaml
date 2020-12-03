@@ -1,0 +1,777 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.4.0
+  creationTimestamp: null
+  name: runs.relay.sh
+spec:
+  group: relay.sh
+  names:
+    kind: Run
+    listKind: RunList
+    plural: runs
+    singular: run
+  scope: Namespaced
+  versions:
+  - name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: Run is a request to invoke a workflow.
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              parameterValues:
+                additionalProperties:
+                  x-kubernetes-preserve-unknown-fields: true
+                description: ParameterValues assigns values to parameters defined in the workflow.
+                type: object
+              step:
+                description: Step causes this run to execute only the given inlined step as a standalone request.
+                properties:
+                  args:
+                    description: Args are the command arguments.
+                    items:
+                      type: string
+                    type: array
+                  command:
+                    description: Command is the path to the executable to run when the container starts.
+                    type: string
+                  env:
+                    additionalProperties:
+                      x-kubernetes-preserve-unknown-fields: true
+                    description: Env allows environment variables to be provided to the container image.
+                    type: object
+                  image:
+                    description: Image is the Docker image to run when this webhook receives an event.
+                    type: string
+                  input:
+                    description: Input is the input script to provide to the container.
+                    items:
+                      type: string
+                    type: array
+                  parameters:
+                    description: Parameters are the definitions of parameters used by this step's spec.
+                    items:
+                      properties:
+                        default:
+                          description: Value is the default value for this parameter. If not specified, a value must be provided at runtime.
+                          x-kubernetes-preserve-unknown-fields: true
+                        name:
+                          description: Name is a unique name for this parameter.
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                  secrets:
+                    description: Secrets are the definitions of secret data used by this step's spec.
+                    items:
+                      properties:
+                        name:
+                          description: Name is a unique name for this secret.
+                          type: string
+                        patches:
+                          description: Patches adjusts the value of a secret after it is read from secure storage. Each patch is applied in order.
+                          items:
+                            properties:
+                              patch:
+                                description: Data is the patch data to apply.
+                                format: byte
+                                type: string
+                              type:
+                                default: JSONPatch
+                                description: Type is the type of patch being applied. Currently only JSONPatch (RFC 6902) is supported.
+                                enum:
+                                - JSONPatch
+                                type: string
+                            required:
+                            - patch
+                            type: object
+                          type: array
+                        value:
+                          description: Value is the hardcoded value of this secret.
+                          x-kubernetes-preserve-unknown-fields: true
+                        valueFrom:
+                          description: ValueFrom allows the value of this secret to be provided by another resource.
+                          properties:
+                            secretKeyRef:
+                              description: SecretKeyRef selects a secret value by looking up the value in a particular key of a Kubernetes secret.
+                              properties:
+                                key:
+                                  description: Key is the key from the secret to use.
+                                  type: string
+                                name:
+                                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                                  type: string
+                              required:
+                              - key
+                              type: object
+                            secretRef:
+                              description: SecretRef selects a secret value by combining all of the values in a Kubernetes secret into an object.
+                              properties:
+                                name:
+                                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                                  type: string
+                              type: object
+                            vaultFieldRef:
+                              description: VaultFieldRef selects a secret value by looking up the secret in HashiCorp Vault.
+                              properties:
+                                engine:
+                                  description: Engine is the Vault engine to use. If not specified, the default path of "secret" is used and the connection configuration is specified by the tenant. If the tenant does not specify a Vault configuration, unauthenticated requests are made over HTTP to localhost:8200.
+                                  properties:
+                                    path:
+                                      default: secret
+                                      description: Path is the base path to the engine, like "secret".
+                                      type: string
+                                    scheme:
+                                      description: "Scheme is the mechanism to use to look up the values in a folder. \n For the default scheme, it is assumed that children are read by suffixing their name to the path given. \n For the KV v2 scheme, if the given path does not begin with \"metadata/\", it is prefixed before listing. When subsequently reading values at a path, the \"metadata/\" prefix is changed to \"data/\"."
+                                      type: string
+                                    token:
+                                      description: Token is the Vault token to use.
+                                      type: string
+                                    tokenFrom:
+                                      description: TokenFrom allows the Vault token to be provided by another resource.
+                                      properties:
+                                        jwt:
+                                          description: JWT causes the metadata API to use the given role and authentication backend to acquire a token with the JWT provided to each action.
+                                          properties:
+                                            path:
+                                              default: auth/jwt
+                                              description: Path is the base path to the JWT authentication method, like "auth/jwt".
+                                              type: string
+                                            role:
+                                              description: Role is the name of the configured authentication role to use in Vault.
+                                              type: string
+                                          required:
+                                          - role
+                                          type: object
+                                        secretKeyRef:
+                                          description: SecretKeyRef looks up a Vault token in a Kubernetes secret.
+                                          properties:
+                                            key:
+                                              description: Key is the key from the secret to use.
+                                              type: string
+                                            name:
+                                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                                              type: string
+                                          required:
+                                          - key
+                                          type: object
+                                      type: object
+                                    url:
+                                      default: http://localhost:8200
+                                      description: URL is the fully-qualified location of the Vault service.
+                                      type: string
+                                  type: object
+                                field:
+                                  description: Field is the key within the path that contains the secret data.
+                                  type: string
+                                path:
+                                  description: Path is the location of the secret fields to read in Vault.
+                                  type: string
+                              required:
+                              - field
+                              - path
+                              type: object
+                            vaultFolderRef:
+                              description: VaultFolderRef selects a secret by looking up a particular field in each of the children found in a given folder in Vault.
+                              properties:
+                                engine:
+                                  description: Engine is the Vault engine to use. If not specified, the default path of "secret" is used and the connection configuration is specified by the tenant. If the tenant does not specify a Vault configuration, unauthenticated requests are made over HTTP to localhost:8200.
+                                  properties:
+                                    path:
+                                      default: secret
+                                      description: Path is the base path to the engine, like "secret".
+                                      type: string
+                                    scheme:
+                                      description: "Scheme is the mechanism to use to look up the values in a folder. \n For the default scheme, it is assumed that children are read by suffixing their name to the path given. \n For the KV v2 scheme, if the given path does not begin with \"metadata/\", it is prefixed before listing. When subsequently reading values at a path, the \"metadata/\" prefix is changed to \"data/\"."
+                                      type: string
+                                    token:
+                                      description: Token is the Vault token to use.
+                                      type: string
+                                    tokenFrom:
+                                      description: TokenFrom allows the Vault token to be provided by another resource.
+                                      properties:
+                                        jwt:
+                                          description: JWT causes the metadata API to use the given role and authentication backend to acquire a token with the JWT provided to each action.
+                                          properties:
+                                            path:
+                                              default: auth/jwt
+                                              description: Path is the base path to the JWT authentication method, like "auth/jwt".
+                                              type: string
+                                            role:
+                                              description: Role is the name of the configured authentication role to use in Vault.
+                                              type: string
+                                          required:
+                                          - role
+                                          type: object
+                                        secretKeyRef:
+                                          description: SecretKeyRef looks up a Vault token in a Kubernetes secret.
+                                          properties:
+                                            key:
+                                              description: Key is the key from the secret to use.
+                                              type: string
+                                            name:
+                                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                                              type: string
+                                          required:
+                                          - key
+                                          type: object
+                                      type: object
+                                    url:
+                                      default: http://localhost:8200
+                                      description: URL is the fully-qualified location of the Vault service.
+                                      type: string
+                                  type: object
+                                field:
+                                  description: Field is the key within the path that contains the secret data.
+                                  type: string
+                                path:
+                                  description: Path is the location of the secret fields to read in Vault.
+                                  type: string
+                              required:
+                              - field
+                              - path
+                              type: object
+                            vaultPathRef:
+                              description: VaultPathRef selects a secret value by combining all of the values at a path in Vault into an object.
+                              properties:
+                                engine:
+                                  description: Engine is the Vault engine to use. If not specified, the default path of "secret" is used and the connection configuration is specified by the tenant. If the tenant does not specify a Vault configuration, unauthenticated requests are made over HTTP to localhost:8200.
+                                  properties:
+                                    path:
+                                      default: secret
+                                      description: Path is the base path to the engine, like "secret".
+                                      type: string
+                                    scheme:
+                                      description: "Scheme is the mechanism to use to look up the values in a folder. \n For the default scheme, it is assumed that children are read by suffixing their name to the path given. \n For the KV v2 scheme, if the given path does not begin with \"metadata/\", it is prefixed before listing. When subsequently reading values at a path, the \"metadata/\" prefix is changed to \"data/\"."
+                                      type: string
+                                    token:
+                                      description: Token is the Vault token to use.
+                                      type: string
+                                    tokenFrom:
+                                      description: TokenFrom allows the Vault token to be provided by another resource.
+                                      properties:
+                                        jwt:
+                                          description: JWT causes the metadata API to use the given role and authentication backend to acquire a token with the JWT provided to each action.
+                                          properties:
+                                            path:
+                                              default: auth/jwt
+                                              description: Path is the base path to the JWT authentication method, like "auth/jwt".
+                                              type: string
+                                            role:
+                                              description: Role is the name of the configured authentication role to use in Vault.
+                                              type: string
+                                          required:
+                                          - role
+                                          type: object
+                                        secretKeyRef:
+                                          description: SecretKeyRef looks up a Vault token in a Kubernetes secret.
+                                          properties:
+                                            key:
+                                              description: Key is the key from the secret to use.
+                                              type: string
+                                            name:
+                                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                                              type: string
+                                          required:
+                                          - key
+                                          type: object
+                                      type: object
+                                    url:
+                                      default: http://localhost:8200
+                                      description: URL is the fully-qualified location of the Vault service.
+                                      type: string
+                                  type: object
+                                path:
+                                  description: Path is the location of the secret fields to read in Vault.
+                                  type: string
+                              required:
+                              - path
+                              type: object
+                          type: object
+                      required:
+                      - name
+                      type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                  spec:
+                    additionalProperties:
+                      x-kubernetes-preserve-unknown-fields: true
+                    description: Spec is the Relay specification to be provided to the container image.
+                    type: object
+                  tenantRef:
+                    description: TenantRef selects the tenant to use for this step.
+                    properties:
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                        type: string
+                    type: object
+                required:
+                - image
+                - tenantRef
+                type: object
+              workflow:
+                description: Workflow allows workflow content to be specified inline as part of the run. Only one of WorkflowRef, Workflow, or Step may be specified.
+                properties:
+                  parameters:
+                    description: Parameters are the definitions of parameters used by this workflow.
+                    items:
+                      properties:
+                        default:
+                          description: Value is the default value for this parameter. If not specified, a value must be provided at runtime.
+                          x-kubernetes-preserve-unknown-fields: true
+                        name:
+                          description: Name is a unique name for this parameter.
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                  secrets:
+                    description: Secrets are the definitions of secret data used by this workflow.
+                    items:
+                      properties:
+                        name:
+                          description: Name is a unique name for this secret.
+                          type: string
+                        patches:
+                          description: Patches adjusts the value of a secret after it is read from secure storage. Each patch is applied in order.
+                          items:
+                            properties:
+                              patch:
+                                description: Data is the patch data to apply.
+                                format: byte
+                                type: string
+                              type:
+                                default: JSONPatch
+                                description: Type is the type of patch being applied. Currently only JSONPatch (RFC 6902) is supported.
+                                enum:
+                                - JSONPatch
+                                type: string
+                            required:
+                            - patch
+                            type: object
+                          type: array
+                        value:
+                          description: Value is the hardcoded value of this secret.
+                          x-kubernetes-preserve-unknown-fields: true
+                        valueFrom:
+                          description: ValueFrom allows the value of this secret to be provided by another resource.
+                          properties:
+                            secretKeyRef:
+                              description: SecretKeyRef selects a secret value by looking up the value in a particular key of a Kubernetes secret.
+                              properties:
+                                key:
+                                  description: Key is the key from the secret to use.
+                                  type: string
+                                name:
+                                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                                  type: string
+                              required:
+                              - key
+                              type: object
+                            secretRef:
+                              description: SecretRef selects a secret value by combining all of the values in a Kubernetes secret into an object.
+                              properties:
+                                name:
+                                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                                  type: string
+                              type: object
+                            vaultFieldRef:
+                              description: VaultFieldRef selects a secret value by looking up the secret in HashiCorp Vault.
+                              properties:
+                                engine:
+                                  description: Engine is the Vault engine to use. If not specified, the default path of "secret" is used and the connection configuration is specified by the tenant. If the tenant does not specify a Vault configuration, unauthenticated requests are made over HTTP to localhost:8200.
+                                  properties:
+                                    path:
+                                      default: secret
+                                      description: Path is the base path to the engine, like "secret".
+                                      type: string
+                                    scheme:
+                                      description: "Scheme is the mechanism to use to look up the values in a folder. \n For the default scheme, it is assumed that children are read by suffixing their name to the path given. \n For the KV v2 scheme, if the given path does not begin with \"metadata/\", it is prefixed before listing. When subsequently reading values at a path, the \"metadata/\" prefix is changed to \"data/\"."
+                                      type: string
+                                    token:
+                                      description: Token is the Vault token to use.
+                                      type: string
+                                    tokenFrom:
+                                      description: TokenFrom allows the Vault token to be provided by another resource.
+                                      properties:
+                                        jwt:
+                                          description: JWT causes the metadata API to use the given role and authentication backend to acquire a token with the JWT provided to each action.
+                                          properties:
+                                            path:
+                                              default: auth/jwt
+                                              description: Path is the base path to the JWT authentication method, like "auth/jwt".
+                                              type: string
+                                            role:
+                                              description: Role is the name of the configured authentication role to use in Vault.
+                                              type: string
+                                          required:
+                                          - role
+                                          type: object
+                                        secretKeyRef:
+                                          description: SecretKeyRef looks up a Vault token in a Kubernetes secret.
+                                          properties:
+                                            key:
+                                              description: Key is the key from the secret to use.
+                                              type: string
+                                            name:
+                                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                                              type: string
+                                          required:
+                                          - key
+                                          type: object
+                                      type: object
+                                    url:
+                                      default: http://localhost:8200
+                                      description: URL is the fully-qualified location of the Vault service.
+                                      type: string
+                                  type: object
+                                field:
+                                  description: Field is the key within the path that contains the secret data.
+                                  type: string
+                                path:
+                                  description: Path is the location of the secret fields to read in Vault.
+                                  type: string
+                              required:
+                              - field
+                              - path
+                              type: object
+                            vaultFolderRef:
+                              description: VaultFolderRef selects a secret by looking up a particular field in each of the children found in a given folder in Vault.
+                              properties:
+                                engine:
+                                  description: Engine is the Vault engine to use. If not specified, the default path of "secret" is used and the connection configuration is specified by the tenant. If the tenant does not specify a Vault configuration, unauthenticated requests are made over HTTP to localhost:8200.
+                                  properties:
+                                    path:
+                                      default: secret
+                                      description: Path is the base path to the engine, like "secret".
+                                      type: string
+                                    scheme:
+                                      description: "Scheme is the mechanism to use to look up the values in a folder. \n For the default scheme, it is assumed that children are read by suffixing their name to the path given. \n For the KV v2 scheme, if the given path does not begin with \"metadata/\", it is prefixed before listing. When subsequently reading values at a path, the \"metadata/\" prefix is changed to \"data/\"."
+                                      type: string
+                                    token:
+                                      description: Token is the Vault token to use.
+                                      type: string
+                                    tokenFrom:
+                                      description: TokenFrom allows the Vault token to be provided by another resource.
+                                      properties:
+                                        jwt:
+                                          description: JWT causes the metadata API to use the given role and authentication backend to acquire a token with the JWT provided to each action.
+                                          properties:
+                                            path:
+                                              default: auth/jwt
+                                              description: Path is the base path to the JWT authentication method, like "auth/jwt".
+                                              type: string
+                                            role:
+                                              description: Role is the name of the configured authentication role to use in Vault.
+                                              type: string
+                                          required:
+                                          - role
+                                          type: object
+                                        secretKeyRef:
+                                          description: SecretKeyRef looks up a Vault token in a Kubernetes secret.
+                                          properties:
+                                            key:
+                                              description: Key is the key from the secret to use.
+                                              type: string
+                                            name:
+                                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                                              type: string
+                                          required:
+                                          - key
+                                          type: object
+                                      type: object
+                                    url:
+                                      default: http://localhost:8200
+                                      description: URL is the fully-qualified location of the Vault service.
+                                      type: string
+                                  type: object
+                                field:
+                                  description: Field is the key within the path that contains the secret data.
+                                  type: string
+                                path:
+                                  description: Path is the location of the secret fields to read in Vault.
+                                  type: string
+                              required:
+                              - field
+                              - path
+                              type: object
+                            vaultPathRef:
+                              description: VaultPathRef selects a secret value by combining all of the values at a path in Vault into an object.
+                              properties:
+                                engine:
+                                  description: Engine is the Vault engine to use. If not specified, the default path of "secret" is used and the connection configuration is specified by the tenant. If the tenant does not specify a Vault configuration, unauthenticated requests are made over HTTP to localhost:8200.
+                                  properties:
+                                    path:
+                                      default: secret
+                                      description: Path is the base path to the engine, like "secret".
+                                      type: string
+                                    scheme:
+                                      description: "Scheme is the mechanism to use to look up the values in a folder. \n For the default scheme, it is assumed that children are read by suffixing their name to the path given. \n For the KV v2 scheme, if the given path does not begin with \"metadata/\", it is prefixed before listing. When subsequently reading values at a path, the \"metadata/\" prefix is changed to \"data/\"."
+                                      type: string
+                                    token:
+                                      description: Token is the Vault token to use.
+                                      type: string
+                                    tokenFrom:
+                                      description: TokenFrom allows the Vault token to be provided by another resource.
+                                      properties:
+                                        jwt:
+                                          description: JWT causes the metadata API to use the given role and authentication backend to acquire a token with the JWT provided to each action.
+                                          properties:
+                                            path:
+                                              default: auth/jwt
+                                              description: Path is the base path to the JWT authentication method, like "auth/jwt".
+                                              type: string
+                                            role:
+                                              description: Role is the name of the configured authentication role to use in Vault.
+                                              type: string
+                                          required:
+                                          - role
+                                          type: object
+                                        secretKeyRef:
+                                          description: SecretKeyRef looks up a Vault token in a Kubernetes secret.
+                                          properties:
+                                            key:
+                                              description: Key is the key from the secret to use.
+                                              type: string
+                                            name:
+                                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                                              type: string
+                                          required:
+                                          - key
+                                          type: object
+                                      type: object
+                                    url:
+                                      default: http://localhost:8200
+                                      description: URL is the fully-qualified location of the Vault service.
+                                      type: string
+                                  type: object
+                                path:
+                                  description: Path is the location of the secret fields to read in Vault.
+                                  type: string
+                              required:
+                              - path
+                              type: object
+                          type: object
+                      required:
+                      - name
+                      type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                  steps:
+                    description: Steps are the individual steps that make up the workflow.
+                    items:
+                      properties:
+                        args:
+                          description: Args are the command arguments.
+                          items:
+                            type: string
+                          type: array
+                        command:
+                          description: Command is the path to the executable to run when the container starts.
+                          type: string
+                        dependsOn:
+                          description: DependsOn causes this step to run after the given step names.
+                          items:
+                            type: string
+                          type: array
+                        env:
+                          additionalProperties:
+                            x-kubernetes-preserve-unknown-fields: true
+                          description: Env allows environment variables to be provided to the container image.
+                          type: object
+                        image:
+                          description: Image is the Docker image to run when this webhook receives an event.
+                          type: string
+                        input:
+                          description: Input is the input script to provide to the container.
+                          items:
+                            type: string
+                          type: array
+                        name:
+                          description: Name is a unique name for this step.
+                          type: string
+                        spec:
+                          additionalProperties:
+                            x-kubernetes-preserve-unknown-fields: true
+                          description: Spec is the Relay specification to be provided to the container image.
+                          type: object
+                        when:
+                          description: When provides a set of conditions that must be met for this step to run.
+                          x-kubernetes-preserve-unknown-fields: true
+                      required:
+                      - image
+                      - name
+                      type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                  tenantRef:
+                    description: TenantRef selects the tenant to use for this workflow.
+                    properties:
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                        type: string
+                    type: object
+                required:
+                - tenantRef
+                type: object
+              workflowRef:
+                description: WorkflowRef selects an already defined workflow to use for this run. Only one of WorkflowRef, Workflow, or Step may be specified.
+                properties:
+                  name:
+                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                    type: string
+                type: object
+            type: object
+          status:
+            properties:
+              completionTime:
+                description: CompletionTime is the time this run ended, whether successful or not.
+                format: date-time
+                type: string
+              conditions:
+                description: Conditions are the possible observable conditions for this run.
+                items:
+                  properties:
+                    lastTransitionTime:
+                      format: date-time
+                      type: string
+                    message:
+                      description: Message is a human-readable description of the given status.
+                      type: string
+                    reason:
+                      description: Reason identifies the cause of the given status using an API-locked camel-case identifier.
+                      type: string
+                    status:
+                      type: string
+                    type:
+                      description: Type is the identifier for this condition.
+                      enum:
+                      - Completed
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              startTime:
+                description: StartTime is the this run began executing.
+                format: date-time
+                type: string
+              steps:
+                description: Steps provides information about the status of each step that makes up this workflow run.
+                items:
+                  properties:
+                    completionTime:
+                      description: CompletionTime is the time this step ended, whether successful or not.
+                      format: date-time
+                      type: string
+                    conditions:
+                      description: Conditions are the possible observable conditions for this step.
+                      items:
+                        properties:
+                          lastTransitionTime:
+                            format: date-time
+                            type: string
+                          message:
+                            description: Message is a human-readable description of the given status.
+                            type: string
+                          reason:
+                            description: Reason identifies the cause of the given status using an API-locked camel-case identifier.
+                            type: string
+                          status:
+                            type: string
+                          type:
+                            description: Type is the identifier for this condition.
+                            enum:
+                            - Completed
+                            type: string
+                        required:
+                        - lastTransitionTime
+                        - status
+                        - type
+                        type: object
+                      type: array
+                      x-kubernetes-list-map-keys:
+                      - type
+                      x-kubernetes-list-type: map
+                    name:
+                      description: Name is the name of this step, or an empty string if this run is a one-off step run.
+                      type: string
+                    outputs:
+                      description: Outputs are each of the outputs provided by this step, if available.
+                      items:
+                        properties:
+                          name:
+                            description: Name is the name of this output.
+                            type: string
+                          sensitive:
+                            description: Sensitive is whether this output contains sensitive or privileged data. If this output is sensitive, the value will not be set.
+                            type: boolean
+                          value:
+                            description: Value is the value provided by the step for the output.
+                            x-kubernetes-preserve-unknown-fields: true
+                        required:
+                        - name
+                        type: object
+                      type: array
+                      x-kubernetes-list-map-keys:
+                      - name
+                      x-kubernetes-list-type: map
+                    spec:
+                      additionalProperties:
+                        x-kubernetes-preserve-unknown-fields: true
+                      description: Spec is the fully resolved spec for this step, if available. A spec value provided by a secret will remain unresolved in this representation.
+                      type: object
+                    startTime:
+                      description: StartTime is the time this step began executing.
+                      format: date-time
+                      type: string
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
