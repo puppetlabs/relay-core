@@ -16,6 +16,7 @@ func (c component) String() string {
 }
 
 const (
+	componentLogService  component = "log-service"
 	componentOperator    component = "operator"
 	componentMetadataAPI component = "metadata-api"
 )

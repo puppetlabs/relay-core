@@ -186,6 +186,7 @@ func (m *metadataAPIStateManager) deploymentEnv() []corev1.EnvVar {
 		{Name: "RELAY_METADATA_API_VAULT_TRANSIT_KEY", Value: m.rc.Spec.Vault.TransitKey},
 		{Name: "RELAY_METADATA_API_VAULT_AUTH_PATH", Value: m.rc.Spec.MetadataAPI.VaultAuthPath},
 		{Name: "RELAY_METADATA_API_VAULT_AUTH_ROLE", Value: m.rc.Spec.MetadataAPI.VaultAuthRole},
+		{Name: "RELAY_METADATA_API_LOG_SERVICE_URL", Value: m.rc.Spec.MetadataAPI.LogServiceURL},
 		{Name: "RELAY_METADATA_API_STEP_METADATA_URL", Value: m.rc.Spec.MetadataAPI.StepMetadataURL},
 	}
 

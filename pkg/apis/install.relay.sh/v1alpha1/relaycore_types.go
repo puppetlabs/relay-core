@@ -47,6 +47,11 @@ type RelayCoreSpec struct {
 	// +optional
 	Debug bool `json:"debug"`
 
+	// LogService is the configuration for the log service.
+	//
+	// +optional
+	LogService *LogServiceConfig `json:"logService,omitempty"`
+
 	// Operator is the configuration for the workflow run operator.
 	//
 	// +optional
@@ -69,6 +74,59 @@ type RelayCoreSpec struct {
 	//
 	// +optional
 	SentryDSNSecretName *string `json:"sentryDSNSecretName,omitempty"`
+}
+
+// LogServiceConfig is the configuration for the relay-log-service deployment
+type LogServiceConfig struct {
+	// +kubebuilder:default="relaysh/relay-pls:latest"
+	// +optional
+	Image string `json:"image"`
+
+	// +kubebuilder:default="IfNotPresent"
+	// +optional
+	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
+
+	// +optional
+	Env []corev1.EnvVar `json:"env,omitempty"`
+
+	// +optional
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+
+	// Affinity is an optional set of affinity constraints to apply to operator
+	// pods.
+	//
+	// +optional
+	Affinity *corev1.Affinity `json:"affinity,omitempty"`
+
+	// +kubebuilder:default=1
+	// +optional
+	Replicas int32 `json:"replicas,omitempty"`
+
+	// VaultAgentRole is the role to use when configuring the vault agent.
+	//
+	// +optional
+	VaultAgentRole *string `json:"vaultAgentRole,omitempty"`
+
+	// CredentialsSecretName is the name of the secret containing the
+	// credentials for the log service.
+	//
+	// +optional
+	CredentialsSecretName string `json:"credentialsSecretName"`
+
+	// Project is the BigQuery project to use for logging.
+	//
+	// +optional
+	Project string `json:"project"`
+
+	// Dataset is the BigQuery dataset to use for logging.
+	//
+	// +optional
+	Dataset string `json:"dataset"`
+
+	// Project is the BigQuery table to use for logging.
+	//
+	// +optional
+	Table string `json:"table"`
 }
 
 // OperatorConfig is the configuration for the relay-operator deployment
@@ -220,6 +278,11 @@ type MetadataAPIConfig struct {
 	// +optional
 	URL *string `json:"url,omitempty"`
 
+	// LogServiceURL is the URL of the service used to persist log messages.
+	//
+	// +optional
+	LogServiceURL string `json:"logServiceURL,omitempty"`
+
 	// StepMetadataURL is the URL to use to fetch step metadata for schema
 	// validation.
 	//
@@ -242,6 +305,10 @@ type MetadataAPIConfig struct {
 }
 
 type VaultConfig struct {
+	// +kubebuilder:default="pls"
+	// +optional
+	LogServicePath string `json:"logServicePath"`
+
 	// +kubebuilder:default="metadata-api"
 	// +optional
 	TransitKey string `json:"transitKey"`
@@ -297,6 +364,8 @@ type RelayCoreStatus struct {
 	// +optional
 	Status Status `json:"status,omitempty"`
 	// +optional
+	LogServiceServiceAccount string `json:"logServiceServiceAccount,omitempty"`
+	// +optional
 	OperatorServiceAccount string `json:"operatorServiceAccount,omitempty"`
 	// +optional
 	MetadataAPIServiceAccount string `json:"metadataAPIServiceAccount,omitempty"`
@@ -308,9 +377,13 @@ type VaultStatusSummary struct {
 	// +optional
 	JWTSigningKeySecret string `json:"jwtSigningKeySecret,omitempty"`
 	// +optional
+	LogServiceRole string `json:"logServiceRole,omitempty"`
+	// +optional
 	OperatorRole string `json:"operatorRole,omitempty"`
 	// +optional
 	MetadataAPIRole string `json:"metadataAPIRole,omitempty"`
+	// +optional
+	LogServiceServiceAccount string `json:"logServiceServiceAccount,omitempty"`
 	// +optional
 	OperatorServiceAccount string `json:"operatorServiceAccount,omitempty"`
 	// +optional
