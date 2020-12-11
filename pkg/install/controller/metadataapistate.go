@@ -179,6 +179,15 @@ func (m *metadataAPIStateManager) deployment(deployment *appsv1.Deployment) {
 }
 
 func (m *metadataAPIStateManager) deploymentEnv() []corev1.EnvVar {
+	// FIXME Implement a better mechanism for service-to-service configuration
+	lsURL := ""
+	if m.rc.Spec.MetadataAPI.LogServiceEnabled {
+		lsURL = m.rc.Spec.MetadataAPI.LogServiceURL
+		if lsURL == "" {
+			lsURL = logServiceURL(m.rc)
+		}
+	}
+
 	env := []corev1.EnvVar{
 		{Name: "VAULT_ADDR", Value: "http://localhost:8200"},
 		{Name: "RELAY_METADATA_API_ENVIRONMENT", Value: m.rc.Spec.Environment},
@@ -186,7 +195,7 @@ func (m *metadataAPIStateManager) deploymentEnv() []corev1.EnvVar {
 		{Name: "RELAY_METADATA_API_VAULT_TRANSIT_KEY", Value: m.rc.Spec.Vault.TransitKey},
 		{Name: "RELAY_METADATA_API_VAULT_AUTH_PATH", Value: m.rc.Spec.MetadataAPI.VaultAuthPath},
 		{Name: "RELAY_METADATA_API_VAULT_AUTH_ROLE", Value: m.rc.Spec.MetadataAPI.VaultAuthRole},
-		{Name: "RELAY_METADATA_API_LOG_SERVICE_URL", Value: m.rc.Spec.MetadataAPI.LogServiceURL},
+		{Name: "RELAY_METADATA_API_LOG_SERVICE_URL", Value: lsURL},
 		{Name: "RELAY_METADATA_API_STEP_METADATA_URL", Value: m.rc.Spec.MetadataAPI.StepMetadataURL},
 	}
 

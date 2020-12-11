@@ -278,6 +278,11 @@ type MetadataAPIConfig struct {
 	// +optional
 	URL *string `json:"url,omitempty"`
 
+	// LogServiceEnabled defines whether the log service is enabled or not
+	//
+	// +optional
+	LogServiceEnabled bool `json:"logServiceEnabled,omitempty"`
+
 	// LogServiceURL is the URL of the service used to persist log messages.
 	//
 	// +optional

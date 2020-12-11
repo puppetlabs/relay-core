@@ -36,6 +36,13 @@ func setDeploymentLabels(labels map[string]string, deployment *appsv1.Deployment
 	}
 }
 
+// FIXME Implement a better mechanism for service-to-service configuration
+// For now, this provides an expected default value that correlates with the
+// expected default installation.
+func logServiceURL(rc *installerv1alpha1.RelayCore) string {
+	return fmt.Sprintf("%s-log-service.%s:7050", rc.Name, rc.Namespace)
+}
+
 func metadataAPIURL(rc *installerv1alpha1.RelayCore) string {
 	if rc.Spec.MetadataAPI.URL != nil {
 		return *rc.Spec.MetadataAPI.URL
