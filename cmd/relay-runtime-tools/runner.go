@@ -16,7 +16,9 @@ import (
 	"os/exec"
 	"os/signal"
 	"syscall"
+	"time"
 
+	"github.com/golang/protobuf/ptypes"
 	"github.com/puppetlabs/relay-core/pkg/entrypoint"
 	"github.com/puppetlabs/relay-core/pkg/expr/model"
 	"github.com/puppetlabs/relay-pls/pkg/plspb"
@@ -129,10 +131,16 @@ func scan(mu *url.URL, scanner *bufio.Scanner, out *os.File, log *plspb.LogCreat
 		line := scanner.Text()
 
 		if log != nil {
-			postLogMessage(mu, &plspb.LogMessageAppendRequest{
+			message := &plspb.LogMessageAppendRequest{
 				LogId:   log.GetLogId(),
 				Payload: []byte(line),
-			})
+			}
+
+			if ts, err := ptypes.TimestampProto(time.Now().UTC()); err == nil {
+				message.Timestamp = ts
+			}
+
+			postLogMessage(mu, message)
 		}
 
 		out.WriteString(line)
