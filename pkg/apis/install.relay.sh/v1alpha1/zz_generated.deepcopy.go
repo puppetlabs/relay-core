@@ -100,6 +100,11 @@ func (in *MetadataAPIConfig) DeepCopyInto(out *MetadataAPIConfig) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.LogServiceURL != nil {
+		in, out := &in.LogServiceURL, &out.LogServiceURL
+		*out = new(string)
+		**out = **in
+	}
 	if in.VaultAgentRole != nil {
 		in, out := &in.VaultAgentRole, &out.VaultAgentRole
 		*out = new(string)
