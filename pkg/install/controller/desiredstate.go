@@ -16,6 +16,7 @@ func (c component) String() string {
 }
 
 const (
+	componentLogService  component = "log-service"
 	componentOperator    component = "operator"
 	componentMetadataAPI component = "metadata-api"
 )
@@ -33,6 +34,13 @@ func setDeploymentLabels(labels map[string]string, deployment *appsv1.Deployment
 	deployment.Spec.Selector = &metav1.LabelSelector{
 		MatchLabels: labels,
 	}
+}
+
+// FIXME Implement a better mechanism for service-to-service configuration
+// For now, this provides an expected default value that correlates with the
+// expected default installation.
+func logServiceURL(rc *installerv1alpha1.RelayCore) string {
+	return fmt.Sprintf("%s-log-service.%s:7050", rc.Name, rc.Namespace)
 }
 
 func metadataAPIURL(rc *installerv1alpha1.RelayCore) string {

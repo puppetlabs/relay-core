@@ -428,12 +428,12 @@ func (m *operatorStateManager) clusterRole(clusterRole *rbacv1.ClusterRole) {
 	clusterRole.Rules = []rbacv1.PolicyRule{
 		{
 			APIGroups: []string{""},
-			Resources: []string{"namespaces", "persistentvolumes"},
-			Verbs:     []string{"get", "list", "watch", "create", "update", "patch"},
+			Resources: []string{"namespaces", "persistentvolumes", "persistentvolumeclaims"},
+			Verbs:     []string{"get", "list", "watch", "create", "update", "patch", "delete"},
 		},
 		{
 			APIGroups: []string{""},
-			Resources: []string{"configmaps", "pods", "serviceaccounts", "secrets", "limitranges", "persistentvolumeclaims"},
+			Resources: []string{"configmaps", "pods", "serviceaccounts", "secrets", "limitranges"},
 			Verbs:     []string{"get", "list", "watch"},
 		},
 		{
@@ -444,7 +444,7 @@ func (m *operatorStateManager) clusterRole(clusterRole *rbacv1.ClusterRole) {
 		{
 			APIGroups: []string{"batch", "extensions"},
 			Resources: []string{"jobs"},
-			Verbs:     []string{"get", "list", "watch"},
+			Verbs:     []string{"get", "list", "watch", "create", "update", "patch", "delete"},
 		},
 		{
 			APIGroups: []string{"rbac.authorization.k8s.io"},
@@ -483,12 +483,7 @@ func (m *operatorStateManager) delegateClusterRole(clusterRole *rbacv1.ClusterRo
 		},
 		{
 			APIGroups: []string{""},
-			Resources: []string{"configmaps", "serviceaccounts", "secrets", "limitranges", "persistentvolumes", "persistentvolumeclaims"},
-			Verbs:     []string{"create", "update", "patch", "delete"},
-		},
-		{
-			APIGroups: []string{"batch", "extensions"},
-			Resources: []string{"jobs"},
+			Resources: []string{"configmaps", "serviceaccounts", "secrets", "limitranges", "persistentvolumeclaims"},
 			Verbs:     []string{"create", "update", "patch", "delete"},
 		},
 		{
