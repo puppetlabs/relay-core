@@ -1,0 +1,30 @@
+#!/bin/bash
+set -euo pipefail
+
+basedir="$( dirname $( readlink -f "$0" ) )"
+
+volumes=(
+  /etc/containerd/runsc.toml
+  /usr/local/sbin/containerd-shim-runsc-v1
+  /usr/local/sbin/runsc
+  /var/lib/rancher/k3s/agent/etc/containerd/config.toml.tmpl
+)
+
+k3d_k3s_version="${K3D_K3S_VERSION:-v1.17.15-k3s1}"
+k3d_image="docker.io/rancher/k3s:${k3d_k3s_version}"
+declare -a k3d_args
+
+for volume in "${volumes[@]}"; do
+  k3d_args+=( "--volume=${basedir}/overlay${volume}:${volume}" )
+done
+
+[ -d "/dev/mapper" ] && k3d_args+=( "--volume=/dev/mapper:/dev/mapper" )
+
+"${basedir}/prepare"
+
+set -x
+exec k3d cluster create relay-core-test \
+  --wait --timeout=10m \
+  --image="${k3d_image}" \
+  "${k3d_args[@]}" \
+  "$@"

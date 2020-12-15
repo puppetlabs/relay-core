@@ -1,0 +1,19 @@
+#!/bin/bash
+set -euo pipefail
+
+basedir="$( dirname $( readlink -f "$0" ) )"
+
+(
+  cd "${basedir}/overlay/usr/local/sbin"
+  for app in runsc containerd-shim-runsc-v1; do
+    wget -q -O "${app}.sha512" "https://storage.googleapis.com/gvisor/releases/release/latest/${app}.sha512"
+    sha512sum -c "${app}.sha512" >/dev/null 2>&1 && {
+      echo "${app}: latest already downloaded"
+    } || {
+      echo "${app}: download"
+      wget -q -O "${app}" "https://storage.googleapis.com/gvisor/releases/release/latest/${app}"
+      sha512sum -c "${app}.sha512"
+    }
+    chmod +x "${app}"
+  done
+)

@@ -27,14 +27,26 @@ install:
 - docker login --username "${DOCKERHUB_USERNAME}" --password-stdin <<<"${DOCKERHUB_PASSWORD}"
 jobs:
   include:
-  - stage: test
+  - &test-all
+    stage: test
+    env:
+    - K3D_K3S_VERSION: v1.17.15-k3s1
     before_script:
-    - docker build -t localhost/kindest/node-ci hack/kind-ci/
-    - ( cd; GO111MODULE=on go get sigs.k8s.io/kind@v0.9.0 gotest.tools/gotestsum )
-    - export KUBECONFIG=/tmp/kubeconfig-kind
-    - kind create cluster --image localhost/kindest/node-ci --config hack/kind-ci/config.yaml
+    - ( cd; GO111MODULE=on go get github.com/rancher/k3d/v3@v3.4.0 gotest.tools/gotestsum )
+    - export KUBECONFIG=/tmp/kubeconfig-test
+    - |
+      hack/k3d/start --no-rollback --verbose --volume="${DOCKER_CONFIG}/config.json:/var/lib/kubelet/config.json" || {
+        docker logs k3d-relay-core-test-server-0
+        exit 1
+      }
     script:
     - RELAY_TEST_E2E_KUBECONFIG="${KUBECONFIG}" RELAY_TEST_E2E_GVISOR_HANDLER=runsc ./scripts/ci test
+  - <<: *test-all
+    env:
+    - K3D_K3S_VERSION: v1.18.13-k3s1
+  - <<: *test-all
+    env:
+    - K3D_K3S_VERSION: v1.19.5-k3s1
   - stage: build
     before_script:
     - if [ ! -d "$HOME/google-cloud-sdk/bin" ]; then rm -rf $HOME/google-cloud-sdk;
