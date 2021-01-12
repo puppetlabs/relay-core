@@ -37,6 +37,7 @@ require (
 	github.com/puppetlabs/errawr-gen v1.0.1
 	github.com/puppetlabs/errawr-go/v2 v2.2.0
 	github.com/puppetlabs/horsehead/v2 v2.16.0
+	github.com/puppetlabs/leg/timeutil v0.2.0
 	github.com/puppetlabs/paesslerag-gval v1.0.2-0.20191119012647-d2c694821b5b
 	github.com/puppetlabs/paesslerag-jsonpath v0.1.2-0.20201115225516-4a6f3d111e98
 	github.com/puppetlabs/relay-pls v0.0.0-20201125074651-13575df50b51
@@ -61,7 +62,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
 	k8s.io/api v0.18.8
 	k8s.io/apiextensions-apiserver v0.18.4
-	k8s.io/apimachinery v0.19.1
+	k8s.io/apimachinery v0.20.1
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
 	k8s.io/klog v1.0.0
 	knative.dev/caching v0.0.0-20200630172829-a78409990d76

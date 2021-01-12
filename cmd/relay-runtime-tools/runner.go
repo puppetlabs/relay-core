@@ -6,6 +6,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -19,10 +20,16 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
+	"github.com/puppetlabs/leg/timeutil/pkg/retry"
 	"github.com/puppetlabs/relay-core/pkg/entrypoint"
 	"github.com/puppetlabs/relay-core/pkg/expr/model"
 	"github.com/puppetlabs/relay-pls/pkg/plspb"
 	"google.golang.org/protobuf/proto"
+)
+
+const (
+	// FIXME This should be in a common location
+	MetadataAPIURLEnvName = "METADATA_API_URL"
 )
 
 type realRunner struct {
@@ -39,7 +46,10 @@ func (rr *realRunner) Run(args ...string) error {
 	path := os.Getenv("PATH")
 	os.Setenv("PATH", path+":/var/lib/puppet/relay")
 
-	metadataAPIURL := os.Getenv("METADATA_API_URL")
+	metadataAPIURL := os.Getenv(MetadataAPIURLEnvName)
+
+	ctx := context.Background()
+	waitOptions := []retry.WaitOption{}
 
 	// FIXME Cannot abort due to errors here ...
 	// Integration tests will not have access to the Metadata API and would cause failures
@@ -49,11 +59,24 @@ func (rr *realRunner) Run(args ...string) error {
 	}
 
 	if mu != nil {
-		if err := getEnvironmentVariables(mu); err != nil {
+		err = retry.Wait(ctx, func(ctx context.Context) (bool, error) {
+			if err := getEnvironmentVariables(mu); err != nil {
+				return false, err
+			}
+
+			return true, nil
+		}, waitOptions...)
+		if err != nil {
 			log.Println(err)
 		}
 
-		if err := validateSchemas(mu); err != nil {
+		err = retry.Wait(ctx, func(ctx context.Context) (bool, error) {
+			if err := validateSchemas(mu); err != nil {
+				return false, err
+			}
+			return true, nil
+		}, waitOptions...)
+		if err != nil {
 			log.Println(err)
 		}
 	}
@@ -68,13 +91,37 @@ func (rr *realRunner) Run(args ...string) error {
 	signal.Notify(rr.signals)
 	defer signal.Reset()
 
-	logOut, _ := postLog(mu, &plspb.LogCreateRequest{
-		Name: "stdout",
-	})
+	var logOutId string
+	err = retry.Wait(ctx, func(ctx context.Context) (bool, error) {
+		logOut, err := postLog(mu, &plspb.LogCreateRequest{
+			Name: "stdout",
+		})
+		if err != nil {
+			return false, err
+		}
 
-	logErr, _ := postLog(mu, &plspb.LogCreateRequest{
-		Name: "stderr",
-	})
+		logOutId = logOut.GetLogId()
+		return true, nil
+	}, waitOptions...)
+	if err != nil {
+		log.Println(err)
+	}
+
+	var logErrId string
+	err = retry.Wait(ctx, func(ctx context.Context) (bool, error) {
+		logErr, err := postLog(mu, &plspb.LogCreateRequest{
+			Name: "stderr",
+		})
+		if err != nil {
+			return false, err
+		}
+
+		logErrId = logErr.GetLogId()
+		return true, nil
+	}, waitOptions...)
+	if err != nil {
+		log.Println(err)
+	}
 
 	cmd := exec.Command(name, args...)
 
@@ -112,8 +159,8 @@ func (rr *realRunner) Run(args ...string) error {
 		}
 	}()
 
-	go scan(mu, scannerOut, os.Stdout, logOut, doneOut)
-	go scan(mu, scannerErr, os.Stderr, logErr, doneErr)
+	go scan(ctx, waitOptions, mu, scannerOut, os.Stdout, logOutId, doneOut)
+	go scan(ctx, waitOptions, mu, scannerErr, os.Stderr, logErrId, doneErr)
 
 	<-doneOut
 	<-doneErr
@@ -126,13 +173,13 @@ func (rr *realRunner) Run(args ...string) error {
 	return nil
 }
 
-func scan(mu *url.URL, scanner *bufio.Scanner, out *os.File, log *plspb.LogCreateResponse, done chan<- bool) {
+func scan(ctx context.Context, waitOptions []retry.WaitOption, mu *url.URL, scanner *bufio.Scanner, out *os.File, logId string, done chan<- bool) {
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		if log != nil {
+		if logId != "" {
 			message := &plspb.LogMessageAppendRequest{
-				LogId:   log.GetLogId(),
+				LogId:   logId,
 				Payload: []byte(line),
 			}
 
@@ -140,7 +187,17 @@ func scan(mu *url.URL, scanner *bufio.Scanner, out *os.File, log *plspb.LogCreat
 				message.Timestamp = ts
 			}
 
-			postLogMessage(mu, message)
+			err := retry.Wait(ctx, func(ctx context.Context) (bool, error) {
+				_, err := postLogMessage(mu, message)
+				if err != nil {
+					return false, err
+				}
+
+				return true, nil
+			}, waitOptions...)
+			if err != nil {
+				log.Println(err)
+			}
 		}
 
 		out.WriteString(line)
