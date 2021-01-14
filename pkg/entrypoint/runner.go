@@ -1,11 +1,12 @@
 // This content has been partially derived from Tekton
 // https://github.com/tektoncd/pipeline
 
-package main
+package entrypoint
 
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -19,41 +20,52 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
-	"github.com/puppetlabs/relay-core/pkg/entrypoint"
+	"github.com/puppetlabs/leg/timeutil/pkg/retry"
 	"github.com/puppetlabs/relay-core/pkg/expr/model"
 	"github.com/puppetlabs/relay-pls/pkg/plspb"
 	"google.golang.org/protobuf/proto"
 )
 
-type realRunner struct {
+const (
+	// FIXME This should be in a common location
+	MetadataAPIURLEnvName = "METADATA_API_URL"
+)
+
+type RealRunner struct {
 	signals chan os.Signal
+
+	TimeoutLong  time.Duration
+	TimeoutShort time.Duration
 }
 
-var _ entrypoint.Runner = (*realRunner)(nil)
+var _ Runner = (*RealRunner)(nil)
 
-func (rr *realRunner) Run(args ...string) error {
+// FIXME Determine how to handle, log, and report on errors
+// Many errors that might occur should not necessarily abort the basic command processing
+// Logging these errors should potentially not occur either, as it potentially polutes the expected command logs
+// with potential internal information
+// Logging command outputs should default more cleanly to the standard streams
+// Additionally, integration tests will not (currently) have access to the Metadata API and would cause failures
+func (rr *RealRunner) Run(args ...string) error {
 	if len(args) == 0 {
 		return nil
 	}
 
-	path := os.Getenv("PATH")
-	os.Setenv("PATH", path+":/var/lib/puppet/relay")
+	if err := updatePath(); err != nil {
+		log.Println(err)
+	}
 
-	metadataAPIURL := os.Getenv("METADATA_API_URL")
-
-	// FIXME Cannot abort due to errors here ...
-	// Integration tests will not have access to the Metadata API and would cause failures
-	mu, err := url.Parse(metadataAPIURL)
+	mu, err := getMetadataAPIURL()
 	if err != nil {
 		log.Println(err)
 	}
 
 	if mu != nil {
-		if err := getEnvironmentVariables(mu); err != nil {
+		if err := rr.getEnvironmentVariables(mu); err != nil {
 			log.Println(err)
 		}
 
-		if err := validateSchemas(mu); err != nil {
+		if err := rr.validateSchemas(mu); err != nil {
 			log.Println(err)
 		}
 	}
@@ -68,13 +80,23 @@ func (rr *realRunner) Run(args ...string) error {
 	signal.Notify(rr.signals)
 	defer signal.Reset()
 
-	logOut, _ := postLog(mu, &plspb.LogCreateRequest{
-		Name: "stdout",
-	})
+	var logOut *plspb.LogCreateResponse
+	var logErr *plspb.LogCreateResponse
+	if mu != nil {
+		logOut, err = rr.postLog(mu, &plspb.LogCreateRequest{
+			Name: "stdout",
+		})
+		if err != nil {
+			log.Println(err)
+		}
 
-	logErr, _ := postLog(mu, &plspb.LogCreateRequest{
-		Name: "stderr",
-	})
+		logErr, err = rr.postLog(mu, &plspb.LogCreateRequest{
+			Name: "stderr",
+		})
+		if err != nil {
+			log.Println(err)
+		}
+	}
 
 	cmd := exec.Command(name, args...)
 
@@ -112,8 +134,8 @@ func (rr *realRunner) Run(args ...string) error {
 		}
 	}()
 
-	go scan(mu, scannerOut, os.Stdout, logOut, doneOut)
-	go scan(mu, scannerErr, os.Stderr, logErr, doneErr)
+	go rr.scan(mu, scannerOut, os.Stdout, logOut, doneOut)
+	go rr.scan(mu, scannerErr, os.Stderr, logErr, doneErr)
 
 	<-doneOut
 	<-doneErr
@@ -126,13 +148,13 @@ func (rr *realRunner) Run(args ...string) error {
 	return nil
 }
 
-func scan(mu *url.URL, scanner *bufio.Scanner, out *os.File, log *plspb.LogCreateResponse, done chan<- bool) {
+func (rr *RealRunner) scan(mu *url.URL, scanner *bufio.Scanner, out *os.File, lcr *plspb.LogCreateResponse, done chan<- bool) {
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		if log != nil {
+		if lcr != nil {
 			message := &plspb.LogMessageAppendRequest{
-				LogId:   log.GetLogId(),
+				LogId:   lcr.GetLogId(),
 				Payload: []byte(line),
 			}
 
@@ -140,7 +162,10 @@ func scan(mu *url.URL, scanner *bufio.Scanner, out *os.File, log *plspb.LogCreat
 				message.Timestamp = ts
 			}
 
-			postLogMessage(mu, message)
+			_, err := rr.postLogMessage(mu, message)
+			if err != nil {
+				log.Println(err)
+			}
 		}
 
 		out.WriteString(line)
@@ -149,7 +174,21 @@ func scan(mu *url.URL, scanner *bufio.Scanner, out *os.File, log *plspb.LogCreat
 	done <- true
 }
 
-func getEnvironmentVariables(mu *url.URL) error {
+func updatePath() error {
+	path := os.Getenv("PATH")
+	return os.Setenv("PATH", path+":/var/lib/puppet/relay")
+}
+
+func getMetadataAPIURL() (*url.URL, error) {
+	metadataAPIURL := os.Getenv(MetadataAPIURLEnvName)
+	if metadataAPIURL == "" {
+		return nil, nil
+	}
+
+	return url.Parse(metadataAPIURL)
+}
+
+func (rr *RealRunner) getEnvironmentVariables(mu *url.URL) error {
 	ee := &url.URL{Path: "/environment"}
 
 	req, err := http.NewRequest(http.MethodGet, mu.ResolveReference(ee).String(), nil)
@@ -157,7 +196,7 @@ func getEnvironmentVariables(mu *url.URL) error {
 		return err
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := getResponse(req, rr.TimeoutLong, []retry.WaitOption{})
 	if err != nil {
 		return err
 	}
@@ -179,7 +218,7 @@ func getEnvironmentVariables(mu *url.URL) error {
 	return nil
 }
 
-func postLog(mu *url.URL, request *plspb.LogCreateRequest) (*plspb.LogCreateResponse, error) {
+func (rr *RealRunner) postLog(mu *url.URL, request *plspb.LogCreateRequest) (*plspb.LogCreateResponse, error) {
 	le := &url.URL{Path: "/logs"}
 
 	buf, err := proto.Marshal(request)
@@ -194,7 +233,7 @@ func postLog(mu *url.URL, request *plspb.LogCreateRequest) (*plspb.LogCreateResp
 
 	req.Header.Set("Content-Type", "application/octet-stream")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := getResponse(req, rr.TimeoutLong, []retry.WaitOption{})
 	if err != nil {
 		return nil, err
 	}
@@ -213,7 +252,7 @@ func postLog(mu *url.URL, request *plspb.LogCreateRequest) (*plspb.LogCreateResp
 	return response, nil
 }
 
-func postLogMessage(mu *url.URL, request *plspb.LogMessageAppendRequest) (*plspb.LogMessageAppendResponse, error) {
+func (rr *RealRunner) postLogMessage(mu *url.URL, request *plspb.LogMessageAppendRequest) (*plspb.LogMessageAppendResponse, error) {
 	lme := &url.URL{Path: fmt.Sprintf("/logs/%s/messages", request.GetLogId())}
 
 	buf, err := proto.Marshal(request)
@@ -228,7 +267,7 @@ func postLogMessage(mu *url.URL, request *plspb.LogMessageAppendRequest) (*plspb
 
 	req.Header.Set("Content-Type", "application/octet-stream")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := getResponse(req, rr.TimeoutShort, []retry.WaitOption{})
 	if err != nil {
 		return nil, err
 	}
@@ -258,7 +297,7 @@ func postLogMessage(mu *url.URL, request *plspb.LogMessageAppendRequest) (*plspb
 // Once we have determined that things are stable, we will
 // begin propagating these errors to the frontend and stopping the steps from
 // running if they don't validate.
-func validateSchemas(mu *url.URL) error {
+func (rr *RealRunner) validateSchemas(mu *url.URL) error {
 	ve := &url.URL{Path: "/validate"}
 
 	req, err := http.NewRequest(http.MethodPost, mu.ResolveReference(ve).String(), nil)
@@ -268,9 +307,31 @@ func validateSchemas(mu *url.URL) error {
 
 	// We are ignoring the response for now because this endpoint just sends
 	// all validation errors to the error capturing system.
-	if _, err = http.DefaultClient.Do(req); err != nil {
+	_, err = getResponse(req, rr.TimeoutLong, []retry.WaitOption{})
+	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func getResponse(request *http.Request, timeout time.Duration, waitOptions []retry.WaitOption) (*http.Response, error) {
+	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	var response *http.Response
+	err := retry.Wait(ctx, func(ctx context.Context) (bool, error) {
+		var rerr error
+		response, rerr = http.DefaultClient.Do(request)
+		if rerr != nil {
+			return false, rerr
+		}
+		return true, nil
+	}, waitOptions...)
+	if err != nil {
+		return nil, err
+	}
+
+	return response, nil
 }
