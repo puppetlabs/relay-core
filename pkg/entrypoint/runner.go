@@ -329,6 +329,9 @@ func getResponse(request *http.Request, timeout time.Duration, waitOptions []ret
 		}
 		return true, nil
 	}, waitOptions...)
+	if err != nil {
+		return nil, err
+	}
 
-	return response, err
+	return response, nil
 }
