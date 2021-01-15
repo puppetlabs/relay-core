@@ -327,6 +327,16 @@ func getResponse(request *http.Request, timeout time.Duration, waitOptions []ret
 		if rerr != nil {
 			return false, rerr
 		}
+
+		if response != nil {
+			// TODO Consider expanding to all 5xx (and possibly some 4xx) status codes
+			switch response.StatusCode {
+			case http.StatusInternalServerError, http.StatusBadGateway,
+				http.StatusServiceUnavailable, http.StatusGatewayTimeout:
+				return false, nil
+			}
+		}
+
 		return true, nil
 	}, waitOptions...)
 	if err != nil {

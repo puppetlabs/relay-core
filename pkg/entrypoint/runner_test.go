@@ -14,20 +14,24 @@ import (
 )
 
 type mockMetadataAPIOptions struct {
+	Delay time.Duration
 }
 
 func withMockMetadataAPI(t *testing.T, fn func(ts *httptest.Server), opts mockMetadataAPIOptions) {
+	seed := make(map[string]time.Time)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		handler, _ := shiftPath(r.URL.Path)
 		switch handler {
-		case "environment":
-			w.WriteHeader(http.StatusOK)
-			return
-		case "validate":
-			w.WriteHeader(http.StatusOK)
-			return
-		case "logs":
-			w.WriteHeader(http.StatusOK)
+		case "environment", "validate", "logs":
+			if _, ok := seed[handler]; !ok {
+				seed[handler] = time.Now()
+			}
+			if time.Now().After(seed[handler].Add(opts.Delay)) {
+				w.WriteHeader(http.StatusOK)
+				seed[handler] = time.Now()
+			} else {
+				w.WriteHeader(http.StatusInternalServerError)
+			}
 			return
 		}
 
@@ -83,7 +87,9 @@ func TestEntrypointRunnerWithInvalidMetadataAPIURL(t *testing.T) {
 }
 
 func TestEntrypointRunnerWithMockMetadataAPIURL(t *testing.T) {
-	opts := mockMetadataAPIOptions{}
+	opts := mockMetadataAPIOptions{
+		Delay: 250 * time.Millisecond,
+	}
 
 	withMockMetadataAPI(t, func(ts *httptest.Server) {
 		os.Setenv(entrypoint.MetadataAPIURLEnvName, ts.URL)
