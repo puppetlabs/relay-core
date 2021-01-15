@@ -16,6 +16,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -28,7 +29,8 @@ import (
 
 const (
 	// FIXME This should be in a common location
-	MetadataAPIURLEnvName = "METADATA_API_URL"
+	MetadataAPIURLEnvName    = "METADATA_API_URL"
+	MetadataAPIURLTestDomain = "example.com"
 )
 
 type RealRunner struct {
@@ -42,10 +44,10 @@ var _ Runner = (*RealRunner)(nil)
 
 // FIXME Determine how to handle, log, and report on errors
 // Many errors that might occur should not necessarily abort the basic command processing
-// Logging these errors should potentially not occur either, as it potentially polutes the expected command logs
-// with potential internal information
+// Logging these errors should potentially not occur either, as it adds internal information
 // Logging command outputs should default more cleanly to the standard streams
-// Additionally, integration tests will not (currently) have access to the Metadata API and would cause failures
+// Additionally, integration tests will not (currently) have access to the Metadata API
+// and can cause multiple issues...
 func (rr *RealRunner) Run(args ...string) error {
 	if len(args) == 0 {
 		return nil
@@ -60,13 +62,40 @@ func (rr *RealRunner) Run(args ...string) error {
 		log.Println(err)
 	}
 
+	var logOut *plspb.LogCreateResponse
+	var logErr *plspb.LogCreateResponse
+
+	// FIXME Avoid contacting the MetadataAPI repeatedly if we had previous failures (for now)
+	// NOTE This does not currently differentiate between comms errors and other failures
 	if mu != nil {
-		if err := rr.getEnvironmentVariables(mu); err != nil {
-			log.Println(err)
+		cerr := rr.getEnvironmentVariables(mu)
+		if cerr != nil {
+			log.Println(cerr)
 		}
 
-		if err := rr.validateSchemas(mu); err != nil {
-			log.Println(err)
+		if cerr == nil {
+			cerr = rr.validateSchemas(mu)
+			if cerr != nil {
+				log.Println(cerr)
+			}
+		}
+
+		if cerr == nil {
+			logOut, cerr = rr.postLog(mu, &plspb.LogCreateRequest{
+				Name: "stdout",
+			})
+			if cerr != nil {
+				log.Println(cerr)
+			}
+		}
+
+		if cerr == nil {
+			logErr, cerr = rr.postLog(mu, &plspb.LogCreateRequest{
+				Name: "stderr",
+			})
+			if cerr != nil {
+				log.Println(cerr)
+			}
 		}
 	}
 
@@ -79,24 +108,6 @@ func (rr *RealRunner) Run(args ...string) error {
 	defer close(rr.signals)
 	signal.Notify(rr.signals)
 	defer signal.Reset()
-
-	var logOut *plspb.LogCreateResponse
-	var logErr *plspb.LogCreateResponse
-	if mu != nil {
-		logOut, err = rr.postLog(mu, &plspb.LogCreateRequest{
-			Name: "stdout",
-		})
-		if err != nil {
-			log.Println(err)
-		}
-
-		logErr, err = rr.postLog(mu, &plspb.LogCreateRequest{
-			Name: "stderr",
-		})
-		if err != nil {
-			log.Println(err)
-		}
-	}
 
 	cmd := exec.Command(name, args...)
 
@@ -152,7 +163,7 @@ func (rr *RealRunner) scan(mu *url.URL, scanner *bufio.Scanner, out *os.File, lc
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		if lcr != nil {
+		if mu != nil && lcr != nil {
 			message := &plspb.LogMessageAppendRequest{
 				LogId:   lcr.GetLogId(),
 				Payload: []byte(line),
@@ -182,6 +193,12 @@ func updatePath() error {
 func getMetadataAPIURL() (*url.URL, error) {
 	metadataAPIURL := os.Getenv(MetadataAPIURLEnvName)
 	if metadataAPIURL == "" {
+		return nil, nil
+	}
+
+	// FIXME Implement a better solution for testing
+	// This is partly to avoid unnecessary delays in the current testing suite
+	if strings.HasSuffix(metadataAPIURL, MetadataAPIURLTestDomain) {
 		return nil, nil
 	}
 
