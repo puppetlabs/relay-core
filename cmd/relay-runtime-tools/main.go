@@ -21,11 +21,12 @@ var (
 func main() {
 	flag.Parse()
 
+	// FIXME Implement configurable timeouts
 	e := entrypoint.Entrypointer{
 		Entrypoint: *ep,
 		Args:       flag.Args(),
 		Runner: &entrypoint.RealRunner{
-			TimeoutLong:  5 * time.Minute,
+			TimeoutLong:  1 * time.Minute,
 			TimeoutShort: 5 * time.Second,
 		},
 	}

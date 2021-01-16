@@ -1466,6 +1466,7 @@ github.com/puppetlabs/horsehead v1.11.0 h1:1eUpsDPyaFBTQQr61D2H0zuKOG9oPaurSrmLR
 github.com/puppetlabs/horsehead/v2 v2.16.0 h1:K3u6ct/omcVCcUxoam3jpZI8uRo5vpABGM0Qvxv3dkc=
 github.com/puppetlabs/horsehead/v2 v2.16.0/go.mod h1:ixb6zHYDDe9tvWRi2YhJpljRfQukggDZ6KGfZkezvEc=
 github.com/puppetlabs/leg v0.0.0-20210106185521-ee413eca2bb9 h1:fVqLvlslndN/8AobpCRenxvcz9ZsfepevHFMaHYGAFU=
+github.com/puppetlabs/leg v0.0.0-20210114184330-931828f453b4 h1:A3NEwJkpGLrz7yobAA1Uzb1/rnEet0zgC1ewc+iWrJQ=
 github.com/puppetlabs/leg/mathutil v0.1.0 h1:9O/fsCWA0oEybKLtxKOPGl1lHA2etLbopwkGOf3dG0w=
 github.com/puppetlabs/leg/mathutil v0.1.0/go.mod h1:1Ni3bNk/721eP9PAhkTsx2CoXUEP636UKEx5mIlph3s=
 github.com/puppetlabs/leg/timeutil v0.2.0 h1:f5Dbivofe8zoFu3GxMopNeCI2x0rlKq6dJqZ1t10/b8=
