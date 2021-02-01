@@ -15,7 +15,10 @@
       "type": "string",
       "description": "The workflow schema type",
       "enum": [
-        "Workflow"
+        "Workflow",
+        "Step",
+        "Trigger",
+        "Integration"
       ]
     },
     "name": {
