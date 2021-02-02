@@ -3,7 +3,6 @@ module github.com/puppetlabs/relay-core
 go 1.13
 
 require (
-	cloud.google.com/go v0.65.0
 	cloud.google.com/go/storage v1.11.0 // indirect
 	contrib.go.opencensus.io/exporter/ocagent v0.7.1-0.20200907061046-05415f1de66d // indirect
 	contrib.go.opencensus.io/exporter/prometheus v0.2.1-0.20200609204449-6bcf6f8577f0 // indirect
@@ -33,7 +32,6 @@ require (
 	github.com/lib/pq v1.3.0 // indirect
 	github.com/mitchellh/mapstructure v1.3.1
 	github.com/opencontainers/runc v1.0.0-rc6 // indirect
-	github.com/prometheus/client_golang v1.6.0 // indirect
 	github.com/puppetlabs/errawr-gen v1.0.1
 	github.com/puppetlabs/errawr-go/v2 v2.2.0
 	github.com/puppetlabs/horsehead/v2 v2.16.0
@@ -48,13 +46,15 @@ require (
 	github.com/stretchr/testify v1.6.1
 	github.com/tektoncd/pipeline v0.16.3
 	github.com/xeipuuv/gojsonschema v1.2.0
+	go.opentelemetry.io/otel v0.16.0
+	go.opentelemetry.io/otel/exporters/metric/prometheus v0.16.0
+	go.opentelemetry.io/otel/exporters/stdout v0.16.0
 	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a // indirect
 	golang.org/x/net v0.0.0-20200904194848-62affa334b73
 	golang.org/x/oauth2 v0.0.0-20200902213428-5d25da1a8d43 // indirect
-	golang.org/x/sys v0.0.0-20200915084602-288bc346aa39 // indirect
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
 	google.golang.org/api v0.31.0 // indirect
-	google.golang.org/genproto v0.0.0-20200914193844-75d14daec038
+	google.golang.org/genproto v0.0.0-20200914193844-75d14daec038 // indirect
 	google.golang.org/grpc v1.34.0
 	google.golang.org/protobuf v1.25.0
 	gopkg.in/square/go-jose.v2 v2.4.1
@@ -65,6 +65,7 @@ require (
 	k8s.io/apimachinery v0.20.1
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
 	k8s.io/klog v1.0.0
+	k8s.io/klog/v2 v2.0.0
 	knative.dev/caching v0.0.0-20200630172829-a78409990d76
 	knative.dev/pkg v0.0.0-20200702222342-ea4d6e985ba0
 	knative.dev/serving v0.16.0

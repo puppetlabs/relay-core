@@ -23,6 +23,7 @@ type WorkflowRunStatus string
 const (
 	WorkflowRunStateCancel = "cancel"
 
+	WorkflowRunStatusQueued     WorkflowRunStatus = "queued"
 	WorkflowRunStatusPending    WorkflowRunStatus = "pending"
 	WorkflowRunStatusInProgress WorkflowRunStatus = "in-progress"
 	WorkflowRunStatusSuccess    WorkflowRunStatus = "success"
