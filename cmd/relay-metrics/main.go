@@ -105,7 +105,7 @@ func main() {
 	go func() {
 		ticker := time.NewTicker(DefaultWorkflowRunPollingInterval)
 		defer ticker.Stop()
-		for ; true; <-ticker.C {
+		for range ticker.C {
 			err := processStatuses(context.Background(), mgr.GetClient(), meter)
 			if err != nil {
 				klog.Error(err)

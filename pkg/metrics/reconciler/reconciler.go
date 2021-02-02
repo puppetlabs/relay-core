@@ -8,6 +8,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/operator/obj"
 	"go.opentelemetry.io/otel/label"
 	"go.opentelemetry.io/otel/metric"
+	"k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -27,9 +28,14 @@ func (r *WorkflowRunReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error)
 
 	wr := &nebulav1.WorkflowRun{}
 
-	err := r.client.Get(ctx, req.NamespacedName, wr)
-	if err != nil {
+	if err := r.client.Get(ctx, req.NamespacedName, wr); errors.IsNotFound(err) {
+		return ctrl.Result{}, nil
+	} else if err != nil {
 		return ctrl.Result{}, err
+	}
+
+	if !wr.ObjectMeta.DeletionTimestamp.IsZero() {
+		return ctrl.Result{}, nil
 	}
 
 	status := wr.Status.Status
