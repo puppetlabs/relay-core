@@ -82,8 +82,6 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 
 	var pr *obj.PipelineRun
 	err = r.metrics.trackDurationWithOutcome(metricWorkflowRunStartUpDuration, func() error {
-		// Configure and save all the infrastructure bits needed to create a
-		// Pipeline.
 		deps, err := obj.ApplyWorkflowRunDeps(
 			ctx,
 			r.Client,
@@ -101,7 +99,6 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 			})
 		}
 
-		// Configure and save the underlying Tekton Pipeline.
 		pipeline, err := obj.ApplyPipeline(ctx, r.Client, deps)
 		if err != nil {
 			return errmark.MapLast(err, func(err error) error {
@@ -109,11 +106,10 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 			})
 		}
 
-		// Create or update a PipelineRun.
 		pr, err = obj.ApplyPipelineRun(ctx, r.Client, pipeline)
 		if err != nil {
 			return errmark.MapLast(err, func(err error) error {
-				return fmt.Errorf("failed to apply Pipeline: %+v", err)
+				return fmt.Errorf("failed to apply PipelineRun: %+v", err)
 			})
 		}
 
