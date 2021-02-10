@@ -7,10 +7,12 @@ import (
 	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
 	"github.com/puppetlabs/relay-core/pkg/metrics/model"
 	"github.com/puppetlabs/relay-core/pkg/metrics/opt"
-	"github.com/puppetlabs/relay-core/pkg/metrics/reconciler"
+	"github.com/puppetlabs/relay-core/pkg/metrics/reconciler/event"
+	"github.com/puppetlabs/relay-core/pkg/metrics/reconciler/workflow"
 	"github.com/puppetlabs/relay-core/pkg/operator/obj"
 	"go.opentelemetry.io/otel/label"
 	"go.opentelemetry.io/otel/metric"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/clientcmd"
@@ -27,6 +29,7 @@ const (
 var (
 	SchemeBuilder = runtime.NewSchemeBuilder(
 		scheme.AddToScheme,
+		corev1.AddToScheme,
 		nebulav1.AddToScheme,
 	)
 
@@ -97,7 +100,12 @@ func main() {
 		klog.Fatal(err.Error())
 	}
 
-	err = reconciler.Add(mgr, meter)
+	err = workflow.Add(mgr, meter)
+	if err != nil {
+		klog.Fatal(err.Error())
+	}
+
+	err = event.Add(mgr, meter, cfg.EventFilters)
 	if err != nil {
 		klog.Fatal(err.Error())
 	}
