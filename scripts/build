@@ -22,6 +22,9 @@ do_build() {
     )
   else
     (
+      mkdir -p ~/.config/containers
+      echo "unqualified-search-registries = ['docker.io', 'quay.io', 'registry.fedoraproject.org']" > ~/.config/containers/registries.conf
+
       set -x
       buildah bud \
         "${BUILD_ARGS[@]}" \
