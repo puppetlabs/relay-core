@@ -148,7 +148,7 @@ func TestWorkflowRunWithTenantToolInjectionUsingInput(t *testing.T) {
 		}
 
 		logs := e2e.Interface.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, podLogOptions)
-		podLogs, err := logs.Stream()
+		podLogs, err := logs.Stream(ctx)
 		require.NoError(t, err)
 		defer podLogs.Close()
 
@@ -284,7 +284,7 @@ func TestWorkflowRunWithTenantToolInjectionUsingCommand(t *testing.T) {
 		}
 
 		logs := e2e.Interface.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, podLogOptions)
-		podLogs, err := logs.Stream()
+		podLogs, err := logs.Stream(ctx)
 		require.NoError(t, err)
 		defer podLogs.Close()
 
@@ -687,7 +687,7 @@ func TestWorkflowRunInGVisor(t *testing.T) {
 				}
 
 				logs := e2e.Interface.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, podLogOptions)
-				podLogs, err := logs.Stream()
+				podLogs, err := logs.Stream(ctx)
 				require.NoError(t, err)
 				defer podLogs.Close()
 

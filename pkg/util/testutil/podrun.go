@@ -42,15 +42,15 @@ func RunScriptInAlpine(t *testing.T, ctx context.Context, cfg *rest.Config, ifc 
 
 	pc := ifc.CoreV1().Pods(pod.GetNamespace())
 
-	pod, err := pc.Create(pod)
+	pod, err := pc.Create(ctx, pod, metav1.CreateOptions{})
 	require.NoError(t, err)
 	defer func() {
-		require.NoError(t, pc.Delete(pod.GetName(), &metav1.DeleteOptions{}))
+		require.NoError(t, pc.Delete(ctx, pod.GetName(), metav1.DeleteOptions{}))
 	}()
 
 	// Wait for pod ready.
 	require.NoError(t, retry.Retry(ctx, 500*time.Millisecond, func() *retry.RetryError {
-		pod, err = pc.Get(pod.GetName(), metav1.GetOptions{})
+		pod, err = pc.Get(ctx, pod.GetName(), metav1.GetOptions{})
 		require.NoError(t, err)
 
 		switch pod.Status.Phase {

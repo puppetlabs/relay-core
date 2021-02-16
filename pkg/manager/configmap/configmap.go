@@ -23,7 +23,7 @@ type ClientConfigMap struct {
 var _ ConfigMap = &ClientConfigMap{}
 
 func (ccm *ClientConfigMap) Get(ctx context.Context) (*corev1.ConfigMap, error) {
-	return ccm.client.CoreV1().ConfigMaps(ccm.namespace).Get(ccm.name, metav1.GetOptions{})
+	return ccm.client.CoreV1().ConfigMaps(ccm.namespace).Get(ctx, ccm.name, metav1.GetOptions{})
 }
 
 func (ccm *ClientConfigMap) CreateOrUpdate(ctx context.Context, cm *corev1.ConfigMap) (*corev1.ConfigMap, error) {
@@ -31,10 +31,10 @@ func (ccm *ClientConfigMap) CreateOrUpdate(ctx context.Context, cm *corev1.Confi
 	cm.SetName(ccm.name)
 
 	if len(cm.GetUID()) == 0 {
-		return ccm.client.CoreV1().ConfigMaps(ccm.namespace).Create(cm)
+		return ccm.client.CoreV1().ConfigMaps(ccm.namespace).Create(ctx, cm, metav1.CreateOptions{})
 	}
 
-	return ccm.client.CoreV1().ConfigMaps(ccm.namespace).Update(cm)
+	return ccm.client.CoreV1().ConfigMaps(ccm.namespace).Update(ctx, cm, metav1.UpdateOptions{})
 }
 
 func NewClientConfigMap(client kubernetes.Interface, namespace, name string) *ClientConfigMap {

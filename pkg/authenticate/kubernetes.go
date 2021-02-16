@@ -78,7 +78,7 @@ func (ki *KubernetesIntermediary) next(ctx context.Context, state *Authenticatio
 
 	var pod corev1.Pod
 	err := retry.Retry(ctx, PodValidationBackoffFrequency, func() *retry.RetryError {
-		pods, err := ki.client.CoreV1().Pods("").List(metav1.ListOptions{
+		pods, err := ki.client.CoreV1().Pods("").List(ctx, metav1.ListOptions{
 			FieldSelector: fields.Set{
 				"status.podIP": ki.ip.String(),
 				"status.phase": string(corev1.PodRunning),
@@ -104,7 +104,7 @@ func (ki *KubernetesIntermediary) next(ctx context.Context, state *Authenticatio
 		return nil, nil, err
 	}
 
-	ns, err := ki.client.CoreV1().Namespaces().Get(pod.GetNamespace(), metav1.GetOptions{})
+	ns, err := ki.client.CoreV1().Namespaces().Get(ctx, pod.GetNamespace(), metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		return nil, nil, &NotFoundError{Reason: "kubernetes: namespace of requesting pod no longer exists"}
 	} else if err != nil {
@@ -124,7 +124,7 @@ func (ki *KubernetesIntermediary) next(ctx context.Context, state *Authenticatio
 		// is true for us, but not for Tekton generally.
 		name := pod.GetLabels()["tekton.dev/pipelineTask"]
 
-		tr, err := ki.client.TektonV1alpha1().Conditions(ns.GetName()).Get(name, metav1.GetOptions{})
+		tr, err := ki.client.TektonV1alpha1().Conditions(ns.GetName()).Get(ctx, name, metav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			return nil, nil, &NotFoundError{Reason: "kubernetes: Tekton condition of requesting pod does not exist"}
 		} else if err != nil {

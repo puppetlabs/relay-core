@@ -1,6 +1,8 @@
 package tenant
 
 import (
+	"context"
+
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/errmark"
 	"github.com/puppetlabs/relay-core/pkg/operator/config"
@@ -35,7 +37,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler, cfg *config.WorkflowContro
 }
 
 func Add(mgr manager.Manager, cfg *config.WorkflowControllerConfig) error {
-	mgr.GetFieldIndexer().IndexField(&corev1.PersistentVolume{}, "status.phase", func(o runtime.Object) []string {
+	mgr.GetFieldIndexer().IndexField(context.Background(), &corev1.PersistentVolume{}, "status.phase", func(o runtime.Object) []string {
 		var res []string
 		vol, ok := o.(*corev1.PersistentVolume)
 		if ok {

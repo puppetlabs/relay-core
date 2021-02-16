@@ -61,7 +61,7 @@ func WithServiceBoundToHostHTTP(t *testing.T, ctx context.Context, cfg *rest.Con
 			"tls.crt": tls.BundlePEM,
 		},
 	}
-	secret, err := ifc.CoreV1().Secrets(secret.GetNamespace()).Create(secret)
+	secret, err := ifc.CoreV1().Secrets(secret.GetNamespace()).Create(ctx, secret, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	// Create pod to provide tunneling.
@@ -143,7 +143,7 @@ func WithServiceBoundToHostHTTP(t *testing.T, ctx context.Context, cfg *rest.Con
 			},
 		},
 	}
-	pod, err = ifc.CoreV1().Pods(pod.GetNamespace()).Create(pod)
+	pod, err = ifc.CoreV1().Pods(pod.GetNamespace()).Create(ctx, pod, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	// Forward pod to establish local side.
@@ -233,11 +233,11 @@ func WithServiceBoundToHostHTTP(t *testing.T, ctx context.Context, cfg *rest.Con
 		},
 	}
 	svc.SetName(fmt.Sprintf("bind-%s", id))
-	svc, err = ifc.CoreV1().Services(svc.GetNamespace()).Create(svc)
+	svc, err = ifc.CoreV1().Services(svc.GetNamespace()).Create(ctx, svc, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	require.NoError(t, retry.Retry(ctx, 2*time.Second, func() *retry.RetryError {
-		ep, err := ifc.CoreV1().Endpoints(svc.GetNamespace()).Get(svc.GetName(), metav1.GetOptions{})
+		ep, err := ifc.CoreV1().Endpoints(svc.GetNamespace()).Get(ctx, svc.GetName(), metav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			return retry.RetryTransient(fmt.Errorf("waiting for endpoints"))
 		} else if err != nil {

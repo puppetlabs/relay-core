@@ -187,7 +187,7 @@ func (r *Reconciler) uploadLog(ctx context.Context, namespace string, podName st
 	opts := &corev1.PodLogOptions{
 		Container: containerName,
 	}
-	rc, err := r.KubeClient.CoreV1().Pods(namespace).GetLogs(podName, opts).Stream()
+	rc, err := r.KubeClient.CoreV1().Pods(namespace).GetLogs(podName, opts).Stream(ctx)
 	if err != nil {
 		return "", err
 	}

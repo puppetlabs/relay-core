@@ -182,7 +182,7 @@ func (r *RelayCoreReconciler) relayCores(obj handler.MapObject) []ctrl.Request {
 }
 
 func (r *RelayCoreReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	if err := mgr.GetFieldIndexer().IndexField(
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(),
 		&installerv1alpha1.RelayCore{}, ownerKey,
 		func(rawObject runtime.Object) []string {
 			return []string{}
