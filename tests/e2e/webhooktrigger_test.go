@@ -13,10 +13,10 @@ import (
 
 	"github.com/google/uuid"
 	_ "github.com/puppetlabs/horsehead/v2/storage/file"
+	"github.com/puppetlabs/leg/timeutil/pkg/retry"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	exprmodel "github.com/puppetlabs/relay-core/pkg/expr/model"
 	"github.com/puppetlabs/relay-core/pkg/model"
-	"github.com/puppetlabs/relay-core/pkg/util/retry"
 	"github.com/puppetlabs/relay-core/pkg/util/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -31,12 +31,12 @@ import (
 func waitForWebhookTriggerResponse(t *testing.T, ctx context.Context, wt *relayv1beta1.WebhookTrigger) (int, string, string) {
 	// Wait for trigger to settle in Knative and pull its URL.
 	var targetURL string
-	require.NoError(t, retry.Retry(ctx, 500*time.Millisecond, func() *retry.RetryError {
+	require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
 		if err := e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{
 			Namespace: wt.GetNamespace(),
 			Name:      wt.GetName(),
 		}, wt); err != nil {
-			return retry.RetryPermanent(err)
+			return true, err
 		}
 
 		for _, cond := range wt.Status.Conditions {
@@ -47,10 +47,10 @@ func waitForWebhookTriggerResponse(t *testing.T, ctx context.Context, wt *relayv
 			}
 
 			targetURL = wt.Status.URL
-			return retry.RetryPermanent(nil)
+			return true, nil
 		}
 
-		return retry.RetryTransient(fmt.Errorf("waiting for webhook trigger to be successfully created"))
+		return false, fmt.Errorf("waiting for webhook trigger to be successfully created")
 	}))
 	require.NotEmpty(t, targetURL)
 
@@ -271,24 +271,24 @@ func TestWebhookTriggerHasAccessToMetadataAPI(t *testing.T) {
 
 		// Pull the pod and get its IP.
 		pod := &corev1.Pod{}
-		require.NoError(t, retry.Retry(ctx, 500*time.Millisecond, func() *retry.RetryError {
+		require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
 			pods := &corev1.PodList{}
 			if err := e2e.ControllerRuntimeClient.List(ctx, pods, client.InNamespace(tn.Spec.NamespaceTemplate.Metadata.Name), client.MatchingLabels{
 				model.RelayControllerWebhookTriggerIDLabel: wt.GetName(),
 			}); err != nil {
-				return retry.RetryPermanent(err)
+				return true, err
 			}
 
 			if len(pods.Items) == 0 {
-				return retry.RetryTransient(fmt.Errorf("waiting for pod"))
+				return false, fmt.Errorf("waiting for pod")
 			}
 
 			pod = &pods.Items[0]
 			if pod.Status.PodIP == "" {
-				return retry.RetryTransient(fmt.Errorf("waiting for pod IP"))
+				return false, fmt.Errorf("waiting for pod IP")
 			}
 
-			return retry.RetryPermanent(nil)
+			return true, nil
 		}))
 
 		// Retrieve the spec.
@@ -408,16 +408,16 @@ func TestWebhookTriggerTenantUpdatePropagation(t *testing.T) {
 		require.NoError(t, e2e.ControllerRuntimeClient.Create(ctx, wt))
 
 		var ks servingv1.ServiceList
-		require.NoError(t, retry.Retry(ctx, 500*time.Millisecond, func() *retry.RetryError {
+		require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
 			if err := e2e.ControllerRuntimeClient.List(ctx, &ks, client.InNamespace(child1)); err != nil {
-				return retry.RetryPermanent(err)
+				return true, err
 			}
 
 			if len(ks.Items) == 0 {
-				return retry.RetryTransient(fmt.Errorf("waiting for Knative service in first child namespace"))
+				return false, fmt.Errorf("waiting for Knative service in first child namespace")
 			}
 
-			return retry.RetryPermanent(nil)
+			return true, nil
 		}))
 
 		// Change the tenant to use a new namespace. The Knative service should then
@@ -426,16 +426,16 @@ func TestWebhookTriggerTenantUpdatePropagation(t *testing.T) {
 			tn.Spec.NamespaceTemplate.Metadata.Name = child2
 		})
 
-		require.NoError(t, retry.Retry(ctx, 500*time.Millisecond, func() *retry.RetryError {
+		require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
 			if err := e2e.ControllerRuntimeClient.List(ctx, &ks, client.InNamespace(child2)); err != nil {
-				return retry.RetryPermanent(err)
+				return true, err
 			}
 
 			if len(ks.Items) == 0 {
-				return retry.RetryTransient(fmt.Errorf("waiting for Knative service in second child namespace"))
+				return false, fmt.Errorf("waiting for Knative service in second child namespace")
 			}
 
-			return retry.RetryPermanent(nil)
+			return true, nil
 		}))
 	})
 }
@@ -534,18 +534,18 @@ func TestWebhookTriggerKnativeRevisions(t *testing.T) {
 		// satisfy Knative. We're just going to check to make sure the
 		// respective revisions actually get created.
 		revisions := &servingv1.RevisionList{}
-		require.NoError(t, retry.Retry(ctx, 500*time.Millisecond, func() *retry.RetryError {
+		require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
 			if err := e2e.ControllerRuntimeClient.List(ctx, revisions, client.InNamespace(tn.Spec.NamespaceTemplate.Metadata.Name)); err != nil {
-				return retry.RetryPermanent(err)
+				return true, err
 			}
 
 			switch len(revisions.Items) {
 			case 0:
-				return retry.RetryTransient(fmt.Errorf("waiting for initial revision"))
+				return false, fmt.Errorf("waiting for initial revision")
 			case 1:
-				return retry.RetryPermanent(nil)
+				return true, nil
 			default:
-				return retry.RetryPermanent(fmt.Errorf("expected exactly 1 initial revision, got %d", len(revisions.Items)))
+				return true, fmt.Errorf("expected exactly 1 initial revision, got %d", len(revisions.Items))
 			}
 		}))
 
@@ -554,18 +554,18 @@ func TestWebhookTriggerKnativeRevisions(t *testing.T) {
 		Mutate(t, ctx, wt, func() { wt.Spec.Input = []string{"echo goodbye"} })
 
 		// We should shortly have two revisions.
-		require.NoError(t, retry.Retry(ctx, 500*time.Millisecond, func() *retry.RetryError {
+		require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
 			if err := e2e.ControllerRuntimeClient.List(ctx, revisions, client.InNamespace(tn.Spec.NamespaceTemplate.Metadata.Name)); err != nil {
-				return retry.RetryPermanent(err)
+				return true, err
 			}
 
 			switch len(revisions.Items) {
 			case 1:
-				return retry.RetryTransient(fmt.Errorf("waiting for second revision"))
+				return false, fmt.Errorf("waiting for second revision")
 			case 2:
-				return retry.RetryPermanent(nil)
+				return true, nil
 			default:
-				return retry.RetryPermanent(fmt.Errorf("expected exactly 2 final revisions, got %d", len(revisions.Items)))
+				return true, fmt.Errorf("expected exactly 2 final revisions, got %d", len(revisions.Items))
 			}
 		}))
 	})
@@ -653,24 +653,24 @@ func TestWebhookTriggerKnativeRevisionsWithTenantToolInjectionUsingInput(t *test
 		assertWebhookTriggerResponseContains(t, ctx, "Hello, Relay!", wt)
 
 		pod := &corev1.Pod{}
-		require.NoError(t, retry.Retry(ctx, 500*time.Millisecond, func() *retry.RetryError {
+		require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
 			pods := &corev1.PodList{}
 			if err := e2e.ControllerRuntimeClient.List(ctx, pods, client.InNamespace(tn.Status.Namespace), client.MatchingLabels{
 				model.RelayControllerWebhookTriggerIDLabel: wt.GetName(),
 			}); err != nil {
-				return retry.RetryPermanent(err)
+				return true, err
 			}
 
 			if len(pods.Items) == 0 {
-				return retry.RetryTransient(fmt.Errorf("waiting for pod"))
+				return false, fmt.Errorf("waiting for pod")
 			}
 
 			pod = &pods.Items[0]
 			if pod.Status.PodIP == "" {
-				return retry.RetryTransient(fmt.Errorf("waiting for pod IP"))
+				return false, fmt.Errorf("waiting for pod IP")
 			}
 
-			return retry.RetryPermanent(nil)
+			return true, nil
 		}))
 
 		e2e.ControllerRuntimeClient.Delete(ctx, &pvc)
@@ -759,24 +759,24 @@ func TestWebhookTriggerKnativeRevisionsWithTenantToolInjectionUsingCommand(t *te
 		assertWebhookTriggerResponseContains(t, ctx, "Hello, Relay!", wt)
 
 		pod := &corev1.Pod{}
-		require.NoError(t, retry.Retry(ctx, 500*time.Millisecond, func() *retry.RetryError {
+		require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
 			pods := &corev1.PodList{}
 			if err := e2e.ControllerRuntimeClient.List(ctx, pods, client.InNamespace(tn.Status.Namespace), client.MatchingLabels{
 				model.RelayControllerWebhookTriggerIDLabel: wt.GetName(),
 			}); err != nil {
-				return retry.RetryPermanent(err)
+				return true, err
 			}
 
 			if len(pods.Items) == 0 {
-				return retry.RetryTransient(fmt.Errorf("waiting for pod"))
+				return false, fmt.Errorf("waiting for pod")
 			}
 
 			pod = &pods.Items[0]
 			if pod.Status.PodIP == "" {
-				return retry.RetryTransient(fmt.Errorf("waiting for pod IP"))
+				return false, fmt.Errorf("waiting for pod IP")
 			}
 
-			return retry.RetryPermanent(nil)
+			return true, nil
 		}))
 
 		e2e.ControllerRuntimeClient.Delete(ctx, &pvc)

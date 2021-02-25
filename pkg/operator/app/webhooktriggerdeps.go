@@ -9,10 +9,10 @@ import (
 	"time"
 
 	"github.com/puppetlabs/horsehead/v2/jsonutil"
+	"github.com/puppetlabs/leg/hashutil"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
 	"github.com/puppetlabs/relay-core/pkg/model"
-	"github.com/puppetlabs/relay-core/pkg/util/hashutil"
 	"gopkg.in/square/go-jose.v2/jwt"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"

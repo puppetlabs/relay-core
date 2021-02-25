@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/puppetlabs/relay-core/pkg/util/retry"
+	"github.com/puppetlabs/leg/timeutil/pkg/retry"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -76,15 +76,15 @@ func (e *EndToEndEnvironment) withNamespace(t *testing.T, ctx context.Context, l
 	}()
 
 	// Wait for default service account to be populated.
-	require.NoError(t, retry.Retry(ctx, 500*time.Millisecond, func() *retry.RetryError {
+	require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
 		sa := &corev1.ServiceAccount{}
 		if err := e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Namespace: ns.GetName(), Name: "default"}, sa); errors.IsNotFound(err) {
-			return retry.RetryTransient(fmt.Errorf("waiting for service account"))
+			return false, fmt.Errorf("waiting for service account")
 		} else if err != nil {
-			return retry.RetryPermanent(err)
+			return true, err
 		}
 
-		return retry.RetryPermanent(nil)
+		return true, nil
 	}))
 
 	fn(ns)

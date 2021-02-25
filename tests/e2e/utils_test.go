@@ -4,10 +4,9 @@ import (
 	"context"
 	"fmt"
 	"testing"
-	"time"
 
+	"github.com/puppetlabs/leg/timeutil/pkg/retry"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
-	"github.com/puppetlabs/relay-core/pkg/util/retry"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -16,16 +15,16 @@ import (
 )
 
 func WaitForTenant(t *testing.T, ctx context.Context, tn *relayv1beta1.Tenant) {
-	require.NoError(t, retry.Retry(ctx, 500*time.Millisecond, func() *retry.RetryError {
+	require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
 		if err := e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{
 			Namespace: tn.GetNamespace(),
 			Name:      tn.GetName(),
 		}, tn); err != nil {
-			return retry.RetryPermanent(err)
+			return true, err
 		}
 
 		if tn.GetGeneration() != tn.Status.ObservedGeneration {
-			return retry.RetryTransient(fmt.Errorf("waiting for tenant to reconcile: generation mismatch"))
+			return false, fmt.Errorf("waiting for tenant to reconcile: generation mismatch")
 		}
 
 		for _, cond := range tn.Status.Conditions {
@@ -35,10 +34,10 @@ func WaitForTenant(t *testing.T, ctx context.Context, tn *relayv1beta1.Tenant) {
 				break
 			}
 
-			return retry.RetryPermanent(nil)
+			return true, nil
 		}
 
-		return retry.RetryTransient(fmt.Errorf("waiting for tenant to reconcile: not ready"))
+		return false, fmt.Errorf("waiting for tenant to reconcile: not ready")
 	}))
 }
 
@@ -51,21 +50,21 @@ func Mutate(t *testing.T, ctx context.Context, obj runtime.Object, fn func()) {
 	key, err := client.ObjectKeyFromObject(obj)
 	require.NoError(t, err)
 
-	require.NoError(t, retry.Retry(ctx, 500*time.Millisecond, func() *retry.RetryError {
+	require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
 		// Mutation function.
 		fn()
 
 		if err := e2e.ControllerRuntimeClient.Update(ctx, obj); errors.IsConflict(err) {
 			// Controller changed object, reload.
 			if err := e2e.ControllerRuntimeClient.Get(ctx, key, obj); err != nil {
-				return retry.RetryPermanent(err)
+				return true, err
 			}
 
-			return retry.RetryTransient(err)
+			return false, err
 		} else if err != nil {
-			return retry.RetryPermanent(err)
+			return true, err
 		}
 
-		return retry.RetryTransient(nil)
+		return true, nil
 	}))
 }

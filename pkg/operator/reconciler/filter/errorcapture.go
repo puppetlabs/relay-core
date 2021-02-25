@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/puppetlabs/horsehead/v2/instrumentation/alerts/trackers"
-	"github.com/puppetlabs/relay-core/pkg/errmark"
+	"github.com/puppetlabs/leg/errmap/pkg/errmark"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/klog"
@@ -17,7 +17,7 @@ import (
 type ErrorCaptureReconciler struct {
 	apiType        runtime.Object
 	capturer       trackers.Capturer
-	transientRules []errmark.TransientRule
+	transientRules []errmark.Rule
 	delegate       reconcile.Reconciler
 
 	gvk schema.GroupVersionKind
@@ -39,9 +39,9 @@ func (ecr ErrorCaptureReconciler) Reconcile(req ctrl.Request) (result ctrl.Resul
 	perr := capturer.Try(context.Background(), func(ctx context.Context) {
 		result, err = ecr.delegate.Reconcile(req)
 		if err != nil {
-			err = errmark.Resolve(errmark.MarkTransient(err, ecr.transientRules...))
+			err = errmark.MarkTransientIf(err, errmark.RuleAny(ecr.transientRules...))
 
-			errmark.IfAll(err, []errmark.IfFunc{errmark.IfNotTransient, errmark.IfNotUser}, func(err error) {
+			errmark.Unless(err, errmark.RuleMarked(errmark.RuleAny(errmark.RuleMarkedTransient, errmark.RuleMarkedUser)), func(err error) {
 				capturer.Capture(err).Report(ctx)
 			})
 

@@ -8,34 +8,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type LimitRange struct {
-	Key    client.ObjectKey
-	Object *corev1.LimitRange
-}
-
-var _ Persister = &LimitRange{}
-var _ Loader = &LimitRange{}
-var _ Ownable = &LimitRange{}
-
-func (lr *LimitRange) Persist(ctx context.Context, cl client.Client) error {
-	return CreateOrUpdate(ctx, cl, lr.Key, lr.Object)
-}
-
-func (lr *LimitRange) Load(ctx context.Context, cl client.Client) (bool, error) {
-	return GetIgnoreNotFound(ctx, cl, lr.Key, lr.Object)
-}
-
-func (lr *LimitRange) Owned(ctx context.Context, owner Owner) error {
-	return Own(lr.Object, owner)
-}
-
-func NewLimitRange(key client.ObjectKey) *LimitRange {
-	return &LimitRange{
-		Key:    key,
-		Object: &corev1.LimitRange{},
-	}
-}
-
 type limitRangeOptions struct {
 	containerDefaultLimit        corev1.ResourceList
 	containerDefaultRequestLimit corev1.ResourceList

@@ -6,8 +6,9 @@ import (
 	"io"
 
 	"github.com/puppetlabs/horsehead/v2/storage"
+	"github.com/puppetlabs/leg/errmap/pkg/errmap"
+	"github.com/puppetlabs/leg/errmap/pkg/errmark"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
-	"github.com/puppetlabs/relay-core/pkg/errmark"
 	"github.com/puppetlabs/relay-core/pkg/operator/dependency"
 	"github.com/puppetlabs/relay-core/pkg/operator/obj"
 	corev1 "k8s.io/api/core/v1"
@@ -60,7 +61,7 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 
 	wr := obj.NewWorkflowRun(req.NamespacedName)
 	if ok, err := wr.Load(ctx, r.Client); err != nil {
-		return ctrl.Result{}, errmark.MapLast(err, func(err error) error {
+		return ctrl.Result{}, errmap.MapLast(err, func(err error) error {
 			return fmt.Errorf("failed to load dependencies: %+v", err)
 		})
 	} else if !ok {
@@ -92,23 +93,23 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 		)
 
 		if err != nil {
-			err = errmark.MarkTransient(err, obj.TransientIfRequired)
+			err = errmark.MarkTransientIf(err, obj.TransientIfRequired)
 
-			return errmark.MapLast(err, func(err error) error {
+			return errmap.MapLast(err, func(err error) error {
 				return fmt.Errorf("failed to apply dependencies: %+v", err)
 			})
 		}
 
 		pipeline, err := obj.ApplyPipeline(ctx, r.Client, deps)
 		if err != nil {
-			return errmark.MapLast(err, func(err error) error {
+			return errmap.MapLast(err, func(err error) error {
 				return fmt.Errorf("failed to apply Pipeline: %+v", err)
 			})
 		}
 
 		pr, err = obj.ApplyPipelineRun(ctx, r.Client, pipeline)
 		if err != nil {
-			return errmark.MapLast(err, func(err error) error {
+			return errmap.MapLast(err, func(err error) error {
 				return fmt.Errorf("failed to apply PipelineRun: %+v", err)
 			})
 		}
@@ -130,7 +131,7 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 	obj.ConfigureWorkflowRun(wr, pr)
 
 	if err := wr.PersistStatus(ctx, r.Client); err != nil {
-		return ctrl.Result{}, errmark.MapLast(err, func(err error) error {
+		return ctrl.Result{}, errmap.MapLast(err, func(err error) error {
 			return fmt.Errorf("failed to persist WorkflowRun: %+v", err)
 		})
 	}

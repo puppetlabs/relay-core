@@ -1,8 +1,8 @@
 package trigger
 
 import (
+	"github.com/puppetlabs/leg/errmap/pkg/errmark"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
-	"github.com/puppetlabs/relay-core/pkg/errmark"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/operator/config"
 	"github.com/puppetlabs/relay-core/pkg/operator/controller/handler"
@@ -33,7 +33,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler, cfg *config.WorkflowContro
 				&relayv1beta1.WebhookTrigger{},
 				cfg.Capturer(),
 				filter.ErrorCaptureReconcilerWithAdditionalTransientRule(
-					errmark.TransientPredicate(errmark.TransientIfForbidden, func() bool { return cfg.DynamicRBACBinding }),
+					errmark.RulePredicate(errmark.TransientIfForbidden, func() bool { return cfg.DynamicRBACBinding }),
 				),
 			),
 			filter.NamespaceFilterReconcilerLink(cfg.Namespace),

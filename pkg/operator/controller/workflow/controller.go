@@ -1,8 +1,8 @@
 package workflow
 
 import (
+	"github.com/puppetlabs/leg/errmap/pkg/errmark"
 	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
-	"github.com/puppetlabs/relay-core/pkg/errmark"
 	"github.com/puppetlabs/relay-core/pkg/operator/config"
 	"github.com/puppetlabs/relay-core/pkg/operator/dependency"
 	"github.com/puppetlabs/relay-core/pkg/operator/reconciler/filter"
@@ -26,7 +26,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler, cfg *config.WorkflowContro
 				&nebulav1.WorkflowRun{},
 				cfg.Capturer(),
 				filter.ErrorCaptureReconcilerWithAdditionalTransientRule(
-					errmark.TransientPredicate(errmark.TransientIfForbidden, func() bool { return cfg.DynamicRBACBinding }),
+					errmark.RulePredicate(errmark.TransientIfForbidden, func() bool { return cfg.DynamicRBACBinding }),
 				),
 			),
 			filter.NamespaceFilterReconcilerLink(cfg.Namespace),

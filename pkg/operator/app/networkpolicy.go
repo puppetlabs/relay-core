@@ -30,34 +30,6 @@ var (
 	}
 )
 
-type NetworkPolicy struct {
-	Key    client.ObjectKey
-	Object *networkingv1.NetworkPolicy
-}
-
-var _ Persister = &NetworkPolicy{}
-var _ Loader = &NetworkPolicy{}
-var _ Ownable = &NetworkPolicy{}
-
-func (np *NetworkPolicy) Persist(ctx context.Context, cl client.Client) error {
-	return CreateOrUpdate(ctx, cl, np.Key, np.Object)
-}
-
-func (np *NetworkPolicy) Load(ctx context.Context, cl client.Client) (bool, error) {
-	return GetIgnoreNotFound(ctx, cl, np.Key, np.Object)
-}
-
-func (np *NetworkPolicy) Owned(ctx context.Context, owner Owner) error {
-	return Own(np.Object, owner)
-}
-
-func NewNetworkPolicy(key client.ObjectKey) *NetworkPolicy {
-	return &NetworkPolicy{
-		Key:    key,
-		Object: &networkingv1.NetworkPolicy{},
-	}
-}
-
 type networkPolicyOptions struct {
 	deniedIPBlocks          []string
 	systemNamespaceSelector metav1.LabelSelector

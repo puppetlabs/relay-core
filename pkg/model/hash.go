@@ -3,7 +3,7 @@ package model
 import (
 	"crypto/sha1"
 
-	"github.com/puppetlabs/relay-core/pkg/util/hashutil"
+	"github.com/puppetlabs/leg/hashutil"
 )
 
 // Hash wraps the result of a SHA-1 checksum operation. It is different than

@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/puppetlabs/leg/errmap/pkg/errmap"
+	"github.com/puppetlabs/leg/errmap/pkg/errmark"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
-	"github.com/puppetlabs/relay-core/pkg/errmark"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/operator/dependency"
 	"github.com/puppetlabs/relay-core/pkg/operator/obj"
@@ -58,7 +59,7 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 
 	wt := obj.NewWebhookTrigger(req.NamespacedName)
 	if ok, err := wt.Load(ctx, r.Client); err != nil {
-		return ctrl.Result{}, errmark.MapLast(err, func(err error) error {
+		return ctrl.Result{}, errmap.MapLast(err, func(err error) error {
 			return fmt.Errorf("failed to load dependencies: %+v", err)
 		})
 	} else if !ok {
@@ -69,7 +70,7 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 	deps := obj.NewWebhookTriggerDeps(wt, r.issuer, r.Config.MetadataAPIURL)
 	loaded, err := deps.Load(ctx, r.Client)
 	if err != nil {
-		return ctrl.Result{}, errmark.MapLast(err, func(err error) error {
+		return ctrl.Result{}, errmap.MapLast(err, func(err error) error {
 			return fmt.Errorf("failed to load dependencies: %+v", err)
 		})
 	}
@@ -93,7 +94,7 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 	// Delete stale dependencies regardless of upstream status. This will also
 	// remove stale Knative services because they are owned by the config map.
 	if _, err := deps.DeleteStale(ctx, r.Client); err != nil {
-		return ctrl.Result{}, errmark.MapLast(err, func(err error) error {
+		return ctrl.Result{}, errmap.MapLast(err, func(err error) error {
 			return fmt.Errorf("failed to delete stale dependencies: %+v", err)
 		})
 	}
@@ -101,19 +102,19 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 	if !loaded.Upstream {
 		// Upstream dependencies (tenant, tenant dependencies) have not yet
 		// settled. Wait for them to do so.
-		return ctrl.Result{}, errmark.MarkTransient(fmt.Errorf("waiting for dependencies to reconcile"), errmark.TransientAlways)
+		return ctrl.Result{}, errmark.MarkTransientIf(fmt.Errorf("waiting for dependencies to reconcile"), errmap.TransientAlways)
 	}
 
 	if err := obj.ConfigureWebhookTriggerDeps(ctx, deps); err != nil {
-		return ctrl.Result{}, errmark.MapLast(err, func(err error) error {
+		return ctrl.Result{}, errmap.MapLast(err, func(err error) error {
 			return fmt.Errorf("failed to configure dependencies: %+v", err)
 		})
 	}
 
 	if err := deps.Persist(ctx, r.Client); err != nil {
-		err = errmark.MarkTransient(err, obj.TransientIfRequired)
+		err = errmark.MarkTransientIf(err, obj.TransientIfRequired)
 
-		return ctrl.Result{}, errmark.MapLast(err, func(err error) error {
+		return ctrl.Result{}, errmap.MapLast(err, func(err error) error {
 			return fmt.Errorf("failed to apply dependencies: %+v", err)
 		})
 	}
