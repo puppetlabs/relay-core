@@ -17,7 +17,7 @@ import (
 	exprmodel "github.com/puppetlabs/relay-core/pkg/expr/model"
 	"github.com/puppetlabs/relay-core/pkg/expr/testutil"
 	"github.com/puppetlabs/relay-core/pkg/model"
-	"github.com/puppetlabs/relay-core/pkg/operator/obj"
+	"github.com/puppetlabs/relay-core/pkg/obj"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"

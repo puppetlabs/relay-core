@@ -1,4 +1,4 @@
-package obj
+package app
 
 import (
 	"context"
@@ -11,34 +11,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-type Task struct {
-	Key    client.ObjectKey
-	Object *tektonv1beta1.Task
-}
-
-var _ Persister = &Task{}
-var _ Loader = &Task{}
-var _ Ownable = &Task{}
-
-func (t *Task) Persist(ctx context.Context, cl client.Client) error {
-	return CreateOrUpdate(ctx, cl, t.Key, t.Object)
-}
-
-func (t *Task) Load(ctx context.Context, cl client.Client) (bool, error) {
-	return GetIgnoreNotFound(ctx, cl, t.Key, t.Object)
-}
-
-func (t *Task) Owned(ctx context.Context, owner Owner) error {
-	return Own(t.Object, owner)
-}
-
-func NewTask(key client.ObjectKey) *Task {
-	return &Task{
-		Key:    key,
-		Object: &tektonv1beta1.Task{},
-	}
-}
 
 func ConfigureTask(ctx context.Context, t *Task, wrd *WorkflowRunDeps, ws *nebulav1.WorkflowStep) error {
 	image := ws.Image

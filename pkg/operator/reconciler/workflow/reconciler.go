@@ -7,10 +7,11 @@ import (
 
 	"github.com/puppetlabs/leg/errmap/pkg/errmap"
 	"github.com/puppetlabs/leg/errmap/pkg/errmark"
+	"github.com/puppetlabs/leg/k8sutil/pkg/controller/errhandler"
 	"github.com/puppetlabs/leg/storage"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
+	"github.com/puppetlabs/relay-core/pkg/obj"
 	"github.com/puppetlabs/relay-core/pkg/operator/dependency"
-	"github.com/puppetlabs/relay-core/pkg/operator/obj"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -91,7 +92,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		)
 
 		if err != nil {
-			err = errmark.MarkTransientIf(err, obj.TransientIfRequired)
+			err = errmark.MarkTransientIf(err, errhandler.RuleIsRequired)
 
 			return errmap.MapLast(err, func(err error) error {
 				return fmt.Errorf("failed to apply dependencies: %+v", err)

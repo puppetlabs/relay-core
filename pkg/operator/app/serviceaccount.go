@@ -1,4 +1,4 @@
-package obj
+package app
 
 func ConfigureMetadataAPIServiceAccount(sa *ServiceAccount) {
 	// This service account is used only for the metadata API to access cluster

@@ -1,4 +1,4 @@
-package obj_test
+package app_test
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
-	"github.com/puppetlabs/relay-core/pkg/operator/obj"
+	"github.com/puppetlabs/relay-core/pkg/obj"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

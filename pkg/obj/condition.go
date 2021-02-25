@@ -3,6 +3,8 @@ package obj
 import (
 	"context"
 
+	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/helper"
+	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	tektonv1alpha1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -40,20 +42,20 @@ type Condition struct {
 	Object *tektonv1alpha1.Condition
 }
 
-var _ Persister = &Condition{}
-var _ Loader = &Condition{}
-var _ Ownable = &Condition{}
+var _ lifecycle.Loader = &Condition{}
+var _ lifecycle.Ownable = &Condition{}
+var _ lifecycle.Persister = &Condition{}
 
-func (c *Condition) Persist(ctx context.Context, cl client.Client) error {
-	return CreateOrUpdate(ctx, cl, c.Key, c.Object)
+func (c *Condition) Owned(ctx context.Context, owner lifecycle.TypedObject) error {
+	return helper.Own(c.Object, owner)
 }
 
 func (c *Condition) Load(ctx context.Context, cl client.Client) (bool, error) {
-	return GetIgnoreNotFound(ctx, cl, c.Key, c.Object)
+	return helper.GetIgnoreNotFound(ctx, cl, c.Key, c.Object)
 }
 
-func (c *Condition) Owned(ctx context.Context, owner Owner) error {
-	return Own(c.Object, owner)
+func (c *Condition) Persist(ctx context.Context, cl client.Client) error {
+	return helper.CreateOrUpdate(ctx, cl, c.Object, helper.WithObjectKey(c.Key))
 }
 
 func NewCondition(key client.ObjectKey) *Condition {

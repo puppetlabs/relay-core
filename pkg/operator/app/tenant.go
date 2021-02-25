@@ -1,105 +1,10 @@
-package obj
+package app
 
 import (
-	"context"
-
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-const (
-	TenantStatusReasonNamespaceReady = "NamespaceReady"
-	TenantStatusReasonNamespaceError = "NamespaceError"
-
-	TenantStatusReasonEventSinkMissing       = "EventSinkMissing"
-	TenantStatusReasonEventSinkNotConfigured = "EventSinkNotConfigured"
-	TenantStatusReasonEventSinkReady         = "EventSinkReady"
-
-	TenantStatusReasonToolInjectionNotDefined = "ToolInjectionNotDefined"
-	TenantStatusReasonToolInjectionError      = "ToolInjectionError"
-
-	TenantStatusReasonReady = "Ready"
-	TenantStatusReasonError = "Error"
-)
-
-var (
-	TenantKind = relayv1beta1.SchemeGroupVersion.WithKind("Tenant")
-)
-
-type Tenant struct {
-	Key    client.ObjectKey
-	Object *relayv1beta1.Tenant
-}
-
-var _ Persister = &Tenant{}
-var _ Finalizable = &Tenant{}
-var _ Loader = &Tenant{}
-
-func (t *Tenant) Persist(ctx context.Context, cl client.Client) error {
-	return CreateOrUpdate(ctx, cl, t.Key, t.Object)
-}
-
-func (t *Tenant) PersistStatus(ctx context.Context, cl client.Client) error {
-	return cl.Status().Update(ctx, t.Object)
-}
-
-func (t *Tenant) Patch(ctx context.Context, cl client.Client, original *relayv1beta1.Tenant) error {
-	return Patch(ctx, cl, t.Key, t.Object, original)
-}
-
-func (t *Tenant) Finalizing() bool {
-	return !t.Object.GetDeletionTimestamp().IsZero()
-}
-
-func (t *Tenant) AddFinalizer(ctx context.Context, name string) bool {
-	return AddFinalizer(&t.Object.ObjectMeta, name)
-}
-
-func (t *Tenant) RemoveFinalizer(ctx context.Context, name string) bool {
-	return RemoveFinalizer(&t.Object.ObjectMeta, name)
-}
-
-func (t *Tenant) Load(ctx context.Context, cl client.Client) (bool, error) {
-	return GetIgnoreNotFound(ctx, cl, t.Key, t.Object)
-}
-
-func (t *Tenant) Label(ctx context.Context, name, value string) {
-	Label(&t.Object.ObjectMeta, name, value)
-}
-
-func (t *Tenant) Annotate(ctx context.Context, name, value string) {
-	Annotate(&t.Object.ObjectMeta, name, value)
-}
-
-func (t *Tenant) LabelAnnotateFrom(ctx context.Context, from metav1.ObjectMeta) {
-	CopyLabelsAndAnnotations(&t.Object.ObjectMeta, from)
-}
-
-func (t *Tenant) Managed() bool {
-	return t.Object.Spec.NamespaceTemplate.Metadata.GetName() != ""
-}
-
-func (t *Tenant) Ready() bool {
-	for _, cond := range t.Object.Status.Conditions {
-		if cond.Type != relayv1beta1.TenantReady {
-			continue
-		}
-
-		return cond.Status == corev1.ConditionTrue
-	}
-
-	return false
-}
-
-func NewTenant(key client.ObjectKey) *Tenant {
-	return &Tenant{
-		Key:    key,
-		Object: &relayv1beta1.Tenant{},
-	}
-}
 
 func ConfigureTenant(t *Tenant, td *TenantDepsResult, pvc *PersistentVolumeClaimResult) {
 	// Set up our initial map from the existing data.

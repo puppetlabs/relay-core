@@ -6,8 +6,8 @@ import (
 
 	"github.com/puppetlabs/leg/errmap/pkg/errmap"
 	"github.com/puppetlabs/relay-core/pkg/model"
+	"github.com/puppetlabs/relay-core/pkg/obj"
 	"github.com/puppetlabs/relay-core/pkg/operator/config"
-	"github.com/puppetlabs/relay-core/pkg/operator/obj"
 	"github.com/puppetlabs/relay-core/pkg/util/image"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"

@@ -14,6 +14,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	AmbassadorIDAnnotation                      = "getambassador.io/ambassador-id"
+	ImmutableConfigMapResourceVersionAnnotation = "controller.relay.sh/immutable-config-map-resource-version"
+
+	KnativeServiceVisibilityLabel = "serving.knative.dev/visibility"
+)
+
+const (
+	AmbassadorID                         = "webhook"
+	KnativeServiceVisibilityClusterLocal = "cluster-local"
+)
+
 func ConfigureKnativeService(ctx context.Context, s *KnativeService, wtd *WebhookTriggerDeps) error {
 	// FIXME This should be configurable
 	s.Annotate(ctx, AmbassadorIDAnnotation, AmbassadorID)

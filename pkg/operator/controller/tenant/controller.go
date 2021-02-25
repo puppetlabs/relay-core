@@ -4,10 +4,12 @@ import (
 	"context"
 
 	"github.com/puppetlabs/leg/errmap/pkg/errmark"
+	"github.com/puppetlabs/leg/k8sutil/pkg/controller/errhandler"
+	"github.com/puppetlabs/leg/k8sutil/pkg/controller/filter"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/operator/config"
-	"github.com/puppetlabs/relay-core/pkg/operator/reconciler/filter"
 	"github.com/puppetlabs/relay-core/pkg/operator/reconciler/tenant"
+	"github.com/puppetlabs/relay-core/pkg/util/capturer"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -24,15 +26,21 @@ func add(mgr manager.Manager, r reconcile.Reconciler, cfg *config.WorkflowContro
 		}).
 		For(&relayv1beta1.Tenant{}).
 		WithEventFilter(predicate.GenerationChangedPredicate{}).
-		Complete(filter.ChainRight(r,
-			filter.ErrorCaptureReconcilerLink(
-				&relayv1beta1.Tenant{},
-				cfg.Capturer(),
-				filter.ErrorCaptureReconcilerWithAdditionalTransientRule(
-					errmark.RulePredicate(errmark.TransientIfForbidden, func() bool { return cfg.DynamicRBACBinding }),
+		Complete(filter.ChainR(
+			r,
+			errhandler.ChainReconciler(
+				errhandler.WithErrorMatchers(
+					errhandler.NewDefaultErrorMatchersBuilder().
+						Append(
+							errmark.RulePredicate(errhandler.RuleIsForbidden, func() bool { return cfg.DynamicRBACBinding }),
+							errhandler.PropagatingErrorHandler,
+						).
+						SetFallback(capturer.CaptureErrorHandler(cfg.Capturer(), relayv1beta1.TenantKind)).
+						Build(),
 				),
+				errhandler.WithPanicHandler(capturer.CaptureErrorHandler(cfg.Capturer(), relayv1beta1.TenantKind)),
 			),
-			filter.NamespaceFilterReconcilerLink(cfg.Namespace),
+			filter.ChainSingleNamespaceReconciler(cfg.Namespace),
 		))
 }
 

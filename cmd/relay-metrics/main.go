@@ -9,7 +9,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/metrics/opt"
 	"github.com/puppetlabs/relay-core/pkg/metrics/reconciler/event"
 	"github.com/puppetlabs/relay-core/pkg/metrics/reconciler/workflow"
-	"github.com/puppetlabs/relay-core/pkg/operator/obj"
+	"github.com/puppetlabs/relay-core/pkg/obj"
 	"go.opentelemetry.io/otel/label"
 	"go.opentelemetry.io/otel/metric"
 	corev1 "k8s.io/api/core/v1"

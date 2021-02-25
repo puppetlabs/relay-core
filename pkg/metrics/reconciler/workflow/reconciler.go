@@ -5,7 +5,7 @@ import (
 
 	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
 	"github.com/puppetlabs/relay-core/pkg/metrics/model"
-	"github.com/puppetlabs/relay-core/pkg/operator/obj"
+	"github.com/puppetlabs/relay-core/pkg/obj"
 	"go.opentelemetry.io/otel/label"
 	"go.opentelemetry.io/otel/metric"
 	"k8s.io/apimachinery/pkg/api/errors"
