@@ -8,8 +8,8 @@ import (
 	"path"
 	"time"
 
-	"github.com/puppetlabs/horsehead/v2/jsonutil"
 	"github.com/puppetlabs/leg/hashutil"
+	"github.com/puppetlabs/leg/jsonutil/pkg/types"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
 	"github.com/puppetlabs/relay-core/pkg/model"
@@ -263,7 +263,7 @@ func (wtd *WebhookTriggerDeps) AnnotateTriggerToken(ctx context.Context, target 
 
 	if sink := wtd.TenantDeps.APITriggerEventSink; sink != nil {
 		if u, _ := url.Parse(sink.URL()); u != nil {
-			claims.RelayEventAPIURL = &jsonutil.URL{URL: u}
+			claims.RelayEventAPIURL = &types.URL{URL: u}
 			claims.RelayEventAPIToken, _ = sink.Token()
 			idh.Set("event", claims.RelayEventAPIURL.String(), claims.RelayEventAPIToken)
 		}

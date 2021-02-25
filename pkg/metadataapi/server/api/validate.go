@@ -4,8 +4,8 @@ import (
 	goerrors "errors"
 	"net/http"
 
-	utilapi "github.com/puppetlabs/horsehead/v2/httputil/api"
-	"github.com/puppetlabs/horsehead/v2/instrumentation/alerts/trackers"
+	utilapi "github.com/puppetlabs/leg/httputil/api"
+	"github.com/puppetlabs/leg/instrumentation/alerts/trackers"
 	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
 	"github.com/puppetlabs/relay-core/pkg/expr/model"
 	"github.com/puppetlabs/relay-core/pkg/manager/resolve"

@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/puppetlabs/errawr-go/v2/pkg/errawr"
-	"github.com/puppetlabs/horsehead/v2/httputil/api"
+	"github.com/puppetlabs/leg/httputil/api"
 	"github.com/stretchr/testify/assert"
 )
 

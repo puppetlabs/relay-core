@@ -5,6 +5,7 @@ go 1.13
 require (
 	github.com/PaesslerAG/gval v1.1.1-0.20201218133124-6ca878f8a063
 	github.com/PaesslerAG/jsonpath v0.1.1 // indirect
+	github.com/certifi/gocertifi v0.0.0-20180118203423-deb3ae2ef261 // indirect
 	github.com/containerd/continuity v0.0.0-20200413184840-d3ef23f19fbb // indirect
 	github.com/go-logr/logr v0.4.0
 	github.com/gofrs/flock v0.7.1
@@ -27,11 +28,19 @@ require (
 	github.com/opencontainers/runc v1.0.0-rc6 // indirect
 	github.com/puppetlabs/errawr-gen v1.0.1
 	github.com/puppetlabs/errawr-go/v2 v2.2.0
-	github.com/puppetlabs/horsehead/v2 v2.16.0
+	github.com/puppetlabs/leg/datastructure v0.1.0
+	github.com/puppetlabs/leg/encoding v0.1.0
 	github.com/puppetlabs/leg/errmap v0.1.0
+	github.com/puppetlabs/leg/graph v0.1.1
 	github.com/puppetlabs/leg/hashutil v0.1.0
 	github.com/puppetlabs/leg/httputil v0.1.4
+	github.com/puppetlabs/leg/instrumentation v0.1.4
 	github.com/puppetlabs/leg/jsonutil v0.2.0
+	github.com/puppetlabs/leg/logging v0.1.0
+	github.com/puppetlabs/leg/mainutil v0.1.2
+	github.com/puppetlabs/leg/scheduler v0.1.4
+	github.com/puppetlabs/leg/storage v0.1.1
+	github.com/puppetlabs/leg/stringutil v0.1.0
 	github.com/puppetlabs/leg/timeutil v0.2.0
 	github.com/puppetlabs/paesslerag-gval v1.0.2-0.20191119012647-d2c694821b5b
 	github.com/puppetlabs/paesslerag-jsonpath v0.1.2-0.20201115225516-4a6f3d111e98

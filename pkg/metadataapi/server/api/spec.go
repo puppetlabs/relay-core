@@ -3,7 +3,7 @@ package api
 import (
 	"net/http"
 
-	utilapi "github.com/puppetlabs/horsehead/v2/httputil/api"
+	utilapi "github.com/puppetlabs/leg/httputil/api"
 	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
 	"github.com/puppetlabs/relay-core/pkg/expr/model"
 	"github.com/puppetlabs/relay-core/pkg/manager/resolve"

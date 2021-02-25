@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/puppetlabs/horsehead/v2/storage"
+	"github.com/puppetlabs/leg/storage"
 	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"

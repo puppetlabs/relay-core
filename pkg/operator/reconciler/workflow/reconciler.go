@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/puppetlabs/horsehead/v2/storage"
+	"github.com/puppetlabs/leg/storage"
 	"github.com/puppetlabs/leg/errmap/pkg/errmap"
 	"github.com/puppetlabs/leg/errmap/pkg/errmark"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"

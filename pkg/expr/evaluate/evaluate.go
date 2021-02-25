@@ -9,7 +9,7 @@ import (
 
 	"github.com/PaesslerAG/gval"
 	"github.com/mitchellh/mapstructure"
-	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
+	"github.com/puppetlabs/leg/encoding/transfer"
 	"github.com/puppetlabs/leg/jsonutil/pkg/jsonpath"
 	jsonpathtemplate "github.com/puppetlabs/leg/jsonutil/pkg/jsonpath/template"
 	"github.com/puppetlabs/relay-core/pkg/expr/fn"

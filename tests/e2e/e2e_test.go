@@ -5,8 +5,8 @@ import (
 	"os"
 	"testing"
 
-	gometrics "github.com/puppetlabs/horsehead/v2/instrumentation/metrics"
-	"github.com/puppetlabs/horsehead/v2/instrumentation/metrics/delegates"
+	gometrics "github.com/puppetlabs/leg/instrumentation/metrics"
+	"github.com/puppetlabs/leg/instrumentation/metrics/delegates"
 	"github.com/puppetlabs/relay-core/pkg/util/testutil"
 	"k8s.io/klog"
 )

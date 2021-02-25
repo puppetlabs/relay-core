@@ -7,7 +7,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
+	"github.com/puppetlabs/leg/encoding/transfer"
 	jsonpath "github.com/puppetlabs/paesslerag-jsonpath"
 	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
 	"github.com/puppetlabs/relay-core/pkg/expr/fn"

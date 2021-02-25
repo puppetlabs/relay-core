@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/puppetlabs/horsehead/v2/datastructure"
-	"github.com/puppetlabs/horsehead/v2/graph"
-	"github.com/puppetlabs/horsehead/v2/graph/traverse"
+	"github.com/puppetlabs/leg/datastructure"
+	"github.com/puppetlabs/leg/graph"
+	"github.com/puppetlabs/leg/graph/traverse"
 	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
