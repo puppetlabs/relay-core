@@ -10,10 +10,10 @@ import (
 
 	"github.com/inconshreveable/log15"
 	"github.com/puppetlabs/errawr-go/v2/pkg/errawr"
+	"github.com/puppetlabs/leg/httputil/serving"
 	"github.com/puppetlabs/leg/instrumentation/alerts"
 	"github.com/puppetlabs/leg/logging"
 	"github.com/puppetlabs/leg/mainutil"
-	"github.com/puppetlabs/leg/httputil/serving"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/opt"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/sample"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server"

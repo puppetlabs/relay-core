@@ -3,8 +3,8 @@ package evaluate
 import (
 	"context"
 
-	gval "github.com/puppetlabs/paesslerag-gval"
-	jsonpath "github.com/puppetlabs/paesslerag-jsonpath"
+	"github.com/PaesslerAG/gval"
+	"github.com/puppetlabs/leg/jsonutil/pkg/jsonpath"
 	"github.com/puppetlabs/relay-core/pkg/expr/model"
 )
 

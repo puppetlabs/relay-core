@@ -1,6 +1,8 @@
 package filter
 
 import (
+	"context"
+
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
@@ -14,7 +16,7 @@ type NamespaceFilterReconciler struct {
 var _ reconcile.Reconciler = &NamespaceFilterReconciler{}
 var _ inject.Injector = &NamespaceFilterReconciler{}
 
-func (nfr NamespaceFilterReconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error) {
+func (nfr NamespaceFilterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, err error) {
 	// You can't be clever and use the built-in namespace restrictions or
 	// predicates in controller-runtime to filter out the namespace before it
 	// gets here. The caching applies to the same namespace filter, so the
@@ -23,7 +25,7 @@ func (nfr NamespaceFilterReconciler) Reconcile(req ctrl.Request) (result ctrl.Re
 		return ctrl.Result{}, nil
 	}
 
-	return nfr.delegate.Reconcile(req)
+	return nfr.delegate.Reconcile(ctx, req)
 }
 
 func (nfr NamespaceFilterReconciler) InjectFunc(f inject.Func) error {

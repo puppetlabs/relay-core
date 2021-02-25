@@ -32,9 +32,7 @@ func NewReconciler(client client.Client, cfg *config.WorkflowControllerConfig) *
 	}
 }
 
-func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error) {
-	ctx := context.Background()
-
+func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, err error) {
 	tn := obj.NewTenant(req.NamespacedName)
 	if ok, err := tn.Load(ctx, r.Client); err != nil {
 		return ctrl.Result{}, errmap.MapLast(err, func(err error) error {

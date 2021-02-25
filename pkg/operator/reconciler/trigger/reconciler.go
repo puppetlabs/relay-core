@@ -54,9 +54,7 @@ func NewReconciler(dm *dependency.DependencyManager) *Reconciler {
 	}
 }
 
-func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error) {
-	ctx := context.Background()
-
+func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, err error) {
 	wt := obj.NewWebhookTrigger(req.NamespacedName)
 	if ok, err := wt.Load(ctx, r.Client); err != nil {
 		return ctrl.Result{}, errmap.MapLast(err, func(err error) error {

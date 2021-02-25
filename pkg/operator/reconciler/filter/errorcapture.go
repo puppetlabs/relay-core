@@ -3,8 +3,8 @@ package filter
 import (
 	"context"
 
-	"github.com/puppetlabs/leg/instrumentation/alerts/trackers"
 	"github.com/puppetlabs/leg/errmap/pkg/errmark"
+	"github.com/puppetlabs/leg/instrumentation/alerts/trackers"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/klog"
@@ -27,7 +27,7 @@ var _ reconcile.Reconciler = &ErrorCaptureReconciler{}
 var _ inject.Scheme = &ErrorCaptureReconciler{}
 var _ inject.Injector = &ErrorCaptureReconciler{}
 
-func (ecr ErrorCaptureReconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error) {
+func (ecr ErrorCaptureReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, err error) {
 	capturer := ecr.capturer.WithTags(
 		trackers.Tag{Key: "k8s.api-version", Value: ecr.gvk.GroupVersion().String()},
 		trackers.Tag{Key: "k8s.kind", Value: ecr.gvk.Kind},
@@ -36,8 +36,8 @@ func (ecr ErrorCaptureReconciler) Reconcile(req ctrl.Request) (result ctrl.Resul
 	)
 
 	klog.Infof("reconciling %s %s", ecr.gvk.Kind, req.NamespacedName)
-	perr := capturer.Try(context.Background(), func(ctx context.Context) {
-		result, err = ecr.delegate.Reconcile(req)
+	perr := capturer.Try(ctx, func(ctx context.Context) {
+		result, err = ecr.delegate.Reconcile(ctx, req)
 		if err != nil {
 			err = errmark.MarkTransientIf(err, errmark.RuleAny(ecr.transientRules...))
 

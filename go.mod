@@ -42,8 +42,6 @@ require (
 	github.com/puppetlabs/leg/storage v0.1.1
 	github.com/puppetlabs/leg/stringutil v0.1.0
 	github.com/puppetlabs/leg/timeutil v0.2.0
-	github.com/puppetlabs/paesslerag-gval v1.0.2-0.20191119012647-d2c694821b5b
-	github.com/puppetlabs/paesslerag-jsonpath v0.1.2-0.20201115225516-4a6f3d111e98
 	github.com/puppetlabs/relay-pls v0.0.0-20201125074651-13575df50b51
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/shurcooL/vfsgen v0.0.0-20181202132449-6a9ea43bcacd

@@ -192,7 +192,6 @@ github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5/go.mod h1:lmUJ/7eu/Q8
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
 github.com/PaesslerAG/gval v0.1.1/go.mod h1:y/nm5yEyTeX6av0OfKJNp9rBNj2XrGhAf5+v24IBN1I=
 github.com/PaesslerAG/gval v1.0.0/go.mod h1:y/nm5yEyTeX6av0OfKJNp9rBNj2XrGhAf5+v24IBN1I=
-github.com/PaesslerAG/gval v1.0.1/go.mod h1:y/nm5yEyTeX6av0OfKJNp9rBNj2XrGhAf5+v24IBN1I=
 github.com/PaesslerAG/gval v1.1.1-0.20201218133124-6ca878f8a063 h1:M1juxgu4pB0ZniGHLl1KNWh8hfWkBeQYvxKAewT1WAg=
 github.com/PaesslerAG/gval v1.1.1-0.20201218133124-6ca878f8a063/go.mod h1:Fa8gfkCmUsELXgayr8sfL/sw+VzCVoa03dcOcR/if2w=
 github.com/PaesslerAG/jsonpath v0.1.0/go.mod h1:4BzmtoM/PI8fPO4aQGIusjGxGir2BzcV0grWtFzq1Y8=
@@ -1512,10 +1511,6 @@ github.com/puppetlabs/leg/timeutil v0.2.0 h1:f5Dbivofe8zoFu3GxMopNeCI2x0rlKq6dJq
 github.com/puppetlabs/leg/timeutil v0.2.0/go.mod h1:0O728lh6OxaBE6bJVFuPTUpCrtAb33g0Ne8DwHgZOr8=
 github.com/puppetlabs/leg/workdir v0.1.0 h1:ErFrZiEK7eYufupQ34ytM4AFIVxZryuOktMGoSd3Y0c=
 github.com/puppetlabs/leg/workdir v0.1.0/go.mod h1:wqtQ5F1GvWJ2OH0OaDYkZnF4Iq+yV9uojU6kBub6jcA=
-github.com/puppetlabs/paesslerag-gval v1.0.2-0.20191119012647-d2c694821b5b h1:L3KBXqsUZK0OsVAN6DQ99OzI18BvtP+uVtX0oTjCxhQ=
-github.com/puppetlabs/paesslerag-gval v1.0.2-0.20191119012647-d2c694821b5b/go.mod h1:+fTpFaf5D42b+LP12OkDl9tYbLdn36H+fvBauW4KIR4=
-github.com/puppetlabs/paesslerag-jsonpath v0.1.2-0.20201115225516-4a6f3d111e98 h1:0eBrrfpZJ3lmuMAmpcNXZIUVRBZKxiw+x8hL7WIELqU=
-github.com/puppetlabs/paesslerag-jsonpath v0.1.2-0.20201115225516-4a6f3d111e98/go.mod h1:fU2lLssuZDiOPlZS0sPObg4WPO1Cg1QSGJD3QTbjH7g=
 github.com/puppetlabs/relay-pls v0.0.0-20201125074651-13575df50b51 h1:NwccjCOhZOi0l4w68vPJOV99ctreO/YlrY+RNiz7Llc=
 github.com/puppetlabs/relay-pls v0.0.0-20201125074651-13575df50b51/go.mod h1:xtYyc7gvvVZtfAn5kM89ihJj6v5zdBjNjMfp+a6z+8o=
 github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a/go.mod h1:bCqnVzQkZxMG4s8nGwiZ5l3QUCyqpo9Y+/ZMZ9VjZe4=

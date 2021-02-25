@@ -1,10 +1,7 @@
 package obj
 
 import (
-	"context"
-
 	rbacv1 "k8s.io/api/rbac/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func ConfigureMetadataAPIRoleBinding(rb *RoleBinding, sa *ServiceAccount, role *Role) {

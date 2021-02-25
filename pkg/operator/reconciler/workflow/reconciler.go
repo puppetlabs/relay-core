@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/puppetlabs/leg/storage"
 	"github.com/puppetlabs/leg/errmap/pkg/errmap"
 	"github.com/puppetlabs/leg/errmap/pkg/errmark"
+	"github.com/puppetlabs/leg/storage"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
 	"github.com/puppetlabs/relay-core/pkg/operator/dependency"
 	"github.com/puppetlabs/relay-core/pkg/operator/obj"
@@ -56,9 +56,7 @@ func NewReconciler(dm *dependency.DependencyManager) *Reconciler {
 	}
 }
 
-func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error) {
-	ctx := context.Background()
-
+func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, err error) {
 	wr := obj.NewWorkflowRun(req.NamespacedName)
 	if ok, err := wr.Load(ctx, r.Client); err != nil {
 		return ctrl.Result{}, errmap.MapLast(err, func(err error) error {

@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	jsonpath "github.com/puppetlabs/paesslerag-jsonpath"
+	"github.com/puppetlabs/leg/jsonutil/pkg/jsonpath"
 	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
 	"github.com/puppetlabs/relay-core/pkg/expr/fn"
 	"github.com/puppetlabs/relay-core/pkg/expr/fnlib"
