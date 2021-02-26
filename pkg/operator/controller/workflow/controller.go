@@ -35,7 +35,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler, cfg *config.WorkflowContro
 						SetFallback(capturer.CaptureErrorHandler(cfg.Capturer(), nebulav1.WorkflowRunKind)).
 						Build(),
 				),
-				errhandler.WithPanicHandler(capturer.CaptureErrorHandler(cfg.Capturer(), nebulav1.WorkflowRunKind)),
+				errhandler.WithPanicHandler(capturer.CapturePanicHandler(cfg.Capturer(), nebulav1.WorkflowRunKind)),
 			),
 			filter.ChainSingleNamespaceReconciler(cfg.Namespace),
 		))

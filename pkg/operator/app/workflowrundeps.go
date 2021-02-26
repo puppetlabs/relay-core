@@ -6,9 +6,15 @@ import (
 	"path"
 	"time"
 
+	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
+	networkingv1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/networkingv1"
+	rbacv1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/rbacv1"
+	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/helper"
+	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
 	"github.com/puppetlabs/relay-core/pkg/model"
+	"github.com/puppetlabs/relay-core/pkg/obj"
 	"gopkg.in/square/go-jose.v2/jwt"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -16,36 +22,56 @@ import (
 
 // WorkflowRunDeps represents the Kubernetes objects required to create a Pipeline.
 type WorkflowRunDeps struct {
-	WorkflowRun *WorkflowRun
+	WorkflowRun *obj.WorkflowRun
 	Issuer      authenticate.Issuer
 
-	Namespace *Namespace
+	Namespace *corev1obj.Namespace
 
 	// TODO: This belongs at the Tenant as it should apply to the whole
 	// namespace.
-	LimitRange *LimitRange
+	LimitRange *corev1obj.LimitRange
 
-	NetworkPolicy *NetworkPolicy
+	NetworkPolicy *networkingv1obj.NetworkPolicy
 
-	ImmutableConfigMap *ConfigMap
-	MutableConfigMap   *ConfigMap
+	ImmutableConfigMap *corev1obj.ConfigMap
+	MutableConfigMap   *corev1obj.ConfigMap
 
-	MetadataAPIURL            *url.URL
-	MetadataAPIServiceAccount *ServiceAccount
-	MetadataAPIRole           *Role
-	MetadataAPIRoleBinding    *RoleBinding
+	MetadataAPIURL                        *url.URL
+	MetadataAPIServiceAccount             *corev1obj.ServiceAccount
+	MetadataAPIServiceAccountTokenSecrets *corev1obj.ServiceAccountTokenSecrets
+	MetadataAPIRole                       *rbacv1obj.Role
+	MetadataAPIRoleBinding                *rbacv1obj.RoleBinding
 
-	PipelineServiceAccount  *ServiceAccount
-	UntrustedServiceAccount *ServiceAccount
+	PipelineServiceAccount  *corev1obj.ServiceAccount
+	UntrustedServiceAccount *corev1obj.ServiceAccount
 }
 
-var _ Persister = &WorkflowRunDeps{}
-var _ Loader = &WorkflowRunDeps{}
+var _ lifecycle.Loader = &WorkflowRunDeps{}
+var _ lifecycle.Persister = &WorkflowRunDeps{}
+
+func (wrd *WorkflowRunDeps) Load(ctx context.Context, cl client.Client) (bool, error) {
+	return lifecycle.Loaders{
+		lifecycle.RequiredLoader{wrd.Namespace},
+		lifecycle.IgnoreNilLoader{wrd.LimitRange},
+		lifecycle.IgnoreNilLoader{wrd.NetworkPolicy},
+		wrd.ImmutableConfigMap,
+		wrd.MutableConfigMap,
+		wrd.MetadataAPIServiceAccount,
+		lifecycle.NewPrereqLoader(
+			corev1obj.NewServiceAccountTokenSecretsDefaultPresentPoller(wrd.MetadataAPIServiceAccountTokenSecrets),
+			wrd.MetadataAPIServiceAccount.Object,
+		),
+		wrd.MetadataAPIRole,
+		wrd.MetadataAPIRoleBinding,
+		wrd.PipelineServiceAccount,
+		wrd.UntrustedServiceAccount,
+	}.Load(ctx, cl)
+}
 
 func (wrd *WorkflowRunDeps) Persist(ctx context.Context, cl client.Client) error {
-	ps := []Persister{
-		IgnoreNilPersister{wrd.LimitRange},
-		IgnoreNilPersister{wrd.NetworkPolicy},
+	ps := []lifecycle.Persister{
+		lifecycle.IgnoreNilPersister{wrd.LimitRange},
+		lifecycle.IgnoreNilPersister{wrd.NetworkPolicy},
 		wrd.ImmutableConfigMap,
 		wrd.MutableConfigMap,
 		wrd.MetadataAPIServiceAccount,
@@ -61,22 +87,12 @@ func (wrd *WorkflowRunDeps) Persist(ctx context.Context, cl client.Client) error
 		}
 	}
 
-	return nil
-}
+	// Sync token secrets.
+	if _, err := corev1obj.NewServiceAccountTokenSecretsDefaultPresentPoller(wrd.MetadataAPIServiceAccountTokenSecrets).Load(ctx, cl); err != nil {
+		return err
+	}
 
-func (wrd *WorkflowRunDeps) Load(ctx context.Context, cl client.Client) (bool, error) {
-	return Loaders{
-		RequiredLoader{wrd.Namespace},
-		IgnoreNilLoader{wrd.LimitRange},
-		IgnoreNilLoader{wrd.NetworkPolicy},
-		wrd.ImmutableConfigMap,
-		wrd.MutableConfigMap,
-		wrd.MetadataAPIServiceAccount,
-		wrd.MetadataAPIRole,
-		wrd.MetadataAPIRoleBinding,
-		wrd.PipelineServiceAccount,
-		wrd.UntrustedServiceAccount,
-	}.Load(ctx, cl)
+	return nil
 }
 
 func (wrd *WorkflowRunDeps) AnnotateStepToken(ctx context.Context, target *metav1.ObjectMeta, ws *nebulav1.WorkflowStep) error {
@@ -88,7 +104,7 @@ func (wrd *WorkflowRunDeps) AnnotateStepToken(ctx context.Context, target *metav
 	ms := ModelStep(wrd.WorkflowRun, ws)
 	now := time.Now()
 
-	sat, err := wrd.MetadataAPIServiceAccount.DefaultTokenSecret.Token()
+	sat, err := wrd.MetadataAPIServiceAccountTokenSecrets.DefaultTokenSecret.Token()
 	if err != nil {
 		return err
 	}
@@ -127,8 +143,8 @@ func (wrd *WorkflowRunDeps) AnnotateStepToken(ctx context.Context, target *metav
 		return err
 	}
 
-	Annotate(target, authenticate.KubernetesTokenAnnotation, string(tok))
-	Annotate(target, authenticate.KubernetesSubjectAnnotation, claims.Subject)
+	helper.Annotate(target, authenticate.KubernetesTokenAnnotation, string(tok))
+	helper.Annotate(target, authenticate.KubernetesSubjectAnnotation, claims.Subject)
 
 	return nil
 }
@@ -144,29 +160,29 @@ func WorkflowRunDepsWithStandaloneMode(standalone bool) WorkflowRunDepsOption {
 	}
 }
 
-func NewWorkflowRunDeps(wr *WorkflowRun, issuer authenticate.Issuer, metadataAPIURL *url.URL, opts ...WorkflowRunDepsOption) *WorkflowRunDeps {
+func NewWorkflowRunDeps(wr *obj.WorkflowRun, issuer authenticate.Issuer, metadataAPIURL *url.URL, opts ...WorkflowRunDepsOption) *WorkflowRunDeps {
 	key := wr.Key
 
 	wrd := &WorkflowRunDeps{
 		WorkflowRun: wr,
 		Issuer:      issuer,
 
-		Namespace: NewNamespace(key.Namespace),
+		Namespace: corev1obj.NewNamespace(key.Namespace),
 
-		LimitRange: NewLimitRange(key),
+		LimitRange: corev1obj.NewLimitRange(key),
 
-		NetworkPolicy: NewNetworkPolicy(key),
+		NetworkPolicy: networkingv1obj.NewNetworkPolicy(key),
 
-		ImmutableConfigMap: NewConfigMap(SuffixObjectKey(key, "immutable")),
-		MutableConfigMap:   NewConfigMap(SuffixObjectKey(key, "mutable")),
+		ImmutableConfigMap: corev1obj.NewConfigMap(SuffixObjectKey(key, "immutable")),
+		MutableConfigMap:   corev1obj.NewConfigMap(SuffixObjectKey(key, "mutable")),
 
 		MetadataAPIURL:            metadataAPIURL,
-		MetadataAPIServiceAccount: NewServiceAccount(SuffixObjectKey(key, "metadata-api")),
-		MetadataAPIRole:           NewRole(SuffixObjectKey(key, "metadata-api")),
-		MetadataAPIRoleBinding:    NewRoleBinding(SuffixObjectKey(key, "metadata-api")),
+		MetadataAPIServiceAccount: corev1obj.NewServiceAccount(SuffixObjectKey(key, "metadata-api")),
+		MetadataAPIRole:           rbacv1obj.NewRole(SuffixObjectKey(key, "metadata-api")),
+		MetadataAPIRoleBinding:    rbacv1obj.NewRoleBinding(SuffixObjectKey(key, "metadata-api")),
 
-		PipelineServiceAccount:  NewServiceAccount(SuffixObjectKey(key, "pipeline")),
-		UntrustedServiceAccount: NewServiceAccount(SuffixObjectKey(key, "untrusted")),
+		PipelineServiceAccount:  corev1obj.NewServiceAccount(SuffixObjectKey(key, "pipeline")),
+		UntrustedServiceAccount: corev1obj.NewServiceAccount(SuffixObjectKey(key, "untrusted")),
 	}
 
 	for _, opt := range opts {
@@ -177,7 +193,7 @@ func NewWorkflowRunDeps(wr *WorkflowRun, issuer authenticate.Issuer, metadataAPI
 }
 
 func ConfigureWorkflowRunDeps(ctx context.Context, wrd *WorkflowRunDeps) error {
-	os := []Ownable{
+	os := []lifecycle.Ownable{
 		wrd.ImmutableConfigMap,
 		wrd.MutableConfigMap,
 		wrd.MetadataAPIServiceAccount,
@@ -204,7 +220,7 @@ func ConfigureWorkflowRunDeps(ctx context.Context, wrd *WorkflowRunDeps) error {
 		}
 	}
 
-	lafs := []LabelAnnotatableFrom{
+	lafs := []lifecycle.LabelAnnotatableFrom{
 		wrd.ImmutableConfigMap,
 		wrd.MutableConfigMap,
 		wrd.MetadataAPIServiceAccount,
@@ -213,7 +229,7 @@ func ConfigureWorkflowRunDeps(ctx context.Context, wrd *WorkflowRunDeps) error {
 		wrd.UntrustedServiceAccount,
 	}
 	for _, laf := range lafs {
-		laf.LabelAnnotateFrom(ctx, wrd.WorkflowRun.Object.ObjectMeta)
+		laf.LabelAnnotateFrom(ctx, wrd.WorkflowRun.Object)
 	}
 
 	if wrd.LimitRange != nil {
@@ -240,7 +256,7 @@ func ConfigureWorkflowRunDeps(ctx context.Context, wrd *WorkflowRunDeps) error {
 	return nil
 }
 
-func ApplyWorkflowRunDeps(ctx context.Context, cl client.Client, wr *WorkflowRun, issuer authenticate.Issuer, metadataAPIURL *url.URL, opts ...WorkflowRunDepsOption) (*WorkflowRunDeps, error) {
+func ApplyWorkflowRunDeps(ctx context.Context, cl client.Client, wr *obj.WorkflowRun, issuer authenticate.Issuer, metadataAPIURL *url.URL, opts ...WorkflowRunDepsOption) (*WorkflowRunDeps, error) {
 	deps := NewWorkflowRunDeps(wr, issuer, metadataAPIURL, opts...)
 
 	if _, err := deps.Load(ctx, cl); err != nil {

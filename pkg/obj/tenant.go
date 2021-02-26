@@ -68,6 +68,13 @@ func (t *Tenant) Load(ctx context.Context, cl client.Client) (bool, error) {
 	return helper.GetIgnoreNotFound(ctx, cl, t.Key, t.Object)
 }
 
+func (t *Tenant) Copy() *Tenant {
+	return &Tenant{
+		Key:    t.Key,
+		Object: t.Object.DeepCopy(),
+	}
+}
+
 func (t *Tenant) Managed() bool {
 	return t.Object.Spec.NamespaceTemplate.Metadata.GetName() != ""
 }

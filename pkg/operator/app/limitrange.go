@@ -1,6 +1,7 @@
 package app
 
 import (
+	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
@@ -31,7 +32,7 @@ func LimitRangeWithContainerMaxLimit(rl corev1.ResourceList) LimitRangeOption {
 	}
 }
 
-func ConfigureLimitRange(lr *LimitRange, opts ...LimitRangeOption) {
+func ConfigureLimitRange(lr *corev1obj.LimitRange, opts ...LimitRangeOption) {
 	lro := &limitRangeOptions{
 		containerDefaultLimit: corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse("750m"),

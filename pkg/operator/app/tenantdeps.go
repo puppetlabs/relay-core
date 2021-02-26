@@ -3,21 +3,25 @@ package app
 import (
 	"context"
 
+	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
+	networkingv1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/networkingv1"
+	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/model"
+	"github.com/puppetlabs/relay-core/pkg/obj"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type APITriggerEventSink struct {
 	Sink        *relayv1beta1.APITriggerEventSink
-	TokenSecret *OpaqueSecret
+	TokenSecret *corev1obj.OpaqueSecret
 }
 
-var _ Loader = &APITriggerEventSink{}
+var _ lifecycle.Loader = &APITriggerEventSink{}
 
 func (tes *APITriggerEventSink) Load(ctx context.Context, cl client.Client) (bool, error) {
-	return IgnoreNilLoader{tes.TokenSecret}.Load(ctx, cl)
+	return lifecycle.IgnoreNilLoader{tes.TokenSecret}.Load(ctx, cl)
 }
 
 func (tes *APITriggerEventSink) URL() string {
@@ -40,7 +44,7 @@ func NewAPITriggerEventSink(namespace string, sink *relayv1beta1.APITriggerEvent
 	}
 
 	if sink.TokenFrom != nil && sink.TokenFrom.SecretKeyRef != nil {
-		tes.TokenSecret = NewOpaqueSecret(client.ObjectKey{
+		tes.TokenSecret = corev1obj.NewOpaqueSecret(client.ObjectKey{
 			Namespace: namespace,
 			Name:      sink.TokenFrom.SecretKeyRef.Name,
 		})
@@ -62,30 +66,71 @@ func NewToolInjection(namespace string, toolInjection relayv1beta1.ToolInjection
 }
 
 type TenantDeps struct {
-	Tenant *Tenant
+	Tenant *obj.Tenant
 
 	// StaleNamespace is the old namespace of a tenant that needs to be cleaned
 	// up.
-	StaleNamespace *Namespace
+	StaleNamespace *corev1obj.Namespace
 
-	Namespace     *Namespace
-	NetworkPolicy *NetworkPolicy
-	LimitRange    *LimitRange
+	Namespace     *corev1obj.Namespace
+	NetworkPolicy *networkingv1obj.NetworkPolicy
+	LimitRange    *corev1obj.LimitRange
 
 	APITriggerEventSink *APITriggerEventSink
 	ToolInjection       *ToolInjection
 }
 
-var _ Persister = &TenantDeps{}
-var _ Loader = &TenantDeps{}
-var _ Deleter = &TenantDeps{}
+var _ lifecycle.Deleter = &TenantDeps{}
+var _ lifecycle.Loader = &TenantDeps{}
+var _ lifecycle.Persister = &TenantDeps{}
+
+func (td *TenantDeps) Delete(ctx context.Context, cl client.Client, opts ...lifecycle.DeleteOption) (bool, error) {
+	if _, err := td.DeleteStale(ctx, cl, opts...); err != nil {
+		return false, err
+	}
+
+	if !td.Tenant.Managed() {
+		return true, nil
+	}
+
+	if td.Namespace.Object.GetUID() == "" {
+		return true, nil
+	}
+
+	if ok, err := DependencyManager.IsDependencyOf(td.Namespace.Object, lifecycle.TypedObject{Object: td.Tenant.Object, GVK: relayv1beta1.TenantKind}); err != nil {
+		return false, err
+	} else if ok {
+		return td.Namespace.Delete(ctx, cl, opts...)
+	}
+
+	return true, nil
+}
+
+func (td *TenantDeps) Load(ctx context.Context, cl client.Client) (bool, error) {
+	loaders := lifecycle.Loaders{lifecycle.IgnoreNilLoader{td.APITriggerEventSink}}
+
+	if !td.Tenant.Managed() {
+		loaders = append(loaders, lifecycle.RequiredLoader{td.Namespace})
+	} else {
+		loaders = append(loaders, td.Namespace, td.NetworkPolicy, td.LimitRange)
+	}
+
+	// Check for stale namespace. We only clean up the stale namespace if it was
+	// managed.
+	if td.Tenant.Object.Status.Namespace != "" && td.Tenant.Object.Status.Namespace != td.Tenant.Key.Namespace && td.Tenant.Object.Status.Namespace != td.Namespace.Name {
+		td.StaleNamespace = corev1obj.NewNamespace(td.Tenant.Object.Status.Namespace)
+		loaders = append(loaders, td.StaleNamespace)
+	}
+
+	return loaders.Load(ctx, cl)
+}
 
 func (td *TenantDeps) Persist(ctx context.Context, cl client.Client) error {
 	if !td.Tenant.Managed() {
 		return nil
 	}
 
-	ps := []Persister{
+	ps := []lifecycle.Persister{
 		td.Namespace,
 		td.NetworkPolicy,
 		td.LimitRange,
@@ -100,74 +145,33 @@ func (td *TenantDeps) Persist(ctx context.Context, cl client.Client) error {
 	return nil
 }
 
-func (td *TenantDeps) Load(ctx context.Context, cl client.Client) (bool, error) {
-	loaders := Loaders{IgnoreNilLoader{td.APITriggerEventSink}}
-
-	if !td.Tenant.Managed() {
-		loaders = append(loaders, RequiredLoader{td.Namespace})
-	} else {
-		loaders = append(loaders, td.Namespace, td.NetworkPolicy, td.LimitRange)
-	}
-
-	// Check for stale namespace. We only clean up the stale namespace if it was
-	// managed.
-	if td.Tenant.Object.Status.Namespace != "" && td.Tenant.Object.Status.Namespace != td.Tenant.Key.Namespace && td.Tenant.Object.Status.Namespace != td.Namespace.Name {
-		td.StaleNamespace = NewNamespace(td.Tenant.Object.Status.Namespace)
-		loaders = append(loaders, td.StaleNamespace)
-	}
-
-	return loaders.Load(ctx, cl)
-}
-
-func (td *TenantDeps) Delete(ctx context.Context, cl client.Client) (bool, error) {
-	if _, err := td.DeleteStale(ctx, cl); err != nil {
-		return false, err
-	}
-
-	if !td.Tenant.Managed() {
-		return true, nil
-	}
-
-	if td.Namespace.Object.GetUID() == "" {
-		return true, nil
-	}
-
-	if ok, err := IsDependencyOf(td.Namespace.Object.ObjectMeta, Owner{Object: td.Tenant.Object, GVK: relayv1beta1.TenantKind}); err != nil {
-		return false, err
-	} else if ok {
-		return td.Namespace.Delete(ctx, cl)
-	}
-
-	return true, nil
-}
-
-func (td *TenantDeps) DeleteStale(ctx context.Context, cl client.Client) (bool, error) {
+func (td *TenantDeps) DeleteStale(ctx context.Context, cl client.Client, opts ...lifecycle.DeleteOption) (bool, error) {
 	if td.StaleNamespace == nil || td.StaleNamespace.Object.GetUID() == "" {
 		return true, nil
 	}
 
-	if ok, err := IsDependencyOf(td.StaleNamespace.Object.ObjectMeta, Owner{Object: td.Tenant.Object, GVK: relayv1beta1.TenantKind}); err != nil {
+	if ok, err := DependencyManager.IsDependencyOf(td.StaleNamespace.Object, lifecycle.TypedObject{Object: td.Tenant.Object, GVK: relayv1beta1.TenantKind}); err != nil {
 		return false, err
 	} else if ok {
-		return td.StaleNamespace.Delete(ctx, cl)
+		return td.StaleNamespace.Delete(ctx, cl, opts...)
 	}
 
 	return true, nil
 }
 
-func NewTenantDeps(t *Tenant) *TenantDeps {
+func NewTenantDeps(t *obj.Tenant) *TenantDeps {
 	td := &TenantDeps{
 		Tenant: t,
 	}
 
 	if !t.Managed() {
-		td.Namespace = NewNamespace(t.Key.Namespace)
+		td.Namespace = corev1obj.NewNamespace(t.Key.Namespace)
 	} else {
 		ns := t.Object.Spec.NamespaceTemplate.Metadata.GetName()
 
-		td.Namespace = NewNamespace(ns)
-		td.NetworkPolicy = NewNetworkPolicy(client.ObjectKey{Namespace: ns, Name: t.Key.Name})
-		td.LimitRange = NewLimitRange(client.ObjectKey{Namespace: ns, Name: t.Key.Name})
+		td.Namespace = corev1obj.NewNamespace(ns)
+		td.NetworkPolicy = networkingv1obj.NewNetworkPolicy(client.ObjectKey{Namespace: ns, Name: t.Key.Name})
+		td.LimitRange = corev1obj.NewLimitRange(client.ObjectKey{Namespace: ns, Name: t.Key.Name})
 	}
 
 	if sink := t.Object.Spec.TriggerEventSink.API; sink != nil {
@@ -184,17 +188,17 @@ func ConfigureTenantDeps(ctx context.Context, td *TenantDeps) {
 		return
 	}
 
-	SetDependencyOf(&td.Namespace.Object.ObjectMeta, Owner{Object: td.Tenant.Object, GVK: relayv1beta1.TenantKind})
-	SetDependencyOf(&td.NetworkPolicy.Object.ObjectMeta, Owner{Object: td.Tenant.Object, GVK: relayv1beta1.TenantKind})
+	DependencyManager.SetDependencyOf(&td.Namespace.Object.ObjectMeta, lifecycle.TypedObject{Object: td.Tenant.Object, GVK: relayv1beta1.TenantKind})
+	DependencyManager.SetDependencyOf(&td.NetworkPolicy.Object.ObjectMeta, lifecycle.TypedObject{Object: td.Tenant.Object, GVK: relayv1beta1.TenantKind})
 
-	td.Namespace.Label(ctx, model.RelayControllerTenantWorkloadLabel, "true")
-	td.Namespace.LabelAnnotateFrom(ctx, td.Tenant.Object.Spec.NamespaceTemplate.Metadata)
+	lifecycle.Label(ctx, td.Namespace, model.RelayControllerTenantWorkloadLabel, "true")
+	td.Namespace.LabelAnnotateFrom(ctx, &td.Tenant.Object.Spec.NamespaceTemplate.Metadata)
 
 	ConfigureNetworkPolicyForTenant(td.NetworkPolicy)
 	ConfigureLimitRange(td.LimitRange)
 }
 
-func ApplyTenantDeps(ctx context.Context, cl client.Client, t *Tenant) (*TenantDeps, error) {
+func ApplyTenantDeps(ctx context.Context, cl client.Client, t *obj.Tenant) (*TenantDeps, error) {
 	td := NewTenantDeps(t)
 
 	if _, err := td.Load(ctx, cl); err != nil {

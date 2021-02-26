@@ -3,10 +3,11 @@ package app
 import (
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/model"
+	"github.com/puppetlabs/relay-core/pkg/obj"
 	corev1 "k8s.io/api/core/v1"
 )
 
-func ConfigureTenant(t *Tenant, td *TenantDepsResult, pvc *PersistentVolumeClaimResult) {
+func ConfigureTenant(t *obj.Tenant, td *TenantDepsResult, pvc *PersistentVolumeClaimResult) {
 	// Set up our initial map from the existing data.
 	conds := map[relayv1beta1.TenantConditionType]*relayv1beta1.Condition{
 		relayv1beta1.TenantNamespaceReady:     &relayv1beta1.Condition{},
@@ -24,13 +25,13 @@ func ConfigureTenant(t *Tenant, td *TenantDepsResult, pvc *PersistentVolumeClaim
 		if td.Error != nil {
 			return relayv1beta1.Condition{
 				Status:  corev1.ConditionFalse,
-				Reason:  TenantStatusReasonNamespaceError,
+				Reason:  obj.TenantStatusReasonNamespaceError,
 				Message: td.Error.Error(),
 			}
 		} else if td.TenantDeps != nil {
 			return relayv1beta1.Condition{
 				Status:  corev1.ConditionTrue,
-				Reason:  TenantStatusReasonNamespaceReady,
+				Reason:  obj.TenantStatusReasonNamespaceReady,
 				Message: "The tenant namespace is ready.",
 			}
 		}
@@ -46,20 +47,20 @@ func ConfigureTenant(t *Tenant, td *TenantDepsResult, pvc *PersistentVolumeClaim
 				if sink.URL() == "" {
 					return relayv1beta1.Condition{
 						Status:  corev1.ConditionFalse,
-						Reason:  TenantStatusReasonEventSinkNotConfigured,
+						Reason:  obj.TenantStatusReasonEventSinkNotConfigured,
 						Message: "The API trigger event sink is missing an endpoint URL.",
 					}
 				} else if _, ok := sink.Token(); !ok {
 					return relayv1beta1.Condition{
 						Status:  corev1.ConditionFalse,
-						Reason:  TenantStatusReasonEventSinkNotConfigured,
+						Reason:  obj.TenantStatusReasonEventSinkNotConfigured,
 						Message: "The API trigger event sink is missing a token.",
 					}
 				}
 
 				return relayv1beta1.Condition{
 					Status:  corev1.ConditionTrue,
-					Reason:  TenantStatusReasonEventSinkReady,
+					Reason:  obj.TenantStatusReasonEventSinkReady,
 					Message: "The event sink is ready.",
 				}
 			}
@@ -68,7 +69,7 @@ func ConfigureTenant(t *Tenant, td *TenantDepsResult, pvc *PersistentVolumeClaim
 			// WebhookTriggers.
 			return relayv1beta1.Condition{
 				Status:  corev1.ConditionTrue,
-				Reason:  TenantStatusReasonEventSinkMissing,
+				Reason:  obj.TenantStatusReasonEventSinkMissing,
 				Message: "The tenant does not have an event sink defined.",
 			}
 		}
@@ -85,7 +86,7 @@ func ConfigureTenant(t *Tenant, td *TenantDepsResult, pvc *PersistentVolumeClaim
 					if pvc.Error != nil {
 						return relayv1beta1.Condition{
 							Status:  corev1.ConditionFalse,
-							Reason:  TenantStatusReasonToolInjectionError,
+							Reason:  obj.TenantStatusReasonToolInjectionError,
 							Message: pvc.Error.Error(),
 						}
 					} else if pvc.PersistentVolumeClaim != nil &&
@@ -103,7 +104,7 @@ func ConfigureTenant(t *Tenant, td *TenantDepsResult, pvc *PersistentVolumeClaim
 
 			return relayv1beta1.Condition{
 				Status:  corev1.ConditionTrue,
-				Reason:  TenantStatusReasonToolInjectionNotDefined,
+				Reason:  obj.TenantStatusReasonToolInjectionNotDefined,
 				Message: "The tenant tool injection in not defined.",
 			}
 		}
@@ -118,13 +119,13 @@ func ConfigureTenant(t *Tenant, td *TenantDepsResult, pvc *PersistentVolumeClaim
 		case corev1.ConditionTrue:
 			return relayv1beta1.Condition{
 				Status:  corev1.ConditionTrue,
-				Reason:  TenantStatusReasonReady,
+				Reason:  obj.TenantStatusReasonReady,
 				Message: "The tenant is configured.",
 			}
 		case corev1.ConditionFalse:
 			return relayv1beta1.Condition{
 				Status:  corev1.ConditionFalse,
-				Reason:  TenantStatusReasonError,
+				Reason:  obj.TenantStatusReasonError,
 				Message: "One or more tenant components failed.",
 			}
 		}

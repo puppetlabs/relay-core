@@ -21,6 +21,8 @@ func Resource(resource string) schema.GroupResource {
 var (
 	SchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
 	AddToScheme   = SchemeBuilder.AddToScheme
+
+	WorkflowRunKind = SchemeGroupVersion.WithKind("WorkflowRun")
 )
 
 func addKnownTypes(scheme *runtime.Scheme) error {

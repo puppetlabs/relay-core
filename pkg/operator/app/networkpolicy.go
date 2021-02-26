@@ -1,6 +1,8 @@
 package app
 
 import (
+	networkingv1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/networkingv1"
+	"github.com/puppetlabs/relay-core/pkg/obj"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -60,7 +62,7 @@ func NetworkPolicyWithMetadataAPIPort(port int) NetworkPolicyOption {
 	}
 }
 
-func ConfigureNetworkPolicyForTenant(np *NetworkPolicy) {
+func ConfigureNetworkPolicyForTenant(np *networkingv1obj.NetworkPolicy) {
 	// The default tenant policy blocks all traffic. Additional policies are
 	// additive.
 	np.Object.Spec = networkingv1.NetworkPolicySpec{
@@ -71,11 +73,11 @@ func ConfigureNetworkPolicyForTenant(np *NetworkPolicy) {
 	}
 }
 
-func ConfigureNetworkPolicyForWorkflowRun(np *NetworkPolicy, wr *WorkflowRun, opts ...NetworkPolicyOption) {
+func ConfigureNetworkPolicyForWorkflowRun(np *networkingv1obj.NetworkPolicy, wr *obj.WorkflowRun, opts ...NetworkPolicyOption) {
 	np.Object.Spec = baseTenantWorkloadNetworkPolicySpec(wr.PodSelector(), opts)
 }
 
-func ConfigureNetworkPolicyForWebhookTrigger(np *NetworkPolicy, wt *WebhookTrigger, opts ...NetworkPolicyOption) {
+func ConfigureNetworkPolicyForWebhookTrigger(np *networkingv1obj.NetworkPolicy, wt *obj.WebhookTrigger, opts ...NetworkPolicyOption) {
 	np.Object.Spec = baseTenantWorkloadNetworkPolicySpec(wt.PodSelector(), opts)
 
 	// Allow ingress from the defined upstream.

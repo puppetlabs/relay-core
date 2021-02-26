@@ -3,24 +3,21 @@ package app
 import (
 	"context"
 
+	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
+	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/helper"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func ApplyPersistentVolume(ctx context.Context, cl client.Client, key client.ObjectKey, pv *corev1.PersistentVolume) (*PersistentVolume, error) {
-	p := NewPersistentVolume(key)
+func ApplyPersistentVolume(ctx context.Context, cl client.Client, name string, pv *corev1.PersistentVolume) (*corev1obj.PersistentVolume, error) {
+	p := corev1obj.NewPersistentVolume(name)
 
 	if _, err := p.Load(ctx, cl); err != nil {
 		return nil, err
 	}
 
 	if pv != nil {
-		exists, err := Exists(key, p.Object)
-		if err != nil {
-			return nil, err
-		}
-
-		if exists {
+		if helper.Exists(p.Object) {
 			p.Object.Spec.AccessModes = pv.Spec.AccessModes
 			p.Object.Spec.Capacity = pv.Spec.Capacity
 			p.Object.Spec.ClaimRef = pv.Spec.ClaimRef
@@ -29,7 +26,7 @@ func ApplyPersistentVolume(ctx context.Context, cl client.Client, key client.Obj
 		}
 	}
 
-	p.LabelAnnotateFrom(ctx, pv.ObjectMeta)
+	p.LabelAnnotateFrom(ctx, pv)
 	if err := p.Persist(ctx, cl); err != nil {
 		return nil, err
 	}
@@ -38,11 +35,11 @@ func ApplyPersistentVolume(ctx context.Context, cl client.Client, key client.Obj
 }
 
 type PersistentVolumeResult struct {
-	PersistentVolume *PersistentVolume
+	PersistentVolume *corev1obj.PersistentVolume
 	Error            error
 }
 
-func AsPersistentVolumeResult(pv *PersistentVolume, err error) *PersistentVolumeResult {
+func AsPersistentVolumeResult(pv *corev1obj.PersistentVolume, err error) *PersistentVolumeResult {
 	return &PersistentVolumeResult{
 		PersistentVolume: pv,
 		Error:            err,

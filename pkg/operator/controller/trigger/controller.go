@@ -6,6 +6,7 @@ import (
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/filter"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/model"
+	"github.com/puppetlabs/relay-core/pkg/operator/app"
 	"github.com/puppetlabs/relay-core/pkg/operator/config"
 	"github.com/puppetlabs/relay-core/pkg/operator/controller/handler"
 	"github.com/puppetlabs/relay-core/pkg/operator/dependency"
@@ -29,7 +30,10 @@ func add(mgr manager.Manager, r reconcile.Reconciler, cfg *config.WorkflowContro
 			Label:      model.RelayControllerTenantNameLabel,
 			TargetType: &relayv1beta1.WebhookTrigger{},
 		}).
-		Watches(&source.Kind{Type: &servingv1.Service{}}, &handler.EnqueueRequestForAnnotatedDependent{OwnerType: &relayv1beta1.WebhookTrigger{}}).
+		Watches(
+			&source.Kind{Type: &servingv1.Service{}},
+			app.DependencyManager.NewEnqueueRequestForAnnotatedDependencyOf(&relayv1beta1.WebhookTrigger{}),
+		).
 		Complete(filter.ChainR(
 			r,
 			errhandler.ChainReconciler(
@@ -42,7 +46,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler, cfg *config.WorkflowContro
 						SetFallback(capturer.CaptureErrorHandler(cfg.Capturer(), relayv1beta1.WebhookTriggerKind)).
 						Build(),
 				),
-				errhandler.WithPanicHandler(capturer.CaptureErrorHandler(cfg.Capturer(), relayv1beta1.WebhookTriggerKind)),
+				errhandler.WithPanicHandler(capturer.CapturePanicHandler(cfg.Capturer(), relayv1beta1.WebhookTriggerKind)),
 			),
 			filter.ChainSingleNamespaceReconciler(cfg.Namespace),
 		))

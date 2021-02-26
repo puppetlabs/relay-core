@@ -2,11 +2,14 @@ package tenant
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/puppetlabs/leg/errmap/pkg/errmap"
+	batchv1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/batchv1"
+	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
+	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
+	"github.com/puppetlabs/relay-core/pkg/operator/app"
 	"github.com/puppetlabs/relay-core/pkg/operator/config"
 	"github.com/puppetlabs/relay-core/pkg/util/image"
 	batchv1 "k8s.io/api/batch/v1"
@@ -35,22 +38,18 @@ func NewReconciler(client client.Client, cfg *config.WorkflowControllerConfig) *
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, err error) {
 	tn := obj.NewTenant(req.NamespacedName)
 	if ok, err := tn.Load(ctx, r.Client); err != nil {
-		return ctrl.Result{}, errmap.MapLast(err, func(err error) error {
-			return fmt.Errorf("failed to load dependencies: %+v", err)
-		})
+		return ctrl.Result{}, errmap.Wrap(err, "failed to load dependencies")
 	} else if !ok {
 		// CRD deleted from under us?
 		return ctrl.Result{}, nil
 	}
 
-	deps := obj.NewTenantDeps(tn)
+	deps := app.NewTenantDeps(tn)
 	if _, err := deps.Load(ctx, r.Client); err != nil {
-		return ctrl.Result{}, errmap.MapLast(err, func(err error) error {
-			return fmt.Errorf("failed to load dependencies: %+v", err)
-		})
+		return ctrl.Result{}, errmap.Wrap(err, "failed to load dependencies")
 	}
 
-	finalized, err := obj.Finalize(ctx, r.Client, FinalizerName, tn, func() error {
+	finalized, err := lifecycle.Finalize(ctx, r.Client, FinalizerName, tn, func() error {
 		_, err := deps.Delete(ctx, r.Client)
 		return err
 	})
@@ -59,26 +58,24 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	}
 
 	if _, err := deps.DeleteStale(ctx, r.Client); err != nil {
-		return ctrl.Result{}, errmap.MapLast(err, func(err error) error {
-			return fmt.Errorf("failed to delete stale dependencies: %+v", err)
-		})
+		return ctrl.Result{}, errmap.Wrap(err, "failed to delete stale dependencies")
 	}
 
-	obj.ConfigureTenantDeps(ctx, deps)
+	app.ConfigureTenantDeps(ctx, deps)
 
-	tdr := obj.AsTenantDepsResult(deps, deps.Persist(ctx, r.Client))
+	tdr := app.AsTenantDepsResult(deps, deps.Persist(ctx, r.Client))
 
 	if tdr.Error != nil {
 		return ctrl.Result{}, tdr.Error
 	}
 
-	pvcROX := obj.NewPersistentVolumeClaim(client.ObjectKey{Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany, Namespace: tn.Object.Status.Namespace})
+	pvcROX := corev1obj.NewPersistentVolumeClaim(client.ObjectKey{Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany, Namespace: tn.Object.Status.Namespace})
 	_, err = pvcROX.Load(ctx, r.Client)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	obj.ConfigureTenant(tn, tdr, obj.AsPersistentVolumeClaimResult(pvcROX, err))
+	app.ConfigureTenant(tn, tdr, app.AsPersistentVolumeClaimResult(pvcROX, err))
 
 	if err := tn.PersistStatus(ctx, r.Client); err != nil {
 		return ctrl.Result{}, err
@@ -109,9 +106,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 					return ctrl.Result{}, err
 				}
 
-				original := tn.Object.DeepCopy()
-				tn.Annotate(ctx, model.RelayControllerToolInjectionImageDigestAnnotation, reference)
-				err = tn.Patch(ctx, r.Client, original)
+				original := tn.Copy()
+				lifecycle.Annotate(ctx, tn, model.RelayControllerToolInjectionImageDigestAnnotation, reference)
+				err = obj.NewTenantPatcher(tn, original).Persist(ctx, r.Client)
 				if err != nil {
 					return ctrl.Result{}, err
 				}
@@ -126,7 +123,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 				return ctrl.Result{Requeue: true}, nil
 			}
 
-			pv := obj.NewPersistentVolume(client.ObjectKey{Name: pvcRWO.Object.Spec.VolumeName})
+			pv := corev1obj.NewPersistentVolume(pvcRWO.Object.Spec.VolumeName)
 			ok, err = pv.Load(ctx, r.Client)
 			if err != nil {
 				return ctrl.Result{}, err
@@ -163,9 +160,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			}
 
 			volume = pv.Object.GetName()
-			original := tn.Object.DeepCopy()
-			tn.Annotate(ctx, model.RelayControllerToolsVolumeAnnotation, volume)
-			err = tn.Patch(ctx, r.Client, original)
+			original := tn.Copy()
+			lifecycle.Annotate(ctx, tn, model.RelayControllerToolsVolumeAnnotation, volume)
+			err = obj.NewTenantPatcher(tn, original).Persist(ctx, r.Client)
 			if err != nil {
 				return ctrl.Result{}, err
 			}
@@ -176,7 +173,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			return ctrl.Result{}, err
 		}
 
-		pv := obj.NewPersistentVolume(client.ObjectKey{Name: volume})
+		pv := corev1obj.NewPersistentVolume(volume)
 		ok, err = pv.Load(ctx, r.Client)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -187,18 +184,18 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		}
 
 		if pv.Object.Status.Phase != corev1.VolumeBound {
-			original := pv.Object.DeepCopy()
-			pv.Label(ctx, model.RelayControllerToolInjectionVolumeLabel, tn.Object.GetName())
+			original := pv.Copy()
+			lifecycle.Label(ctx, pv, model.RelayControllerToolInjectionVolumeLabel, tn.Object.GetName())
 			pv.Object.Spec.ClaimRef = nil
 			pv.Object.Spec.AccessModes = []corev1.PersistentVolumeAccessMode{corev1.ReadOnlyMany}
 
-			err = pv.Patch(ctx, r.Client, original)
+			err = corev1obj.NewPersistentVolumePatcher(pv, original).Persist(ctx, r.Client)
 			if err != nil {
 				return ctrl.Result{}, err
 			}
 		}
 
-		pvcROX := obj.NewPersistentVolumeClaim(client.ObjectKey{Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany, Namespace: tn.Object.Status.Namespace})
+		pvcROX := corev1obj.NewPersistentVolumeClaim(client.ObjectKey{Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany, Namespace: tn.Object.Status.Namespace})
 		ok, err = pvcROX.Load(ctx, r.Client)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -224,7 +221,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		}
 
 		_, err = pvcROX.Load(ctx, r.Client)
-		obj.ConfigureTenant(tn, tdr, obj.AsPersistentVolumeClaimResult(pvcROX, err))
+		app.ConfigureTenant(tn, tdr, app.AsPersistentVolumeClaimResult(pvcROX, err))
 
 		if err := tn.PersistStatus(ctx, r.Client); err != nil {
 			return ctrl.Result{}, err
@@ -239,18 +236,18 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 }
 
 func (r *Reconciler) cleanupToolInjectionResources(ctx context.Context, tn *obj.Tenant) error {
-	job := obj.NewJob(client.ObjectKey{Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadWriteOnce, Namespace: tn.Object.GetNamespace()})
+	job := batchv1obj.NewJob(client.ObjectKey{Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadWriteOnce, Namespace: tn.Object.GetNamespace()})
 	_, err := job.Load(ctx, r.Client)
 	if err != nil {
 		return err
 	}
 
-	_, err = job.Delete(ctx, r.Client, client.PropagationPolicy(metav1.DeletePropagationForeground))
+	_, err = job.Delete(ctx, r.Client, lifecycle.DeleteWithPropagationPolicy(metav1.DeletePropagationForeground))
 	if err != nil {
 		return err
 	}
 
-	pvcRWO := obj.NewPersistentVolumeClaim(client.ObjectKey{Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadWriteOnce, Namespace: tn.Object.GetNamespace()})
+	pvcRWO := corev1obj.NewPersistentVolumeClaim(client.ObjectKey{Name: tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadWriteOnce, Namespace: tn.Object.GetNamespace()})
 	_, err = pvcRWO.Load(ctx, r.Client)
 	if err != nil {
 		return err
@@ -264,7 +261,7 @@ func (r *Reconciler) cleanupToolInjectionResources(ctx context.Context, tn *obj.
 	return nil
 }
 
-func (r *Reconciler) createReadOnlyVolumeClaim(ctx context.Context, tn *obj.Tenant) (*obj.PersistentVolumeClaim, error) {
+func (r *Reconciler) createReadOnlyVolumeClaim(ctx context.Context, tn *obj.Tenant) (*corev1obj.PersistentVolumeClaim, error) {
 	pvcn := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany,
@@ -285,7 +282,7 @@ func (r *Reconciler) createReadOnlyVolumeClaim(ctx context.Context, tn *obj.Tena
 	}
 
 	key := client.ObjectKey{Name: pvcn.GetName(), Namespace: pvcn.GetNamespace()}
-	pvcno, err := obj.ApplyPersistentVolumeClaim(ctx, r.Client, key, pvcn)
+	pvcno, err := app.ApplyPersistentVolumeClaim(ctx, r.Client, key, pvcn)
 	if err != nil {
 		return nil, err
 	}
@@ -293,7 +290,7 @@ func (r *Reconciler) createReadOnlyVolumeClaim(ctx context.Context, tn *obj.Tena
 	return pvcno, err
 }
 
-func (r *Reconciler) createReadWriteVolumeClaim(ctx context.Context, tn *obj.Tenant) (*obj.PersistentVolumeClaim, error) {
+func (r *Reconciler) createReadWriteVolumeClaim(ctx context.Context, tn *obj.Tenant) (*corev1obj.PersistentVolumeClaim, error) {
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      tn.Object.GetName() + model.ToolInjectionVolumeClaimSuffixReadWriteOnce,
@@ -307,7 +304,7 @@ func (r *Reconciler) createReadWriteVolumeClaim(ctx context.Context, tn *obj.Ten
 	}
 
 	key := client.ObjectKey{Name: pvc.GetName(), Namespace: pvc.GetNamespace()}
-	pvco, err := obj.ApplyPersistentVolumeClaim(ctx, r.Client, key, pvc)
+	pvco, err := app.ApplyPersistentVolumeClaim(ctx, r.Client, key, pvc)
 	if err != nil {
 		return nil, err
 	}
@@ -315,7 +312,7 @@ func (r *Reconciler) createReadWriteVolumeClaim(ctx context.Context, tn *obj.Ten
 	return pvco, err
 }
 
-func (r *Reconciler) initializeVolumeClaim(ctx context.Context, image string, tn *obj.Tenant) (*obj.Job, error) {
+func (r *Reconciler) initializeVolumeClaim(ctx context.Context, image string, tn *obj.Tenant) (*batchv1obj.Job, error) {
 	container := corev1.Container{
 		Name:    model.ToolInjectionMountName,
 		Image:   image,
@@ -368,7 +365,7 @@ func (r *Reconciler) initializeVolumeClaim(ctx context.Context, image string, tn
 	}
 
 	key := client.ObjectKey{Name: j.GetName(), Namespace: j.GetNamespace()}
-	job, err := obj.ApplyJob(ctx, r.Client, key, j)
+	job, err := app.ApplyJob(ctx, r.Client, key, j)
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return nil, err
 	}

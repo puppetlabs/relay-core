@@ -94,7 +94,9 @@ func NewWorkflowRun(key client.ObjectKey) *WorkflowRun {
 	}
 }
 
-func workflowRunStatus(status duckv1beta1.Status) WorkflowRunStatus {
+// TODO: Where does this method really belong?
+
+func WorkflowRunStatusFromCondition(status duckv1beta1.Status) WorkflowRunStatus {
 	cs := status.GetCondition(apis.ConditionSucceeded)
 	if cs == nil {
 		return WorkflowRunStatusPending

@@ -5,6 +5,7 @@ import (
 	"github.com/puppetlabs/leg/graph"
 	"github.com/puppetlabs/leg/graph/traverse"
 	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
+	"github.com/puppetlabs/relay-core/pkg/obj"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 )
 
@@ -15,7 +16,7 @@ func taskRunConditionStatusSummary(status *tektonv1beta1.PipelineRunTaskRunStatu
 		}
 
 		sum.Name = name
-		sum.Status = string(workflowRunStatus(cond.Status.Status))
+		sum.Status = string(obj.WorkflowRunStatusFromCondition(cond.Status.Status))
 
 		if cond.Status.StartTime != nil {
 			sum.StartTime = cond.Status.StartTime
@@ -38,7 +39,7 @@ func taskRunStepStatusSummary(status *tektonv1beta1.PipelineRunTaskRunStatus, na
 	}
 
 	sum.Name = name
-	sum.Status = string(workflowRunStatus(status.Status.Status))
+	sum.Status = string(obj.WorkflowRunStatusFromCondition(status.Status.Status))
 
 	if status.Status.StartTime != nil {
 		sum.StartTime = status.Status.StartTime
@@ -52,9 +53,9 @@ func taskRunStepStatusSummary(status *tektonv1beta1.PipelineRunTaskRunStatus, na
 	return
 }
 
-func workflowRunSkipsPendingSteps(wr *WorkflowRun) bool {
+func workflowRunSkipsPendingSteps(wr *obj.WorkflowRun) bool {
 	switch wr.Object.Status.Status {
-	case string(WorkflowRunStatusCancelled), string(WorkflowRunStatusFailure), string(WorkflowRunStatusTimedOut):
+	case string(obj.WorkflowRunStatusCancelled), string(obj.WorkflowRunStatusFailure), string(obj.WorkflowRunStatusTimedOut):
 		return true
 	}
 
@@ -66,7 +67,7 @@ type workflowRunStatusSummariesByTaskName struct {
 	conditions map[string]nebulav1.WorkflowRunStatusSummary
 }
 
-func workflowRunStatusSummaries(wr *WorkflowRun, pr *PipelineRun) *workflowRunStatusSummariesByTaskName {
+func workflowRunStatusSummaries(wr *obj.WorkflowRun, pr *obj.PipelineRun) *workflowRunStatusSummariesByTaskName {
 	m := &workflowRunStatusSummariesByTaskName{
 		steps:      make(map[string]nebulav1.WorkflowRunStatusSummary),
 		conditions: make(map[string]nebulav1.WorkflowRunStatusSummary),
@@ -78,8 +79,8 @@ func workflowRunStatusSummaries(wr *WorkflowRun, pr *PipelineRun) *workflowRunSt
 		}
 
 		if step, ok := taskRunStepStatusSummary(taskRun, name); ok {
-			if step.Status == string(WorkflowRunStatusPending) && workflowRunSkipsPendingSteps(wr) {
-				step.Status = string(WorkflowRunStatusSkipped)
+			if step.Status == string(obj.WorkflowRunStatusPending) && workflowRunSkipsPendingSteps(wr) {
+				step.Status = string(obj.WorkflowRunStatusSkipped)
 			}
 
 			m.steps[taskRun.PipelineTaskName] = step
@@ -89,11 +90,11 @@ func workflowRunStatusSummaries(wr *WorkflowRun, pr *PipelineRun) *workflowRunSt
 	return m
 }
 
-func ConfigureWorkflowRun(wr *WorkflowRun, pr *PipelineRun) {
+func ConfigureWorkflowRun(wr *obj.WorkflowRun, pr *obj.PipelineRun) {
 	if wr.IsCancelled() {
-		wr.Object.Status.Status = string(WorkflowRunStatusCancelled)
+		wr.Object.Status.Status = string(obj.WorkflowRunStatusCancelled)
 	} else {
-		wr.Object.Status.Status = string(workflowRunStatus(pr.Object.Status.Status))
+		wr.Object.Status.Status = string(obj.WorkflowRunStatusFromCondition(pr.Object.Status.Status))
 	}
 
 	if then := pr.Object.Status.StartTime; then != nil {
@@ -130,7 +131,7 @@ func ConfigureWorkflowRun(wr *WorkflowRun, pr *PipelineRun) {
 
 		stepSummary, found := summariesByTaskName.steps[taskName]
 		if !found {
-			stepSummary.Status = string(WorkflowRunStatusPending)
+			stepSummary.Status = string(obj.WorkflowRunStatusPending)
 		}
 
 		// Retain any existing log record.
@@ -148,7 +149,7 @@ func ConfigureWorkflowRun(wr *WorkflowRun, pr *PipelineRun) {
 	// Mark skipped in order.
 	traverse.NewTopologicalOrderTraverser(skipFinder).ForEach(func(next graph.Vertex) error {
 		self := wr.Object.Status.Steps[next.(string)]
-		if self.Status != string(WorkflowRunStatusPending) {
+		if self.Status != string(obj.WorkflowRunStatusPending) {
 			return nil
 		}
 
@@ -158,8 +159,8 @@ func ConfigureWorkflowRun(wr *WorkflowRun, pr *PipelineRun) {
 			dependent := wr.Object.Status.Steps[prev.(string)]
 
 			switch dependent.Status {
-			case string(WorkflowRunStatusSkipped), string(WorkflowRunStatusFailure):
-				self.Status = string(WorkflowRunStatusSkipped)
+			case string(obj.WorkflowRunStatusSkipped), string(obj.WorkflowRunStatusFailure):
+				self.Status = string(obj.WorkflowRunStatusSkipped)
 				wr.Object.Status.Steps[next.(string)] = self
 
 				return datastructure.ErrStopIteration

@@ -4,15 +4,19 @@ import (
 	"context"
 	"path"
 
+	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/helper"
+	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
 	"github.com/puppetlabs/relay-core/pkg/entrypoint"
 	"github.com/puppetlabs/relay-core/pkg/model"
+	"github.com/puppetlabs/relay-core/pkg/obj"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func ConfigureTask(ctx context.Context, t *Task, wrd *WorkflowRunDeps, ws *nebulav1.WorkflowStep) error {
+func ConfigureTask(ctx context.Context, t *obj.Task, wrd *WorkflowRunDeps, ws *nebulav1.WorkflowStep) error {
 	image := ws.Image
 	if image == "" {
 		image = model.DefaultImage
@@ -117,7 +121,7 @@ func ConfigureTask(ctx context.Context, t *Task, wrd *WorkflowRunDeps, ws *nebul
 	// For now, we'll assume an explicit tenant reference implies the use of the tool injection suite
 	if wrd.WorkflowRun.Object.Spec.TenantRef != nil {
 		claim := wrd.WorkflowRun.Object.Spec.TenantRef.Name + model.ToolInjectionVolumeClaimSuffixReadOnlyMany
-		Annotate(&t.Object.ObjectMeta, model.RelayControllerToolsVolumeClaimAnnotation, claim)
+		helper.Annotate(&t.Object.ObjectMeta, model.RelayControllerToolsVolumeClaimAnnotation, claim)
 	}
 
 	t.Object.Spec.Steps = []tektonv1beta1.Step{
@@ -129,26 +133,23 @@ func ConfigureTask(ctx context.Context, t *Task, wrd *WorkflowRunDeps, ws *nebul
 	return nil
 }
 
-type Tasks struct {
+type TaskSet struct {
 	Deps *WorkflowRunDeps
-	List []*Task
+	List []*obj.Task
 }
 
-var _ Persister = &Tasks{}
-var _ Loader = &Tasks{}
-var _ Ownable = &Tasks{}
+var _ lifecycle.LabelAnnotatableFrom = &TaskSet{}
+var _ lifecycle.Loader = &TaskSet{}
+var _ lifecycle.Ownable = &TaskSet{}
+var _ lifecycle.Persister = &TaskSet{}
 
-func (ts *Tasks) Persist(ctx context.Context, cl client.Client) error {
+func (ts *TaskSet) LabelAnnotateFrom(ctx context.Context, from metav1.Object) {
 	for _, t := range ts.List {
-		if err := t.Persist(ctx, cl); err != nil {
-			return err
-		}
+		t.LabelAnnotateFrom(ctx, from)
 	}
-
-	return nil
 }
 
-func (ts *Tasks) Load(ctx context.Context, cl client.Client) (bool, error) {
+func (ts *TaskSet) Load(ctx context.Context, cl client.Client) (bool, error) {
 	all := true
 
 	for _, t := range ts.List {
@@ -163,7 +164,7 @@ func (ts *Tasks) Load(ctx context.Context, cl client.Client) (bool, error) {
 	return all, nil
 }
 
-func (ts *Tasks) Owned(ctx context.Context, owner Owner) error {
+func (ts *TaskSet) Owned(ctx context.Context, owner lifecycle.TypedObject) error {
 	for _, t := range ts.List {
 		if err := t.Owned(ctx, owner); err != nil {
 			return err
@@ -173,20 +174,30 @@ func (ts *Tasks) Owned(ctx context.Context, owner Owner) error {
 	return nil
 }
 
-func NewTasks(wrd *WorkflowRunDeps) *Tasks {
-	ts := &Tasks{
+func (ts *TaskSet) Persist(ctx context.Context, cl client.Client) error {
+	for _, t := range ts.List {
+		if err := t.Persist(ctx, cl); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func NewTaskSet(wrd *WorkflowRunDeps) *TaskSet {
+	ts := &TaskSet{
 		Deps: wrd,
-		List: make([]*Task, len(wrd.WorkflowRun.Object.Spec.Workflow.Steps)),
+		List: make([]*obj.Task, len(wrd.WorkflowRun.Object.Spec.Workflow.Steps)),
 	}
 
 	for i, ws := range wrd.WorkflowRun.Object.Spec.Workflow.Steps {
-		ts.List[i] = NewTask(ModelStepObjectKey(wrd.WorkflowRun.Key, ModelStep(wrd.WorkflowRun, ws)))
+		ts.List[i] = obj.NewTask(ModelStepObjectKey(wrd.WorkflowRun.Key, ModelStep(wrd.WorkflowRun, ws)))
 	}
 
 	return ts
 }
 
-func ConfigureTasks(ctx context.Context, ts *Tasks) error {
+func ConfigureTaskSet(ctx context.Context, ts *TaskSet) error {
 	if err := ts.Deps.WorkflowRun.Own(ctx, ts); err != nil {
 		return err
 	}

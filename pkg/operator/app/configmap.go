@@ -5,13 +5,62 @@ import (
 	"fmt"
 
 	"github.com/puppetlabs/leg/errmap/pkg/errmark"
+	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
 	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
 	"github.com/puppetlabs/relay-core/pkg/manager/configmap"
 	"github.com/puppetlabs/relay-core/pkg/model"
+	"github.com/puppetlabs/relay-core/pkg/obj"
 	corev1 "k8s.io/api/core/v1"
 )
 
-func ConfigureImmutableConfigMapForWorkflowRun(ctx context.Context, cm *ConfigMap, wr *WorkflowRun) error {
+func ConfigureImmutableConfigMapForWebhookTrigger(ctx context.Context, cm *corev1obj.ConfigMap, wt *obj.WebhookTrigger) error {
+	tm := ModelWebhookTrigger(wt)
+
+	// This implementation manages the underlying object, so no need to retrieve
+	// it later.
+	lcm := configmap.NewLocalConfigMap(cm.Object)
+
+	ev := evaluate.NewEvaluator()
+
+	if len(wt.Object.Spec.Spec) > 0 {
+		r, err := ev.EvaluateAll(ctx, wt.Object.Spec.Spec.Value())
+		if err != nil {
+			return errmark.MarkUser(err)
+		}
+
+		if _, err := configmap.NewSpecManager(tm, lcm).Set(ctx, r.Value.(map[string]interface{})); err != nil {
+			return err
+		}
+	}
+
+	if env := wt.Object.Spec.Env.Value(); env != nil {
+		em := configmap.NewEnvironmentManager(ModelWebhookTrigger(wt), lcm)
+
+		vars := make(map[string]interface{})
+		for name, value := range env {
+			r, err := ev.EvaluateAll(ctx, value)
+			if err != nil {
+				return errmark.MarkUser(err)
+			}
+
+			vars[name] = r.Value
+		}
+
+		em.Set(ctx, vars)
+	}
+
+	if len(wt.Object.Spec.Input) > 0 {
+		if _, err := configmap.MutateConfigMap(ctx, lcm, func(cm *corev1.ConfigMap) {
+			cm.Data[scriptConfigMapKey(tm)] = model.ScriptForInput(wt.Object.Spec.Input)
+		}); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func ConfigureImmutableConfigMapForWorkflowRun(ctx context.Context, cm *corev1obj.ConfigMap, wr *obj.WorkflowRun) error {
 	// This implementation manages the underlying object, so no need to retrieve
 	// it later.
 	lcm := configmap.NewLocalConfigMap(cm.Object)
@@ -90,7 +139,7 @@ func ConfigureImmutableConfigMapForWorkflowRun(ctx context.Context, cm *ConfigMa
 	return nil
 }
 
-func ConfigureMutableConfigMapForWorkflowRun(ctx context.Context, cm *ConfigMap, wr *WorkflowRun) error {
+func ConfigureMutableConfigMapForWorkflowRun(ctx context.Context, cm *corev1obj.ConfigMap, wr *obj.WorkflowRun) error {
 	lcm := configmap.NewLocalConfigMap(cm.Object)
 
 	for stepName, state := range wr.Object.State.Steps {

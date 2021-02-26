@@ -11,8 +11,8 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/operator/reconciler/tenant"
 	"github.com/puppetlabs/relay-core/pkg/util/capturer"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -38,14 +38,14 @@ func add(mgr manager.Manager, r reconcile.Reconciler, cfg *config.WorkflowContro
 						SetFallback(capturer.CaptureErrorHandler(cfg.Capturer(), relayv1beta1.TenantKind)).
 						Build(),
 				),
-				errhandler.WithPanicHandler(capturer.CaptureErrorHandler(cfg.Capturer(), relayv1beta1.TenantKind)),
+				errhandler.WithPanicHandler(capturer.CapturePanicHandler(cfg.Capturer(), relayv1beta1.TenantKind)),
 			),
 			filter.ChainSingleNamespaceReconciler(cfg.Namespace),
 		))
 }
 
 func Add(mgr manager.Manager, cfg *config.WorkflowControllerConfig) error {
-	mgr.GetFieldIndexer().IndexField(context.Background(), &corev1.PersistentVolume{}, "status.phase", func(o runtime.Object) []string {
+	mgr.GetFieldIndexer().IndexField(context.Background(), &corev1.PersistentVolume{}, "status.phase", func(o client.Object) []string {
 		var res []string
 		vol, ok := o.(*corev1.PersistentVolume)
 		if ok {

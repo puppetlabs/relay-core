@@ -68,20 +68,20 @@ func NewPipelineParts(deps *WorkflowRunDeps) *PipelineParts {
 	}
 }
 
-func ConfigurePipeline(ctx context.Context, p *Pipeline) error {
+func ConfigurePipelineParts(ctx context.Context, p *PipelineParts) error {
 	if err := p.Deps.WorkflowRun.Own(ctx, p); err != nil {
 		return err
 	}
 
-	if err := ConfigureConditions(ctx, p.Conditions); err != nil {
+	if err := ConfigureConditionSet(ctx, p.Conditions); err != nil {
 		return err
 	}
 
-	if err := ConfigureTasks(ctx, p.Tasks); err != nil {
+	if err := ConfigureTaskSet(ctx, p.Tasks); err != nil {
 		return err
 	}
 
-	p.Object.Spec.Tasks = make([]tektonv1beta1.PipelineTask, 0, len(p.Tasks.List))
+	p.Pipeline.Object.Spec.Tasks = make([]tektonv1beta1.PipelineTask, 0, len(p.Tasks.List))
 
 	for i, t := range p.Tasks.List {
 		ws := p.Deps.WorkflowRun.Object.Spec.Workflow.Steps[i]
@@ -105,22 +105,22 @@ func ConfigurePipeline(ctx context.Context, p *Pipeline) error {
 			}
 		}
 
-		p.Object.Spec.Tasks = append(p.Object.Spec.Tasks, pt)
+		p.Pipeline.Object.Spec.Tasks = append(p.Pipeline.Object.Spec.Tasks, pt)
 	}
 
 	return nil
 }
 
-func ApplyPipeline(ctx context.Context, cl client.Client, deps *WorkflowRunDeps) (*Pipeline, error) {
-	p := NewPipeline(deps)
+func ApplyPipelineParts(ctx context.Context, cl client.Client, deps *WorkflowRunDeps) (*PipelineParts, error) {
+	p := NewPipelineParts(deps)
 
 	if _, err := p.Load(ctx, cl); err != nil {
 		return nil, err
 	}
 
-	p.LabelAnnotateFrom(ctx, deps.WorkflowRun.Object.ObjectMeta)
+	p.LabelAnnotateFrom(ctx, deps.WorkflowRun.Object)
 
-	if err := ConfigurePipeline(ctx, p); err != nil {
+	if err := ConfigurePipelineParts(ctx, p); err != nil {
 		return nil, err
 	}
 

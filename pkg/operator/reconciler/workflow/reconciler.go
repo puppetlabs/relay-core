@@ -11,6 +11,7 @@ import (
 	"github.com/puppetlabs/leg/storage"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
 	"github.com/puppetlabs/relay-core/pkg/obj"
+	"github.com/puppetlabs/relay-core/pkg/operator/app"
 	"github.com/puppetlabs/relay-core/pkg/operator/dependency"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -60,9 +61,7 @@ func NewReconciler(dm *dependency.DependencyManager) *Reconciler {
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, err error) {
 	wr := obj.NewWorkflowRun(req.NamespacedName)
 	if ok, err := wr.Load(ctx, r.Client); err != nil {
-		return ctrl.Result{}, errmap.MapLast(err, func(err error) error {
-			return fmt.Errorf("failed to load dependencies: %+v", err)
-		})
+		return ctrl.Result{}, errmap.Wrap(err, "failed to load dependencies")
 	} else if !ok {
 		// CRD deleted from under us?
 		return ctrl.Result{}, nil
@@ -82,35 +81,29 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 
 	var pr *obj.PipelineRun
 	err = r.metrics.trackDurationWithOutcome(metricWorkflowRunStartUpDuration, func() error {
-		deps, err := obj.ApplyWorkflowRunDeps(
+		deps, err := app.ApplyWorkflowRunDeps(
 			ctx,
 			r.Client,
 			wr,
 			r.issuer,
 			r.Config.MetadataAPIURL,
-			obj.WorkflowRunDepsWithStandaloneMode(r.standalone),
+			app.WorkflowRunDepsWithStandaloneMode(r.standalone),
 		)
 
 		if err != nil {
 			err = errmark.MarkTransientIf(err, errhandler.RuleIsRequired)
 
-			return errmap.MapLast(err, func(err error) error {
-				return fmt.Errorf("failed to apply dependencies: %+v", err)
-			})
+			return errmap.Wrap(err, "failed to apply dependencies")
 		}
 
-		pipeline, err := obj.ApplyPipeline(ctx, r.Client, deps)
+		pipeline, err := app.ApplyPipelineParts(ctx, r.Client, deps)
 		if err != nil {
-			return errmap.MapLast(err, func(err error) error {
-				return fmt.Errorf("failed to apply Pipeline: %+v", err)
-			})
+			return errmap.Wrap(err, "failed to apply Pipeline")
 		}
 
-		pr, err = obj.ApplyPipelineRun(ctx, r.Client, pipeline)
+		pr, err = app.ApplyPipelineRun(ctx, r.Client, pipeline)
 		if err != nil {
-			return errmap.MapLast(err, func(err error) error {
-				return fmt.Errorf("failed to apply PipelineRun: %+v", err)
-			})
+			return errmap.Wrap(err, "failed to apply PipelineRun")
 		}
 
 		return nil
@@ -127,12 +120,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		klog.Warning(err)
 	}
 
-	obj.ConfigureWorkflowRun(wr, pr)
+	app.ConfigureWorkflowRun(wr, pr)
 
 	if err := wr.PersistStatus(ctx, r.Client); err != nil {
-		return ctrl.Result{}, errmap.MapLast(err, func(err error) error {
-			return fmt.Errorf("failed to persist WorkflowRun: %+v", err)
-		})
+		return ctrl.Result{}, errmap.Wrap(err, "failed to persist WorkflowRun")
 	}
 
 	return ctrl.Result{}, nil

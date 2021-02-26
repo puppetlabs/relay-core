@@ -3,13 +3,45 @@ package app
 import (
 	"context"
 
+	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
+	"github.com/puppetlabs/relay-core/pkg/obj"
+	tektonv1alpha1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func ConfigureCondition(ctx context.Context, c *Condition, wrd *WorkflowRunDeps, ws *nebulav1.WorkflowStep) error {
+const (
+	ConditionImage  = "relaysh/core:latest"
+	ConditionScript = `#!/bin/bash
+JQ="${JQ:-jq}"
+
+CONDITIONS_URL="${CONDITIONS_URL:-conditions}"
+VALUE_NAME="${VALUE_NAME:-success}"
+POLLING_INTERVAL="${POLLING_INTERVAL:-5s}"
+POLLING_ITERATIONS="${POLLING_ITERATIONS:-1080}"
+
+for i in $(seq ${POLLING_ITERATIONS}); do
+	CONDITIONS=$(curl "$METADATA_API_URL/${CONDITIONS_URL}")
+	VALUE=$(echo $CONDITIONS | $JQ --arg value "$VALUE_NAME" -r '.[$value]')
+	if [ -n "${VALUE}" ]; then
+	if [ "$VALUE" = "true" ]; then
+		exit 0
+	fi
+	if [ "$VALUE" = "false" ]; then
+		exit 1
+	fi
+	fi
+	sleep ${POLLING_INTERVAL}
+done
+
+exit 1
+`
+)
+
+func ConfigureCondition(ctx context.Context, c *obj.Condition, wrd *WorkflowRunDeps, ws *nebulav1.WorkflowStep) error {
 	if err := wrd.AnnotateStepToken(ctx, &c.Object.ObjectMeta, ws); err != nil {
 		return err
 	}
@@ -33,27 +65,24 @@ func ConfigureCondition(ctx context.Context, c *Condition, wrd *WorkflowRunDeps,
 	return nil
 }
 
-type Conditions struct {
+type ConditionSet struct {
 	Deps *WorkflowRunDeps
-	List []*Condition
+	List []*obj.Condition
 	idx  map[string]int
 }
 
-var _ Persister = &Conditions{}
-var _ Loader = &Conditions{}
-var _ Ownable = &Conditions{}
+var _ lifecycle.LabelAnnotatableFrom = &ConditionSet{}
+var _ lifecycle.Loader = &ConditionSet{}
+var _ lifecycle.Ownable = &ConditionSet{}
+var _ lifecycle.Persister = &ConditionSet{}
 
-func (cs *Conditions) Persist(ctx context.Context, cl client.Client) error {
-	for _, cond := range cs.List {
-		if err := cond.Persist(ctx, cl); err != nil {
-			return err
-		}
+func (cs *ConditionSet) LabelAnnotateFrom(ctx context.Context, from metav1.Object) {
+	for _, c := range cs.List {
+		c.LabelAnnotateFrom(ctx, from)
 	}
-
-	return nil
 }
 
-func (cs *Conditions) Load(ctx context.Context, cl client.Client) (bool, error) {
+func (cs *ConditionSet) Load(ctx context.Context, cl client.Client) (bool, error) {
 	all := true
 
 	for _, cond := range cs.List {
@@ -68,7 +97,7 @@ func (cs *Conditions) Load(ctx context.Context, cl client.Client) (bool, error) 
 	return all, nil
 }
 
-func (cs *Conditions) Owned(ctx context.Context, owner Owner) error {
+func (cs *ConditionSet) Owned(ctx context.Context, owner lifecycle.TypedObject) error {
 	for _, cond := range cs.List {
 		if err := cond.Owned(ctx, owner); err != nil {
 			return err
@@ -78,7 +107,17 @@ func (cs *Conditions) Owned(ctx context.Context, owner Owner) error {
 	return nil
 }
 
-func (cs *Conditions) GetByStepName(stepName string) (*Condition, bool) {
+func (cs *ConditionSet) Persist(ctx context.Context, cl client.Client) error {
+	for _, cond := range cs.List {
+		if err := cond.Persist(ctx, cl); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (cs *ConditionSet) GetByStepName(stepName string) (*obj.Condition, bool) {
 	idx, found := cs.idx[stepName]
 	if !found {
 		return nil, false
@@ -87,8 +126,8 @@ func (cs *Conditions) GetByStepName(stepName string) (*Condition, bool) {
 	return cs.List[idx], true
 }
 
-func NewConditions(wrd *WorkflowRunDeps) *Conditions {
-	cs := &Conditions{
+func NewConditionSet(wrd *WorkflowRunDeps) *ConditionSet {
+	cs := &ConditionSet{
 		Deps: wrd,
 		idx:  make(map[string]int),
 	}
@@ -99,7 +138,7 @@ func NewConditions(wrd *WorkflowRunDeps) *Conditions {
 			continue
 		}
 
-		cs.List = append(cs.List, NewCondition(ModelStepObjectKey(wrd.WorkflowRun.Key, ModelStep(wrd.WorkflowRun, ws))))
+		cs.List = append(cs.List, obj.NewCondition(ModelStepObjectKey(wrd.WorkflowRun.Key, ModelStep(wrd.WorkflowRun, ws))))
 		cs.idx[ws.Name] = i
 		i++
 	}
@@ -107,7 +146,7 @@ func NewConditions(wrd *WorkflowRunDeps) *Conditions {
 	return cs
 }
 
-func ConfigureConditions(ctx context.Context, cs *Conditions) error {
+func ConfigureConditionSet(ctx context.Context, cs *ConditionSet) error {
 	if err := cs.Deps.WorkflowRun.Own(ctx, cs); err != nil {
 		return err
 	}

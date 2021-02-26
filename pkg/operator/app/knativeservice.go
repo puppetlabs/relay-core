@@ -4,10 +4,13 @@ import (
 	"context"
 	"path"
 
+	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/helper"
+	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
 	"github.com/puppetlabs/relay-core/pkg/entrypoint"
 	"github.com/puppetlabs/relay-core/pkg/model"
+	"github.com/puppetlabs/relay-core/pkg/obj"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -26,11 +29,11 @@ const (
 	KnativeServiceVisibilityClusterLocal = "cluster-local"
 )
 
-func ConfigureKnativeService(ctx context.Context, s *KnativeService, wtd *WebhookTriggerDeps) error {
+func ConfigureKnativeService(ctx context.Context, s *obj.KnativeService, wtd *WebhookTriggerDeps) error {
 	// FIXME This should be configurable
-	s.Annotate(ctx, AmbassadorIDAnnotation, AmbassadorID)
-	s.Label(ctx, KnativeServiceVisibilityLabel, KnativeServiceVisibilityClusterLocal)
-	s.LabelAnnotateFrom(ctx, wtd.WebhookTrigger.Object.ObjectMeta)
+	lifecycle.Annotate(ctx, s, AmbassadorIDAnnotation, AmbassadorID)
+	lifecycle.Label(ctx, s, KnativeServiceVisibilityLabel, KnativeServiceVisibilityClusterLocal)
+	s.LabelAnnotateFrom(ctx, wtd.WebhookTrigger.Object)
 
 	// Owned by the owner ConfigMap so we only have to worry about deleting one
 	// thing.
@@ -40,7 +43,9 @@ func ConfigureKnativeService(ctx context.Context, s *KnativeService, wtd *Webhoo
 
 	// We also set this as a dependency of the webhook trigger so that changes
 	// to the service will propagate back using our event handler.
-	SetDependencyOf(&s.Object.ObjectMeta, Owner{Object: wtd.WebhookTrigger.Object, GVK: relayv1beta1.WebhookTriggerKind})
+	if err := DependencyManager.SetDependencyOf(&s.Object.ObjectMeta, lifecycle.TypedObject{Object: wtd.WebhookTrigger.Object, GVK: relayv1beta1.WebhookTriggerKind}); err != nil {
+		return err
+	}
 
 	template := servingv1.RevisionTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
@@ -170,7 +175,7 @@ func ConfigureKnativeService(ctx context.Context, s *KnativeService, wtd *Webhoo
 	}
 
 	if wtd.Tenant.Object.Spec.ToolInjection.VolumeClaimTemplate != nil {
-		Annotate(&template.ObjectMeta, model.RelayControllerToolsVolumeClaimAnnotation, wtd.Tenant.Object.GetName()+model.ToolInjectionVolumeClaimSuffixReadOnlyMany)
+		helper.Annotate(&template.ObjectMeta, model.RelayControllerToolsVolumeClaimAnnotation, wtd.Tenant.Object.GetName()+model.ToolInjectionVolumeClaimSuffixReadOnlyMany)
 	}
 
 	s.Object.Spec = servingv1.ServiceSpec{
@@ -182,8 +187,8 @@ func ConfigureKnativeService(ctx context.Context, s *KnativeService, wtd *Webhoo
 	return nil
 }
 
-func ApplyKnativeService(ctx context.Context, cl client.Client, wtd *WebhookTriggerDeps) (*KnativeService, error) {
-	s := NewKnativeService(client.ObjectKey{
+func ApplyKnativeService(ctx context.Context, cl client.Client, wtd *WebhookTriggerDeps) (*obj.KnativeService, error) {
+	s := obj.NewKnativeService(client.ObjectKey{
 		Namespace: wtd.TenantDeps.Namespace.Name,
 		Name:      wtd.WebhookTrigger.Key.Name,
 	})
@@ -201,4 +206,16 @@ func ApplyKnativeService(ctx context.Context, cl client.Client, wtd *WebhookTrig
 	}
 
 	return s, nil
+}
+
+type KnativeServiceResult struct {
+	KnativeService *obj.KnativeService
+	Error          error
+}
+
+func AsKnativeServiceResult(ks *obj.KnativeService, err error) *KnativeServiceResult {
+	return &KnativeServiceResult{
+		KnativeService: ks,
+		Error:          err,
+	}
 }

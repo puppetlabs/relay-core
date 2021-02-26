@@ -2,10 +2,11 @@ package app
 
 import (
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
+	"github.com/puppetlabs/relay-core/pkg/obj"
 	corev1 "k8s.io/api/core/v1"
 )
 
-func ConfigureWebhookTrigger(wt *WebhookTrigger, ksr *KnativeServiceResult) {
+func ConfigureWebhookTrigger(wt *obj.WebhookTrigger, ksr *KnativeServiceResult) {
 	// Set up our initial map from the existing data.
 	conds := map[relayv1beta1.WebhookTriggerConditionType]*relayv1beta1.Condition{
 		relayv1beta1.WebhookTriggerServiceReady: &relayv1beta1.Condition{},
@@ -21,13 +22,13 @@ func ConfigureWebhookTrigger(wt *WebhookTrigger, ksr *KnativeServiceResult) {
 		if ksr.Error != nil {
 			return relayv1beta1.Condition{
 				Status:  corev1.ConditionFalse,
-				Reason:  WebhookTriggerStatusReasonServiceError,
+				Reason:  obj.WebhookTriggerStatusReasonServiceError,
 				Message: ksr.Error.Error(),
 			}
 		} else if ksr.KnativeService != nil && ksr.KnativeService.Object.IsReady() {
 			return relayv1beta1.Condition{
 				Status:  corev1.ConditionTrue,
-				Reason:  WebhookTriggerStatusReasonServiceReady,
+				Reason:  obj.WebhookTriggerStatusReasonServiceReady,
 				Message: "The service is ready to handle requests.",
 			}
 		}
@@ -42,13 +43,13 @@ func ConfigureWebhookTrigger(wt *WebhookTrigger, ksr *KnativeServiceResult) {
 		case corev1.ConditionTrue:
 			return relayv1beta1.Condition{
 				Status:  corev1.ConditionTrue,
-				Reason:  WebhookTriggerStatusReasonReady,
+				Reason:  obj.WebhookTriggerStatusReasonReady,
 				Message: "The webhook trigger is configured.",
 			}
 		case corev1.ConditionFalse:
 			return relayv1beta1.Condition{
 				Status:  corev1.ConditionFalse,
-				Reason:  WebhookTriggerStatusReasonError,
+				Reason:  obj.WebhookTriggerStatusReasonError,
 				Message: "One or more webhook trigger components failed.",
 			}
 		}

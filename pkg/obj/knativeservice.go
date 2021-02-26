@@ -46,15 +46,3 @@ func NewKnativeService(key client.ObjectKey) *KnativeService {
 		Object: &servingv1.Service{},
 	}
 }
-
-type KnativeServiceResult struct {
-	KnativeService *KnativeService
-	Error          error
-}
-
-func AsKnativeServiceResult(ks *KnativeService, err error) *KnativeServiceResult {
-	return &KnativeServiceResult{
-		KnativeService: ks,
-		Error:          err,
-	}
-}

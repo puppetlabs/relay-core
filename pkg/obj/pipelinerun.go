@@ -46,7 +46,7 @@ func (pr *PipelineRun) Complete() bool {
 			continue
 		}
 
-		if workflowRunStatus(tr.Status.Status) == WorkflowRunStatusInProgress {
+		if WorkflowRunStatusFromCondition(tr.Status.Status) == WorkflowRunStatusInProgress {
 			return false
 		}
 	}
