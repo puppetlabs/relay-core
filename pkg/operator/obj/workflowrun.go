@@ -73,7 +73,15 @@ func (wr *WorkflowRun) IsCancelled() bool {
 	return state.Value() == true
 }
 
+func (wr *WorkflowRun) Fail(ctx context.Context, cl client.Client) error {
+	return wr.applyStatus(ctx, cl, WorkflowRunStatusFailure)
+}
+
 func (wr *WorkflowRun) Complete(ctx context.Context, cl client.Client) error {
+	return wr.applyStatus(ctx, cl, WorkflowRunStatusSuccess)
+}
+
+func (wr *WorkflowRun) applyStatus(ctx context.Context, cl client.Client, status WorkflowRunStatus) error {
 	if wr.Object.Status.StartTime == nil {
 		wr.Object.Status.StartTime = &metav1.Time{Time: time.Now()}
 	}
@@ -82,7 +90,7 @@ func (wr *WorkflowRun) Complete(ctx context.Context, cl client.Client) error {
 		wr.Object.Status.CompletionTime = &metav1.Time{Time: time.Now()}
 	}
 
-	wr.Object.Status.Status = string(WorkflowRunStatusSuccess)
+	wr.Object.Status.Status = string(status)
 
 	return wr.PersistStatus(ctx, cl)
 }
