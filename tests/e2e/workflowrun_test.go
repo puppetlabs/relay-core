@@ -60,14 +60,14 @@ func TestWorkflowRunWithTenantToolInjectionUsingInput(t *testing.T) {
 			},
 		}
 
-		CreateAndWaitForTenant(t, ctx, tenant)
+		CreateAndWaitForTenant(t, ctx, cfg, tenant)
 
 		var ns corev1.Namespace
 		require.Equal(t, cfg.Namespace.GetName(), tenant.Status.Namespace)
-		require.NoError(t, e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: tenant.Status.Namespace}, &ns))
+		require.NoError(t, cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: tenant.Status.Namespace}, &ns))
 
 		var pvc corev1.PersistentVolumeClaim
-		require.NoError(t, e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: tenant.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany, Namespace: tenant.Status.Namespace}, &pvc))
+		require.NoError(t, cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: tenant.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany, Namespace: tenant.Status.Namespace}, &pvc))
 
 		wr := &nebulav1.WorkflowRun{
 			ObjectMeta: metav1.ObjectMeta{
@@ -103,11 +103,11 @@ func TestWorkflowRunWithTenantToolInjectionUsingInput(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, e2e.ControllerRuntimeClient.Create(ctx, wr))
+		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, wr))
 
 		// Wait for step to start. Could use a ListWatcher but meh.
 		require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
-			if err := e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{
+			if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{
 				Namespace: wr.GetNamespace(),
 				Name:      wr.GetName(),
 			}, wr); err != nil {
@@ -124,7 +124,7 @@ func TestWorkflowRunWithTenantToolInjectionUsingInput(t *testing.T) {
 		pod := &corev1.Pod{}
 		require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
 			pods := &corev1.PodList{}
-			if err := e2e.ControllerRuntimeClient.List(ctx, pods, client.InNamespace(tenant.Status.Namespace), client.MatchingLabels{
+			if err := cfg.Environment.ControllerClient.List(ctx, pods, client.InNamespace(tenant.Status.Namespace), client.MatchingLabels{
 				"tekton.dev/task": (&model.Step{Run: model.Run{ID: wr.Spec.Name}, Name: "my-test-step"}).Hash().HexEncoding(),
 			}); err != nil {
 				return true, err
@@ -147,7 +147,7 @@ func TestWorkflowRunWithTenantToolInjectionUsingInput(t *testing.T) {
 			Container: "step-step",
 		}
 
-		logs := e2e.Interface.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, podLogOptions)
+		logs := cfg.Environment.StaticClient.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, podLogOptions)
 		podLogs, err := logs.Stream(ctx)
 		require.NoError(t, err)
 		defer podLogs.Close()
@@ -160,7 +160,7 @@ func TestWorkflowRunWithTenantToolInjectionUsingInput(t *testing.T) {
 
 		require.Contains(t, str, model.EntrypointCommand)
 
-		e2e.ControllerRuntimeClient.Delete(ctx, &pvc)
+		cfg.Environment.ControllerClient.Delete(ctx, &pvc)
 	})
 }
 
@@ -197,14 +197,14 @@ func TestWorkflowRunWithTenantToolInjectionUsingCommand(t *testing.T) {
 			},
 		}
 
-		CreateAndWaitForTenant(t, ctx, tenant)
+		CreateAndWaitForTenant(t, ctx, cfg, tenant)
 
 		var ns corev1.Namespace
 		require.Equal(t, cfg.Namespace.GetName(), tenant.Status.Namespace)
-		require.NoError(t, e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: tenant.Status.Namespace}, &ns))
+		require.NoError(t, cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: tenant.Status.Namespace}, &ns))
 
 		var pvc corev1.PersistentVolumeClaim
-		require.NoError(t, e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: tenant.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany, Namespace: tenant.Status.Namespace}, &pvc))
+		require.NoError(t, cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: tenant.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany, Namespace: tenant.Status.Namespace}, &pvc))
 
 		wr := &nebulav1.WorkflowRun{
 			ObjectMeta: metav1.ObjectMeta{
@@ -239,11 +239,11 @@ func TestWorkflowRunWithTenantToolInjectionUsingCommand(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, e2e.ControllerRuntimeClient.Create(ctx, wr))
+		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, wr))
 
 		// Wait for step to start. Could use a ListWatcher but meh.
 		require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
-			if err := e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{
+			if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{
 				Namespace: wr.GetNamespace(),
 				Name:      wr.GetName(),
 			}, wr); err != nil {
@@ -260,7 +260,7 @@ func TestWorkflowRunWithTenantToolInjectionUsingCommand(t *testing.T) {
 		pod := &corev1.Pod{}
 		require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
 			pods := &corev1.PodList{}
-			if err := e2e.ControllerRuntimeClient.List(ctx, pods, client.InNamespace(tenant.Status.Namespace), client.MatchingLabels{
+			if err := cfg.Environment.ControllerClient.List(ctx, pods, client.InNamespace(tenant.Status.Namespace), client.MatchingLabels{
 				"tekton.dev/task": (&model.Step{Run: model.Run{ID: wr.Spec.Name}, Name: "my-test-step"}).Hash().HexEncoding(),
 			}); err != nil {
 				return true, err
@@ -283,7 +283,7 @@ func TestWorkflowRunWithTenantToolInjectionUsingCommand(t *testing.T) {
 			Container: "step-step",
 		}
 
-		logs := e2e.Interface.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, podLogOptions)
+		logs := cfg.Environment.StaticClient.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, podLogOptions)
 		podLogs, err := logs.Stream(ctx)
 		require.NoError(t, err)
 		defer podLogs.Close()
@@ -296,7 +296,7 @@ func TestWorkflowRunWithTenantToolInjectionUsingCommand(t *testing.T) {
 
 		require.Contains(t, str, model.EntrypointCommand)
 
-		e2e.ControllerRuntimeClient.Delete(ctx, &pvc)
+		cfg.Environment.ControllerClient.Delete(ctx, &pvc)
 	})
 }
 
@@ -380,11 +380,11 @@ func TestWorkflowRun(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, e2e.ControllerRuntimeClient.Create(ctx, wr))
+		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, wr))
 
 		// Wait for step to start. Could use a ListWatcher but meh.
 		require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
-			if err := e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{
+			if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{
 				Namespace: wr.GetNamespace(),
 				Name:      wr.GetName(),
 			}, wr); err != nil {
@@ -402,7 +402,7 @@ func TestWorkflowRun(t *testing.T) {
 		pod := &corev1.Pod{}
 		require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
 			pods := &corev1.PodList{}
-			if err := e2e.ControllerRuntimeClient.List(ctx, pods, client.InNamespace(wr.GetNamespace()), client.MatchingLabels{
+			if err := cfg.Environment.ControllerClient.List(ctx, pods, client.InNamespace(wr.GetNamespace()), client.MatchingLabels{
 				// TODO: We shouldn't really hardcode this.
 				"tekton.dev/task": (&model.Step{Run: model.Run{ID: wr.Spec.Name}, Name: "my-test-step"}).Hash().HexEncoding(),
 			}); err != nil {
@@ -550,10 +550,10 @@ func TestWorkflowRunWithoutSteps(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, e2e.ControllerRuntimeClient.Create(ctx, wr))
+		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, wr))
 
 		require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
-			if err := e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: wr.GetName(), Namespace: wr.GetNamespace()}, wr); err != nil {
+			if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: wr.GetName(), Namespace: wr.GetNamespace()}, wr); err != nil {
 				if k8serrors.IsNotFound(err) {
 					return false, fmt.Errorf("waiting for initial workflow run")
 				}
@@ -578,15 +578,15 @@ func TestWorkflowRunInGVisor(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 6*time.Minute)
 	defer cancel()
 
-	if e2e.GVisorRuntimeClassName == "" {
-		t.Skip("gVisor is not available on this platform")
-	}
-
 	WithConfig(t, ctx, []ConfigOption{
 		ConfigWithMetadataAPIBoundInCluster,
 		ConfigWithWorkflowRunReconciler,
 		ConfigWithPodEnforcementAdmission,
 	}, func(cfg *Config) {
+		if cfg.Environment.GVisorRuntimeClassName == "" {
+			t.Skip("gVisor is not available on this platform")
+		}
+
 		tests := []struct {
 			Name           string
 			StepDefinition *nebulav1.WorkflowStep
@@ -642,11 +642,11 @@ func TestWorkflowRunInGVisor(t *testing.T) {
 						},
 					},
 				}
-				require.NoError(t, e2e.ControllerRuntimeClient.Create(ctx, wr))
+				require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, wr))
 
 				// Wait for step to succeed.
 				require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
-					if err := e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{
+					if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{
 						Namespace: wr.GetNamespace(),
 						Name:      wr.GetName(),
 					}, wr); err != nil {
@@ -667,7 +667,7 @@ func TestWorkflowRunInGVisor(t *testing.T) {
 				pod := &corev1.Pod{}
 				require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
 					pods := &corev1.PodList{}
-					if err := e2e.ControllerRuntimeClient.List(ctx, pods, client.InNamespace(wr.GetNamespace()), client.MatchingLabels{
+					if err := cfg.Environment.ControllerClient.List(ctx, pods, client.InNamespace(wr.GetNamespace()), client.MatchingLabels{
 						// TODO: We shouldn't really hardcode this.
 						"tekton.dev/task": (&model.Step{Run: model.Run{ID: wr.Spec.Name}, Name: "my-test-step"}).Hash().HexEncoding(),
 					}); err != nil {
@@ -686,7 +686,7 @@ func TestWorkflowRunInGVisor(t *testing.T) {
 					Container: "step-step",
 				}
 
-				logs := e2e.Interface.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, podLogOptions)
+				logs := cfg.Environment.StaticClient.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, podLogOptions)
 				podLogs, err := logs.Stream(ctx)
 				require.NoError(t, err)
 				defer podLogs.Close()

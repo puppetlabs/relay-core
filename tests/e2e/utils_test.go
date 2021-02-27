@@ -10,13 +10,12 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func WaitForTenant(t *testing.T, ctx context.Context, tn *relayv1beta1.Tenant) {
+func WaitForTenant(t *testing.T, ctx context.Context, cfg *Config, tn *relayv1beta1.Tenant) {
 	require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
-		if err := e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{
+		if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{
 			Namespace: tn.GetNamespace(),
 			Name:      tn.GetName(),
 		}, tn); err != nil {
@@ -41,22 +40,21 @@ func WaitForTenant(t *testing.T, ctx context.Context, tn *relayv1beta1.Tenant) {
 	}))
 }
 
-func CreateAndWaitForTenant(t *testing.T, ctx context.Context, tn *relayv1beta1.Tenant) {
-	require.NoError(t, e2e.ControllerRuntimeClient.Create(ctx, tn))
-	WaitForTenant(t, ctx, tn)
+func CreateAndWaitForTenant(t *testing.T, ctx context.Context, cfg *Config, tn *relayv1beta1.Tenant) {
+	require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, tn))
+	WaitForTenant(t, ctx, cfg, tn)
 }
 
-func Mutate(t *testing.T, ctx context.Context, obj runtime.Object, fn func()) {
-	key, err := client.ObjectKeyFromObject(obj)
-	require.NoError(t, err)
+func Mutate(t *testing.T, ctx context.Context, cfg *Config, obj client.Object, fn func()) {
+	key := client.ObjectKeyFromObject(obj)
 
 	require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
 		// Mutation function.
 		fn()
 
-		if err := e2e.ControllerRuntimeClient.Update(ctx, obj); errors.IsConflict(err) {
+		if err := cfg.Environment.ControllerClient.Update(ctx, obj); errors.IsConflict(err) {
 			// Controller changed object, reload.
-			if err := e2e.ControllerRuntimeClient.Get(ctx, key, obj); err != nil {
+			if err := cfg.Environment.ControllerClient.Get(ctx, key, obj); err != nil {
 				return true, err
 			}
 

@@ -64,8 +64,7 @@ type RelayCoreReconciler struct {
 // +kubebuilder:rbac:groups=relay.sh,resources=tenants;tenants/status;webhooktriggers;webhooktriggers/status,verbs=get;list;watch;patch;update
 // +kubebuilder:rbac:groups=serving.knative.dev,resources=services,verbs=get;list;watch;create;update;patch;delete
 
-func (r *RelayCoreReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	ctx := context.Background()
+func (r *RelayCoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := r.Log.WithValues("relaycore", req.NamespacedName)
 
 	relayCore := &installerv1alpha1.RelayCore{}
@@ -159,11 +158,11 @@ func (r *RelayCoreReconciler) checkSecret(ctx context.Context, key types.Namespa
 	return nil
 }
 
-func (r *RelayCoreReconciler) relayCores(obj handler.MapObject) []ctrl.Request {
+func (r *RelayCoreReconciler) relayCores(obj client.Object) []ctrl.Request {
 	ctx := context.Background()
 
 	listOptions := []client.ListOption{
-		client.InNamespace(obj.Meta.GetNamespace()),
+		client.InNamespace(obj.GetNamespace()),
 	}
 
 	var list installerv1alpha1.RelayCoreList
@@ -184,7 +183,7 @@ func (r *RelayCoreReconciler) relayCores(obj handler.MapObject) []ctrl.Request {
 func (r *RelayCoreReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(),
 		&installerv1alpha1.RelayCore{}, ownerKey,
-		func(rawObject runtime.Object) []string {
+		func(rawObject client.Object) []string {
 			return []string{}
 		}); err != nil {
 		return err
@@ -198,8 +197,7 @@ func (r *RelayCoreReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.ConfigMap{}).
 		Watches(
 			&source.Kind{Type: &installerv1alpha1.RelayCore{}},
-			&handler.EnqueueRequestsFromMapFunc{
-				ToRequests: handler.ToRequestsFunc(r.relayCores),
-			}).
+			handler.EnqueueRequestsFromMapFunc(r.relayCores),
+		).
 		Complete(r)
 }

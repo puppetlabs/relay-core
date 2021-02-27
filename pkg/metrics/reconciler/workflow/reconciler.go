@@ -23,9 +23,7 @@ type WorkflowRunReconciler struct {
 
 var _ reconcile.Reconciler = &WorkflowRunReconciler{}
 
-func (r *WorkflowRunReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	ctx := context.Background()
-
+func (r *WorkflowRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	wr := &nebulav1.WorkflowRun{}
 
 	if err := r.client.Get(ctx, req.NamespacedName, wr); errors.IsNotFound(err) {

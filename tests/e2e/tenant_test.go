@@ -42,11 +42,11 @@ func TestTenantFinalizer(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, e2e.ControllerRuntimeClient.Create(ctx, tenant))
+		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, tenant))
 
 		// Wait for namespace.
 		require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
-			if err := e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{
+			if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{
 				Namespace: tenant.GetNamespace(),
 				Name:      tenant.GetName(),
 			}, tenant); err != nil {
@@ -64,14 +64,14 @@ func TestTenantFinalizer(t *testing.T) {
 
 		// Get child namespace.
 		namespace := &corev1.Namespace{}
-		require.NoError(t, e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: child}, namespace))
+		require.NoError(t, cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: child}, namespace))
 
 		// Delete tenant.
-		require.NoError(t, e2e.ControllerRuntimeClient.Delete(ctx, tenant))
+		require.NoError(t, cfg.Environment.ControllerClient.Delete(ctx, tenant))
 
 		// Get child namespace again, should be gone after delete.
 		require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
-			if err := e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: child}, namespace); errors.IsNotFound(err) {
+			if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: child}, namespace); errors.IsNotFound(err) {
 				return true, nil
 			} else if err != nil {
 				return true, err
@@ -111,12 +111,12 @@ func TestTenantAPITriggerEventSinkMissingSecret(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, e2e.ControllerRuntimeClient.Create(ctx, tenant))
+		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, tenant))
 
 		// Wait for tenant to reconcile.
 		var cond relayv1beta1.TenantCondition
 		require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
-			if err := e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{
+			if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{
 				Namespace: tenant.GetNamespace(),
 				Name:      tenant.GetName(),
 			}, tenant); err != nil {
@@ -151,7 +151,7 @@ func TestTenantAPITriggerEventSinkWithSecret(t *testing.T) {
 				"token": "test",
 			},
 		}
-		require.NoError(t, e2e.ControllerRuntimeClient.Create(ctx, secret))
+		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, secret))
 
 		tenant := &relayv1beta1.Tenant{
 			ObjectMeta: metav1.ObjectMeta{
@@ -174,7 +174,7 @@ func TestTenantAPITriggerEventSinkWithSecret(t *testing.T) {
 				},
 			},
 		}
-		CreateAndWaitForTenant(t, ctx, tenant)
+		CreateAndWaitForTenant(t, ctx, cfg, tenant)
 	})
 }
 
@@ -196,7 +196,7 @@ func TestTenantAPITriggerEventSinkWithNamespaceAndSecret(t *testing.T) {
 				"token": "test",
 			},
 		}
-		require.NoError(t, e2e.ControllerRuntimeClient.Create(ctx, secret))
+		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, secret))
 
 		tenant := &relayv1beta1.Tenant{
 			ObjectMeta: metav1.ObjectMeta{
@@ -224,7 +224,7 @@ func TestTenantAPITriggerEventSinkWithNamespaceAndSecret(t *testing.T) {
 				},
 			},
 		}
-		CreateAndWaitForTenant(t, ctx, tenant)
+		CreateAndWaitForTenant(t, ctx, cfg, tenant)
 	})
 }
 
@@ -251,26 +251,26 @@ func TestTenantNamespaceUpdate(t *testing.T) {
 				},
 			},
 		}
-		CreateAndWaitForTenant(t, ctx, tenant)
+		CreateAndWaitForTenant(t, ctx, cfg, tenant)
 
 		// Child namespace should now exist.
 		var ns1 corev1.Namespace
 		require.Equal(t, child1, tenant.Status.Namespace)
-		require.NoError(t, e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: child1}, &ns1))
+		require.NoError(t, cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: child1}, &ns1))
 
 		// Change namespace in tenant.
-		Mutate(t, ctx, tenant, func() {
+		Mutate(t, ctx, cfg, tenant, func() {
 			tenant.Spec.NamespaceTemplate.Metadata.Name = child2
 		})
-		WaitForTenant(t, ctx, tenant)
+		WaitForTenant(t, ctx, cfg, tenant)
 
 		// First child namespace should now not exist or have deletion timestamp
 		// set, second should exist.
 		var ns2 corev1.Namespace
 		require.Equal(t, child2, tenant.Status.Namespace)
-		require.NoError(t, e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: child2}, &ns2))
+		require.NoError(t, cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: child2}, &ns2))
 
-		if err := e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: child1}, &ns1); err != nil {
+		if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: child1}, &ns1); err != nil {
 			require.True(t, errors.IsNotFound(err))
 		} else {
 			require.NotEmpty(t, ns1.GetDeletionTimestamp())
@@ -315,14 +315,14 @@ func TestTenantToolInjection(t *testing.T) {
 			},
 		}
 
-		CreateAndWaitForTenant(t, ctx, tenant)
+		CreateAndWaitForTenant(t, ctx, cfg, tenant)
 
 		var ns corev1.Namespace
 		require.Equal(t, child, tenant.Status.Namespace)
-		require.NoError(t, e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: child}, &ns))
+		require.NoError(t, cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: child}, &ns))
 
 		var pvc corev1.PersistentVolumeClaim
-		require.NoError(t, e2e.ControllerRuntimeClient.Get(ctx, client.ObjectKey{Name: tenant.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany, Namespace: tenant.Status.Namespace}, &pvc))
-		e2e.ControllerRuntimeClient.Delete(ctx, &pvc)
+		require.NoError(t, cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: tenant.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany, Namespace: tenant.Status.Namespace}, &pvc))
+		cfg.Environment.ControllerClient.Delete(ctx, &pvc)
 	})
 }

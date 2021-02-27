@@ -7,6 +7,7 @@ import (
 	"log"
 
 	"github.com/google/uuid"
+	"github.com/puppetlabs/leg/k8sutil/pkg/manifest"
 	"github.com/puppetlabs/leg/timeutil/pkg/retry"
 	"github.com/puppetlabs/relay-core/pkg/operator/dependency"
 	tekton "github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
@@ -115,23 +116,18 @@ func filterListPods(tracker testing.ObjectTracker) testing.ReactionFunc {
 	}
 }
 
-func ParseApplyKubernetesManifest(ctx context.Context, cl client.Client, r io.ReadCloser, patchers ...ParseKubernetesManifestPatcherFunc) ([]runtime.Object, error) {
-	objs, err := ParseKubernetesManifest(r, patchers...)
+func ParseApplyKubernetesManifest(ctx context.Context, cl client.Client, r io.ReadCloser, patchers ...manifest.PatcherFunc) ([]manifest.Object, error) {
+	objs, err := manifest.Parse(TestScheme, r, patchers...)
 	if err != nil {
 		return nil, err
 	}
 
 	for i, obj := range objs {
-		md, err := meta.Accessor(obj)
-		if err != nil {
-			log.Printf("... applying %s (error retrieving object name: %+v)", obj.GetObjectKind().GroupVersionKind(), err)
-		} else {
-			name := md.GetName()
-			if md.GetNamespace() != "" {
-				name = md.GetNamespace() + "/" + name
-			}
-			log.Printf("... applying %s %s", obj.GetObjectKind().GroupVersionKind(), name)
+		name := obj.GetName()
+		if obj.GetNamespace() != "" {
+			name = obj.GetNamespace() + "/" + name
 		}
+		log.Printf("... applying %s %s", obj.GetObjectKind().GroupVersionKind(), name)
 
 		if err := cl.Patch(ctx, obj, client.Apply, client.ForceOwnership, client.FieldOwner("relay-e2e")); err != nil {
 			return nil, fmt.Errorf("could not apply object #%d %T: %+v", i, obj, err)
@@ -174,11 +170,8 @@ func WaitForServicesToBeReady(ctx context.Context, cl client.Client, namespace s
 	return nil
 }
 
-func WaitForObjectDeletion(ctx context.Context, cl client.Client, obj runtime.Object) error {
-	key, err := client.ObjectKeyFromObject(obj)
-	if err != nil {
-		return err
-	}
+func WaitForObjectDeletion(ctx context.Context, cl client.Client, obj client.Object) error {
+	key := client.ObjectKeyFromObject(obj)
 
 	return retry.Wait(ctx, func(ctx context.Context) (bool, error) {
 		if err := cl.Get(ctx, key, obj); errors.IsNotFound(err) {

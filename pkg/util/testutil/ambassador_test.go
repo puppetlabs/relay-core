@@ -9,10 +9,10 @@ import (
 )
 
 func TestInstallAmbassador(t *testing.T) {
-	testutil.WithEndToEndEnvironment(t, func(e2e *testutil.EndToEndEnvironment) {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-		defer cancel()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
 
-		testutil.InstallAmbassador(t, ctx, e2e.ControllerRuntimeClient, e2e.RESTMapper)
+	testutil.WithEndToEndEnvironment(t, ctx, nil, func(e2e *testutil.EndToEndEnvironment) {
+		testutil.InstallAmbassador(t, ctx, e2e.ControllerClient, e2e.RESTMapper)
 	})
 }

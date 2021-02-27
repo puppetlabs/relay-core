@@ -25,9 +25,7 @@ type EventReconciler struct {
 
 var _ reconcile.Reconciler = &EventReconciler{}
 
-func (r *EventReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	ctx := context.Background()
-
+func (r *EventReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	ev := &corev1.Event{}
 
 	if err := r.client.Get(ctx, req.NamespacedName, ev); errors.IsNotFound(err) {

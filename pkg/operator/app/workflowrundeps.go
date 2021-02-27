@@ -184,6 +184,7 @@ func NewWorkflowRunDeps(wr *obj.WorkflowRun, issuer authenticate.Issuer, metadat
 		PipelineServiceAccount:  corev1obj.NewServiceAccount(SuffixObjectKey(key, "pipeline")),
 		UntrustedServiceAccount: corev1obj.NewServiceAccount(SuffixObjectKey(key, "untrusted")),
 	}
+	wrd.MetadataAPIServiceAccountTokenSecrets = corev1obj.NewServiceAccountTokenSecrets(wrd.MetadataAPIServiceAccount)
 
 	for _, opt := range opts {
 		opt(wrd)

@@ -137,6 +137,7 @@ func (wtd *WebhookTriggerDeps) Load(ctx context.Context, cl client.Client) (*Web
 	wtd.MutableConfigMap = corev1obj.NewConfigMap(SuffixObjectKey(key, "mutable"))
 
 	wtd.MetadataAPIServiceAccount = corev1obj.NewServiceAccount(SuffixObjectKey(key, "metadata-api"))
+	wtd.MetadataAPIServiceAccountTokenSecrets = corev1obj.NewServiceAccountTokenSecrets(wtd.MetadataAPIServiceAccount)
 	wtd.MetadataAPIRole = rbacv1obj.NewRole(SuffixObjectKey(key, "metadata-api"))
 	wtd.MetadataAPIRoleBinding = rbacv1obj.NewRoleBinding(SuffixObjectKey(key, "metadata-api"))
 

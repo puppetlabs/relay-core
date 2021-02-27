@@ -38,8 +38,7 @@ type KubernetesInterface struct {
 }
 
 const (
-	PodValidationTimeout          = 120 * time.Second
-	PodValidationBackoffFrequency = 250 * time.Millisecond
+	PodValidationTimeout = 120 * time.Second
 )
 
 func NewKubernetesInterfaceForConfig(cfg *rest.Config) (*KubernetesInterface, error) {
