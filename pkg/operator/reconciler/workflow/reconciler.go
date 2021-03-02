@@ -116,6 +116,19 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 		return nil
 	})
 	if err != nil {
+		var errUser bool
+		errmark.IfUser(errmark.Resolve(err), func(err error) {
+			errUser = true
+		})
+
+		if errUser {
+			klog.Error(err)
+			if err := wr.Fail(ctx, r.Client); err != nil {
+				return ctrl.Result{}, err
+			}
+			return ctrl.Result{}, nil
+		}
+
 		return ctrl.Result{}, err
 	}
 
