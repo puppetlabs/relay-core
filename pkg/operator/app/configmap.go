@@ -46,7 +46,9 @@ func ConfigureImmutableConfigMapForWebhookTrigger(ctx context.Context, cm *corev
 			vars[name] = r.Value
 		}
 
-		em.Set(ctx, vars)
+		if _, err := em.Set(ctx, vars); err != nil {
+			return err
+		}
 	}
 
 	if len(wt.Object.Spec.Input) > 0 {
@@ -107,7 +109,9 @@ func ConfigureImmutableConfigMapForWorkflowRun(ctx context.Context, cm *corev1ob
 				vars[name] = r.Value
 			}
 
-			em.Set(ctx, vars)
+			if _, err := em.Set(ctx, vars); err != nil {
+				return err
+			}
 		}
 
 		if when := step.When.Value(); when != nil {

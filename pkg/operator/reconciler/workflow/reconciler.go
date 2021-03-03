@@ -109,6 +109,14 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return nil
 	})
 	if err != nil {
+		errmark.IfMarked(err, errmark.User, func(err error) {
+			klog.Error(err)
+
+			// Discard error and fail the workflow run instead as reprocessing
+			// will not be helpful.
+			err = wr.Fail(ctx, r.Client)
+		})
+
 		return ctrl.Result{}, err
 	}
 
