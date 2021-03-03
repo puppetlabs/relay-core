@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/puppetlabs/leg/k8sutil/pkg/app/tunnel"
+	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
 	"github.com/puppetlabs/relay-core/pkg/operator/admission"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -57,6 +58,10 @@ func WithPodEnforcementAdmissionRegistration(t *testing.T, ctx context.Context, 
 		require.NoError(t, err)
 
 		require.NoError(t, tunnel.WithHTTPConnection(ctx, e2e.RESTConfig, tun.HTTP, s.URL, func(ctx context.Context) {
+			// Wait for service.
+			_, err = corev1obj.NewEndpointsBoundPoller(corev1obj.NewEndpoints(tun.TLSProxy.Service)).Load(ctx, e2e.ControllerClient)
+			require.NoError(t, err)
+
 			cert, err := tun.CertificateAuthorityPEM()
 			require.NoError(t, err)
 
@@ -140,6 +145,10 @@ func WithVolumeClaimAdmissionRegistration(t *testing.T, ctx context.Context, e2e
 		require.NoError(t, err)
 
 		require.NoError(t, tunnel.WithHTTPConnection(ctx, e2e.RESTConfig, tun.HTTP, s.URL, func(ctx context.Context) {
+			// Wait for service.
+			_, err = corev1obj.NewEndpointsBoundPoller(corev1obj.NewEndpoints(tun.TLSProxy.Service)).Load(ctx, e2e.ControllerClient)
+			require.NoError(t, err)
+
 			cert, err := tun.CertificateAuthorityPEM()
 			require.NoError(t, err)
 
