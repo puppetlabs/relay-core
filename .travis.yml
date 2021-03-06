@@ -31,7 +31,7 @@ jobs:
   - stage: test
     before_script:
     - docker build -t localhost/kindest/node-ci hack/kind-ci/
-    - ( cd; GO111MODULE=on go get sigs.k8s.io/kind@v0.9.0 gotest.tools/gotestsum )
+    - ( cd; GO111MODULE=on go get sigs.k8s.io/kind@v0.9.0 )
     - export KUBECONFIG=/tmp/kubeconfig-kind
     - kind create cluster --image localhost/kindest/node-ci --config hack/kind-ci/config.yaml
     script:
