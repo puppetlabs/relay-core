@@ -3,6 +3,7 @@ on: [push, pull_request]
 jobs:
   build:
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental || false }}
     strategy:
       fail-fast: false
       matrix:
@@ -10,6 +11,7 @@ jobs:
         - k3s-image: rancher/k3s:v1.20.4-k3s1
           k3s-containerd-config-version: v1.19
           gvisor-version: '20210301.0'
+          experimental: true
         - k3s-image: rancher/k3s:v1.19.8-k3s1
           k3s-containerd-config-version: v1.19
           gvisor-version: '20210301.0'
