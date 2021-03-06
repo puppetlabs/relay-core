@@ -357,14 +357,32 @@ func (e *Evaluator) evaluateInvocation(ctx context.Context, im map[string]interf
 		case []interface{}:
 			args := make([]model.Evaluable, len(ra))
 			for i, value := range ra {
-				args[i] = e.ScopeTo(value).Copy(WithLanguage(LanguagePath))
+				evaluated, err := e.EvaluateAll(ctx, value)
+				if err != nil {
+					return nil, &InvalidInvocationError{Name: name, Cause: err}
+				}
+
+				if evaluated == nil {
+					return nil, &InvalidInvocationError{Name: name, Cause: fn.ErrPositionalArgsNotAccepted}
+				}
+
+				args[i] = e.ScopeTo(evaluated.Value).Copy(WithLanguage(LanguagePath))
 			}
 
 			invoker, err = e.invocationResolver.ResolveInvocationPositional(ctx, name, args)
 		case map[string]interface{}:
 			args := make(map[string]model.Evaluable, len(ra))
 			for key, value := range ra {
-				args[key] = e.ScopeTo(value).Copy(WithLanguage(LanguagePath))
+				evaluated, err := e.EvaluateAll(ctx, value)
+				if err != nil {
+					return nil, &InvalidInvocationError{Name: name, Cause: err}
+				}
+
+				if evaluated == nil {
+					return nil, &InvalidInvocationError{Name: name, Cause: fn.ErrKeywordArgsNotAccepted}
+				}
+
+				args[key] = e.ScopeTo(evaluated.Value).Copy(WithLanguage(LanguagePath))
 			}
 
 			invoker, err = e.invocationResolver.ResolveInvocation(ctx, name, args)

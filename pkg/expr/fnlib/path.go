@@ -15,24 +15,31 @@ type pathArg struct {
 	err error
 }
 
-func path(ctx context.Context, objArg, qArg, defArg *pathArg) *model.Result {
-	for _, arg := range []*pathArg{objArg, qArg, defArg} {
+func evaluate(ctx context.Context, pathArgs []*pathArg) (*model.Result, error) {
+	cr := &model.Result{}
+	for _, arg := range pathArgs {
 		if arg == nil {
 			continue
 		}
 
-		arg.r, arg.err = arg.e.Evaluate(ctx, 0)
-		if arg.err != nil || !arg.r.Complete() {
-			return nil
+		arg.r, arg.err = arg.e.EvaluateAll(ctx)
+		if arg.err != nil {
+			return nil, arg.err
 		}
+
+		cr.Extends(arg.r)
+	}
+
+	return cr, nil
+}
+
+func path(ctx context.Context, objArg, qArg, defArg *pathArg) *model.Result {
+	cr, err := evaluate(ctx, []*pathArg{objArg, qArg, defArg})
+	if err != nil || !cr.Complete() {
+		return nil
 	}
 
 	defUsable := defArg != nil
-
-	qArg.r, qArg.err = qArg.e.EvaluateAll(ctx)
-	if qArg.err != nil || !qArg.r.Complete() {
-		return nil
-	}
 
 	q, ok := qArg.r.Value.(string)
 	if !ok {
@@ -62,17 +69,12 @@ func path(ctx context.Context, objArg, qArg, defArg *pathArg) *model.Result {
 		objArg.r.Extends(vr)
 	}
 
-	if !defUsable {
-		return nil
-	}
-
 	// If we get this far, we should use the default.
-	defArg.r, defArg.err = defArg.e.EvaluateAll(ctx)
-	if defArg.err != nil || !defArg.r.Complete() {
-		return nil
+	if defUsable {
+		return defArg.r
 	}
 
-	return defArg.r
+	return nil
 }
 
 var pathDescriptor = fn.DescriptorFuncs{
