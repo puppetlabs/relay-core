@@ -328,8 +328,8 @@ func doConfigLifecycle(ctx context.Context) doConfigFunc {
 
 func doConfigUser(fn func(cfg *Config)) doConfigFunc {
 	return func(t *testing.T, cfg *Config, next func()) {
+		defer next()
 		fn(cfg)
-		next()
 	}
 }
 

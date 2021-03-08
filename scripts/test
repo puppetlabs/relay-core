@@ -11,4 +11,4 @@ GO="${GO:-go}"
 #
 #
 
-$GO run gotest.tools/gotestsum -f testname --no-summary output --rerun-fails --packages ./... -- -race
+$GO run gotest.tools/gotestsum -f testname --no-summary output --rerun-fails --packages ./... -- -race -timeout 15m

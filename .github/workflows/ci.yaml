@@ -15,6 +15,7 @@ jobs:
         - k3s-image: rancher/k3s:v1.19.8-k3s1
           k3s-containerd-config-version: v1.19
           gvisor-version: '20210301.0'
+          experimental: true
         - k3s-image: rancher/k3s:v1.18.16-k3s1
           k3s-containerd-config-version: v1.16
           gvisor-version: '20210301.0'
@@ -23,7 +24,7 @@ jobs:
           gvisor-version: '20210301.0'
         - k3s-image: rancher/k3s:v1.16.15-k3s1
           k3s-containerd-config-version: v1.16
-          gvisor-version: '20210301.0'
+          gvisor-version: '20201130.0'
     env:
       KUBECONFIG: /tmp/kubeconfig
     steps:
@@ -54,7 +55,7 @@ jobs:
       run: curl -s https://raw.githubusercontent.com/rancher/k3d/main/install.sh | bash
     - name: Set up Kubernetes cluster
       run: |
-        k3d cluster create pvpool-test \
+        k3d cluster create relay-core-test \
           --image ${{ matrix.k3s-image }} \
           --volume ${{ runner.temp }}/gvisor/runsc:/sbin/runsc \
           --volume ${{ runner.temp }}/gvisor/containerd-shim-runsc-v1:/sbin/containerd-shim-runsc-v1 \
