@@ -1495,8 +1495,8 @@ github.com/puppetlabs/leg/instrumentation v0.1.4 h1:uWRjhV/1ijL4T5uISgcWJXRb0Q9d
 github.com/puppetlabs/leg/instrumentation v0.1.4/go.mod h1:x6wQv38l6/tZRQHolqpL6mhnF+tjMYt4pu0MzoaM54s=
 github.com/puppetlabs/leg/jsonutil v0.2.0 h1:Hp21b/bVlEQET6PkHRXCZnUix3ujwfJuR92Ad7r7swk=
 github.com/puppetlabs/leg/jsonutil v0.2.0/go.mod h1:eiLGPpySpr87IiROi0e4WZcqc7bo0ucs23sjdyOwH9Q=
-github.com/puppetlabs/leg/k8sutil v0.2.2-0.20210227050604-098d971e8cee h1:w5cAEPpiqILUqbbUj0RZshAdvrw38OLQ+PPMAXN/Ry0=
-github.com/puppetlabs/leg/k8sutil v0.2.2-0.20210227050604-098d971e8cee/go.mod h1:5LN5B926v3QNyCQa8IYYIoFS+4f2ak2Mg0LHdIPFQZU=
+github.com/puppetlabs/leg/k8sutil v0.3.0 h1:XstXJlDEy2BLWIl+x5mzcp77ET2QxMwEI4IemtdIBQY=
+github.com/puppetlabs/leg/k8sutil v0.3.0/go.mod h1:5LN5B926v3QNyCQa8IYYIoFS+4f2ak2Mg0LHdIPFQZU=
 github.com/puppetlabs/leg/lifecycle v0.2.0 h1:WYaQF+mdW8Wy+tRHkEE9175Bhkd3zJ7i0qnOQkb+BmY=
 github.com/puppetlabs/leg/lifecycle v0.2.0/go.mod h1:QtYNNukWpkcLWZAWcM9tVxcWfqn9mULH5J3dCkMqzGk=
 github.com/puppetlabs/leg/logging v0.1.0 h1:G8M2w3izYEtoaH+d3rIJZ9iLX2oW2T/jO+J4l+T0Ieo=
