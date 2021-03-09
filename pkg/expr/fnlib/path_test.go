@@ -224,6 +224,21 @@ func TestPath(t *testing.T) {
 			Expected: "baz",
 		},
 		{
+			Name: "path and query are resolvable (using parameters) and path exists",
+			ObjectArg: map[string]interface{}{
+				"foo": map[string]interface{}{
+					"bar": testutil.JSONParameter("quux"),
+				},
+			},
+			QArg: testutil.JSONParameter("quuz"),
+			Opts: []evaluate.Option{
+				evaluate.WithParameterTypeResolver(resolve.NewMemoryParameterTypeResolver(
+					map[string]interface{}{"quux": "baz", "quuz": "foo.bar"},
+				)),
+			},
+			Expected: "baz",
+		},
+		{
 			Name: "path is resolvable (using parameters) and path does not exist",
 			ObjectArg: map[string]interface{}{
 				"foo": map[string]interface{}{
@@ -238,6 +253,22 @@ func TestPath(t *testing.T) {
 			},
 			DefaultArg: "grault",
 			Expected:   "grault",
+		},
+		{
+			Name: "path and default are resolvable (using parameters) and path does not exist",
+			ObjectArg: map[string]interface{}{
+				"foo": map[string]interface{}{
+					"quuz": testutil.JSONParameter("quux"),
+				},
+			},
+			QArg: "foo.bar",
+			Opts: []evaluate.Option{
+				evaluate.WithParameterTypeResolver(resolve.NewMemoryParameterTypeResolver(
+					map[string]interface{}{"quux": "baz", "grault": "garply"},
+				)),
+			},
+			DefaultArg: testutil.JSONParameter("grault"),
+			Expected:   "garply",
 		},
 		{
 			Name: "path is not resolvable (using parameters)",
@@ -358,12 +389,11 @@ func (tt test) Run(t *testing.T) {
 		ctx := context.Background()
 		t.Run("positional", func(t *testing.T) {
 			args := []model.Evaluable{
-				// Need a real evaluator to test pathing support.
 				evaluate.NewScopedEvaluator(tt.ObjectArg, tt.Opts...),
 				evaluate.NewScopedEvaluator(tt.QArg, tt.Opts...),
 			}
 			if tt.DefaultArg != nil {
-				args = append(args, evaluate.NewScopedEvaluator(tt.DefaultArg))
+				args = append(args, evaluate.NewScopedEvaluator(tt.DefaultArg, tt.Opts...))
 			}
 
 			invoker, err := desc.PositionalInvoker(args)
@@ -395,7 +425,7 @@ func (tt test) Run(t *testing.T) {
 				"query":  evaluate.NewScopedEvaluator(tt.QArg, tt.Opts...),
 			}
 			if tt.DefaultArg != nil {
-				args["default"] = evaluate.NewScopedEvaluator(tt.DefaultArg)
+				args["default"] = evaluate.NewScopedEvaluator(tt.DefaultArg, tt.Opts...)
 			}
 
 			invoker, err := desc.KeywordInvoker(args)
