@@ -111,6 +111,10 @@ func (e *PathEvaluationError) UnderlyingCause() error {
 	return err
 }
 
+func (e *PathEvaluationError) Unwrap() error {
+	return e.Cause
+}
+
 func (e *PathEvaluationError) Error() string {
 	path, err := e.trace()
 	return fmt.Sprintf("path %q: %+v", strings.Join(path, "."), err)

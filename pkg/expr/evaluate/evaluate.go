@@ -440,7 +440,9 @@ func (e *Evaluator) evaluateUnchecked(ctx context.Context, v interface{}, depth 
 			if strings.HasPrefix(first, "$fn.") {
 				return e.evaluateInvocation(ctx, vt)
 			}
-		} else if depth == 1 {
+		}
+
+		if depth == 1 {
 			return &model.Result{Value: v}, nil
 		}
 
