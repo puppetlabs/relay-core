@@ -9,7 +9,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/metrics/opt"
 	"github.com/puppetlabs/relay-core/pkg/metrics/reconciler/event"
 	"github.com/puppetlabs/relay-core/pkg/metrics/reconciler/workflow"
-	"github.com/puppetlabs/relay-core/pkg/operator/obj"
+	"github.com/puppetlabs/relay-core/pkg/obj"
 	"go.opentelemetry.io/otel/label"
 	"go.opentelemetry.io/otel/metric"
 	corev1 "k8s.io/api/core/v1"
@@ -17,9 +17,9 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
-	"knative.dev/pkg/signals"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 )
 
 const (

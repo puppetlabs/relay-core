@@ -3,7 +3,7 @@ package v1beta1
 import (
 	"encoding/json"
 
-	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
+	"github.com/puppetlabs/leg/encoding/transfer"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 

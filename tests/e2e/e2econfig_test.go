@@ -2,7 +2,6 @@ package e2e_test
 
 import (
 	"context"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http/httptest"
@@ -12,7 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/puppetlabs/horsehead/v2/storage"
+	"github.com/puppetlabs/leg/k8sutil/pkg/app/tunnel"
+	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
+	"github.com/puppetlabs/leg/storage"
 	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
@@ -24,13 +25,10 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/operator/controller/trigger"
 	"github.com/puppetlabs/relay-core/pkg/operator/controller/workflow"
 	"github.com/puppetlabs/relay-core/pkg/operator/dependency"
-	"github.com/puppetlabs/relay-core/pkg/operator/obj"
 	"github.com/puppetlabs/relay-core/pkg/util/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -39,6 +37,7 @@ import (
 )
 
 type Config struct {
+	Environment      *testutil.EndToEndEnvironment
 	Namespace        *corev1.Namespace
 	MetadataAPIURL   *url.URL
 	Vault            *testutil.Vault
@@ -122,7 +121,7 @@ func doConfigNamespace(ctx context.Context) doConfigFunc {
 			return
 		}
 
-		e2e.WithTestNamespace(t, ctx, func(ns *corev1.Namespace) {
+		cfg.Environment.WithTestNamespace(ctx, func(ns *corev1.Namespace) {
 			cfg.Namespace = ns
 			cfg.ControllerConfig = &config.WorkflowControllerConfig{
 				Namespace: ns.GetName(),
@@ -174,14 +173,14 @@ func doConfigMetadataAPI(ctx context.Context) doConfigFunc {
 		metadataAPI := httptest.NewServer(server.NewHandler(
 			middleware.NewKubernetesAuthenticator(
 				func(token string) (kubernetes.Interface, error) {
-					rc := rest.AnonymousClientConfig(e2e.RESTConfig)
+					rc := rest.AnonymousClientConfig(cfg.Environment.RESTConfig)
 					rc.BearerToken = token
 
 					return kubernetes.NewForConfig(rc)
 				},
 				middleware.KubernetesAuthenticatorWithKubernetesIntermediary(&authenticate.KubernetesInterface{
-					Interface:       e2e.Interface,
-					TektonInterface: e2e.TektonInterface,
+					Interface:       cfg.Environment.StaticClient,
+					TektonInterface: cfg.Environment.TektonInterface,
 				}),
 				middleware.KubernetesAuthenticatorWithChainToVaultTransitIntermediary(cfg.Vault.Client, cfg.Vault.TransitPath, cfg.Vault.TransitKey),
 				middleware.KubernetesAuthenticatorWithVaultResolver(cfg.Vault.Address, cfg.Vault.JWTAuthPath, cfg.Vault.JWTAuthRole),
@@ -197,14 +196,17 @@ func doConfigMetadataAPI(ctx context.Context) doConfigFunc {
 			cfg.MetadataAPIURL = metadataAPIURL
 			next()
 		} else {
-			e2e.WithUtilNamespace(t, ctx, func(ns *corev1.Namespace) {
-				testutil.WithServiceBoundToHostHTTP(t, ctx, e2e.RESTConfig, e2e.Interface, metadataAPI.URL, metav1.ObjectMeta{Namespace: ns.GetName()}, func(caPEM []byte, svc *corev1.Service) {
+			cfg.Environment.WithUtilNamespace(ctx, func(ns *corev1.Namespace) {
+				tun, err := tunnel.ApplyHTTP(ctx, cfg.Environment.ControllerClient, client.ObjectKey{Namespace: ns.GetName(), Name: "tunnel"})
+				require.NoError(t, err)
+
+				require.NoError(t, tunnel.WithHTTPConnection(ctx, cfg.Environment.RESTConfig, tun, metadataAPI.URL, func(ctx context.Context) {
 					cfg.MetadataAPIURL = &url.URL{
 						Scheme: "http",
-						Host:   fmt.Sprintf("%s.%s", svc.GetName(), svc.GetNamespace()),
+						Host:   tun.Service.DNSName(),
 					}
 					next()
-				})
+				}))
 			})
 		}
 	}
@@ -221,14 +223,14 @@ func doConfigDependencyManager(ctx context.Context) doConfigFunc {
 		require.NotNil(t, cfg.Vault)
 		require.NotNil(t, cfg.blobStore)
 
-		imagePullSecret := obj.NewImagePullSecret(client.ObjectKey{
+		imagePullSecret := corev1obj.NewImagePullSecret(client.ObjectKey{
 			Namespace: cfg.Namespace.GetName(),
 			Name:      "docker-registry-system",
 		})
 		imagePullSecret.Object.Data = map[string][]byte{
 			".dockerconfigjson": []byte(`{}`),
 		}
-		require.NoError(t, imagePullSecret.Persist(ctx, e2e.ControllerRuntimeClient))
+		require.NoError(t, imagePullSecret.Persist(ctx, cfg.Environment.ControllerClient))
 
 		wcc := &config.WorkflowControllerConfig{
 			Namespace:               cfg.Namespace.GetName(),
@@ -239,7 +241,7 @@ func doConfigDependencyManager(ctx context.Context) doConfigFunc {
 			VaultTransitKey:         cfg.Vault.TransitKey,
 		}
 
-		deps, err := dependency.NewDependencyManager(wcc, e2e.RESTConfig, cfg.Vault.Client, cfg.Vault.JWTSigner, cfg.blobStore, metrics)
+		deps, err := dependency.NewDependencyManager(wcc, cfg.Environment.RESTConfig, cfg.Vault.Client, cfg.Vault.JWTSigner, cfg.blobStore, metrics)
 		require.NoError(t, err)
 
 		cfg.dependencyManager = deps
@@ -287,9 +289,9 @@ func doConfigPodEnforcementAdmission(ctx context.Context) doConfigFunc {
 
 		opts := []admission.PodEnforcementHandlerOption{
 			admission.PodEnforcementHandlerWithStandaloneMode(true),
-			admission.PodEnforcementHandlerWithRuntimeClassName(e2e.GVisorRuntimeClassName),
+			admission.PodEnforcementHandlerWithRuntimeClassName(cfg.Environment.GVisorRuntimeClassName),
 		}
-		testutil.WithPodEnforcementAdmissionRegistration(t, ctx, e2e, cfg.Manager, opts, nil, next)
+		testutil.WithPodEnforcementAdmissionRegistration(t, ctx, cfg.Environment, cfg.Manager, opts, nil, next)
 	}
 }
 
@@ -300,32 +302,34 @@ func doConfigVolumeClaimAdmission(ctx context.Context) doConfigFunc {
 			return
 		}
 
-		testutil.WithVolumeClaimAdmissionRegistration(t, ctx, e2e, cfg.Manager, nil, nil, next)
+		testutil.WithVolumeClaimAdmissionRegistration(t, ctx, cfg.Environment, cfg.Manager, nil, nil, next)
 	}
 }
 
-func doConfigLifecycle(t *testing.T, cfg *Config, next func()) {
-	var wg sync.WaitGroup
+func doConfigLifecycle(ctx context.Context) doConfigFunc {
+	return func(t *testing.T, cfg *Config, next func()) {
+		var wg sync.WaitGroup
 
-	ch := make(chan struct{})
+		ctx, cancel := context.WithCancel(ctx)
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		require.NoError(t, cfg.Manager.Start(ch))
-	}()
-	defer func() {
-		close(ch)
-		wg.Wait()
-	}()
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			require.NoError(t, cfg.Manager.Start(ctx))
+		}()
+		defer func() {
+			cancel()
+			wg.Wait()
+		}()
 
-	next()
+		next()
+	}
 }
 
 func doConfigUser(fn func(cfg *Config)) doConfigFunc {
 	return func(t *testing.T, cfg *Config, next func()) {
+		defer next()
 		fn(cfg)
-		next()
 	}
 }
 
@@ -337,10 +341,10 @@ func doConfigCleanup(t *testing.T, cfg *Config, next func()) {
 
 	require.NotNil(t, cfg.Namespace)
 
-	var del []runtime.Object
+	var del []client.Object
 
 	tl := &relayv1beta1.TenantList{}
-	require.NoError(t, e2e.ControllerRuntimeClient.List(ctx, tl, client.InNamespace(cfg.Namespace.GetName())))
+	require.NoError(t, cfg.Environment.ControllerClient.List(ctx, tl, client.InNamespace(cfg.Namespace.GetName())))
 	if len(tl.Items) > 0 {
 		log.Printf("removing %d stale tenant(s)", len(tl.Items))
 		for _, t := range tl.Items {
@@ -351,7 +355,7 @@ func doConfigCleanup(t *testing.T, cfg *Config, next func()) {
 	}
 
 	wtl := &relayv1beta1.WebhookTriggerList{}
-	require.NoError(t, e2e.ControllerRuntimeClient.List(ctx, wtl, client.InNamespace(cfg.Namespace.GetName())))
+	require.NoError(t, cfg.Environment.ControllerClient.List(ctx, wtl, client.InNamespace(cfg.Namespace.GetName())))
 	if len(wtl.Items) > 0 {
 		log.Printf("removing %d stale webhook trigger(s)", len(wtl.Items))
 		for _, wt := range wtl.Items {
@@ -362,7 +366,7 @@ func doConfigCleanup(t *testing.T, cfg *Config, next func()) {
 	}
 
 	wrl := &nebulav1.WorkflowRunList{}
-	require.NoError(t, e2e.ControllerRuntimeClient.List(ctx, wrl, client.InNamespace(cfg.Namespace.GetName())))
+	require.NoError(t, cfg.Environment.ControllerClient.List(ctx, wrl, client.InNamespace(cfg.Namespace.GetName())))
 	if len(wrl.Items) > 0 {
 		log.Printf("removing %d stale workflow run(s)", len(wrl.Items))
 		for _, wr := range wrl.Items {
@@ -373,54 +377,75 @@ func doConfigCleanup(t *testing.T, cfg *Config, next func()) {
 	}
 
 	for _, obj := range del {
-		assert.NoError(t, e2e.ControllerRuntimeClient.Delete(ctx, obj))
+		assert.NoError(t, cfg.Environment.ControllerClient.Delete(ctx, obj))
 	}
 
 	for _, obj := range del {
-		assert.NoError(t, testutil.WaitForObjectDeletion(ctx, e2e.ControllerRuntimeClient, obj))
+		assert.NoError(t, testutil.WaitForObjectDeletion(ctx, cfg.Environment.ControllerClient, obj))
 	}
 }
 
 func WithConfig(t *testing.T, ctx context.Context, opts []ConfigOption, fn func(cfg *Config)) {
-	mgr, err := ctrl.NewManager(e2e.RESTConfig, ctrl.Options{
-		Scheme:             testutil.TestScheme,
-		MetricsBindAddress: "0",
-	})
-	require.NoError(t, err)
-
 	cfg := &Config{
 		MetadataAPIURL: &url.URL{Scheme: "http", Host: "stub.example.com"},
-		Manager:        mgr,
 	}
 
 	for _, opt := range opts {
 		opt(cfg)
 	}
 
-	chain := []doConfigFunc{
-		doConfigNamespace(ctx),
-		doConfigInit,
-		doConfigVault,
-		doConfigMetadataAPI(ctx),
-		doConfigDependencyManager(ctx),
-		doConfigReconcilers,
-		doConfigPodEnforcementAdmission(ctx),
-		doConfigVolumeClaimAdmission(ctx),
-		doConfigLifecycle,
-		doConfigUser(fn),
-		doConfigCleanup,
+	var installers []testutil.EndToEndEnvironmentInstaller
+	if cfg.withWorkflowRunReconciler {
+		installers = append(installers, testutil.EndToEndEnvironmentWithTekton)
+	}
+	if cfg.withWebhookTriggerReconciler {
+		installers = append(installers, testutil.EndToEndEnvironmentWithAmbassador)
+		installers = append(installers, testutil.EndToEndEnvironmentWithKnative)
+	}
+	if cfg.withTenantReconciler || cfg.withVolumeClaimAdmission {
+		installers = append(installers, testutil.EndToEndEnvironmentWithHostpathProvisioner)
 	}
 
-	// Execute chain.
-	i := -1
-	var run func()
-	run = func() {
-		i++
-		if i < len(chain) {
-			chain[i](t, cfg, run)
-		}
-	}
-	run()
+	testutil.WithEndToEndEnvironment(
+		t,
+		ctx,
+		installers,
+		func(e2e *testutil.EndToEndEnvironment) {
+			mgr, err := ctrl.NewManager(e2e.RESTConfig, ctrl.Options{
+				Scheme:             testutil.TestScheme,
+				MetricsBindAddress: "0",
+			})
+			require.NoError(t, err)
 
-	require.Equal(t, len(chain), i, "config chain did not run to completion")
+			cfg.Environment = e2e
+			cfg.Manager = mgr
+
+			chain := []doConfigFunc{
+				doConfigNamespace(ctx),
+				doConfigInit,
+				doConfigVault,
+				doConfigMetadataAPI(ctx),
+				doConfigDependencyManager(ctx),
+				doConfigReconcilers,
+				doConfigPodEnforcementAdmission(ctx),
+				doConfigVolumeClaimAdmission(ctx),
+				doConfigLifecycle(ctx),
+				doConfigUser(fn),
+				doConfigCleanup,
+			}
+
+			// Execute chain.
+			i := -1
+			var run func()
+			run = func() {
+				i++
+				if i < len(chain) {
+					chain[i](t, cfg, run)
+				}
+			}
+			run()
+
+			require.Equal(t, len(chain), i, "config chain did not run to completion")
+		},
+	)
 }

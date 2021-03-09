@@ -1,14 +1,17 @@
 package trigger
 
 import (
+	"github.com/puppetlabs/leg/errmap/pkg/errmark"
+	"github.com/puppetlabs/leg/k8sutil/pkg/controller/errhandler"
+	"github.com/puppetlabs/leg/k8sutil/pkg/controller/filter"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
-	"github.com/puppetlabs/relay-core/pkg/errmark"
 	"github.com/puppetlabs/relay-core/pkg/model"
+	"github.com/puppetlabs/relay-core/pkg/operator/app"
 	"github.com/puppetlabs/relay-core/pkg/operator/config"
 	"github.com/puppetlabs/relay-core/pkg/operator/controller/handler"
 	"github.com/puppetlabs/relay-core/pkg/operator/dependency"
-	"github.com/puppetlabs/relay-core/pkg/operator/reconciler/filter"
 	"github.com/puppetlabs/relay-core/pkg/operator/reconciler/trigger"
+	"github.com/puppetlabs/relay-core/pkg/util/capturer"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -27,16 +30,25 @@ func add(mgr manager.Manager, r reconcile.Reconciler, cfg *config.WorkflowContro
 			Label:      model.RelayControllerTenantNameLabel,
 			TargetType: &relayv1beta1.WebhookTrigger{},
 		}).
-		Watches(&source.Kind{Type: &servingv1.Service{}}, &handler.EnqueueRequestForAnnotatedDependent{OwnerType: &relayv1beta1.WebhookTrigger{}}).
-		Complete(filter.ChainRight(r,
-			filter.ErrorCaptureReconcilerLink(
-				&relayv1beta1.WebhookTrigger{},
-				cfg.Capturer(),
-				filter.ErrorCaptureReconcilerWithAdditionalTransientRule(
-					errmark.TransientPredicate(errmark.TransientIfForbidden, func() bool { return cfg.DynamicRBACBinding }),
+		Watches(
+			&source.Kind{Type: &servingv1.Service{}},
+			app.DependencyManager.NewEnqueueRequestForAnnotatedDependencyOf(&relayv1beta1.WebhookTrigger{}),
+		).
+		Complete(filter.ChainR(
+			r,
+			errhandler.ChainReconciler(
+				errhandler.WithErrorMatchers(
+					errhandler.NewDefaultErrorMatchersBuilder().
+						Append(
+							errmark.RulePredicate(errhandler.RuleIsForbidden, func() bool { return cfg.DynamicRBACBinding }),
+							errhandler.PropagatingErrorHandler,
+						).
+						SetFallback(capturer.CaptureErrorHandler(cfg.Capturer(), relayv1beta1.WebhookTriggerKind)).
+						Build(),
 				),
+				errhandler.WithPanicHandler(capturer.CapturePanicHandler(cfg.Capturer(), relayv1beta1.WebhookTriggerKind)),
 			),
-			filter.NamespaceFilterReconcilerLink(cfg.Namespace),
+			filter.ChainSingleNamespaceReconciler(cfg.Namespace),
 		))
 }
 

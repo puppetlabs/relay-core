@@ -10,10 +10,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func doInstallHostpathProvisioner(ctx context.Context, cl client.Client) error {
-	return doInstall(ctx, cl, "hostpath")
-}
-
 func InstallHostpathProvisioner(t *testing.T, ctx context.Context, cl client.Client) {
-	require.NoError(t, doInstallHostpathProvisioner(ctx, cl))
+	require.NoError(t, doInstall(ctx, cl, "hostpath"))
 }

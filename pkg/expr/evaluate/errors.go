@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"strings"
 
-	jsonpath "github.com/puppetlabs/paesslerag-jsonpath"
+	"github.com/puppetlabs/leg/jsonutil/pkg/jsonpath"
 )
 
 var (

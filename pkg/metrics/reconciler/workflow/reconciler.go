@@ -5,7 +5,7 @@ import (
 
 	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
 	"github.com/puppetlabs/relay-core/pkg/metrics/model"
-	"github.com/puppetlabs/relay-core/pkg/operator/obj"
+	"github.com/puppetlabs/relay-core/pkg/obj"
 	"go.opentelemetry.io/otel/label"
 	"go.opentelemetry.io/otel/metric"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -23,9 +23,7 @@ type WorkflowRunReconciler struct {
 
 var _ reconcile.Reconciler = &WorkflowRunReconciler{}
 
-func (r *WorkflowRunReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	ctx := context.Background()
-
+func (r *WorkflowRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	wr := &nebulav1.WorkflowRun{}
 
 	if err := r.client.Get(ctx, req.NamespacedName, wr); errors.IsNotFound(err) {

@@ -1,8 +1,8 @@
 package workflow
 
 import (
-	"github.com/puppetlabs/horsehead/v2/instrumentation/metrics"
-	"github.com/puppetlabs/horsehead/v2/instrumentation/metrics/collectors"
+	"github.com/puppetlabs/leg/instrumentation/metrics"
+	"github.com/puppetlabs/leg/instrumentation/metrics/collectors"
 )
 
 const (

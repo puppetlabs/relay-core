@@ -28,8 +28,7 @@ do_build() {
       set -x
       buildah bud \
         "${BUILD_ARGS[@]}" \
-        -v "${GOPATH}/pkg/mod:/go/pkg/mod:O" \
-        -v "${GOPATH}/pkg/sumdb:/go/pkg/sumdb:O" \
+        -v "$(go env GOPATH)/pkg:/go/pkg:O" \
         .
       buildah push "${BUILD_IMAGE}" "docker-daemon:${BUILD_IMAGE}"
     )

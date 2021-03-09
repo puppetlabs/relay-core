@@ -1,7 +1,7 @@
 package trigger
 
 import (
-	"github.com/puppetlabs/horsehead/v2/instrumentation/metrics"
+	"github.com/puppetlabs/leg/instrumentation/metrics"
 )
 
 type controllerObservations struct {

@@ -15,8 +15,8 @@ import (
 
 	vaultapi "github.com/hashicorp/vault/api"
 	"github.com/inconshreveable/log15"
-	"github.com/puppetlabs/horsehead/v2/logging"
-	"github.com/puppetlabs/horsehead/v2/scheduler"
+	"github.com/puppetlabs/leg/logging"
+	"github.com/puppetlabs/leg/scheduler"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
 	"github.com/puppetlabs/relay-core/pkg/util/testutil"
 	"github.com/stretchr/testify/assert"

@@ -7,10 +7,11 @@ import (
 	"os"
 	"time"
 
+	"github.com/puppetlabs/leg/k8sutil/pkg/manifest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func doInstallKubernetesManifest(ctx context.Context, cl client.Client, pattern string, patchers ...ParseKubernetesManifestPatcherFunc) error {
+func doInstallKubernetesManifest(ctx context.Context, cl client.Client, pattern string, patchers ...manifest.PatcherFunc) error {
 	files, err := getFixtures(pattern)
 	if err != nil {
 		return err
@@ -32,7 +33,7 @@ func doInstallKubernetesManifest(ctx context.Context, cl client.Client, pattern 
 	return nil
 }
 
-func doInstall(ctx context.Context, cl client.Client, name string, patchers ...ParseKubernetesManifestPatcherFunc) error {
+func doInstall(ctx context.Context, cl client.Client, name string, patchers ...manifest.PatcherFunc) error {
 	requested := time.Now()
 
 	pattern := fmt.Sprintf("fixtures/%s/*.yaml", name)
@@ -45,7 +46,7 @@ func doInstall(ctx context.Context, cl client.Client, name string, patchers ...P
 	return nil
 }
 
-func doInstallAndWait(ctx context.Context, cl client.Client, namespace, name string, patchers ...ParseKubernetesManifestPatcherFunc) error {
+func doInstallAndWait(ctx context.Context, cl client.Client, namespace, name string, patchers ...manifest.PatcherFunc) error {
 	if err := doInstall(ctx, cl, name, patchers...); err != nil {
 		return err
 	}

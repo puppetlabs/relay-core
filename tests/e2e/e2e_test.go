@@ -1,23 +1,18 @@
 package e2e_test
 
 import (
-	"log"
-	"os"
-	"testing"
+	"fmt"
 
-	gometrics "github.com/puppetlabs/horsehead/v2/instrumentation/metrics"
-	"github.com/puppetlabs/horsehead/v2/instrumentation/metrics/delegates"
-	"github.com/puppetlabs/relay-core/pkg/util/testutil"
-	"k8s.io/klog"
+	gometrics "github.com/puppetlabs/leg/instrumentation/metrics"
+	"github.com/puppetlabs/leg/instrumentation/metrics/delegates"
+	"k8s.io/klog/v2/klogr"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var (
-	e2e     *testutil.EndToEndEnvironment
-	metrics *gometrics.Metrics
-)
+var metrics *gometrics.Metrics
 
-func TestMain(m *testing.M) {
-	klog.InitFlags(nil)
+func init() {
+	log.SetLogger(klogr.NewWithOptions(klogr.WithFormat(klogr.FormatKlog)))
 
 	var err error
 	metrics, err = gometrics.NewNamespace("workflow_controller", gometrics.Options{
@@ -25,17 +20,6 @@ func TestMain(m *testing.M) {
 		ErrorBehavior: gometrics.ErrorBehaviorLog,
 	})
 	if err != nil {
-		log.Fatalf("failed to set up metrics: %+v", err)
+		panic(fmt.Errorf("failed to set up metrics: %w", err))
 	}
-
-	os.Exit(testutil.RunEndToEnd(
-		m,
-		func(e *testutil.EndToEndEnvironment) {
-			e2e = e
-		},
-		testutil.EndToEndEnvironmentWithHostpathProvisioner,
-		testutil.EndToEndEnvironmentWithTekton,
-		testutil.EndToEndEnvironmentWithKnative,
-		testutil.EndToEndEnvironmentWithAmbassador,
-	))
 }

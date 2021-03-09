@@ -10,14 +10,14 @@ import (
 
 	"github.com/inconshreveable/log15"
 	"github.com/puppetlabs/errawr-go/v2/pkg/errawr"
-	"github.com/puppetlabs/horsehead/v2/instrumentation/alerts"
-	"github.com/puppetlabs/horsehead/v2/logging"
-	"github.com/puppetlabs/horsehead/v2/mainutil"
+	"github.com/puppetlabs/leg/httputil/serving"
+	"github.com/puppetlabs/leg/instrumentation/alerts"
+	"github.com/puppetlabs/leg/logging"
+	"github.com/puppetlabs/leg/mainutil"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/opt"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/sample"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/middleware"
-	"github.com/puppetlabs/relay-core/pkg/util/lifecycleutil"
 	"github.com/puppetlabs/relay-core/pkg/workflow/validation"
 )
 
@@ -126,14 +126,14 @@ func main() {
 			Addr:    fmt.Sprintf("0.0.0.0:%d", cfg.ListenPort),
 		}
 
-		var listenOpts []lifecycleutil.ListenWaitHTTPOption
+		var listenOpts []serving.ListenWaitHTTPOption
 		if cfg.TLSKeyFile != "" {
 			log().Info("listening with TLS")
-			listenOpts = append(listenOpts, lifecycleutil.ListenWaitWithTLS(cfg.TLSCertificateFile, cfg.TLSKeyFile))
+			listenOpts = append(listenOpts, serving.ListenWaitWithTLS(cfg.TLSCertificateFile, cfg.TLSKeyFile))
 		}
 
 		log().Info("listening for metadata connections", "addr", s.Addr)
-		return lifecycleutil.ListenWaitHTTP(ctx, s, listenOpts...)
+		return serving.ListenWaitHTTP(ctx, s, listenOpts...)
 	})
 
 	os.Exit(mainutil.TrapAndWait(context.Background(), servers...))
