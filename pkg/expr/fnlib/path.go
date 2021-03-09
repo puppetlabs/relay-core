@@ -2,6 +2,7 @@ package fnlib
 
 import (
 	"context"
+	"errors"
 	"reflect"
 
 	jsonpath "github.com/puppetlabs/paesslerag-jsonpath"
@@ -15,31 +16,24 @@ type pathArg struct {
 	err error
 }
 
-func evaluate(ctx context.Context, pathArgs []*pathArg) (*model.Result, error) {
-	cr := &model.Result{}
-	for _, arg := range pathArgs {
+func path(ctx context.Context, objArg, qArg, defArg *pathArg) *model.Result {
+	for _, arg := range []*pathArg{objArg, qArg, defArg} {
 		if arg == nil {
 			continue
 		}
 
-		arg.r, arg.err = arg.e.EvaluateAll(ctx)
+		arg.r, arg.err = arg.e.Evaluate(ctx, 0)
 		if arg.err != nil {
-			return nil, arg.err
+			return nil
 		}
-
-		cr.Extends(arg.r)
-	}
-
-	return cr, nil
-}
-
-func path(ctx context.Context, objArg, qArg, defArg *pathArg) *model.Result {
-	cr, err := evaluate(ctx, []*pathArg{objArg, qArg, defArg})
-	if err != nil || !cr.Complete() {
-		return nil
 	}
 
 	defUsable := defArg != nil
+
+	qArg.r, qArg.err = qArg.e.EvaluateAll(ctx)
+	if qArg.err != nil || !qArg.r.Complete() {
+		return nil
+	}
 
 	q, ok := qArg.r.Value.(string)
 	if !ok {
@@ -53,8 +47,12 @@ func path(ctx context.Context, objArg, qArg, defArg *pathArg) *model.Result {
 	var vr *model.Result
 	vr, objArg.err = objArg.e.EvaluateQuery(ctx, q)
 	if objArg.err != nil {
-		switch objArg.err.(type) {
-		case *jsonpath.IndexOutOfBoundsError, *jsonpath.UnknownKeyError:
+		var (
+			iobe *jsonpath.IndexOutOfBoundsError
+			uke  *jsonpath.UnknownKeyError
+		)
+		switch {
+		case errors.As(objArg.err, &iobe), errors.As(objArg.err, &uke):
 		default:
 			defUsable = false
 		}
@@ -66,15 +64,27 @@ func path(ctx context.Context, objArg, qArg, defArg *pathArg) *model.Result {
 		// might find confusing.
 		//
 		// Instead, we just extend the specific part that couldn't be resolved.
-		objArg.r.Extends(vr)
+		if objArg.r != nil {
+			objArg.r.Extends(vr)
+		}
+		return nil
 	}
 
-	// If we get this far, we should use the default.
-	if defUsable {
-		return defArg.r
+	if !defUsable {
+		return nil
 	}
 
-	return nil
+	// If we get this far, we should use the default. This means setting any
+	// object error back to nil so that the whole function will be marked as not
+	// resolvable if the default is not resolvable.
+	objArg.err = nil
+
+	defArg.r, defArg.err = defArg.e.EvaluateAll(ctx)
+	if defArg.err != nil || !defArg.r.Complete() {
+		return nil
+	}
+
+	return defArg.r
 }
 
 var pathDescriptor = fn.DescriptorFuncs{
@@ -142,6 +152,7 @@ var pathDescriptor = fn.DescriptorFuncs{
 				return r, nil
 			}
 
+			// Figure out what went wrong by traversing the arg intermediates.
 			rm := make(map[string]*model.Result)
 			for key, arg := range map[string]*pathArg{
 				"object":  objArg,

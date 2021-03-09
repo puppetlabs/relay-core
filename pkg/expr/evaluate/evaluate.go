@@ -357,32 +357,14 @@ func (e *Evaluator) evaluateInvocation(ctx context.Context, im map[string]interf
 		case []interface{}:
 			args := make([]model.Evaluable, len(ra))
 			for i, value := range ra {
-				evaluated, err := e.EvaluateAll(ctx, value)
-				if err != nil {
-					return nil, &InvalidInvocationError{Name: name, Cause: err}
-				}
-
-				if evaluated == nil {
-					return nil, &InvalidInvocationError{Name: name, Cause: fn.ErrPositionalArgsNotAccepted}
-				}
-
-				args[i] = e.ScopeTo(evaluated.Value).Copy(WithLanguage(LanguagePath))
+				args[i] = e.ScopeTo(value).Copy(WithLanguage(LanguagePath))
 			}
 
 			invoker, err = e.invocationResolver.ResolveInvocationPositional(ctx, name, args)
 		case map[string]interface{}:
 			args := make(map[string]model.Evaluable, len(ra))
 			for key, value := range ra {
-				evaluated, err := e.EvaluateAll(ctx, value)
-				if err != nil {
-					return nil, &InvalidInvocationError{Name: name, Cause: err}
-				}
-
-				if evaluated == nil {
-					return nil, &InvalidInvocationError{Name: name, Cause: fn.ErrKeywordArgsNotAccepted}
-				}
-
-				args[key] = e.ScopeTo(evaluated.Value).Copy(WithLanguage(LanguagePath))
+				args[key] = e.ScopeTo(value).Copy(WithLanguage(LanguagePath))
 			}
 
 			invoker, err = e.invocationResolver.ResolveInvocation(ctx, name, args)
@@ -458,7 +440,9 @@ func (e *Evaluator) evaluateUnchecked(ctx context.Context, v interface{}, depth 
 			if strings.HasPrefix(first, "$fn.") {
 				return e.evaluateInvocation(ctx, vt)
 			}
-		} else if depth == 1 {
+		}
+
+		if depth == 1 {
 			return &model.Result{Value: v}, nil
 		}
 

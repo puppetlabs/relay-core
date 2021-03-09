@@ -655,16 +655,31 @@ func TestEvaluateQuery(t *testing.T) {
 			ExpectedValue: "bar",
 		},
 		{
-			Name:          "nonexistent key",
-			Data:          `{"foo": [{"bar": "baz"}]}`,
-			Query:         `foo[0].quux`,
-			ExpectedError: &jsonpath.UnknownKeyError{Key: "quux"},
+			Name:  "nonexistent key",
+			Data:  `{"foo": [{"bar": "baz"}]}`,
+			Query: `foo[0].quux`,
+			ExpectedError: &evaluate.PathEvaluationError{
+				Path: "foo",
+				Cause: &evaluate.PathEvaluationError{
+					Path: "0",
+					Cause: &evaluate.PathEvaluationError{
+						Path:  "quux",
+						Cause: &jsonpath.UnknownKeyError{Key: "quux"},
+					},
+				},
+			},
 		},
 		{
-			Name:          "nonexistent index",
-			Data:          `{"foo": [{"bar": "baz"}]}`,
-			Query:         `foo[1].quux`,
-			ExpectedError: &jsonpath.IndexOutOfBoundsError{Index: 1},
+			Name:  "nonexistent index",
+			Data:  `{"foo": [{"bar": "baz"}]}`,
+			Query: `foo[1].quux`,
+			ExpectedError: &evaluate.PathEvaluationError{
+				Path: "foo",
+				Cause: &evaluate.PathEvaluationError{
+					Path:  "1",
+					Cause: &jsonpath.IndexOutOfBoundsError{Index: 1},
+				},
+			},
 		},
 		{
 			Name: "traverses parameter",
@@ -817,8 +832,11 @@ func TestEvaluateQuery(t *testing.T) {
 					"foo": map[string]string{"inner": "test"},
 				})),
 			},
-			ExpectedError: &evaluate.UnsupportedValueError{
-				Type: reflect.TypeOf(map[string]string(nil)),
+			ExpectedError: &evaluate.PathEvaluationError{
+				Path: "a",
+				Cause: &evaluate.UnsupportedValueError{
+					Type: reflect.TypeOf(map[string]string(nil)),
+				},
 			},
 		},
 		{
@@ -905,6 +923,26 @@ func TestEvaluateQuery(t *testing.T) {
 			ExpectedUnresolvable: model.Unresolvable{
 				Parameters: []model.UnresolvableParameter{
 					{Name: "deployment"},
+				},
+			},
+		},
+		{
+			Name:  "query has an error under a path",
+			Data:  `{"foo": {"bar": ["baz", "quux"]}}`,
+			Query: "foo.bar[0].nope",
+			ExpectedError: &evaluate.PathEvaluationError{
+				Path: "foo",
+				Cause: &evaluate.PathEvaluationError{
+					Path: "bar",
+					Cause: &evaluate.PathEvaluationError{
+						Path: "0",
+						Cause: &evaluate.PathEvaluationError{
+							Path: "nope",
+							Cause: &jsonpath.UnsupportedValueTypeError{
+								Value: "baz",
+							},
+						},
+					},
 				},
 			},
 		},
@@ -1038,8 +1076,8 @@ func TestEvaluatePath(t *testing.T) {
 			Name: "resolvable (using secrets)",
 			Data: `{
 				"aws": {
-					"accessKeyID": {"$fn.path": {"object": {"$fn.jsonUnmarshal": {"$type": "Secret", "name": "aws"}}, "query": "accessKeyID"}},
-					"secretAccessKey": {"$fn.path": {"object": {"$fn.jsonUnmarshal": {"$type": "Secret", "name": "aws"}}, "query": "secretAccessKey"}},
+					"accessKeyID": {"$fn.path": {"object": {"$fn.jsonUnmarshal": [{"$type": "Secret", "name": "aws"}]}, "query": "accessKeyID"}},
+					"secretAccessKey": {"$fn.path": {"object": {"$fn.jsonUnmarshal": [{"$type": "Secret", "name": "aws"}]}, "query": "secretAccessKey"}},
 					"region": "us-west-2"
 				}
 			}`,
@@ -1065,8 +1103,8 @@ func TestEvaluatePath(t *testing.T) {
 			Name: "unresolvable (using secrets)",
 			Data: `{
 				"aws": {
-					"accessKeyID": {"$fn.path": {"object": {"$fn.jsonUnmarshal": {"$type": "Secret", "name": "aws"}}, "query": "accessKeyID"}},
-					"secretAccessKey": {"$fn.path": {"object": {"$fn.jsonUnmarshal": {"$type": "Secret", "name": "aws"}}, "query": "secretAccessKey"}},
+					"accessKeyID": {"$fn.path": {"object": {"$fn.jsonUnmarshal": [{"$type": "Secret", "name": "aws"}]}, "query": "accessKeyID"}},
+					"secretAccessKey": {"$fn.path": {"object": {"$fn.jsonUnmarshal": [{"$type": "Secret", "name": "aws"}]}, "query": "secretAccessKey"}},
 					"region": "us-west-2"
 				}
 			}`,

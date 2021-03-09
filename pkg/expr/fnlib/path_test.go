@@ -57,12 +57,24 @@ func TestPath(t *testing.T) {
 			},
 			QArg: "foo.quux",
 			ExpectedPositionalError: &fn.PositionalArgError{
-				Arg:   1,
-				Cause: &jsonpath.UnknownKeyError{Key: "quux"},
+				Arg: 1,
+				Cause: &evaluate.PathEvaluationError{
+					Path: "foo",
+					Cause: &evaluate.PathEvaluationError{
+						Path:  "quux",
+						Cause: &jsonpath.UnknownKeyError{Key: "quux"},
+					},
+				},
 			},
 			ExpectedKeywordError: &fn.KeywordArgError{
-				Arg:   "object",
-				Cause: &jsonpath.UnknownKeyError{Key: "quux"},
+				Arg: "object",
+				Cause: &evaluate.PathEvaluationError{
+					Path: "foo",
+					Cause: &evaluate.PathEvaluationError{
+						Path:  "quux",
+						Cause: &jsonpath.UnknownKeyError{Key: "quux"},
+					},
+				},
 			},
 		},
 		{
@@ -92,7 +104,8 @@ func TestPath(t *testing.T) {
 			ObjectArg: map[string]interface{}{
 				"foo": map[string]interface{}{
 					"bar": testutil.JSONInvocation("jsonUnmarshal",
-						testutil.JSONSecret("blort")),
+						[]interface{}{testutil.JSONSecret("blort")},
+					),
 				},
 			},
 			QArg: "foo.bar.grault.garply",
@@ -113,7 +126,8 @@ func TestPath(t *testing.T) {
 			ObjectArg: map[string]interface{}{
 				"foo": map[string]interface{}{
 					"bar": testutil.JSONInvocation("jsonUnmarshal",
-						testutil.JSONSecret("blort")),
+						[]interface{}{testutil.JSONSecret("blort")},
+					),
 				},
 			},
 			QArg: "foo.baz.grault.garply",
@@ -135,7 +149,8 @@ func TestPath(t *testing.T) {
 			ObjectArg: map[string]interface{}{
 				"foo": map[string]interface{}{
 					"bar": testutil.JSONInvocation("jsonUnmarshal",
-						testutil.JSONSecret("blort")),
+						[]interface{}{testutil.JSONSecret("blort")},
+					),
 				},
 			},
 			QArg:               "foo.bar.grault",
@@ -253,8 +268,9 @@ func TestPath(t *testing.T) {
 					"baz": "ok",
 				},
 			},
-			QArg:               "foo.baz",
-			ExpectedIncomplete: true,
+			QArg:       "foo.baz",
+			DefaultArg: "ok",
+			Expected:   "ok",
 		},
 		{
 			Name: "query is not resolvable",
@@ -283,12 +299,18 @@ func TestPath(t *testing.T) {
 			QArg:       "foo.bar",
 			DefaultArg: "bar",
 			ExpectedPositionalError: &fn.PositionalArgError{
-				Arg:   1,
-				Cause: &jsonpath.UnsupportedValueTypeError{Value: nil},
+				Arg: 1,
+				Cause: &evaluate.PathEvaluationError{
+					Path:  "foo",
+					Cause: &jsonpath.UnsupportedValueTypeError{Value: nil},
+				},
 			},
 			ExpectedKeywordError: &fn.KeywordArgError{
-				Arg:   "object",
-				Cause: &jsonpath.UnsupportedValueTypeError{Value: nil},
+				Arg: "object",
+				Cause: &evaluate.PathEvaluationError{
+					Path:  "foo",
+					Cause: &jsonpath.UnsupportedValueTypeError{Value: nil},
+				},
 			},
 		},
 		{
@@ -333,6 +355,7 @@ func (tt test) Run(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run(tt.Name, func(t *testing.T) {
+		ctx := context.Background()
 		t.Run("positional", func(t *testing.T) {
 			args := []model.Evaluable{
 				// Need a real evaluator to test pathing support.
@@ -346,7 +369,7 @@ func (tt test) Run(t *testing.T) {
 			invoker, err := desc.PositionalInvoker(args)
 			require.NoError(t, err)
 
-			r, err := invoker.Invoke(context.Background())
+			r, err := invoker.Invoke(ctx)
 			if tt.ExpectedPositionalError != nil {
 				require.Equal(t, tt.ExpectedPositionalError, err)
 			} else {
@@ -354,6 +377,14 @@ func (tt test) Run(t *testing.T) {
 				require.Equal(t, tt.ExpectedIncomplete, !r.Complete())
 				if !tt.ExpectedIncomplete {
 					require.Equal(t, tt.Expected, r.Value)
+				} else {
+					expected := make([]interface{}, len(args))
+					for i, arg := range args {
+						r, err := arg.EvaluateAll(ctx)
+						require.NoError(t, err)
+						expected[i] = r.Value
+					}
+					require.Equal(t, expected, r.Value)
 				}
 			}
 		})
@@ -381,7 +412,7 @@ func (tt test) Run(t *testing.T) {
 				} else {
 					expected := make(map[string]interface{})
 					for k, arg := range args {
-						r, err := arg.EvaluateAll(context.Background())
+						r, err := arg.EvaluateAll(ctx)
 						require.NoError(t, err)
 						expected[k] = r.Value
 					}
