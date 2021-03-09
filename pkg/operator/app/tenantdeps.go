@@ -68,6 +68,8 @@ func NewToolInjection(namespace string, toolInjection relayv1beta1.ToolInjection
 type TenantDeps struct {
 	Tenant *obj.Tenant
 
+	Standalone bool
+
 	// StaleNamespace is the old namespace of a tenant that needs to be cleaned
 	// up.
 	StaleNamespace *corev1obj.Namespace
@@ -159,7 +161,15 @@ func (td *TenantDeps) DeleteStale(ctx context.Context, cl client.Client, opts ..
 	return true, nil
 }
 
-func NewTenantDeps(t *obj.Tenant) *TenantDeps {
+type TenantDepsOption func(td *TenantDeps)
+
+func TenantDepsWithStandaloneMode(standalone bool) TenantDepsOption {
+	return func(td *TenantDeps) {
+		td.Standalone = standalone
+	}
+}
+
+func NewTenantDeps(t *obj.Tenant, opts ...TenantDepsOption) *TenantDeps {
 	td := &TenantDeps{
 		Tenant: t,
 	}
@@ -180,6 +190,10 @@ func NewTenantDeps(t *obj.Tenant) *TenantDeps {
 
 	td.ToolInjection = NewToolInjection(td.Tenant.Key.Namespace, td.Tenant.Object.Spec.ToolInjection)
 
+	for _, opt := range opts {
+		opt(td)
+	}
+
 	return td
 }
 
@@ -194,12 +208,16 @@ func ConfigureTenantDeps(ctx context.Context, td *TenantDeps) {
 	lifecycle.Label(ctx, td.Namespace, model.RelayControllerTenantWorkloadLabel, "true")
 	td.Namespace.LabelAnnotateFrom(ctx, &td.Tenant.Object.Spec.NamespaceTemplate.Metadata)
 
-	ConfigureNetworkPolicyForTenant(td.NetworkPolicy)
+	if td.Standalone {
+		td.NetworkPolicy.AllowAll()
+	} else {
+		ConfigureNetworkPolicyForTenant(td.NetworkPolicy)
+	}
 	ConfigureLimitRange(td.LimitRange)
 }
 
-func ApplyTenantDeps(ctx context.Context, cl client.Client, t *obj.Tenant) (*TenantDeps, error) {
-	td := NewTenantDeps(t)
+func ApplyTenantDeps(ctx context.Context, cl client.Client, t *obj.Tenant, opts ...TenantDepsOption) (*TenantDeps, error) {
+	td := NewTenantDeps(t, opts...)
 
 	if _, err := td.Load(ctx, cl); err != nil {
 		return nil, err

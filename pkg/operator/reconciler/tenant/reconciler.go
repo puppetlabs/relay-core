@@ -44,7 +44,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, nil
 	}
 
-	deps := app.NewTenantDeps(tn)
+	deps := app.NewTenantDeps(tn, app.TenantDepsWithStandaloneMode(r.Config.Standalone))
 	if _, err := deps.Load(ctx, r.Client); err != nil {
 		return ctrl.Result{}, errmap.Wrap(err, "failed to load dependencies")
 	}

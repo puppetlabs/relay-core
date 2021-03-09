@@ -60,7 +60,19 @@ jobs:
           --volume ${{ runner.temp }}/gvisor/runsc:/sbin/runsc \
           --volume ${{ runner.temp }}/gvisor/containerd-shim-runsc-v1:/sbin/containerd-shim-runsc-v1 \
           --volume ${{ github.workspace }}/hack/k3s/runsc.toml:/etc/containerd/runsc.toml \
-          --volume ${{ github.workspace }}/hack/k3s/config-${{ matrix.k3s-containerd-config-version }}.toml.tmpl:/var/lib/rancher/k3s/agent/etc/containerd/config.toml.tmpl
+          --volume ${{ github.workspace }}/hack/k3s/config-${{ matrix.k3s-containerd-config-version }}.toml.tmpl:/var/lib/rancher/k3s/agent/etc/containerd/config.toml.tmpl \
+          --k3s-server-arg '--flannel-backend=none' \
+          --k3s-server-arg '--no-deploy=traefik' \
+          --k3s-server-arg '--disable-network-policy'
+    - name: Install Calico
+      run: |
+        kubectl create -f https://docs.projectcalico.org/manifests/tigera-operator.yaml
+        for i in $( seq 10 ); do
+          test -n "$( kubectl get crd installations.operator.tigera.io --ignore-not-found -o name )" && break
+          sleep 5
+        done
+        kubectl wait --for=condition=established --timeout=60s crd installations.operator.tigera.io
+        kubectl apply -f ${{ github.workspace }}/hack/k3s/calico.yaml
     - name: Review Docker containers
       run: docker ps -a
     - name: Review Docker logs for k3d

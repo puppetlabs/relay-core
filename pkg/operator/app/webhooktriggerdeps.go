@@ -42,6 +42,8 @@ type WebhookTriggerDeps struct {
 	Tenant         *obj.Tenant
 	TenantDeps     *TenantDeps
 
+	Standalone bool
+
 	// StaleOwnerConfigMap is a reference to a now-outdated stub object that
 	// needs to be cleaned up. It is set if the tenant is deleted or if the
 	// tenant namespace changes.
@@ -302,10 +304,18 @@ func (wtd *WebhookTriggerDeps) AnnotateTriggerToken(ctx context.Context, target 
 	return nil
 }
 
-func NewWebhookTriggerDeps(wt *obj.WebhookTrigger, issuer authenticate.Issuer, metadataAPIURL *url.URL) *WebhookTriggerDeps {
+type WebhookTriggerDepsOption func(wtd *WebhookTriggerDeps)
+
+func WebhookTriggerDepsWithStandaloneMode(standalone bool) WebhookTriggerDepsOption {
+	return func(wtd *WebhookTriggerDeps) {
+		wtd.Standalone = standalone
+	}
+}
+
+func NewWebhookTriggerDeps(wt *obj.WebhookTrigger, issuer authenticate.Issuer, metadataAPIURL *url.URL, opts ...WebhookTriggerDepsOption) *WebhookTriggerDeps {
 	key := wt.Key
 
-	return &WebhookTriggerDeps{
+	wtd := &WebhookTriggerDeps{
 		WebhookTrigger: wt,
 		Issuer:         issuer,
 
@@ -313,6 +323,12 @@ func NewWebhookTriggerDeps(wt *obj.WebhookTrigger, issuer authenticate.Issuer, m
 
 		MetadataAPIURL: metadataAPIURL,
 	}
+
+	for _, opt := range opts {
+		opt(wtd)
+	}
+
+	return wtd
 }
 
 func ConfigureWebhookTriggerDeps(ctx context.Context, wtd *WebhookTriggerDeps) error {
@@ -332,7 +348,11 @@ func ConfigureWebhookTriggerDeps(ctx context.Context, wtd *WebhookTriggerDeps) e
 		laf.LabelAnnotateFrom(ctx, wtd.WebhookTrigger.Object)
 	}
 
-	ConfigureNetworkPolicyForWebhookTrigger(wtd.NetworkPolicy, wtd.WebhookTrigger)
+	if wtd.Standalone {
+		wtd.NetworkPolicy.AllowAll()
+	} else {
+		ConfigureNetworkPolicyForWebhookTrigger(wtd.NetworkPolicy, wtd.WebhookTrigger)
+	}
 
 	if err := ConfigureImmutableConfigMapForWebhookTrigger(ctx, wtd.ImmutableConfigMap, wtd.WebhookTrigger); err != nil {
 		return err
