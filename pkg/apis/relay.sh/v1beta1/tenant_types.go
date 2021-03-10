@@ -36,6 +36,21 @@ type TenantSpec struct {
 	//
 	// +optional
 	TriggerEventSink TriggerEventSink `json:"triggerEventSink,omitempty"`
+
+	// Claims allows additional arbitrary data to be associated with the claims
+	// issued by the operator for this tenant. This could be used to control
+	// further authentication with Vault, for example.
+	//
+	// +optional
+	Claims ClaimsConfig `json:"claims,omitempty"`
+
+	// Vault configures the default mechanism for accessing a Vault server for
+	// this tenant. The metadata API will use this information to access Vault.
+	// If not specified, you may not be able to use secrets that require access
+	// to Vault in workflows.
+	//
+	// +optional
+	Vault VaultConfig `json:"vault,omitempty"`
 }
 
 type NamespaceTemplate struct {
@@ -90,11 +105,17 @@ type APITokenSource struct {
 	SecretKeyRef *SecretKeySelector `json:"secretKeyRef,omitempty"`
 }
 
-type SecretKeySelector struct {
-	corev1.LocalObjectReference `json:",inline"`
+type ClaimsConfig struct {
+	// AnnotationsToClaims is a map of annotation names to claim names. Each
+	// annotation on the object being processed, falling back to the tenant,
+	// will be added as a claim to the issued JWT.
+	//
+	// +optional
+	AnnotationsToClaims map[string]string `json:"annotationsToClaims,omitempty"`
 
-	// Key is the key from the secret to use.
-	Key string `json:"key"`
+	// AdditionalClaims is a map of additional static claims to always associate
+	// with the JWT.
+	StaticClaims map[string]string `json:"staticClaims,omitempty"`
 }
 
 type ToolInjectionStatus struct {
