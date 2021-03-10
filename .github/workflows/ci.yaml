@@ -3,6 +3,23 @@ on: [push, pull_request]
 jobs:
   build:
     runs-on: ubuntu-latest
+    steps:
+    - uses: actions/setup-go@v2
+      with:
+        go-version: '1.14'
+    - uses: actions/checkout@v2
+    - uses: actions/cache@v2
+      with:
+        path: |
+          ~/go/pkg/mod
+          ~/go/pkg/sumdb
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+    - name: Build
+      run: scripts/ci build
+  test:
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -81,5 +98,3 @@ jobs:
         RELAY_TEST_E2E_KUBECONFIG: ${{ env.KUBECONFIG }}
         RELAY_TEST_E2E_GVISOR_HANDLER: runsc
       run: scripts/ci test
-    - name: Build
-      run: scripts/ci build
