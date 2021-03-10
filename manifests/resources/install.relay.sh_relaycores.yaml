@@ -1452,6 +1452,15 @@ spec:
                 default:
                   sidecar:
                     image: vault:latest
+                    imagePullPolicy: IfNotPresent
+                    resources:
+                      limits:
+                        cpu: 50m
+                        memory: 64Mi
+                      requests:
+                        cpu: 25m
+                        memory: 32Mi
+                    serverAddr: http://vault:8200
                 description: Vault is the configuration for accessing vault from the operator and metadata-api.
                 properties:
                   logServicePath:
@@ -1460,6 +1469,15 @@ spec:
                   sidecar:
                     default:
                       image: vault:latest
+                      imagePullPolicy: IfNotPresent
+                      resources:
+                        limits:
+                          cpu: 50m
+                          memory: 64Mi
+                        requests:
+                          cpu: 25m
+                          memory: 32Mi
+                      serverAddr: http://vault:8200
                     description: Sidecar is the configuration for the vault sidecar containers used by the operator and the metadata-api.
                     properties:
                       image:
