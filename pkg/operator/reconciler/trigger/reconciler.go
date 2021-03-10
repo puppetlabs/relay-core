@@ -67,7 +67,12 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, nil
 	}
 
-	deps := app.NewWebhookTriggerDeps(wt, r.issuer, r.Config.MetadataAPIURL)
+	deps := app.NewWebhookTriggerDeps(
+		wt,
+		r.issuer,
+		r.Config.MetadataAPIURL,
+		app.WebhookTriggerDepsWithStandaloneMode(r.Config.Standalone),
+	)
 	loaded, err := deps.Load(ctx, r.Client)
 	if err != nil {
 		return ctrl.Result{}, errmap.Wrap(err, "failed to load dependencies")

@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/puppetlabs/leg/k8sutil/pkg/test/endtoend"
 	_ "github.com/puppetlabs/leg/storage/file"
+	"github.com/puppetlabs/leg/timeutil/pkg/backoff"
 	"github.com/puppetlabs/leg/timeutil/pkg/retry"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	exprmodel "github.com/puppetlabs/relay-core/pkg/expr/model"
@@ -52,7 +53,7 @@ func waitForWebhookTriggerResponse(t *testing.T, ctx context.Context, cfg *Confi
 		}
 
 		return false, fmt.Errorf("waiting for webhook trigger to be successfully created")
-	}))
+	}, retry.WithBackoffFactory(backoff.Build(backoff.Linear(50*time.Millisecond)))))
 	require.NotEmpty(t, targetURL)
 
 	r, err := endtoend.Exec(

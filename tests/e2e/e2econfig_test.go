@@ -233,6 +233,7 @@ func doConfigDependencyManager(ctx context.Context) doConfigFunc {
 		require.NoError(t, imagePullSecret.Persist(ctx, cfg.Environment.ControllerClient))
 
 		wcc := &config.WorkflowControllerConfig{
+			Standalone:              true,
 			Namespace:               cfg.Namespace.GetName(),
 			ImagePullSecret:         imagePullSecret.Key.Name,
 			MaxConcurrentReconciles: 16,
