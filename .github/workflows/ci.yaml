@@ -3,19 +3,33 @@ on: [push, pull_request]
 jobs:
   build:
     runs-on: ubuntu-latest
-    continue-on-error: ${{ matrix.experimental || false }}
+    steps:
+    - uses: actions/setup-go@v2
+      with:
+        go-version: '1.14'
+    - uses: actions/checkout@v2
+    - uses: actions/cache@v2
+      with:
+        path: |
+          ~/go/pkg/mod
+          ~/go/pkg/sumdb
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+    - name: Build
+      run: scripts/ci build
+  test:
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
         - k3s-image: rancher/k3s:v1.20.4-k3s1
           k3s-containerd-config-version: v1.19
-          gvisor-version: '20210301.0'
-          experimental: true
+          gvisor-version: latest
         - k3s-image: rancher/k3s:v1.19.8-k3s1
           k3s-containerd-config-version: v1.19
           gvisor-version: '20210301.0'
-          experimental: true
         - k3s-image: rancher/k3s:v1.18.16-k3s1
           k3s-containerd-config-version: v1.16
           gvisor-version: '20210301.0'
@@ -84,5 +98,3 @@ jobs:
         RELAY_TEST_E2E_KUBECONFIG: ${{ env.KUBECONFIG }}
         RELAY_TEST_E2E_GVISOR_HANDLER: runsc
       run: scripts/ci test
-    - name: Build
-      run: scripts/ci build
