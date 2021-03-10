@@ -8,6 +8,7 @@ import (
 	"path"
 	"time"
 
+	"github.com/puppetlabs/leg/errmap/pkg/errmark"
 	"github.com/puppetlabs/leg/hashutil"
 	"github.com/puppetlabs/leg/jsonutil/pkg/types"
 	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
@@ -256,7 +257,7 @@ func (wtd *WebhookTriggerDeps) AnnotateTriggerToken(ctx context.Context, target 
 
 	sat, err := wtd.MetadataAPIServiceAccountTokenSecrets.DefaultTokenSecret.Token()
 	if err != nil {
-		return err
+		return errmark.MarkTransientIf(err, errmark.RuleIs(corev1obj.ErrServiceAccountTokenMissingData))
 	}
 
 	annotations := wtd.WebhookTrigger.Object.GetAnnotations()
