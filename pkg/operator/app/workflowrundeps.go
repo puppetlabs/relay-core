@@ -6,6 +6,7 @@ import (
 	"path"
 	"time"
 
+	"github.com/puppetlabs/leg/errmap/pkg/errmark"
 	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
 	networkingv1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/networkingv1"
 	rbacv1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/rbacv1"
@@ -106,7 +107,7 @@ func (wrd *WorkflowRunDeps) AnnotateStepToken(ctx context.Context, target *metav
 
 	sat, err := wrd.MetadataAPIServiceAccountTokenSecrets.DefaultTokenSecret.Token()
 	if err != nil {
-		return err
+		return errmark.MarkTransientIf(err, errmark.RuleIs(corev1obj.ErrServiceAccountTokenMissingData))
 	}
 
 	annotations := wrd.WorkflowRun.Object.GetAnnotations()
