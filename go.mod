@@ -3,6 +3,7 @@ module github.com/puppetlabs/relay-core
 go 1.13
 
 require (
+	github.com/Azure/go-autorest/autorest v0.10.2 // indirect
 	github.com/PaesslerAG/gval v1.1.1-0.20201218133124-6ca878f8a063
 	github.com/PaesslerAG/jsonpath v0.1.1 // indirect
 	github.com/certifi/gocertifi v0.0.0-20180118203423-deb3ae2ef261 // indirect
@@ -11,7 +12,7 @@ require (
 	github.com/gofrs/flock v0.7.1
 	github.com/golang/protobuf v1.4.3
 	github.com/gomarkdown/markdown v0.0.0-20200513213024-62c5e2c608cc
-	github.com/google/go-containerregistry v0.2.1
+	github.com/google/go-containerregistry v0.4.1-0.20210128200529-19c2b639fab1
 	github.com/google/uuid v1.1.2
 	github.com/gorilla/mux v1.7.4
 	github.com/hashicorp/go-cleanhttp v0.5.1
@@ -48,16 +49,16 @@ require (
 	github.com/shurcooL/vfsgen v0.0.0-20181202132449-6a9ea43bcacd
 	github.com/spf13/viper v1.7.0
 	github.com/stretchr/testify v1.6.1
-	github.com/tektoncd/pipeline v0.20.1
+	github.com/tektoncd/pipeline v0.22.0
 	github.com/xeipuuv/gojsonschema v1.2.0
 	go.opentelemetry.io/otel v0.16.0
 	go.opentelemetry.io/otel/exporters/metric/prometheus v0.16.0
 	go.opentelemetry.io/otel/exporters/stdout v0.16.0
-	golang.org/x/net v0.0.0-20201209123823-ac852fbbde11
+	golang.org/x/net v0.0.0-20210119194325-5f4716e94777
 	google.golang.org/grpc v1.34.0
 	google.golang.org/protobuf v1.25.0
 	gopkg.in/square/go-jose.v2 v2.4.1
-	gopkg.in/yaml.v2 v2.3.0
+	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	gotest.tools/gotestsum v1.6.2
 	k8s.io/api v0.20.2
@@ -67,7 +68,7 @@ require (
 	k8s.io/klog v1.0.0
 	k8s.io/klog/v2 v2.5.0
 	knative.dev/caching v0.0.0-20200630172829-a78409990d76
-	knative.dev/pkg v0.0.0-20210107022335-51c72e24c179
+	knative.dev/pkg v0.0.0-20210127163530-0d31134d5f4e
 	knative.dev/serving v0.16.0
 	sigs.k8s.io/controller-runtime v0.8.1
 	sigs.k8s.io/controller-tools v0.4.1

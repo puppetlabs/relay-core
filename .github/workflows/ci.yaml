@@ -36,9 +36,6 @@ jobs:
         - k3s-image: rancher/k3s:v1.17.17-k3s1
           k3s-containerd-config-version: v1.16
           gvisor-version: '20210301.0'
-        - k3s-image: rancher/k3s:v1.16.15-k3s1
-          k3s-containerd-config-version: v1.16
-          gvisor-version: '20201130.0'
     env:
       KUBECONFIG: /tmp/kubeconfig
     steps:
