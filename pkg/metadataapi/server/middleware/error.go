@@ -5,7 +5,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/puppetlabs/errawr-go/v2/pkg/errawr"
-	utilapi "github.com/puppetlabs/horsehead/v2/httputil/api"
+	utilapi "github.com/puppetlabs/leg/httputil/api"
 )
 
 func WithErrorSensitivity(sensitivity errawr.ErrorSensitivity) mux.MiddlewareFunc {

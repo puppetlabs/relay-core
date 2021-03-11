@@ -4,8 +4,8 @@ import (
 	"log"
 
 	vaultapi "github.com/hashicorp/vault/api"
-	"github.com/puppetlabs/horsehead/v2/instrumentation/metrics"
-	"github.com/puppetlabs/horsehead/v2/storage"
+	"github.com/puppetlabs/leg/instrumentation/metrics"
+	"github.com/puppetlabs/leg/storage"
 	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/operator/config"

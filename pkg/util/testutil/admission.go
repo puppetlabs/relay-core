@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/puppetlabs/leg/k8sutil/pkg/app/tunnel"
+	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
 	"github.com/puppetlabs/relay-core/pkg/operator/admission"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -45,14 +47,24 @@ func WithPodEnforcementAdmissionRegistration(t *testing.T, ctx context.Context, 
 	defer s.Close()
 
 	if namespaceSelector == nil {
-		namespaceSelector = e2e.TestNamespaceSelector(t)
+		namespaceSelector = &e2e.LabelSelector
 	}
 
 	hash := sha1.Sum([]byte(namespaceSelector.String()))
 	name := fmt.Sprintf("pod-enforcement-%x.admission.controller.relay.sh", hash[:])
 
-	e2e.WithUtilNamespace(t, ctx, func(ns *corev1.Namespace) {
-		WithServiceBoundToHostHTTP(t, ctx, e2e.RESTConfig, e2e.Interface, s.URL, metav1.ObjectMeta{Namespace: ns.GetName()}, func(caPEM []byte, svc *corev1.Service) {
+	e2e.WithUtilNamespace(ctx, func(ns *corev1.Namespace) {
+		tun, err := tunnel.ApplyHTTPS(ctx, e2e.ControllerClient, client.ObjectKey{Namespace: ns.GetName(), Name: "tunnel"})
+		require.NoError(t, err)
+
+		require.NoError(t, tunnel.WithHTTPConnection(ctx, e2e.RESTConfig, tun.HTTP, s.URL, func(ctx context.Context) {
+			// Wait for service.
+			_, err = corev1obj.NewEndpointsBoundPoller(corev1obj.NewEndpoints(tun.TLSProxy.Service)).Load(ctx, e2e.ControllerClient)
+			require.NoError(t, err)
+
+			cert, err := tun.CertificateAuthorityPEM()
+			require.NoError(t, err)
+
 			// Set up webhook configuration in API server.
 			cfg := &admissionregistrationv1beta1.MutatingWebhookConfiguration{
 				TypeMeta: metav1.TypeMeta{
@@ -68,10 +80,10 @@ func WithPodEnforcementAdmissionRegistration(t *testing.T, ctx context.Context, 
 						Name: name,
 						ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
 							Service: &admissionregistrationv1beta1.ServiceReference{
-								Namespace: svc.GetNamespace(),
-								Name:      svc.GetName(),
+								Namespace: tun.TLSProxy.Service.Key.Namespace,
+								Name:      tun.TLSProxy.Service.Key.Name,
 							},
-							CABundle: caPEM,
+							CABundle: cert,
 						},
 						Rules: []admissionregistrationv1beta1.RuleWithOperations{
 							{
@@ -101,16 +113,16 @@ func WithPodEnforcementAdmissionRegistration(t *testing.T, ctx context.Context, 
 			}
 			// Patch instead of Create because this object is cluster-scoped
 			// so we want to overwrite previous test attempts.
-			require.NoError(t, e2e.ControllerRuntimeClient.Patch(ctx, cfg, client.Apply, client.ForceOwnership, client.FieldOwner("relay-e2e")))
+			require.NoError(t, e2e.ControllerClient.Patch(ctx, cfg, client.Apply, client.ForceOwnership, client.FieldOwner("relay-e2e")))
 			defer func() {
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 				defer cancel()
 
-				assert.NoError(t, e2e.ControllerRuntimeClient.Delete(ctx, cfg))
+				assert.NoError(t, e2e.ControllerClient.Delete(ctx, cfg))
 			}()
 
 			fn()
-		})
+		}))
 	})
 }
 
@@ -122,14 +134,24 @@ func WithVolumeClaimAdmissionRegistration(t *testing.T, ctx context.Context, e2e
 	defer s.Close()
 
 	if namespaceSelector == nil {
-		namespaceSelector = e2e.TestNamespaceSelector(t)
+		namespaceSelector = &e2e.LabelSelector
 	}
 
 	hash := sha1.Sum([]byte(namespaceSelector.String()))
 	name := fmt.Sprintf("volume-claim-%x.admission.controller.relay.sh", hash[:])
 
-	e2e.WithUtilNamespace(t, ctx, func(ns *corev1.Namespace) {
-		WithServiceBoundToHostHTTP(t, ctx, e2e.RESTConfig, e2e.Interface, s.URL, metav1.ObjectMeta{Namespace: ns.GetName()}, func(caPEM []byte, svc *corev1.Service) {
+	e2e.WithUtilNamespace(ctx, func(ns *corev1.Namespace) {
+		tun, err := tunnel.ApplyHTTPS(ctx, e2e.ControllerClient, client.ObjectKey{Namespace: ns.GetName(), Name: "tunnel"})
+		require.NoError(t, err)
+
+		require.NoError(t, tunnel.WithHTTPConnection(ctx, e2e.RESTConfig, tun.HTTP, s.URL, func(ctx context.Context) {
+			// Wait for service.
+			_, err = corev1obj.NewEndpointsBoundPoller(corev1obj.NewEndpoints(tun.TLSProxy.Service)).Load(ctx, e2e.ControllerClient)
+			require.NoError(t, err)
+
+			cert, err := tun.CertificateAuthorityPEM()
+			require.NoError(t, err)
+
 			cfg := &admissionregistrationv1beta1.MutatingWebhookConfiguration{
 				TypeMeta: metav1.TypeMeta{
 					APIVersion: admissionregistrationv1beta1.SchemeGroupVersion.Identifier(),
@@ -143,10 +165,10 @@ func WithVolumeClaimAdmissionRegistration(t *testing.T, ctx context.Context, e2e
 						Name: name,
 						ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
 							Service: &admissionregistrationv1beta1.ServiceReference{
-								Namespace: svc.GetNamespace(),
-								Name:      svc.GetName(),
+								Namespace: tun.TLSProxy.Service.Key.Namespace,
+								Name:      tun.TLSProxy.Service.Key.Name,
 							},
-							CABundle: caPEM,
+							CABundle: cert,
 						},
 						Rules: []admissionregistrationv1beta1.RuleWithOperations{
 							{
@@ -174,15 +196,15 @@ func WithVolumeClaimAdmissionRegistration(t *testing.T, ctx context.Context, e2e
 					},
 				},
 			}
-			require.NoError(t, e2e.ControllerRuntimeClient.Patch(ctx, cfg, client.Apply, client.ForceOwnership, client.FieldOwner("relay-e2e")))
+			require.NoError(t, e2e.ControllerClient.Patch(ctx, cfg, client.Apply, client.ForceOwnership, client.FieldOwner("relay-e2e")))
 			defer func() {
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 				defer cancel()
 
-				assert.NoError(t, e2e.ControllerRuntimeClient.Delete(ctx, cfg))
+				assert.NoError(t, e2e.ControllerClient.Delete(ctx, cfg))
 			}()
 
 			fn()
-		})
+		}))
 	})
 }

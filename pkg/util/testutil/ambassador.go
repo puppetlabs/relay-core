@@ -4,13 +4,13 @@ import (
 	"context"
 	"testing"
 
+	"github.com/puppetlabs/leg/k8sutil/pkg/manifest"
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -30,9 +30,9 @@ func doInstallAmbassador(ctx context.Context, cl client.Client, mapper meta.REST
 		return err
 	}
 
-	var patchers []ParseKubernetesManifestPatcherFunc
-	patchers = append(patchers, KubernetesDefaultNamespacePatcher(mapper, ns.GetName()))
-	patchers = append(patchers, func(obj runtime.Object, gvk *schema.GroupVersionKind) {
+	var patchers []manifest.PatcherFunc
+	patchers = append(patchers, manifest.DefaultNamespacePatcher(mapper, ns.GetName()))
+	patchers = append(patchers, func(obj manifest.Object, gvk *schema.GroupVersionKind) {
 		deployment, ok := obj.(*appsv1.Deployment)
 		if !ok || deployment.GetName() != "ambassador" {
 			return

@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/puppetlabs/horsehead/v2/storage"
+	"github.com/puppetlabs/leg/errmap/pkg/errmap"
+	"github.com/puppetlabs/leg/errmap/pkg/errmark"
+	"github.com/puppetlabs/leg/k8sutil/pkg/controller/errhandler"
+	"github.com/puppetlabs/leg/storage"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
-	"github.com/puppetlabs/relay-core/pkg/errmark"
+	"github.com/puppetlabs/relay-core/pkg/obj"
+	"github.com/puppetlabs/relay-core/pkg/operator/app"
 	"github.com/puppetlabs/relay-core/pkg/operator/dependency"
-	"github.com/puppetlabs/relay-core/pkg/operator/obj"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -55,14 +58,10 @@ func NewReconciler(dm *dependency.DependencyManager) *Reconciler {
 	}
 }
 
-func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error) {
-	ctx := context.Background()
-
+func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, err error) {
 	wr := obj.NewWorkflowRun(req.NamespacedName)
 	if ok, err := wr.Load(ctx, r.Client); err != nil {
-		return ctrl.Result{}, errmark.MapLast(err, func(err error) error {
-			return fmt.Errorf("failed to load dependencies: %+v", err)
-		})
+		return ctrl.Result{}, errmap.Wrap(err, "failed to load dependencies")
 	} else if !ok {
 		// CRD deleted from under us?
 		return ctrl.Result{}, nil
@@ -82,44 +81,42 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 
 	var pr *obj.PipelineRun
 	err = r.metrics.trackDurationWithOutcome(metricWorkflowRunStartUpDuration, func() error {
-		// Configure and save all the infrastructure bits needed to create a
-		// Pipeline.
-		deps, err := obj.ApplyWorkflowRunDeps(
+		deps, err := app.ApplyWorkflowRunDeps(
 			ctx,
 			r.Client,
 			wr,
 			r.issuer,
 			r.Config.MetadataAPIURL,
-			obj.WorkflowRunDepsWithStandaloneMode(r.standalone),
+			app.WorkflowRunDepsWithStandaloneMode(r.standalone),
 		)
 
 		if err != nil {
-			err = errmark.MarkTransient(err, obj.TransientIfRequired)
+			err = errmark.MarkTransientIf(err, errhandler.RuleIsRequired)
 
-			return errmark.MapLast(err, func(err error) error {
-				return fmt.Errorf("failed to apply dependencies: %+v", err)
-			})
+			return errmap.Wrap(err, "failed to apply dependencies")
 		}
 
-		// Configure and save the underlying Tekton Pipeline.
-		pipeline, err := obj.ApplyPipeline(ctx, r.Client, deps)
+		pipeline, err := app.ApplyPipelineParts(ctx, r.Client, deps)
 		if err != nil {
-			return errmark.MapLast(err, func(err error) error {
-				return fmt.Errorf("failed to apply Pipeline: %+v", err)
-			})
+			return errmap.Wrap(err, "failed to apply Pipeline")
 		}
 
-		// Create or update a PipelineRun.
-		pr, err = obj.ApplyPipelineRun(ctx, r.Client, pipeline)
+		pr, err = app.ApplyPipelineRun(ctx, r.Client, pipeline)
 		if err != nil {
-			return errmark.MapLast(err, func(err error) error {
-				return fmt.Errorf("failed to apply Pipeline: %+v", err)
-			})
+			return errmap.Wrap(err, "failed to apply PipelineRun")
 		}
 
 		return nil
 	})
 	if err != nil {
+		errmark.IfMarked(err, errmark.User, func(err error) {
+			klog.Error(err)
+
+			// Discard error and fail the workflow run instead as reprocessing
+			// will not be helpful.
+			err = wr.Fail(ctx, r.Client)
+		})
+
 		return ctrl.Result{}, err
 	}
 
@@ -131,12 +128,10 @@ func (r *Reconciler) Reconcile(req ctrl.Request) (result ctrl.Result, err error)
 		klog.Warning(err)
 	}
 
-	obj.ConfigureWorkflowRun(wr, pr)
+	app.ConfigureWorkflowRun(wr, pr)
 
 	if err := wr.PersistStatus(ctx, r.Client); err != nil {
-		return ctrl.Result{}, errmark.MapLast(err, func(err error) error {
-			return fmt.Errorf("failed to persist WorkflowRun: %+v", err)
-		})
+		return ctrl.Result{}, errmap.Wrap(err, "failed to persist WorkflowRun")
 	}
 
 	return ctrl.Result{}, nil
@@ -191,7 +186,7 @@ func (r *Reconciler) uploadLog(ctx context.Context, namespace string, podName st
 	opts := &corev1.PodLogOptions{
 		Container: containerName,
 	}
-	rc, err := r.KubeClient.CoreV1().Pods(namespace).GetLogs(podName, opts).Stream()
+	rc, err := r.KubeClient.CoreV1().Pods(namespace).GetLogs(podName, opts).Stream(ctx)
 	if err != nil {
 		return "", err
 	}

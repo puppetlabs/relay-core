@@ -22,11 +22,13 @@ do_build() {
     )
   else
     (
+      mkdir -p ~/.config/containers
+      echo "unqualified-search-registries = ['docker.io', 'quay.io', 'registry.fedoraproject.org']" > ~/.config/containers/registries.conf
+
       set -x
       buildah bud \
         "${BUILD_ARGS[@]}" \
-        -v "${GOPATH}/pkg/mod:/go/pkg/mod:O" \
-        -v "${GOPATH}/pkg/sumdb:/go/pkg/sumdb:O" \
+        -v "$(go env GOPATH)/pkg:/go/pkg:O" \
         .
       buildah push "${BUILD_IMAGE}" "docker-daemon:${BUILD_IMAGE}"
     )

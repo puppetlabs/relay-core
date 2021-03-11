@@ -6,7 +6,7 @@ import (
 	"io"
 
 	"github.com/puppetlabs/relay-core/pkg/expr/serialize"
-	"gopkg.in/yaml.v3"
+	yaml "gopkg.in/yaml.v3"
 )
 
 // Decoder takes a byte slice of serialized workflow data and decodes it into a

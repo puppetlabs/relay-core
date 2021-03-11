@@ -1,7 +1,7 @@
 package sample
 
 import (
-	"github.com/puppetlabs/horsehead/v2/logging"
+	"github.com/puppetlabs/leg/logging"
 )
 
 var (

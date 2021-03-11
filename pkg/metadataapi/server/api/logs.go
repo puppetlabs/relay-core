@@ -5,7 +5,7 @@ import (
 	"context"
 	"net/http"
 
-	utilapi "github.com/puppetlabs/horsehead/v2/httputil/api"
+	utilapi "github.com/puppetlabs/leg/httputil/api"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/errors"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/middleware"
 )

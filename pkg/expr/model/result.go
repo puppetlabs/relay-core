@@ -3,7 +3,7 @@ package model
 import (
 	"sort"
 
-	"github.com/puppetlabs/horsehead/v2/datastructure"
+	"github.com/puppetlabs/leg/datastructure"
 )
 
 type UnresolvableData struct {
@@ -255,8 +255,9 @@ func (r *Result) Complete() bool {
 func (r *Result) Extends(other *Result) *Result {
 	// For convenience, we can copy in the information from another result,
 	// which extends the unresolvables here.
-
-	r.Unresolvable.Extends(other.Unresolvable)
+	if other != nil {
+		r.Unresolvable.Extends(other.Unresolvable)
+	}
 	return r
 }
 
@@ -267,6 +268,10 @@ func CombineResultSlice(s []*Result) *Result {
 	}
 
 	for i, ri := range s {
+		if ri == nil {
+			continue
+		}
+
 		vs[i] = ri.Value
 		r.Extends(ri)
 	}
@@ -281,6 +286,10 @@ func CombineResultMap(m map[string]*Result) *Result {
 	}
 
 	for key, ri := range m {
+		if ri == nil {
+			continue
+		}
+
 		vm[key] = ri.Value
 		r.Extends(ri)
 	}

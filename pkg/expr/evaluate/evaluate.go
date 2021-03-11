@@ -7,15 +7,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/PaesslerAG/gval"
 	"github.com/mitchellh/mapstructure"
-	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
-	gval "github.com/puppetlabs/paesslerag-gval"
-	gvaljsonpath "github.com/puppetlabs/paesslerag-jsonpath"
+	"github.com/puppetlabs/leg/encoding/transfer"
+	"github.com/puppetlabs/leg/jsonutil/pkg/jsonpath"
+	jsonpathtemplate "github.com/puppetlabs/leg/jsonutil/pkg/jsonpath/template"
 	"github.com/puppetlabs/relay-core/pkg/expr/fn"
 	"github.com/puppetlabs/relay-core/pkg/expr/model"
 	"github.com/puppetlabs/relay-core/pkg/expr/parse"
 	"github.com/puppetlabs/relay-core/pkg/expr/resolve"
-	"github.com/puppetlabs/relay-core/pkg/util/jsonpath"
 )
 
 type Language int
@@ -105,13 +105,13 @@ func (e *Evaluator) EvaluateQuery(ctx context.Context, tree parse.Tree, query st
 		)
 	case LanguageJSONPath:
 		pl = gval.NewLanguage(
-			jsonpath.ExpressionLanguage(),
-			gval.VariableSelector(gvaljsonpath.VariableSelector(variableVisitor(e, r))),
+			jsonpathtemplate.ExpressionLanguage(),
+			gval.VariableSelector(jsonpath.VariableSelector(variableVisitor(e, r))),
 		)
 	case LanguageJSONPathTemplate:
-		pl = jsonpath.TemplateLanguage(
-			jsonpath.WithExpressionLanguageVariableVisitor(variableVisitor(e, r)),
-			jsonpath.WithFormatter(func(v interface{}) (string, error) {
+		pl = jsonpathtemplate.TemplateLanguage(
+			jsonpathtemplate.WithExpressionLanguageVariableVisitor(variableVisitor(e, r)),
+			jsonpathtemplate.WithFormatter(func(v interface{}) (string, error) {
 				rv, err := e.evaluate(ctx, v, -1)
 				if err != nil {
 					return "", err
@@ -121,7 +121,7 @@ func (e *Evaluator) EvaluateQuery(ctx context.Context, tree parse.Tree, query st
 					v = rv.Value
 				}
 
-				return jsonpath.DefaultFormatter(v)
+				return jsonpathtemplate.DefaultFormatter(v)
 			}),
 		)
 	default:
@@ -440,7 +440,9 @@ func (e *Evaluator) evaluateUnchecked(ctx context.Context, v interface{}, depth 
 			if strings.HasPrefix(first, "$fn.") {
 				return e.evaluateInvocation(ctx, vt)
 			}
-		} else if depth == 1 {
+		}
+
+		if depth == 1 {
 			return &model.Result{Value: v}, nil
 		}
 

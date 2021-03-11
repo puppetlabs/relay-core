@@ -2,9 +2,10 @@ package fnlib
 
 import (
 	"context"
+	"errors"
 	"reflect"
 
-	jsonpath "github.com/puppetlabs/paesslerag-jsonpath"
+	"github.com/puppetlabs/leg/jsonutil/pkg/jsonpath"
 	"github.com/puppetlabs/relay-core/pkg/expr/fn"
 	"github.com/puppetlabs/relay-core/pkg/expr/model"
 )
@@ -22,7 +23,7 @@ func path(ctx context.Context, objArg, qArg, defArg *pathArg) *model.Result {
 		}
 
 		arg.r, arg.err = arg.e.Evaluate(ctx, 0)
-		if arg.err != nil || !arg.r.Complete() {
+		if arg.err != nil {
 			return nil
 		}
 	}
@@ -46,8 +47,12 @@ func path(ctx context.Context, objArg, qArg, defArg *pathArg) *model.Result {
 	var vr *model.Result
 	vr, objArg.err = objArg.e.EvaluateQuery(ctx, q)
 	if objArg.err != nil {
-		switch objArg.err.(type) {
-		case *jsonpath.IndexOutOfBoundsError, *jsonpath.UnknownKeyError:
+		var (
+			iobe *jsonpath.IndexOutOfBoundsError
+			uke  *jsonpath.UnknownKeyError
+		)
+		switch {
+		case errors.As(objArg.err, &iobe), errors.As(objArg.err, &uke):
 		default:
 			defUsable = false
 		}
@@ -59,14 +64,21 @@ func path(ctx context.Context, objArg, qArg, defArg *pathArg) *model.Result {
 		// might find confusing.
 		//
 		// Instead, we just extend the specific part that couldn't be resolved.
-		objArg.r.Extends(vr)
+		if objArg.r != nil {
+			objArg.r.Extends(vr)
+		}
+		return nil
 	}
 
 	if !defUsable {
 		return nil
 	}
 
-	// If we get this far, we should use the default.
+	// If we get this far, we should use the default. This means setting any
+	// object error back to nil so that the whole function will be marked as not
+	// resolvable if the default is not resolvable.
+	objArg.err = nil
+
 	defArg.r, defArg.err = defArg.e.EvaluateAll(ctx)
 	if defArg.err != nil || !defArg.r.Complete() {
 		return nil
@@ -140,6 +152,7 @@ var pathDescriptor = fn.DescriptorFuncs{
 				return r, nil
 			}
 
+			// Figure out what went wrong by traversing the arg intermediates.
 			rm := make(map[string]*model.Result)
 			for key, arg := range map[string]*pathArg{
 				"object":  objArg,

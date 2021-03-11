@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -34,23 +33,23 @@ var _ inject.Client = &EnqueueRequestForReferencesByNameLabel{}
 var _ inject.Scheme = &EnqueueRequestForReferencesByNameLabel{}
 
 func (e *EnqueueRequestForReferencesByNameLabel) Create(evt event.CreateEvent, q workqueue.RateLimitingInterface) {
-	e.add(evt.Meta, q)
+	e.add(evt.Object, q)
 }
 
 func (e *EnqueueRequestForReferencesByNameLabel) Update(evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
-	e.add(evt.MetaOld, q)
-	e.add(evt.MetaNew, q)
+	e.add(evt.ObjectOld, q)
+	e.add(evt.ObjectNew, q)
 }
 
 func (e *EnqueueRequestForReferencesByNameLabel) Delete(evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
-	e.add(evt.Meta, q)
+	e.add(evt.Object, q)
 }
 
 func (e *EnqueueRequestForReferencesByNameLabel) Generic(evt event.GenericEvent, q workqueue.RateLimitingInterface) {
-	e.add(evt.Meta, q)
+	e.add(evt.Object, q)
 }
 
-func (e *EnqueueRequestForReferencesByNameLabel) add(target metav1.Object, q workqueue.RateLimitingInterface) {
+func (e *EnqueueRequestForReferencesByNameLabel) add(target client.Object, q workqueue.RateLimitingInterface) {
 	ctx, cancel := context.WithTimeout(context.Background(), EnqueueRequestForReferencesByNameLabelTimeout)
 	defer cancel()
 

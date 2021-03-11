@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"syscall"
+	"time"
 
 	"github.com/puppetlabs/relay-core/pkg/entrypoint"
 )
@@ -20,10 +21,14 @@ var (
 func main() {
 	flag.Parse()
 
+	// FIXME Implement configurable timeouts
 	e := entrypoint.Entrypointer{
 		Entrypoint: *ep,
 		Args:       flag.Args(),
-		Runner:     &realRunner{},
+		Runner: &entrypoint.RealRunner{
+			TimeoutLong:  1 * time.Minute,
+			TimeoutShort: 5 * time.Second,
+		},
 	}
 
 	if err := e.Go(); err != nil {

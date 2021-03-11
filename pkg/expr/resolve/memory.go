@@ -3,7 +3,7 @@ package resolve
 import (
 	"context"
 
-	gval "github.com/puppetlabs/paesslerag-gval"
+	"github.com/PaesslerAG/gval"
 	"github.com/puppetlabs/relay-core/pkg/expr/fn"
 	"github.com/puppetlabs/relay-core/pkg/expr/fnlib"
 	"github.com/puppetlabs/relay-core/pkg/expr/model"

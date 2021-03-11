@@ -3,7 +3,7 @@ package testutil
 import (
 	"fmt"
 
-	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
+	"github.com/puppetlabs/leg/encoding/transfer"
 )
 
 func JSONData(query string) map[string]interface{} {

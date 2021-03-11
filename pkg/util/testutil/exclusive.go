@@ -10,14 +10,8 @@ import (
 	"github.com/gofrs/flock"
 )
 
-type LockID string
-
-const (
-	LockEndToEndEnvironment LockID = "end-to-end"
-)
-
-func Exclusive(ctx context.Context, name LockID) (release func(), err error) {
-	f := exclusiveLockPath(string(name))
+func Exclusive(ctx context.Context, name string) (release func(), err error) {
+	f := exclusiveLockPath(name)
 	if err := os.MkdirAll(filepath.Dir(f), 0755); err != nil {
 		return nil, err
 	}
@@ -43,7 +37,7 @@ func Exclusive(ctx context.Context, name LockID) (release func(), err error) {
 	return
 }
 
-func WithExclusive(ctx context.Context, name LockID, fn func()) error {
+func WithExclusive(ctx context.Context, name string, fn func()) error {
 	release, err := Exclusive(ctx, name)
 	if err != nil {
 		return err
@@ -55,5 +49,5 @@ func WithExclusive(ctx context.Context, name LockID, fn func()) error {
 }
 
 func exclusiveLockPath(name string) string {
-	return filepath.Join(ModuleDirectory, "tests", ".exclusive", name)
+	return filepath.Join(ModuleDirectory, "tests", ".exclusive", GoBuildIdentifier, name)
 }

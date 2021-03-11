@@ -5,8 +5,8 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/puppetlabs/errawr-go/v2/pkg/errawr"
-	utilapi "github.com/puppetlabs/horsehead/v2/httputil/api"
-	"github.com/puppetlabs/horsehead/v2/instrumentation/alerts/trackers"
+	utilapi "github.com/puppetlabs/leg/httputil/api"
+	"github.com/puppetlabs/leg/instrumentation/alerts/trackers"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/api"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/middleware"
 	"github.com/puppetlabs/relay-core/pkg/workflow/validation"

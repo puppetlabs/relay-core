@@ -64,7 +64,7 @@ type RelayCoreSpec struct {
 
 	// Vault is the configuration for accessing vault from the operator and metadata-api.
 	//
-	// +kubebuilder:default={sidecar: {image: "vault:latest"}}
+	// +kubebuilder:default={sidecar: {image: "vault:latest", imagePullPolicy: "IfNotPresent", resources: {limits: {cpu: "50m", memory: "64Mi"}, requests: {cpu: "25m", memory: "32Mi"}}, serverAddr: "http://vault:8200"}}
 	// +optional
 	Vault *VaultConfig `json:"vault,omitempty"`
 
@@ -324,7 +324,7 @@ type VaultConfig struct {
 	// Sidecar is the configuration for the vault sidecar containers used by
 	// the operator and the metadata-api.
 	//
-	// +kubebuilder:default={image: "vault:latest"}
+	// +kubebuilder:default={image: "vault:latest", imagePullPolicy: "IfNotPresent", resources: {limits: {cpu: "50m", memory: "64Mi"}, requests: {cpu: "25m", memory: "32Mi"}}, serverAddr: "http://vault:8200"}
 	// +optional
 	Sidecar *VaultSidecar `json:"sidecar"`
 }

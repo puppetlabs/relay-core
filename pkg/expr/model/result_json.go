@@ -1,6 +1,6 @@
 package model
 
-import "github.com/puppetlabs/horsehead/v2/encoding/transfer"
+import "github.com/puppetlabs/leg/encoding/transfer"
 
 type JSONUnresolvableSecretEnvelope struct {
 	Name string `json:"name"`

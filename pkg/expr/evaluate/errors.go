@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"strings"
 
-	jsonpath "github.com/puppetlabs/paesslerag-jsonpath"
+	"github.com/puppetlabs/leg/jsonutil/pkg/jsonpath"
 )
 
 var (
@@ -109,6 +109,10 @@ func (e *PathEvaluationError) trace() ([]string, error) {
 func (e *PathEvaluationError) UnderlyingCause() error {
 	_, err := e.trace()
 	return err
+}
+
+func (e *PathEvaluationError) Unwrap() error {
+	return e.Cause
 }
 
 func (e *PathEvaluationError) Error() string {

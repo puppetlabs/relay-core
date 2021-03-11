@@ -7,8 +7,8 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
-	jsonpath "github.com/puppetlabs/paesslerag-jsonpath"
+	"github.com/puppetlabs/leg/encoding/transfer"
+	"github.com/puppetlabs/leg/jsonutil/pkg/jsonpath"
 	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
 	"github.com/puppetlabs/relay-core/pkg/expr/fn"
 	"github.com/puppetlabs/relay-core/pkg/expr/model"
@@ -655,16 +655,31 @@ func TestEvaluateQuery(t *testing.T) {
 			ExpectedValue: "bar",
 		},
 		{
-			Name:          "nonexistent key",
-			Data:          `{"foo": [{"bar": "baz"}]}`,
-			Query:         `foo[0].quux`,
-			ExpectedError: &jsonpath.UnknownKeyError{Key: "quux"},
+			Name:  "nonexistent key",
+			Data:  `{"foo": [{"bar": "baz"}]}`,
+			Query: `foo[0].quux`,
+			ExpectedError: &evaluate.PathEvaluationError{
+				Path: "foo",
+				Cause: &evaluate.PathEvaluationError{
+					Path: "0",
+					Cause: &evaluate.PathEvaluationError{
+						Path:  "quux",
+						Cause: &jsonpath.UnknownKeyError{Key: "quux"},
+					},
+				},
+			},
 		},
 		{
-			Name:          "nonexistent index",
-			Data:          `{"foo": [{"bar": "baz"}]}`,
-			Query:         `foo[1].quux`,
-			ExpectedError: &jsonpath.IndexOutOfBoundsError{Index: 1},
+			Name:  "nonexistent index",
+			Data:  `{"foo": [{"bar": "baz"}]}`,
+			Query: `foo[1].quux`,
+			ExpectedError: &evaluate.PathEvaluationError{
+				Path: "foo",
+				Cause: &evaluate.PathEvaluationError{
+					Path:  "1",
+					Cause: &jsonpath.IndexOutOfBoundsError{Index: 1},
+				},
+			},
 		},
 		{
 			Name: "traverses parameter",
@@ -817,8 +832,11 @@ func TestEvaluateQuery(t *testing.T) {
 					"foo": map[string]string{"inner": "test"},
 				})),
 			},
-			ExpectedError: &evaluate.UnsupportedValueError{
-				Type: reflect.TypeOf(map[string]string(nil)),
+			ExpectedError: &evaluate.PathEvaluationError{
+				Path: "a",
+				Cause: &evaluate.UnsupportedValueError{
+					Type: reflect.TypeOf(map[string]string(nil)),
+				},
 			},
 		},
 		{
@@ -908,6 +926,26 @@ func TestEvaluateQuery(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name:  "query has an error under a path",
+			Data:  `{"foo": {"bar": ["baz", "quux"]}}`,
+			Query: "foo.bar[0].nope",
+			ExpectedError: &evaluate.PathEvaluationError{
+				Path: "foo",
+				Cause: &evaluate.PathEvaluationError{
+					Path: "bar",
+					Cause: &evaluate.PathEvaluationError{
+						Path: "0",
+						Cause: &evaluate.PathEvaluationError{
+							Path: "nope",
+							Cause: &jsonpath.UnsupportedValueTypeError{
+								Value: "baz",
+							},
+						},
+					},
+				},
+			},
+		},
 	}.RunAll(t)
 }
 
@@ -959,6 +997,138 @@ func TestEvaluateIntoBasic(t *testing.T) {
 			},
 			Into:          &map[string]interface{}{},
 			ExpectedValue: &map[string]interface{}{"foo": map[string]interface{}{"bar": "v3ry s3kr3t!"}},
+		},
+	}.RunAll(t)
+}
+
+func TestEvaluatePath(t *testing.T) {
+	type awsDetails struct {
+		AccessKeyID     string
+		SecretAccessKey string
+		Region          string
+	}
+
+	type awsSpec struct {
+		AWS *awsDetails
+	}
+
+	tests{
+		{
+			Name: "resolvable (using connections)",
+			Data: `{
+				"aws": {
+					"accessKeyID": {"$fn.path": {"object": {"$type": "Connection", "name": "aws", "type": "aws"}, "query": "accessKeyID"}},
+					"secretAccessKey": {"$fn.path": {"object": {"$type": "Connection", "name": "aws", "type": "aws"}, "query": "secretAccessKey"}},
+					"region": "us-west-2"
+				}
+			}`,
+			Opts: []evaluate.Option{
+				evaluate.WithConnectionTypeResolver(resolve.NewMemoryConnectionTypeResolver(
+					map[resolve.MemoryConnectionKey]interface{}{
+						{Type: "aws", Name: "aws"}: map[string]interface{}{
+							"accessKeyID":     "AKIANOAHISCOOL",
+							"secretAccessKey": "abcdefs3cr37s",
+						},
+					},
+				)),
+			},
+			Into: &awsSpec{},
+			ExpectedValue: &awsSpec{
+				AWS: &awsDetails{
+					AccessKeyID:     "AKIANOAHISCOOL",
+					SecretAccessKey: "abcdefs3cr37s",
+					Region:          "us-west-2",
+				},
+			},
+		},
+		{
+			Name: "unresolvable (using connections)",
+			Data: `{
+				"aws": {
+					"accessKeyID": {"$fn.path": {"object": {"$type": "Connection", "name": "aws", "type": "aws"}, "query": "accessKeyID"}},
+					"secretAccessKey": {"$fn.path": {"object": {"$type": "Connection", "name": "aws", "type": "aws"}, "query": "secretAccessKey"}},
+					"region": "us-west-2"
+				}
+			}`,
+			ExpectedValue: map[string]interface{}(
+				map[string]interface{}{
+					"aws": map[string]interface{}{
+						"accessKeyID": map[string]interface{}{
+							"$fn.path": map[string]interface{}{
+								"object": map[string]interface{}{
+									"$type": "Connection", "name": "aws", "type": "aws"},
+								"query": "accessKeyID"}},
+						"secretAccessKey": map[string]interface{}{
+							"$fn.path": map[string]interface{}{
+								"object": map[string]interface{}{
+									"$type": "Connection", "name": "aws", "type": "aws"},
+								"query": "secretAccessKey"}},
+						"region": "us-west-2",
+					},
+				}),
+			ExpectedUnresolvable: model.Unresolvable{
+				Connections: []model.UnresolvableConnection{
+					{Type: "aws", Name: "aws"},
+				},
+			},
+		},
+		{
+			Name: "resolvable (using secrets)",
+			Data: `{
+				"aws": {
+					"accessKeyID": {"$fn.path": {"object": {"$fn.jsonUnmarshal": [{"$type": "Secret", "name": "aws"}]}, "query": "accessKeyID"}},
+					"secretAccessKey": {"$fn.path": {"object": {"$fn.jsonUnmarshal": [{"$type": "Secret", "name": "aws"}]}, "query": "secretAccessKey"}},
+					"region": "us-west-2"
+				}
+			}`,
+			Opts: []evaluate.Option{
+				evaluate.WithSecretTypeResolver(resolve.NewMemorySecretTypeResolver(
+					map[string]string{"aws": `{
+							"accessKeyID": "AKIANOAHISCOOL",
+							"secretAccessKey": "abcdefs3cr37s"
+						}`,
+					},
+				)),
+			},
+			Into: &awsSpec{},
+			ExpectedValue: &awsSpec{
+				AWS: &awsDetails{
+					AccessKeyID:     "AKIANOAHISCOOL",
+					SecretAccessKey: "abcdefs3cr37s",
+					Region:          "us-west-2",
+				},
+			},
+		},
+		{
+			Name: "unresolvable (using secrets)",
+			Data: `{
+				"aws": {
+					"accessKeyID": {"$fn.path": {"object": {"$fn.jsonUnmarshal": [{"$type": "Secret", "name": "aws"}]}, "query": "accessKeyID"}},
+					"secretAccessKey": {"$fn.path": {"object": {"$fn.jsonUnmarshal": [{"$type": "Secret", "name": "aws"}]}, "query": "secretAccessKey"}},
+					"region": "us-west-2"
+				}
+			}`,
+			ExpectedValue: map[string]interface{}{
+				"aws": map[string]interface{}{
+					"accessKeyID": map[string]interface{}{
+						"$fn.path": map[string]interface{}{
+							"object": map[string]interface{}{
+								"$fn.jsonUnmarshal": []interface{}{map[string]interface{}{
+									"$type": "Secret", "name": "aws"}}},
+							"query": "accessKeyID"}},
+					"secretAccessKey": map[string]interface{}{
+						"$fn.path": map[string]interface{}{
+							"object": map[string]interface{}{
+								"$fn.jsonUnmarshal": []interface{}{map[string]interface{}{
+									"$type": "Secret", "name": "aws"}}},
+							"query": "secretAccessKey"}},
+					"region": "us-west-2",
+				}},
+			ExpectedUnresolvable: model.Unresolvable{
+				Secrets: []model.UnresolvableSecret{
+					{Name: "aws"},
+				},
+			},
 		},
 	}.RunAll(t)
 }

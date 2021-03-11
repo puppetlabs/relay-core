@@ -3,8 +3,8 @@ package config
 import (
 	"net/url"
 
-	"github.com/puppetlabs/horsehead/v2/instrumentation/alerts"
-	"github.com/puppetlabs/horsehead/v2/instrumentation/alerts/trackers"
+	"github.com/puppetlabs/leg/instrumentation/alerts"
+	"github.com/puppetlabs/leg/instrumentation/alerts/trackers"
 	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )

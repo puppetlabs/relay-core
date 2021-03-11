@@ -5,7 +5,7 @@ import (
 	"path"
 
 	vaultapi "github.com/hashicorp/vault/api"
-	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
+	"github.com/puppetlabs/leg/encoding/transfer"
 	"github.com/puppetlabs/relay-core/pkg/model"
 )
 

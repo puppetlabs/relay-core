@@ -3,8 +3,8 @@ package api
 import (
 	"net/http"
 
-	"github.com/puppetlabs/horsehead/v2/encoding/transfer"
-	utilapi "github.com/puppetlabs/horsehead/v2/httputil/api"
+	"github.com/puppetlabs/leg/encoding/transfer"
+	utilapi "github.com/puppetlabs/leg/httputil/api"
 	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
 	"github.com/puppetlabs/relay-core/pkg/expr/model"
 	"github.com/puppetlabs/relay-core/pkg/manager/resolve"
@@ -31,6 +31,7 @@ func (s *Server) GetEnvironmentVariable(w http.ResponseWriter, r *http.Request) 
 	}
 
 	eval := evaluate.NewEvaluator(
+		evaluate.WithConnectionTypeResolver(resolve.NewConnectionTypeResolver(managers.Connections())),
 		evaluate.WithParameterTypeResolver(resolve.NewParameterTypeResolver(managers.Parameters())),
 		evaluate.WithOutputTypeResolver(resolve.NewOutputTypeResolver(managers.StepOutputs())),
 		evaluate.WithSecretTypeResolver(resolve.NewSecretTypeResolver(managers.Secrets())),
@@ -60,6 +61,7 @@ func (s *Server) GetEnvironment(w http.ResponseWriter, r *http.Request) {
 	evs := make(map[string]interface{})
 	for name, value := range environment.Value {
 		eval := evaluate.NewEvaluator(
+			evaluate.WithConnectionTypeResolver(resolve.NewConnectionTypeResolver(managers.Connections())),
 			evaluate.WithParameterTypeResolver(resolve.NewParameterTypeResolver(managers.Parameters())),
 			evaluate.WithOutputTypeResolver(resolve.NewOutputTypeResolver(managers.StepOutputs())),
 			evaluate.WithSecretTypeResolver(resolve.NewSecretTypeResolver(managers.Secrets())),

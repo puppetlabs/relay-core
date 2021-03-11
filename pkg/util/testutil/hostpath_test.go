@@ -9,14 +9,10 @@ import (
 )
 
 func TestInstallHostpathProvisioner(t *testing.T) {
-	if testing.Short() {
-		t.SkipNow()
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
 
-	testutil.WithEndToEndEnvironment(t, func(e2e *testutil.EndToEndEnvironment) {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-		defer cancel()
-
-		testutil.InstallHostpathProvisioner(t, ctx, e2e.ControllerRuntimeClient)
+	testutil.WithEndToEndEnvironment(t, ctx, nil, func(e2e *testutil.EndToEndEnvironment) {
+		testutil.InstallHostpathProvisioner(t, ctx, e2e.ControllerClient)
 	})
 }

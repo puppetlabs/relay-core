@@ -8,7 +8,7 @@ import (
 
 	"github.com/gorilla/mux"
 	vaultapi "github.com/hashicorp/vault/api"
-	"github.com/puppetlabs/horsehead/v2/instrumentation/alerts/trackers"
+	"github.com/puppetlabs/leg/instrumentation/alerts/trackers"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
 	"github.com/puppetlabs/relay-core/pkg/manager/api"
 	"github.com/puppetlabs/relay-core/pkg/manager/builder"
