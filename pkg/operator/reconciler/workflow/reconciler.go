@@ -9,6 +9,7 @@ import (
 	"github.com/puppetlabs/leg/errmap/pkg/errmark"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/errhandler"
 	"github.com/puppetlabs/leg/storage"
+	pvpoolv1alpha1obj "github.com/puppetlabs/pvpool/pkg/obj"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	"github.com/puppetlabs/relay-core/pkg/operator/app"
@@ -28,9 +29,8 @@ type Reconciler struct {
 	Client client.Client
 	Scheme *runtime.Scheme
 
-	standalone bool
-	metrics    *controllerObservations
-	issuer     authenticate.Issuer
+	metrics *controllerObservations
+	issuer  authenticate.Issuer
 }
 
 func NewReconciler(dm *dependency.DependencyManager) *Reconciler {
@@ -40,8 +40,7 @@ func NewReconciler(dm *dependency.DependencyManager) *Reconciler {
 		Client: dm.Manager.GetClient(),
 		Scheme: dm.Manager.GetScheme(),
 
-		standalone: dm.Config.Standalone,
-		metrics:    newControllerObservations(dm.Metrics),
+		metrics: newControllerObservations(dm.Metrics),
 		issuer: authenticate.IssuerFunc(func(ctx context.Context, claims *authenticate.Claims) (authenticate.Raw, error) {
 			raw, err := authenticate.NewKeySignerIssuer(dm.JWTSigner).Issue(ctx, claims)
 			if err != nil {
@@ -81,13 +80,18 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 
 	var pr *obj.PipelineRun
 	err = r.metrics.trackDurationWithOutcome(metricWorkflowRunStartUpDuration, func() error {
+		opts := []app.WorkflowRunDepsOption{app.WorkflowRunDepsWithStandaloneMode(r.Config.Standalone)}
+		if p := r.Config.ToolInjectionPool; p != nil {
+			opts = append(opts, app.WorkflowRunDepsWithToolInjectionPool(pvpoolv1alpha1obj.NewPool(*p)))
+		}
+
 		deps, err := app.ApplyWorkflowRunDeps(
 			ctx,
 			r.Client,
 			wr,
 			r.issuer,
 			r.Config.MetadataAPIURL,
-			app.WorkflowRunDepsWithStandaloneMode(r.standalone),
+			opts...,
 		)
 
 		if err != nil {

@@ -21,6 +21,7 @@ const (
 
 	TenantStatusReasonToolInjectionNotDefined = "ToolInjectionNotDefined"
 	TenantStatusReasonToolInjectionError      = "ToolInjectionError"
+	TenantStatusReasonToolInjectionReady      = "ToolInjectionReady"
 
 	TenantStatusReasonReady = "Ready"
 	TenantStatusReasonError = "Error"

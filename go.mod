@@ -9,7 +9,7 @@ require (
 	github.com/certifi/gocertifi v0.0.0-20180118203423-deb3ae2ef261 // indirect
 	github.com/containerd/continuity v0.0.0-20200413184840-d3ef23f19fbb // indirect
 	github.com/go-logr/logr v0.4.0
-	github.com/gofrs/flock v0.7.1
+	github.com/gofrs/flock v0.8.0
 	github.com/golang/protobuf v1.4.3
 	github.com/gomarkdown/markdown v0.0.0-20200513213024-62c5e2c608cc
 	github.com/google/go-containerregistry v0.4.1-0.20210128200529-19c2b639fab1
@@ -24,7 +24,6 @@ require (
 	github.com/hashicorp/vault/sdk v0.1.14-0.20200429182704-29fce8f27ce4
 	github.com/inconshreveable/log15 v0.0.0-20201112154412-8562bdadbbac
 	github.com/keybase/go-crypto v0.0.0-20200123153347-de78d2cb44f4 // indirect
-	github.com/lib/pq v1.3.0 // indirect
 	github.com/mitchellh/mapstructure v1.3.1
 	github.com/opencontainers/runc v1.0.0-rc6 // indirect
 	github.com/puppetlabs/errawr-gen v1.0.1
@@ -44,11 +43,12 @@ require (
 	github.com/puppetlabs/leg/storage v0.1.1
 	github.com/puppetlabs/leg/stringutil v0.1.0
 	github.com/puppetlabs/leg/timeutil v0.3.0
+	github.com/puppetlabs/pvpool v0.1.2
 	github.com/puppetlabs/relay-pls v0.0.0-20201125074651-13575df50b51
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/shurcooL/vfsgen v0.0.0-20181202132449-6a9ea43bcacd
-	github.com/spf13/viper v1.7.0
-	github.com/stretchr/testify v1.6.1
+	github.com/spf13/viper v1.7.1
+	github.com/stretchr/testify v1.7.0
 	github.com/tektoncd/pipeline v0.22.0
 	github.com/xeipuuv/gojsonschema v1.2.0
 	go.opentelemetry.io/otel v0.16.0

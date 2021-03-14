@@ -10,6 +10,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/entrypoint"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
+	"github.com/puppetlabs/relay-core/pkg/operator/admission"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -95,14 +96,20 @@ func ConfigureTask(ctx context.Context, t *obj.Task, wrd *WorkflowRunDeps, ws *n
 
 	// TODO Reference the tool injection from the tenant (once this is available)
 	// For now, we'll assume an explicit tenant reference implies the use of the entrypoint handling
-	if wrd.WorkflowRun.Object.Spec.TenantRef != nil {
+	if tr := wrd.WorkflowRun.Object.Spec.TenantRef; tr != nil && wrd.ToolInjectionPool != nil {
 		ep, err := entrypoint.ImageEntrypoint(image, []string{command}, args)
 		if err != nil {
 			return err
 		}
 
-		container.Command = []string{path.Join(model.ToolInjectionMountPath, ep.Entrypoint)}
+		container.Command = []string{path.Join(model.ToolsMountPath, ep.Entrypoint)}
 		container.Args = ep.Args
+
+		pvcName := checkoutObjectKey(client.ObjectKey{
+			Namespace: wrd.Namespace.Name,
+			Name:      tr.Name,
+		}, wrd.ToolInjectionPool.Key)
+		helper.Annotate(&t.Object.ObjectMeta, admission.ToolsVolumeClaimAnnotation, pvcName.Name)
 	} else {
 		if command != "" {
 			container.Command = []string{command}
@@ -115,13 +122,6 @@ func ConfigureTask(ctx context.Context, t *obj.Task, wrd *WorkflowRunDeps, ws *n
 
 	if err := wrd.AnnotateStepToken(ctx, &t.Object.ObjectMeta, ws); err != nil {
 		return err
-	}
-
-	// TODO Reference the tool injection from the tenant (once this is available)
-	// For now, we'll assume an explicit tenant reference implies the use of the tool injection suite
-	if wrd.WorkflowRun.Object.Spec.TenantRef != nil {
-		claim := wrd.WorkflowRun.Object.Spec.TenantRef.Name + model.ToolInjectionVolumeClaimSuffixReadOnlyMany
-		helper.Annotate(&t.Object.ObjectMeta, model.RelayControllerToolsVolumeClaimAnnotation, claim)
 	}
 
 	t.Object.Spec.Steps = []tektonv1beta1.Step{

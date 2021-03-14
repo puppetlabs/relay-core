@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"strings"
 
 	vaultapi "github.com/hashicorp/vault/api"
 	"github.com/puppetlabs/leg/instrumentation/alerts"
@@ -18,7 +19,6 @@ import (
 	"github.com/puppetlabs/leg/storage"
 	_ "github.com/puppetlabs/leg/storage/file"
 	_ "github.com/puppetlabs/leg/storage/gcs"
-	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/operator/admission"
 	"github.com/puppetlabs/relay-core/pkg/operator/config"
 	"github.com/puppetlabs/relay-core/pkg/operator/controller/tenant"
@@ -26,9 +26,11 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/operator/controller/workflow"
 	"github.com/puppetlabs/relay-core/pkg/operator/dependency"
 	jose "gopkg.in/square/go-jose.v2"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
@@ -58,7 +60,7 @@ func main() {
 	tenantSandboxRuntimeClassName := fs.String("tenant-sandbox-runtime-class-name", "runsc", "name of the runtime class providing the gVisor containerd runtime")
 	sentryDSN := fs.String("sentry-dsn", "", "the Sentry DSN to use for error reporting")
 	dynamicRBACBinding := fs.Bool("dynamic-rbac-binding", false, "enable if RBAC rules are set up dynamically for the operator to reduce unhelpful reported errors")
-	toolInjectionImage := fs.String("tool-injection-image", model.DefaultToolInjectionImage, "tool injection image to use")
+	toolInjectionPool := fs.String("tool-injection-pool", "", "the name of a PVPool pool to use for injecting tools into containers")
 
 	fs.Parse(os.Args[1:])
 
@@ -164,7 +166,17 @@ func main() {
 		WebhookServerKeyDir:     *webhookServerKeyDir,
 		AlertsDelegate:          alertsDelegate,
 		DynamicRBACBinding:      *dynamicRBACBinding,
-		ToolInjectionImage:      *toolInjectionImage,
+	}
+	if pool := *toolInjectionPool; pool != "" {
+		parts := strings.Split(pool, string(types.Separator))
+		if len(parts) != 2 {
+			log.Fatal("Invalid namespaced name for tool injection pool", pool)
+		}
+
+		cfg.ToolInjectionPool = &client.ObjectKey{
+			Namespace: parts[0],
+			Name:      parts[1],
+		}
 	}
 
 	dm, err := dependency.NewDependencyManager(cfg, kcc, vc, jwtSigner, blobStore, mets)

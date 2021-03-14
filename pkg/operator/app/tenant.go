@@ -1,13 +1,15 @@
 package app
 
 import (
+	"fmt"
+
+	pvpoolv1alpha1 "github.com/puppetlabs/pvpool/pkg/apis/pvpool.puppet.com/v1alpha1"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
-	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	corev1 "k8s.io/api/core/v1"
 )
 
-func ConfigureTenant(t *obj.Tenant, td *TenantDepsResult, pvc *PersistentVolumeClaimResult) {
+func ConfigureTenant(t *obj.Tenant, td *TenantDepsResult) {
 	// Set up our initial map from the existing data.
 	conds := map[relayv1beta1.TenantConditionType]*relayv1beta1.Condition{
 		relayv1beta1.TenantNamespaceReady:     &relayv1beta1.Condition{},
@@ -81,20 +83,27 @@ func ConfigureTenant(t *obj.Tenant, td *TenantDepsResult, pvc *PersistentVolumeC
 
 	UpdateStatusConditionIfTransitioned(conds[relayv1beta1.TenantToolInjectionReady], func() relayv1beta1.Condition {
 		if td.TenantDeps != nil {
-			if vc := td.TenantDeps.ToolInjection.VolumeClaimTemplate; vc != nil {
-				if pvc != nil {
-					if pvc.Error != nil {
+			if co := td.TenantDeps.ToolInjectionCheckout; co != nil {
+				for _, cond := range co.Object.Status.Conditions {
+					if cond.Type != pvpoolv1alpha1.CheckoutAcquired {
+						continue
+					}
+
+					switch cond.Status {
+					case corev1.ConditionTrue:
+						return relayv1beta1.Condition{
+							Status:  corev1.ConditionTrue,
+							Reason:  obj.TenantStatusReasonToolInjectionReady,
+							Message: cond.Message,
+						}
+					case corev1.ConditionFalse:
 						return relayv1beta1.Condition{
 							Status:  corev1.ConditionFalse,
 							Reason:  obj.TenantStatusReasonToolInjectionError,
-							Message: pvc.Error.Error(),
-						}
-					} else if pvc.PersistentVolumeClaim != nil &&
-						pvc.PersistentVolumeClaim.Object.Status.Phase == corev1.ClaimBound {
-						return relayv1beta1.Condition{
-							Status: corev1.ConditionTrue,
+							Message: fmt.Sprintf("%s: %s", cond.Reason, cond.Message),
 						}
 					}
+					break
 				}
 
 				return relayv1beta1.Condition{
@@ -136,8 +145,6 @@ func ConfigureTenant(t *obj.Tenant, td *TenantDepsResult, pvc *PersistentVolumeC
 	})
 
 	t.Object.Status = relayv1beta1.TenantStatus{
-		ObservedGeneration: t.Object.GetGeneration(),
-		Namespace:          td.TenantDeps.Namespace.Name,
 		Conditions: []relayv1beta1.TenantCondition{
 			{
 				Condition: *conds[relayv1beta1.TenantNamespaceReady],
@@ -159,13 +166,15 @@ func ConfigureTenant(t *obj.Tenant, td *TenantDepsResult, pvc *PersistentVolumeC
 	}
 
 	if td.TenantDeps != nil {
-		if vc := td.TenantDeps.ToolInjection.VolumeClaimTemplate; vc != nil {
-			if pvc != nil && pvc.Error == nil {
-				digest := t.Object.ObjectMeta.GetAnnotations()[model.RelayControllerToolInjectionImageDigestAnnotation]
-				t.Object.Status.ToolInjection = relayv1beta1.ToolInjectionStatus{
-					ImageDigest: digest,
-				}
+		t.Object.Status.ObservedGeneration = t.Object.GetGeneration()
+		t.Object.Status.Namespace = td.TenantDeps.Namespace.Name
+
+		if co := td.TenantDeps.ToolInjectionCheckout; co != nil {
+			t.Object.Status.ToolInjection.Checkout = corev1.LocalObjectReference{
+				Name: co.Key.Name,
 			}
+		} else {
+			t.Object.Status.ToolInjection.Checkout = corev1.LocalObjectReference{}
 		}
 	}
 }

@@ -1,16 +1,11 @@
 package model
 
 const (
-	DefaultImage              = "alpine:latest"
-	DefaultToolInjectionImage = "relaysh/relay-runtime-tools"
+	DefaultImage = "alpine:latest"
 
 	// TODO All tool injection settings should be fully configurable
-	ToolInjectionImagePath = "/relay/runtime/tools/."
-	ToolInjectionMountName = "relay-runtime-tools"
-	ToolInjectionMountPath = "/var/lib/puppet/relay/"
 
-	ToolInjectionVolumeClaimSuffixReadOnlyMany  = "-inject"
-	ToolInjectionVolumeClaimSuffixReadWriteOnce = "-init"
+	ToolsMountPath = "/var/lib/puppet/relay"
 )
 
 const (
@@ -20,16 +15,12 @@ const (
 	RelayVaultSecretPathAnnotation     = "relay.sh/vault-secret-path"
 	RelayVaultConnectionPathAnnotation = "relay.sh/vault-connection-path"
 
-	RelayControllerTokenHashAnnotation                = "controller.relay.sh/token-hash"
-	RelayControllerToolInjectionImageDigestAnnotation = "controller.relay.sh/tool-injection-image-digest"
-	RelayControllerToolsVolumeAnnotation              = "controller.relay.sh/tools-volume"
-	RelayControllerToolsVolumeClaimAnnotation         = "controller.relay.sh/tools-volume-claim"
+	RelayControllerTokenHashAnnotation = "controller.relay.sh/token-hash"
 
-	RelayControllerTenantNameLabel          = "controller.relay.sh/tenant-name"
-	RelayControllerTenantWorkloadLabel      = "controller.relay.sh/tenant-workload"
-	RelayControllerToolInjectionVolumeLabel = "controller.relay.sh/tool-injection"
-	RelayControllerWorkflowRunIDLabel       = "controller.relay.sh/run-id"
-	RelayControllerWebhookTriggerIDLabel    = "controller.relay.sh/webhook-trigger-id"
+	RelayControllerTenantNameLabel       = "controller.relay.sh/tenant-name"
+	RelayControllerTenantWorkloadLabel   = "controller.relay.sh/tenant-workload"
+	RelayControllerWorkflowRunIDLabel    = "controller.relay.sh/run-id"
+	RelayControllerWebhookTriggerIDLabel = "controller.relay.sh/webhook-trigger-id"
 )
 
 // MetadataManagers are the managers used by actions accessing the metadata

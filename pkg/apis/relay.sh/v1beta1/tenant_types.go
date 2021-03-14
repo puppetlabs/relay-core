@@ -27,6 +27,9 @@ type TenantSpec struct {
 	// +optional
 	NamespaceTemplate NamespaceTemplate `json:"namespaceTemplate,omitempty"`
 
+	// ToolInjection allows configuration of the PVC to be used for the
+	// container runtime tools.
+	//
 	// +optional
 	ToolInjection ToolInjection `json:"toolInjection,omitempty"`
 
@@ -97,13 +100,6 @@ type SecretKeySelector struct {
 	Key string `json:"key"`
 }
 
-type ToolInjectionStatus struct {
-	// ImageDigest is the specific image digest used for tool injection
-	//
-	// +optional
-	ImageDigest string `json:"imageDigest,omitempty"`
-}
-
 type TenantStatus struct {
 	// ObservedGeneration is the generation of the resource specification that
 	// this status matches.
@@ -124,7 +120,7 @@ type TenantStatus struct {
 	// +listMapKey=type
 	Conditions []TenantCondition `json:"conditions,omitempty"`
 
-	// ToolInjection contains specific status data for tool injection
+	// ToolInjection contains specific status data for tool injection.
 	//
 	// +optional
 	ToolInjection ToolInjectionStatus `json:"toolInjection,omitempty"`
@@ -156,6 +152,14 @@ type TenantCondition struct {
 	//
 	// +kubebuilder:validation:Enum=NamespaceReady;EventSinkReady;ToolInjectionReady;Ready
 	Type TenantConditionType `json:"type"`
+}
+
+type ToolInjectionStatus struct {
+	// Checkout is a reference to the PVPool checkout being managed for this
+	// tenant relative to the namespace in this status.
+	//
+	// +optional
+	Checkout corev1.LocalObjectReference `json:"checkout,omitEmpty"`
 }
 
 // TenantList enumerates many Tenant resources.

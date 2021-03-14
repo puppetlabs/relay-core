@@ -10,6 +10,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
+const (
+	ToolsVolumeClaimAnnotation = "controller.relay.sh/tools-volume-claim"
+	ToolsMountName             = "relay-tools"
+)
+
 type VolumeClaimHandler struct {
 	decoder *admission.Decoder
 }
@@ -23,14 +28,14 @@ func (eh *VolumeClaimHandler) Handle(ctx context.Context, req admission.Request)
 		return admission.Errored(http.StatusBadRequest, err)
 	}
 
-	if claim, ok := pod.ObjectMeta.GetAnnotations()[model.RelayControllerToolsVolumeClaimAnnotation]; ok {
+	if claim, ok := pod.ObjectMeta.GetAnnotations()[ToolsVolumeClaimAnnotation]; ok {
 		cs := make([]corev1.Container, 0)
 
 		updated := false
 		for _, c := range pod.Spec.Containers {
 			hasVolumeMount := false
 			for _, vm := range c.VolumeMounts {
-				if vm.Name == model.ToolInjectionMountName {
+				if vm.Name == ToolsMountName {
 					hasVolumeMount = true
 					break
 				}
@@ -38,8 +43,8 @@ func (eh *VolumeClaimHandler) Handle(ctx context.Context, req admission.Request)
 
 			if !hasVolumeMount {
 				c.VolumeMounts = append(c.VolumeMounts, corev1.VolumeMount{
-					Name:      model.ToolInjectionMountName,
-					MountPath: model.ToolInjectionMountPath,
+					Name:      ToolsMountName,
+					MountPath: model.ToolsMountPath,
 					ReadOnly:  true,
 				})
 
@@ -55,7 +60,7 @@ func (eh *VolumeClaimHandler) Handle(ctx context.Context, req admission.Request)
 
 		hasVolume := false
 		for _, volume := range pod.Spec.Volumes {
-			if volume.Name == model.ToolInjectionMountName {
+			if volume.Name == ToolsMountName {
 				hasVolume = true
 				break
 			}
@@ -63,7 +68,7 @@ func (eh *VolumeClaimHandler) Handle(ctx context.Context, req admission.Request)
 
 		if !hasVolume {
 			pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
-				Name: model.ToolInjectionMountName,
+				Name: ToolsMountName,
 				VolumeSource: corev1.VolumeSource{
 					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 						ClaimName: claim,

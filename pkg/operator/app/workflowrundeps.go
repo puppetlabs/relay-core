@@ -12,6 +12,7 @@ import (
 	rbacv1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/rbacv1"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/helper"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
+	pvpoolv1alpha1obj "github.com/puppetlabs/pvpool/pkg/obj"
 	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
 	"github.com/puppetlabs/relay-core/pkg/model"
@@ -25,6 +26,10 @@ import (
 type WorkflowRunDeps struct {
 	WorkflowRun *obj.WorkflowRun
 	Issuer      authenticate.Issuer
+
+	// TODO: We only need this to resolve the name of the checkout. We should
+	// just read it from the tenant instead.
+	ToolInjectionPool *pvpoolv1alpha1obj.Pool
 
 	Namespace *corev1obj.Namespace
 
@@ -158,6 +163,12 @@ func WorkflowRunDepsWithStandaloneMode(standalone bool) WorkflowRunDepsOption {
 			wrd.NetworkPolicy = nil
 			wrd.LimitRange = nil
 		}
+	}
+}
+
+func WorkflowRunDepsWithToolInjectionPool(p *pvpoolv1alpha1obj.Pool) WorkflowRunDepsOption {
+	return func(wrd *WorkflowRunDeps) {
+		wrd.ToolInjectionPool = p
 	}
 }
 
