@@ -27,6 +27,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+func stepTaskLabelValue(wr *nebulav1.WorkflowRun, stepName string) string {
+	return app.ModelStepObjectKey(client.ObjectKeyFromObject(wr), &model.Step{Run: model.Run{ID: wr.Spec.Name}, Name: stepName}).Name
+}
+
 func waitForStepToStart(t *testing.T, ctx context.Context, cfg *Config, wr *nebulav1.WorkflowRun, stepName string) {
 	require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
 		if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{
@@ -49,15 +53,15 @@ func waitForStepPodToComplete(t *testing.T, ctx context.Context, cfg *Config, wr
 
 	pod := &corev1.Pod{}
 	require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
-		name := app.ModelStepObjectKey(client.ObjectKeyFromObject(wr), &model.Step{Run: model.Run{ID: wr.Spec.Name}, Name: stepName}).Name
-
 		pods := &corev1.PodList{}
-		if err := cfg.Environment.ControllerClient.List(ctx, pods, client.InNamespace(wr.GetNamespace()), client.MatchingLabels{"tekton.dev/task": name}); err != nil {
+		if err := cfg.Environment.ControllerClient.List(ctx, pods, client.InNamespace(wr.GetNamespace()), client.MatchingLabels{
+			"tekton.dev/task": stepTaskLabelValue(wr, stepName),
+		}); err != nil {
 			return true, err
 		}
 
 		if len(pods.Items) == 0 {
-			return false, fmt.Errorf("waiting for step %q pod with label tekton.dev/task=%s", stepName, name)
+			return false, fmt.Errorf("waiting for step %q pod with label tekton.dev/task=%s", stepName, stepTaskLabelValue(wr, stepName))
 		}
 
 		pod = &pods.Items[0]
@@ -76,10 +80,10 @@ func waitForStepPodIP(t *testing.T, ctx context.Context, cfg *Config, wr *nebula
 
 	pod := &corev1.Pod{}
 	require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
-		name := app.ModelStepObjectKey(client.ObjectKeyFromObject(wr), &model.Step{Run: model.Run{ID: wr.Spec.Name}, Name: stepName}).Name
-
 		pods := &corev1.PodList{}
-		if err := cfg.Environment.ControllerClient.List(ctx, pods, client.InNamespace(wr.GetNamespace()), client.MatchingLabels{"tekton.dev/task": name}); err != nil {
+		if err := cfg.Environment.ControllerClient.List(ctx, pods, client.InNamespace(wr.GetNamespace()), client.MatchingLabels{
+			"tekton.dev/task": stepTaskLabelValue(wr, stepName),
+		}); err != nil {
 			return true, err
 		}
 
@@ -588,7 +592,42 @@ func TestWorkflowRunInGVisor(t *testing.T) {
 				}
 				require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, wr))
 
-				pod := waitForStepPodToComplete(t, ctx, cfg, wr, test.StepDefinition.Name)
+				// Wait for step to succeed.
+				require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
+					if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{
+						Namespace: wr.GetNamespace(),
+						Name:      wr.GetName(),
+					}, wr); err != nil {
+						return true, err
+					}
+
+					switch obj.WorkflowRunStatus(wr.Status.Steps["my-test-step"].Status) {
+					case obj.WorkflowRunStatusSuccess:
+						return true, nil
+					case obj.WorkflowRunStatusFailure:
+						return true, fmt.Errorf("step failed")
+					default:
+						return false, fmt.Errorf("waiting for step to succeed")
+					}
+				}))
+
+				// Get the logs from the pod.
+				pod := &corev1.Pod{}
+				require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
+					pods := &corev1.PodList{}
+					if err := cfg.Environment.ControllerClient.List(ctx, pods, client.InNamespace(wr.GetNamespace()), client.MatchingLabels{
+						"tekton.dev/task": stepTaskLabelValue(wr, "my-test-step"),
+					}); err != nil {
+						return true, err
+					}
+
+					if len(pods.Items) == 0 {
+						return false, fmt.Errorf("waiting for pod")
+					}
+
+					pod = &pods.Items[0]
+					return true, nil
+				}))
 
 				podLogOptions := &corev1.PodLogOptions{
 					Container: "step-step",
