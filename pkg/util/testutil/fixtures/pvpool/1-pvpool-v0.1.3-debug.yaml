@@ -3,7 +3,7 @@ kind: Namespace
 metadata:
   labels:
     app.kubernetes.io/name: pvpool
-    app.kubernetes.io/version: v0.1.2
+    app.kubernetes.io/version: v0.1.3
   name: pvpool
 ---
 apiVersion: apiextensions.k8s.io/v1
@@ -15,7 +15,7 @@ metadata:
   labels:
     app.kubernetes.io/component: crd
     app.kubernetes.io/name: pvpool
-    app.kubernetes.io/version: v0.1.2
+    app.kubernetes.io/version: v0.1.3
   name: checkouts.pvpool.puppet.com
 spec:
   group: pvpool.puppet.com
@@ -138,7 +138,7 @@ metadata:
   labels:
     app.kubernetes.io/component: crd
     app.kubernetes.io/name: pvpool
-    app.kubernetes.io/version: v0.1.2
+    app.kubernetes.io/version: v0.1.3
   name: pools.pvpool.puppet.com
 spec:
   group: pvpool.puppet.com
@@ -4194,7 +4194,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/instance: default-pvpool-controller
     app.kubernetes.io/name: pvpool
-    app.kubernetes.io/version: v0.1.2
+    app.kubernetes.io/version: v0.1.3
   name: default-pvpool-controller
   namespace: pvpool
 ---
@@ -4205,7 +4205,7 @@ metadata:
     app.kubernetes.io/component: webhook
     app.kubernetes.io/instance: default-pvpool-webhook
     app.kubernetes.io/name: pvpool
-    app.kubernetes.io/version: v0.1.2
+    app.kubernetes.io/version: v0.1.3
   name: default-pvpool-webhook
   namespace: pvpool
 ---
@@ -4216,7 +4216,7 @@ metadata:
     app.kubernetes.io/component: webhook-certificate-controller
     app.kubernetes.io/instance: default-pvpool-webhook-certificate-controller
     app.kubernetes.io/name: pvpool
-    app.kubernetes.io/version: v0.1.2
+    app.kubernetes.io/version: v0.1.3
   name: default-pvpool-webhook-certificate-controller
   namespace: pvpool
 ---
@@ -4227,7 +4227,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/instance: default-pvpool-controller
     app.kubernetes.io/name: pvpool
-    app.kubernetes.io/version: v0.1.2
+    app.kubernetes.io/version: v0.1.3
   name: default-pvpool-controller
   namespace: pvpool
 rules:
@@ -4250,7 +4250,7 @@ metadata:
     app.kubernetes.io/component: webhook-certificate-controller
     app.kubernetes.io/instance: default-pvpool-webhook-certificate-controller
     app.kubernetes.io/name: pvpool
-    app.kubernetes.io/version: v0.1.2
+    app.kubernetes.io/version: v0.1.3
   name: default-pvpool-webhook-certificate-controller
   namespace: pvpool
 rules:
@@ -4287,7 +4287,7 @@ metadata:
     app.kubernetes.io/component: webhook-certificate-controller
     app.kubernetes.io/instance: default-pvpool-webhook-certificate-controller
     app.kubernetes.io/name: pvpool
-    app.kubernetes.io/version: v0.1.2
+    app.kubernetes.io/version: v0.1.3
   name: default-pvpool-webhookcert-controller
   namespace: pvpool
 rules:
@@ -4308,7 +4308,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/instance: default-pvpool-controller
     app.kubernetes.io/name: pvpool
-    app.kubernetes.io/version: v0.1.2
+    app.kubernetes.io/version: v0.1.3
   name: default-pvpool-controller
 rules:
   - apiGroups:
@@ -4386,7 +4386,7 @@ metadata:
     app.kubernetes.io/component: webhook-certificate-controller
     app.kubernetes.io/instance: default-pvpool-webhook-certificate-controller
     app.kubernetes.io/name: pvpool
-    app.kubernetes.io/version: v0.1.2
+    app.kubernetes.io/version: v0.1.3
   name: default-pvpool-selfsignedsecret-controller
 rules:
   - apiGroups:
@@ -4407,7 +4407,7 @@ metadata:
     app.kubernetes.io/component: webhook
     app.kubernetes.io/instance: default-pvpool-webhook
     app.kubernetes.io/name: pvpool
-    app.kubernetes.io/version: v0.1.2
+    app.kubernetes.io/version: v0.1.3
   name: default-pvpool-webhook
 rules:
   - apiGroups:
@@ -4425,7 +4425,7 @@ metadata:
     app.kubernetes.io/component: webhook-certificate-controller
     app.kubernetes.io/instance: default-pvpool-webhook-certificate-controller
     app.kubernetes.io/name: pvpool
-    app.kubernetes.io/version: v0.1.2
+    app.kubernetes.io/version: v0.1.3
   name: default-pvpool-webhookcert-controller
 rules:
   - apiGroups:
@@ -4446,7 +4446,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/instance: default-pvpool-controller
     app.kubernetes.io/name: pvpool
-    app.kubernetes.io/version: v0.1.2
+    app.kubernetes.io/version: v0.1.3
   name: default-pvpool-controller
   namespace: pvpool
 roleRef:
@@ -4465,7 +4465,7 @@ metadata:
     app.kubernetes.io/component: webhook-certificate-controller
     app.kubernetes.io/instance: default-pvpool-webhook-certificate-controller
     app.kubernetes.io/name: pvpool
-    app.kubernetes.io/version: v0.1.2
+    app.kubernetes.io/version: v0.1.3
   name: default-pvpool-webhook-certificate-controller
   namespace: pvpool
 roleRef:
@@ -4484,7 +4484,7 @@ metadata:
     app.kubernetes.io/component: webhook-certificate-controller
     app.kubernetes.io/instance: default-pvpool-webhook-certificate-controller
     app.kubernetes.io/name: pvpool
-    app.kubernetes.io/version: v0.1.2
+    app.kubernetes.io/version: v0.1.3
   name: default-pvpool-webhook-certificate-selfsignedsecret-controller
   namespace: pvpool
 roleRef:
@@ -4503,7 +4503,7 @@ metadata:
     app.kubernetes.io/component: webhook-certificate-controller
     app.kubernetes.io/instance: default-pvpool-webhook-certificate-controller
     app.kubernetes.io/name: pvpool
-    app.kubernetes.io/version: v0.1.2
+    app.kubernetes.io/version: v0.1.3
   name: default-pvpool-webhook-certificate-webhookcert-controller
   namespace: pvpool
 roleRef:
@@ -4522,7 +4522,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/instance: default-pvpool-controller
     app.kubernetes.io/name: pvpool
-    app.kubernetes.io/version: v0.1.2
+    app.kubernetes.io/version: v0.1.3
   name: default-pvpool-controller
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -4540,7 +4540,7 @@ metadata:
     app.kubernetes.io/component: webhook
     app.kubernetes.io/instance: default-pvpool-webhook
     app.kubernetes.io/name: pvpool
-    app.kubernetes.io/version: v0.1.2
+    app.kubernetes.io/version: v0.1.3
   name: default-pvpool-webhook
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -4558,7 +4558,7 @@ metadata:
     app.kubernetes.io/component: webhook-certificate-controller
     app.kubernetes.io/instance: default-pvpool-webhook-certificate-controller
     app.kubernetes.io/name: pvpool
-    app.kubernetes.io/version: v0.1.2
+    app.kubernetes.io/version: v0.1.3
   name: default-pvpool-webhook-certificate-webhookcert-controller
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -4585,18 +4585,18 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/instance: default-pvpool-controller
     app.kubernetes.io/name: pvpool
-    app.kubernetes.io/version: v0.1.2
+    app.kubernetes.io/version: v0.1.3
   name: default-pvpool-controller-config-7fct8bg2mk
   namespace: pvpool
 ---
 apiVersion: v1
 data:
-  version: v0.1.2
+  version: v0.1.3
 kind: ConfigMap
 metadata:
   labels:
     app.kubernetes.io/name: pvpool
-    app.kubernetes.io/version: v0.1.2
+    app.kubernetes.io/version: v0.1.3
   name: default-pvpool-environment
   namespace: pvpool
 ---
@@ -4632,7 +4632,7 @@ metadata:
     app.kubernetes.io/component: webhook-certificate-controller
     app.kubernetes.io/instance: default-pvpool-webhook-certificate-controller
     app.kubernetes.io/name: pvpool
-    app.kubernetes.io/version: v0.1.2
+    app.kubernetes.io/version: v0.1.3
   name: default-pvpool-webhook-certificate-controller-config-6h2bhffmm9
   namespace: pvpool
 ---
@@ -4657,7 +4657,7 @@ metadata:
     app.kubernetes.io/component: webhook
     app.kubernetes.io/instance: default-pvpool-webhook
     app.kubernetes.io/name: pvpool
-    app.kubernetes.io/version: v0.1.2
+    app.kubernetes.io/version: v0.1.3
   name: default-pvpool-webhook-config-58964hmg78
   namespace: pvpool
 ---
@@ -4668,7 +4668,7 @@ metadata:
     app.kubernetes.io/component: webhook
     app.kubernetes.io/instance: default-pvpool-webhook
     app.kubernetes.io/name: pvpool
-    app.kubernetes.io/version: v0.1.2
+    app.kubernetes.io/version: v0.1.3
   name: default-pvpool-webhook
   namespace: pvpool
 spec:
@@ -4688,7 +4688,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/instance: default-pvpool-controller
     app.kubernetes.io/name: pvpool
-    app.kubernetes.io/version: v0.1.2
+    app.kubernetes.io/version: v0.1.3
   name: default-pvpool-controller
   namespace: pvpool
 spec:
@@ -4705,7 +4705,7 @@ spec:
         app.kubernetes.io/component: controller
         app.kubernetes.io/instance: default-pvpool-controller
         app.kubernetes.io/name: pvpool
-        app.kubernetes.io/version: v0.1.2
+        app.kubernetes.io/version: v0.1.3
         pvpool.puppet.com/selector: pvpool-controller
     spec:
       containers:
@@ -4724,7 +4724,7 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
-          image: gcr.io/pvpool/pvpool-controller-aff637db822afd167519ed62a5cf1944@sha256:3cf3a7c61c2cd5c8d7417a23d10ce61f5fc591305e606034f2dce644281231ac
+          image: gcr.io/pvpool/pvpool-controller-aff637db822afd167519ed62a5cf1944@sha256:150907bb65afa9754951ed796916695ac92dbc99bf66969281f54c24f1a360d8
           name: pvpool-controller
           securityContext:
             allowPrivilegeEscalation: false
@@ -4742,7 +4742,7 @@ metadata:
     app.kubernetes.io/component: webhook
     app.kubernetes.io/instance: default-pvpool-webhook
     app.kubernetes.io/name: pvpool
-    app.kubernetes.io/version: v0.1.2
+    app.kubernetes.io/version: v0.1.3
   name: default-pvpool-webhook
   namespace: pvpool
 spec:
@@ -4761,7 +4761,7 @@ spec:
         app.kubernetes.io/component: webhook
         app.kubernetes.io/instance: default-pvpool-webhook
         app.kubernetes.io/name: pvpool
-        app.kubernetes.io/version: v0.1.2
+        app.kubernetes.io/version: v0.1.3
         pvpool.puppet.com/selector: pvpool-webhook
     spec:
       containers:
@@ -4780,7 +4780,7 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
-          image: gcr.io/pvpool/pvpool-webhook-0a978854008634ad9afcd6eb56b9ef15@sha256:ba93f332931a37f4951ef4b2b3aed0314a969821b3155a218e518722161c8ae0
+          image: gcr.io/pvpool/pvpool-webhook-0a978854008634ad9afcd6eb56b9ef15@sha256:7458953d04da8aabda8d1bdeafad61c954ff57503541d94e9bfb1340c1c31c8d
           livenessProbe:
             httpGet:
               path: /healthz
@@ -4827,7 +4827,7 @@ metadata:
     app.kubernetes.io/component: webhook-certificate-controller
     app.kubernetes.io/instance: default-pvpool-webhook-certificate-controller
     app.kubernetes.io/name: pvpool
-    app.kubernetes.io/version: v0.1.2
+    app.kubernetes.io/version: v0.1.3
   name: default-pvpool-webhook-certificate-controller
   namespace: pvpool
 spec:
@@ -4844,7 +4844,7 @@ spec:
         app.kubernetes.io/component: webhook-certificate-controller
         app.kubernetes.io/instance: default-pvpool-webhook-certificate-controller
         app.kubernetes.io/name: pvpool
-        app.kubernetes.io/version: v0.1.2
+        app.kubernetes.io/version: v0.1.3
         pvpool.puppet.com/selector: pvpool-webhook-certificate-controller
     spec:
       containers:
@@ -4878,7 +4878,7 @@ spec:
                 configMapKeyRef:
                   key: validating-webhook-configuration-name
                   name: default-pvpool-webhook-certificate-controller-config-6h2bhffmm9
-          image: gcr.io/pvpool/pvpool-webhook-certificate-controller-5a59e8614a76b4ceef043684e7e396d5@sha256:5d4156fa8b2721f5b2f7e6979310885f81681f78fc804932e14596cc86bab273
+          image: gcr.io/pvpool/pvpool-webhook-certificate-controller-5a59e8614a76b4ceef043684e7e396d5@sha256:61cf905f6923923395f2e250d4d10ffd038903285dcd73cd23bcc3b8761da42f
           name: pvpool-webhook-certificate-controller
           securityContext:
             allowPrivilegeEscalation: false
@@ -4897,7 +4897,7 @@ metadata:
     app.kubernetes.io/component: webhook
     app.kubernetes.io/instance: default-pvpool-webhook
     app.kubernetes.io/name: pvpool
-    app.kubernetes.io/version: v0.1.2
+    app.kubernetes.io/version: v0.1.3
   name: default-pvpool-webhook
 webhooks:
   - admissionReviewVersions:

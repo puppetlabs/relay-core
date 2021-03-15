@@ -1697,9 +1697,8 @@ github.com/puppetlabs/leg/instrumentation v0.1.4 h1:uWRjhV/1ijL4T5uISgcWJXRb0Q9d
 github.com/puppetlabs/leg/instrumentation v0.1.4/go.mod h1:x6wQv38l6/tZRQHolqpL6mhnF+tjMYt4pu0MzoaM54s=
 github.com/puppetlabs/leg/jsonutil v0.2.0 h1:Hp21b/bVlEQET6PkHRXCZnUix3ujwfJuR92Ad7r7swk=
 github.com/puppetlabs/leg/jsonutil v0.2.0/go.mod h1:eiLGPpySpr87IiROi0e4WZcqc7bo0ucs23sjdyOwH9Q=
-github.com/puppetlabs/leg/k8sutil v0.2.0/go.mod h1:+li1P4+OuRsaQxOMv8It+1fwmv77qOPAZfhCWidcPJA=
-github.com/puppetlabs/leg/k8sutil v0.3.2-0.20210314220915-0c41a2de5341 h1:G+h7CAFJZfPapLr6lvOfosXymVIjPNFJ08AJ3J36CrY=
-github.com/puppetlabs/leg/k8sutil v0.3.2-0.20210314220915-0c41a2de5341/go.mod h1:5LN5B926v3QNyCQa8IYYIoFS+4f2ak2Mg0LHdIPFQZU=
+github.com/puppetlabs/leg/k8sutil v0.3.2 h1:U0EWaKqieC4tEclMa4Jc9+2ZPKnwiUx1I9B0ijmdP5U=
+github.com/puppetlabs/leg/k8sutil v0.3.2/go.mod h1:5LN5B926v3QNyCQa8IYYIoFS+4f2ak2Mg0LHdIPFQZU=
 github.com/puppetlabs/leg/lifecycle v0.2.0 h1:WYaQF+mdW8Wy+tRHkEE9175Bhkd3zJ7i0qnOQkb+BmY=
 github.com/puppetlabs/leg/lifecycle v0.2.0/go.mod h1:QtYNNukWpkcLWZAWcM9tVxcWfqn9mULH5J3dCkMqzGk=
 github.com/puppetlabs/leg/logging v0.1.0 h1:G8M2w3izYEtoaH+d3rIJZ9iLX2oW2T/jO+J4l+T0Ieo=
@@ -1718,13 +1717,12 @@ github.com/puppetlabs/leg/storage v0.1.1 h1:nxGgxE5nD+sIk3kE5lK0dCkA8yKjPxGPrCI7
 github.com/puppetlabs/leg/storage v0.1.1/go.mod h1:7CJaMZY4GOSsFMbQlYxwQ1osNzKxLvCEwT7EL8jE49Q=
 github.com/puppetlabs/leg/stringutil v0.1.0 h1:tvU0pPXtgZ29xSqMxIuZcEfgVqMif6WDQDxmcKxUwno=
 github.com/puppetlabs/leg/stringutil v0.1.0/go.mod h1:xIQbHjzTxuqVz/GpY5ReCqxGWptIceNV1vfvAPFDtog=
-github.com/puppetlabs/leg/timeutil v0.2.0/go.mod h1:0O728lh6OxaBE6bJVFuPTUpCrtAb33g0Ne8DwHgZOr8=
 github.com/puppetlabs/leg/timeutil v0.3.0 h1:7JUYWWW8bvSRU7EcEBVmkDv2gTb1uLE/F7hnEWljfQc=
 github.com/puppetlabs/leg/timeutil v0.3.0/go.mod h1:FHkZ9rYegF0STjS4az6hsjdvcBHcG+FB4CsY5mx1DfI=
 github.com/puppetlabs/leg/workdir v0.1.0 h1:ErFrZiEK7eYufupQ34ytM4AFIVxZryuOktMGoSd3Y0c=
 github.com/puppetlabs/leg/workdir v0.1.0/go.mod h1:wqtQ5F1GvWJ2OH0OaDYkZnF4Iq+yV9uojU6kBub6jcA=
-github.com/puppetlabs/pvpool v0.1.2 h1:+WsLWIvLp8FoNPUrYRC34NXFdufPpfY5LwoaQnccR8U=
-github.com/puppetlabs/pvpool v0.1.2/go.mod h1:m097LK978Sw5IGa6ZJOcwPqWzjYxDQy0yN3ZkduQqYc=
+github.com/puppetlabs/pvpool v0.1.3 h1:/I5/ccNwPMZRTocKj9E5DP4oPM7UR2JYHZttHiMOt+8=
+github.com/puppetlabs/pvpool v0.1.3/go.mod h1:rDKIUQ8s3EPF5YQpDVMRkg97I4LV8O5vmqTM2i+6b40=
 github.com/puppetlabs/relay-pls v0.0.0-20201125074651-13575df50b51 h1:NwccjCOhZOi0l4w68vPJOV99ctreO/YlrY+RNiz7Llc=
 github.com/puppetlabs/relay-pls v0.0.0-20201125074651-13575df50b51/go.mod h1:xtYyc7gvvVZtfAn5kM89ihJj6v5zdBjNjMfp+a6z+8o=
 github.com/qri-io/starlib v0.4.2-0.20200213133954-ff2e8cd5ef8d h1:K6eOUihrFLdZjZnA4XlRp864fmWXv9YTIk7VPLhRacA=
@@ -1740,7 +1738,6 @@ github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a/go.mod h1:bCqn
 github.com/rcrowley/go-metrics v0.0.0-20190706150252-9beb055b7962/go.mod h1:bCqnVzQkZxMG4s8nGwiZ5l3QUCyqpo9Y+/ZMZ9VjZe4=
 github.com/reflect/raymond v0.0.0-20190227215356-5fa3955f4a50 h1:tQC2Xbytchkj88dqeRQeuvfG4mDSKU/r5ovo+16XJ2I=
 github.com/reflect/raymond v0.0.0-20190227215356-5fa3955f4a50/go.mod h1:Bmc/S4QVVTw9ZH5y5JLDKbgeykqJLnSiUqtQ9SaHjmQ=
-github.com/reflect/xparse v0.0.0-20171128034418-ab29bdc5e11c/go.mod h1:tqAg+37u8qXKZZ1QaXWnJ18evc8C6euGUAa4dQpC1gk=
 github.com/remyoudompheng/bigfft v0.0.0-20170806203942-52369c62f446/go.mod h1:uYEyJGbgTkfkS4+E/PavXkNJcbFIpEtjt2B0KDQ5+9M=
 github.com/robfig/cron/v3 v3.0.1 h1:WdRxkvbJztn8LMz/QEvLN5sBU+xKpSqwwUO1Pjr4qDs=
 github.com/robfig/cron/v3 v3.0.1/go.mod h1:eQICP3HwyT7UooqI/z+Ov+PtYAWygg1TEWWzGIFLtro=
