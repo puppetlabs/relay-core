@@ -64,10 +64,17 @@ func EndToEndEnvironmentWithHostpathProvisioner(t *testing.T, ctx context.Contex
 	}))
 }
 
+func EndToEndEnvironmentWithPVPool(t *testing.T, ctx context.Context, e *EndToEndEnvironment) {
+	require.NoError(t, WithExclusive(ctx, "pvpool", func() {
+		InstallPVPool(t, ctx, e.ControllerClient)
+	}))
+}
+
 var _ EndToEndEnvironmentInstaller = EndToEndEnvironmentWithTekton
 var _ EndToEndEnvironmentInstaller = EndToEndEnvironmentWithKnative
 var _ EndToEndEnvironmentInstaller = EndToEndEnvironmentWithAmbassador
 var _ EndToEndEnvironmentInstaller = EndToEndEnvironmentWithHostpathProvisioner
+var _ EndToEndEnvironmentInstaller = EndToEndEnvironmentWithPVPool
 
 func WithEndToEndEnvironment(t *testing.T, ctx context.Context, installers []EndToEndEnvironmentInstaller, fn func(e *EndToEndEnvironment)) {
 	viper.SetEnvPrefix("relay_test_e2e")

@@ -36,7 +36,7 @@ require (
 	github.com/puppetlabs/leg/httputil v0.1.4
 	github.com/puppetlabs/leg/instrumentation v0.1.4
 	github.com/puppetlabs/leg/jsonutil v0.2.0
-	github.com/puppetlabs/leg/k8sutil v0.3.1
+	github.com/puppetlabs/leg/k8sutil v0.3.2-0.20210314220915-0c41a2de5341
 	github.com/puppetlabs/leg/logging v0.1.0
 	github.com/puppetlabs/leg/mainutil v0.1.2
 	github.com/puppetlabs/leg/scheduler v0.1.4
@@ -67,6 +67,7 @@ require (
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
 	k8s.io/klog v1.0.0
 	k8s.io/klog/v2 v2.5.0
+	k8s.io/utils v0.0.0-20210111153108-fddb29f9d009
 	knative.dev/caching v0.0.0-20200630172829-a78409990d76
 	knative.dev/pkg v0.0.0-20210127163530-0d31134d5f4e
 	knative.dev/serving v0.16.0

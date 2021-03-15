@@ -10,6 +10,7 @@ import (
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/errhandler"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/helper"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
+	pvpoolv1alpha1obj "github.com/puppetlabs/pvpool/pkg/obj"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
@@ -67,11 +68,16 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, nil
 	}
 
+	opts := []app.WebhookTriggerDepsOption{app.WebhookTriggerDepsWithStandaloneMode(r.Config.Standalone)}
+	if p := r.Config.ToolInjectionPool; p != nil {
+		opts = append(opts, app.WebhookTriggerDepsWithToolInjectionPool(pvpoolv1alpha1obj.NewPool(*p)))
+	}
+
 	deps := app.NewWebhookTriggerDeps(
 		wt,
 		r.issuer,
 		r.Config.MetadataAPIURL,
-		app.WebhookTriggerDepsWithStandaloneMode(r.Config.Standalone),
+		opts...,
 	)
 	loaded, err := deps.Load(ctx, r.Client)
 	if err != nil {

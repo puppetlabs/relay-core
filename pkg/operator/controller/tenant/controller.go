@@ -6,7 +6,9 @@ import (
 	"github.com/puppetlabs/leg/errmap/pkg/errmark"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/errhandler"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/filter"
+	pvpoolv1alpha1 "github.com/puppetlabs/pvpool/pkg/apis/pvpool.puppet.com/v1alpha1"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
+	"github.com/puppetlabs/relay-core/pkg/operator/app"
 	"github.com/puppetlabs/relay-core/pkg/operator/config"
 	"github.com/puppetlabs/relay-core/pkg/operator/reconciler/tenant"
 	"github.com/puppetlabs/relay-core/pkg/util/capturer"
@@ -15,8 +17,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 func add(mgr manager.Manager, r reconcile.Reconciler, cfg *config.WorkflowControllerConfig) error {
@@ -25,7 +27,14 @@ func add(mgr manager.Manager, r reconcile.Reconciler, cfg *config.WorkflowContro
 			MaxConcurrentReconciles: cfg.MaxConcurrentReconciles,
 		}).
 		For(&relayv1beta1.Tenant{}).
-		WithEventFilter(predicate.GenerationChangedPredicate{}).
+		Watches(
+			&source.Kind{Type: &corev1.Namespace{}},
+			app.DependencyManager.NewEnqueueRequestForAnnotatedDependencyOf(&relayv1beta1.Tenant{}),
+		).
+		Watches(
+			&source.Kind{Type: &pvpoolv1alpha1.Checkout{}},
+			app.DependencyManager.NewEnqueueRequestForAnnotatedDependencyOf(&relayv1beta1.Tenant{}),
+		).
 		Complete(filter.ChainR(
 			r,
 			errhandler.ChainReconciler(

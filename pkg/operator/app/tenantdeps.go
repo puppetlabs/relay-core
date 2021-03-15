@@ -139,19 +139,13 @@ func (td *TenantDeps) Load(ctx context.Context, cl client.Client) (bool, error) 
 }
 
 func (td *TenantDeps) Persist(ctx context.Context, cl client.Client) error {
-	if err := (lifecycle.IgnoreNilPersister{td.ToolInjectionCheckout}).Persist(ctx, cl); err != nil {
-		return err
+	var ps []lifecycle.Persister
+
+	if td.Tenant.Managed() {
+		ps = append(ps, td.Namespace, td.NetworkPolicy, td.LimitRange)
 	}
 
-	if !td.Tenant.Managed() {
-		return nil
-	}
-
-	ps := []lifecycle.Persister{
-		td.Namespace,
-		td.NetworkPolicy,
-		td.LimitRange,
-	}
+	ps = append(ps, lifecycle.IgnoreNilPersister{td.ToolInjectionCheckout})
 
 	for _, p := range ps {
 		if err := p.Persist(ctx, cl); err != nil {
@@ -244,7 +238,7 @@ func ConfigureTenantDeps(ctx context.Context, td *TenantDeps) {
 			AccessModes: td.Tenant.Object.Spec.ToolInjection.VolumeClaimTemplate.Spec.AccessModes,
 		}
 
-		DependencyManager.SetDependencyOf(&td.Tenant.Object.ObjectMeta, lifecycle.TypedObject{Object: td.Tenant.Object, GVK: relayv1beta1.TenantKind})
+		DependencyManager.SetDependencyOf(&td.ToolInjectionCheckout.Object.ObjectMeta, lifecycle.TypedObject{Object: td.Tenant.Object, GVK: relayv1beta1.TenantKind})
 	}
 
 	if !td.Tenant.Managed() {
