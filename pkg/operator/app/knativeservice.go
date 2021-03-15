@@ -11,6 +11,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/entrypoint"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
+	"github.com/puppetlabs/relay-core/pkg/operator/admission"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -150,14 +151,16 @@ func ConfigureKnativeService(ctx context.Context, s *obj.KnativeService, wtd *We
 		args = []string{}
 	}
 
-	if wtd.Tenant.Object.Spec.ToolInjection.VolumeClaimTemplate != nil {
+	if co := wtd.TenantDeps.ToolInjectionCheckout; co != nil {
 		ep, err := entrypoint.ImageEntrypoint(image, []string{command}, args)
 		if err != nil {
 			return err
 		}
 
-		container.Command = []string{path.Join(model.ToolInjectionMountPath, ep.Entrypoint)}
+		container.Command = []string{path.Join(model.ToolsMountPath, ep.Entrypoint)}
 		container.Args = ep.Args
+
+		helper.Annotate(&template.ObjectMeta, admission.ToolsVolumeClaimAnnotation, co.Object.Status.VolumeClaimRef.Name)
 	} else {
 		if command != "" {
 			container.Command = []string{command}
@@ -172,10 +175,6 @@ func ConfigureKnativeService(ctx context.Context, s *obj.KnativeService, wtd *We
 
 	if err := wtd.AnnotateTriggerToken(ctx, &template.ObjectMeta); err != nil {
 		return err
-	}
-
-	if wtd.Tenant.Object.Spec.ToolInjection.VolumeClaimTemplate != nil {
-		helper.Annotate(&template.ObjectMeta, model.RelayControllerToolsVolumeClaimAnnotation, wtd.Tenant.Object.GetName()+model.ToolInjectionVolumeClaimSuffixReadOnlyMany)
 	}
 
 	s.Object.Spec = servingv1.ServiceSpec{

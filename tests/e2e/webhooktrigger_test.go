@@ -23,7 +23,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -582,15 +581,10 @@ func TestWebhookTriggerKnativeRevisionsWithTenantToolInjectionUsingInput(t *test
 		ConfigWithTenantReconciler,
 		ConfigWithWebhookTriggerReconciler,
 		ConfigWithVolumeClaimAdmission,
+		ConfigWithMetadataAPIBoundInCluster,
 	}, func(cfg *Config) {
-		cfg.Vault.SetSecret(t, "my-tenant-id", "foo", "Hello")
-		cfg.Vault.SetConnection(t, "my-domain-id", "aws", "test", map[string]string{
-			"accessKeyID":     "AKIA123456789",
-			"secretAccessKey": "very-nice-key",
-		})
+		cfg.Vault.SetSecret(t, "my-tenant-id", "foo", "Relay")
 
-		size, _ := resource.ParseQuantity("50Mi")
-		storageClassName := "relay-hostpath"
 		tn := &relayv1beta1.Tenant{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "my-tenant-" + uuid.New().String(),
@@ -600,21 +594,15 @@ func TestWebhookTriggerKnativeRevisionsWithTenantToolInjectionUsingInput(t *test
 				ToolInjection: relayv1beta1.ToolInjection{
 					VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
 						Spec: corev1.PersistentVolumeClaimSpec{
-							Resources: corev1.ResourceRequirements{
-								Requests: map[corev1.ResourceName]resource.Quantity{
-									corev1.ResourceStorage: size,
-								},
+							AccessModes: []corev1.PersistentVolumeAccessMode{
+								corev1.ReadOnlyMany,
 							},
-							StorageClassName: &storageClassName,
 						},
 					},
 				},
 			},
 		}
 		CreateAndWaitForTenant(t, ctx, cfg, tn)
-
-		var pvc corev1.PersistentVolumeClaim
-		require.NoError(t, cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: tn.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany, Namespace: tn.Status.Namespace}, &pvc))
 
 		wt := &relayv1beta1.WebhookTrigger{
 			ObjectMeta: metav1.ObjectMeta{
@@ -632,19 +620,13 @@ func TestWebhookTriggerKnativeRevisionsWithTenantToolInjectionUsingInput(t *test
 				Image: "alpine:latest",
 				Input: []string{
 					"apk --no-cache add socat",
-					`exec socat TCP-LISTEN:$PORT,crlf,reuseaddr,fork SYSTEM:'echo "HTTP/1.1 200 OK"; echo "Connection: close"; echo; echo "Hello, Relay!";'`,
+					`exec socat TCP-LISTEN:$PORT,crlf,reuseaddr,fork SYSTEM:'echo "HTTP/1.1 200 OK"; echo "Connection: close"; echo; echo "Hello, $TEST_WHO!";'`,
 				},
-				Spec: relayv1beta1.NewUnstructuredObject(map[string]interface{}{
-					"secret": map[string]interface{}{
+				Env: relayv1beta1.NewUnstructuredObject(map[string]interface{}{
+					"TEST_WHO": map[string]interface{}{
 						"$type": "Secret",
 						"name":  "foo",
 					},
-					"connection": map[string]interface{}{
-						"$type": "Connection",
-						"type":  "aws",
-						"name":  "test",
-					},
-					"foo": "bar",
 				}),
 				TenantRef: corev1.LocalObjectReference{
 					Name: tn.GetName(),
@@ -675,8 +657,6 @@ func TestWebhookTriggerKnativeRevisionsWithTenantToolInjectionUsingInput(t *test
 
 			return true, nil
 		}))
-
-		cfg.Environment.ControllerClient.Delete(ctx, &pvc)
 	})
 }
 
@@ -689,14 +669,6 @@ func TestWebhookTriggerKnativeRevisionsWithTenantToolInjectionUsingCommand(t *te
 		ConfigWithWebhookTriggerReconciler,
 		ConfigWithVolumeClaimAdmission,
 	}, func(cfg *Config) {
-		cfg.Vault.SetSecret(t, "my-tenant-id", "foo", "Hello")
-		cfg.Vault.SetConnection(t, "my-domain-id", "aws", "test", map[string]string{
-			"accessKeyID":     "AKIA123456789",
-			"secretAccessKey": "very-nice-key",
-		})
-
-		size, _ := resource.ParseQuantity("50Mi")
-		storageClassName := "relay-hostpath"
 		tn := &relayv1beta1.Tenant{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "my-tenant-" + uuid.New().String(),
@@ -706,21 +678,15 @@ func TestWebhookTriggerKnativeRevisionsWithTenantToolInjectionUsingCommand(t *te
 				ToolInjection: relayv1beta1.ToolInjection{
 					VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
 						Spec: corev1.PersistentVolumeClaimSpec{
-							Resources: corev1.ResourceRequirements{
-								Requests: map[corev1.ResourceName]resource.Quantity{
-									corev1.ResourceStorage: size,
-								},
+							AccessModes: []corev1.PersistentVolumeAccessMode{
+								corev1.ReadOnlyMany,
 							},
-							StorageClassName: &storageClassName,
 						},
 					},
 				},
 			},
 		}
 		CreateAndWaitForTenant(t, ctx, cfg, tn)
-
-		var pvc corev1.PersistentVolumeClaim
-		require.NoError(t, cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: tn.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany, Namespace: tn.Status.Namespace}, &pvc))
 
 		wt := &relayv1beta1.WebhookTrigger{
 			ObjectMeta: metav1.ObjectMeta{
@@ -740,18 +706,6 @@ func TestWebhookTriggerKnativeRevisionsWithTenantToolInjectionUsingCommand(t *te
 					"-listen", ":8080",
 					"-text", "Hello, Relay!",
 				},
-				Spec: relayv1beta1.NewUnstructuredObject(map[string]interface{}{
-					"secret": map[string]interface{}{
-						"$type": "Secret",
-						"name":  "foo",
-					},
-					"connection": map[string]interface{}{
-						"$type": "Connection",
-						"type":  "aws",
-						"name":  "test",
-					},
-					"foo": "bar",
-				}),
 				TenantRef: corev1.LocalObjectReference{
 					Name: tn.GetName(),
 				},
@@ -781,8 +735,6 @@ func TestWebhookTriggerKnativeRevisionsWithTenantToolInjectionUsingCommand(t *te
 
 			return true, nil
 		}))
-
-		cfg.Environment.ControllerClient.Delete(ctx, &pvc)
 	})
 }
 

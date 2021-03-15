@@ -18,14 +18,91 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/expr/testutil"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
+	"github.com/puppetlabs/relay-core/pkg/operator/app"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+func stepTaskLabelValue(wr *nebulav1.WorkflowRun, stepName string) string {
+	return app.ModelStepObjectKey(client.ObjectKeyFromObject(wr), &model.Step{Run: model.Run{ID: wr.Spec.Name}, Name: stepName}).Name
+}
+
+func waitForStepToStart(t *testing.T, ctx context.Context, cfg *Config, wr *nebulav1.WorkflowRun, stepName string) {
+	require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
+		if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{
+			Namespace: wr.GetNamespace(),
+			Name:      wr.GetName(),
+		}, wr); err != nil {
+			return true, err
+		}
+
+		if wr.Status.Steps[stepName].Status == string(obj.WorkflowRunStatusInProgress) {
+			return true, nil
+		}
+
+		return false, fmt.Errorf("waiting for step %q to start", stepName)
+	}))
+}
+
+func waitForStepPodToComplete(t *testing.T, ctx context.Context, cfg *Config, wr *nebulav1.WorkflowRun, stepName string) *corev1.Pod {
+	waitForStepToStart(t, ctx, cfg, wr, stepName)
+
+	pod := &corev1.Pod{}
+	require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
+		pods := &corev1.PodList{}
+		if err := cfg.Environment.ControllerClient.List(ctx, pods, client.InNamespace(wr.GetNamespace()), client.MatchingLabels{
+			"tekton.dev/task": stepTaskLabelValue(wr, stepName),
+		}); err != nil {
+			return true, err
+		}
+
+		if len(pods.Items) == 0 {
+			return false, fmt.Errorf("waiting for step %q pod with label tekton.dev/task=%s", stepName, stepTaskLabelValue(wr, stepName))
+		}
+
+		pod = &pods.Items[0]
+		if pod.Status.Phase != corev1.PodSucceeded && pod.Status.Phase != corev1.PodFailed {
+			return false, fmt.Errorf("waiting for step %q pod to complete", stepName)
+		}
+
+		return true, nil
+	}))
+
+	return pod
+}
+
+func waitForStepPodIP(t *testing.T, ctx context.Context, cfg *Config, wr *nebulav1.WorkflowRun, stepName string) *corev1.Pod {
+	waitForStepToStart(t, ctx, cfg, wr, stepName)
+
+	pod := &corev1.Pod{}
+	require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
+		pods := &corev1.PodList{}
+		if err := cfg.Environment.ControllerClient.List(ctx, pods, client.InNamespace(wr.GetNamespace()), client.MatchingLabels{
+			"tekton.dev/task": stepTaskLabelValue(wr, stepName),
+		}); err != nil {
+			return true, err
+		}
+
+		if len(pods.Items) == 0 {
+			return false, fmt.Errorf("waiting for pod")
+		}
+
+		pod = &pods.Items[0]
+		if pod.Status.PodIP == "" {
+			return false, fmt.Errorf("waiting for pod IP")
+		} else if pod.Status.Phase == corev1.PodPending {
+			return false, fmt.Errorf("waiting for pod to start")
+		}
+
+		return true, nil
+	}))
+
+	return pod
+}
 
 func TestWorkflowRunWithTenantToolInjectionUsingInput(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
@@ -37,8 +114,6 @@ func TestWorkflowRunWithTenantToolInjectionUsingInput(t *testing.T) {
 		ConfigWithWorkflowRunReconciler,
 		ConfigWithVolumeClaimAdmission,
 	}, func(cfg *Config) {
-		size, _ := resource.ParseQuantity("50Mi")
-		storageClassName := "relay-hostpath"
 		tenant := &relayv1beta1.Tenant{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: cfg.Namespace.GetName(),
@@ -48,12 +123,9 @@ func TestWorkflowRunWithTenantToolInjectionUsingInput(t *testing.T) {
 				ToolInjection: relayv1beta1.ToolInjection{
 					VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
 						Spec: corev1.PersistentVolumeClaimSpec{
-							Resources: corev1.ResourceRequirements{
-								Requests: map[corev1.ResourceName]resource.Quantity{
-									corev1.ResourceStorage: size,
-								},
+							AccessModes: []corev1.PersistentVolumeAccessMode{
+								corev1.ReadOnlyMany,
 							},
-							StorageClassName: &storageClassName,
 						},
 					},
 				},
@@ -65,9 +137,6 @@ func TestWorkflowRunWithTenantToolInjectionUsingInput(t *testing.T) {
 		var ns corev1.Namespace
 		require.Equal(t, cfg.Namespace.GetName(), tenant.Status.Namespace)
 		require.NoError(t, cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: tenant.Status.Namespace}, &ns))
-
-		var pvc corev1.PersistentVolumeClaim
-		require.NoError(t, cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: tenant.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany, Namespace: tenant.Status.Namespace}, &pvc))
 
 		wr := &nebulav1.WorkflowRun{
 			ObjectMeta: metav1.ObjectMeta{
@@ -96,7 +165,7 @@ func TestWorkflowRunWithTenantToolInjectionUsingInput(t *testing.T) {
 							Name:  "my-test-step",
 							Image: "alpine:latest",
 							Input: []string{
-								"ls -la " + model.ToolInjectionMountPath,
+								"ls -la " + model.ToolsMountPath,
 							},
 						},
 					},
@@ -105,42 +174,7 @@ func TestWorkflowRunWithTenantToolInjectionUsingInput(t *testing.T) {
 		}
 		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, wr))
 
-		// Wait for step to start. Could use a ListWatcher but meh.
-		require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
-			if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{
-				Namespace: wr.GetNamespace(),
-				Name:      wr.GetName(),
-			}, wr); err != nil {
-				return true, err
-			}
-
-			if wr.Status.Steps["my-test-step"].Status == string(obj.WorkflowRunStatusInProgress) {
-				return true, nil
-			}
-
-			return false, fmt.Errorf("waiting for step to start")
-		}))
-
-		pod := &corev1.Pod{}
-		require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
-			pods := &corev1.PodList{}
-			if err := cfg.Environment.ControllerClient.List(ctx, pods, client.InNamespace(tenant.Status.Namespace), client.MatchingLabels{
-				"tekton.dev/task": (&model.Step{Run: model.Run{ID: wr.Spec.Name}, Name: "my-test-step"}).Hash().HexEncoding(),
-			}); err != nil {
-				return true, err
-			}
-
-			if len(pods.Items) == 0 {
-				return false, fmt.Errorf("waiting for pod")
-			}
-
-			pod = &pods.Items[0]
-			if pod.Status.Phase != corev1.PodSucceeded && pod.Status.Phase != corev1.PodFailed {
-				return false, fmt.Errorf("waiting for pod to complete")
-			}
-
-			return true, nil
-		}))
+		pod := waitForStepPodToComplete(t, ctx, cfg, wr, "my-test-step")
 		require.Equal(t, corev1.PodSucceeded, pod.Status.Phase)
 
 		podLogOptions := &corev1.PodLogOptions{
@@ -159,8 +193,6 @@ func TestWorkflowRunWithTenantToolInjectionUsingInput(t *testing.T) {
 		str := buf.String()
 
 		require.Contains(t, str, model.EntrypointCommand)
-
-		cfg.Environment.ControllerClient.Delete(ctx, &pvc)
 	})
 }
 
@@ -174,8 +206,6 @@ func TestWorkflowRunWithTenantToolInjectionUsingCommand(t *testing.T) {
 		ConfigWithWorkflowRunReconciler,
 		ConfigWithVolumeClaimAdmission,
 	}, func(cfg *Config) {
-		size, _ := resource.ParseQuantity("50Mi")
-		storageClassName := "relay-hostpath"
 		tenant := &relayv1beta1.Tenant{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: cfg.Namespace.GetName(),
@@ -185,12 +215,9 @@ func TestWorkflowRunWithTenantToolInjectionUsingCommand(t *testing.T) {
 				ToolInjection: relayv1beta1.ToolInjection{
 					VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
 						Spec: corev1.PersistentVolumeClaimSpec{
-							Resources: corev1.ResourceRequirements{
-								Requests: map[corev1.ResourceName]resource.Quantity{
-									corev1.ResourceStorage: size,
-								},
+							AccessModes: []corev1.PersistentVolumeAccessMode{
+								corev1.ReadOnlyMany,
 							},
-							StorageClassName: &storageClassName,
 						},
 					},
 				},
@@ -202,9 +229,6 @@ func TestWorkflowRunWithTenantToolInjectionUsingCommand(t *testing.T) {
 		var ns corev1.Namespace
 		require.Equal(t, cfg.Namespace.GetName(), tenant.Status.Namespace)
 		require.NoError(t, cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: tenant.Status.Namespace}, &ns))
-
-		var pvc corev1.PersistentVolumeClaim
-		require.NoError(t, cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: tenant.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany, Namespace: tenant.Status.Namespace}, &pvc))
 
 		wr := &nebulav1.WorkflowRun{
 			ObjectMeta: metav1.ObjectMeta{
@@ -233,7 +257,7 @@ func TestWorkflowRunWithTenantToolInjectionUsingCommand(t *testing.T) {
 							Name:    "my-test-step",
 							Image:   "alpine:latest",
 							Command: "ls",
-							Args:    []string{"-la", model.ToolInjectionMountPath},
+							Args:    []string{"-la", model.ToolsMountPath},
 						},
 					},
 				},
@@ -241,42 +265,7 @@ func TestWorkflowRunWithTenantToolInjectionUsingCommand(t *testing.T) {
 		}
 		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, wr))
 
-		// Wait for step to start. Could use a ListWatcher but meh.
-		require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
-			if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{
-				Namespace: wr.GetNamespace(),
-				Name:      wr.GetName(),
-			}, wr); err != nil {
-				return true, err
-			}
-
-			if wr.Status.Steps["my-test-step"].Status == string(obj.WorkflowRunStatusInProgress) {
-				return true, nil
-			}
-
-			return false, fmt.Errorf("waiting for step to start")
-		}))
-
-		pod := &corev1.Pod{}
-		require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
-			pods := &corev1.PodList{}
-			if err := cfg.Environment.ControllerClient.List(ctx, pods, client.InNamespace(tenant.Status.Namespace), client.MatchingLabels{
-				"tekton.dev/task": (&model.Step{Run: model.Run{ID: wr.Spec.Name}, Name: "my-test-step"}).Hash().HexEncoding(),
-			}); err != nil {
-				return true, err
-			}
-
-			if len(pods.Items) == 0 {
-				return false, fmt.Errorf("waiting for pod")
-			}
-
-			pod = &pods.Items[0]
-			if pod.Status.Phase != corev1.PodSucceeded && pod.Status.Phase != corev1.PodFailed {
-				return false, fmt.Errorf("waiting for pod to complete")
-			}
-
-			return true, nil
-		}))
+		pod := waitForStepPodToComplete(t, ctx, cfg, wr, "my-test-step")
 		require.Equal(t, corev1.PodSucceeded, pod.Status.Phase)
 
 		podLogOptions := &corev1.PodLogOptions{
@@ -295,8 +284,6 @@ func TestWorkflowRunWithTenantToolInjectionUsingCommand(t *testing.T) {
 		str := buf.String()
 
 		require.Contains(t, str, model.EntrypointCommand)
-
-		cfg.Environment.ControllerClient.Delete(ctx, &pvc)
 	})
 }
 
@@ -382,46 +369,7 @@ func TestWorkflowRun(t *testing.T) {
 		}
 		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, wr))
 
-		// Wait for step to start. Could use a ListWatcher but meh.
-		require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
-			if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{
-				Namespace: wr.GetNamespace(),
-				Name:      wr.GetName(),
-			}, wr); err != nil {
-				return true, err
-			}
-
-			if wr.Status.Steps["my-test-step"].Status == string(obj.WorkflowRunStatusInProgress) {
-				return true, nil
-			}
-
-			return false, fmt.Errorf("waiting for step to start")
-		}))
-
-		// Pull the pod and get its IP.
-		pod := &corev1.Pod{}
-		require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
-			pods := &corev1.PodList{}
-			if err := cfg.Environment.ControllerClient.List(ctx, pods, client.InNamespace(wr.GetNamespace()), client.MatchingLabels{
-				// TODO: We shouldn't really hardcode this.
-				"tekton.dev/task": (&model.Step{Run: model.Run{ID: wr.Spec.Name}, Name: "my-test-step"}).Hash().HexEncoding(),
-			}); err != nil {
-				return true, err
-			}
-
-			if len(pods.Items) == 0 {
-				return false, fmt.Errorf("waiting for pod")
-			}
-
-			pod = &pods.Items[0]
-			if pod.Status.PodIP == "" {
-				return false, fmt.Errorf("waiting for pod IP")
-			} else if pod.Status.Phase == corev1.PodPending {
-				return false, fmt.Errorf("waiting for pod to start")
-			}
-
-			return true, nil
-		}))
+		pod := waitForStepPodIP(t, ctx, cfg, wr, "my-test-step")
 
 		req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/spec", cfg.MetadataAPIURL), nil)
 		require.NoError(t, err)
@@ -668,8 +616,7 @@ func TestWorkflowRunInGVisor(t *testing.T) {
 				require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
 					pods := &corev1.PodList{}
 					if err := cfg.Environment.ControllerClient.List(ctx, pods, client.InNamespace(wr.GetNamespace()), client.MatchingLabels{
-						// TODO: We shouldn't really hardcode this.
-						"tekton.dev/task": (&model.Step{Run: model.Run{ID: wr.Spec.Name}, Name: "my-test-step"}).Hash().HexEncoding(),
+						"tekton.dev/task": stepTaskLabelValue(wr, "my-test-step"),
 					}); err != nil {
 						return true, err
 					}

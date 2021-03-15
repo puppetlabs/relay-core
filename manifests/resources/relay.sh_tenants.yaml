@@ -49,6 +49,8 @@ spec:
                     x-kubernetes-preserve-unknown-fields: true
                 type: object
               toolInjection:
+                description: ToolInjection allows configuration of the PVC to be used
+                  for the container runtime tools.
                 properties:
                   volumeClaimTemplate:
                     description: VolumeClaimTemplate is an optional definition of
@@ -351,12 +353,17 @@ spec:
                 type: integer
               toolInjection:
                 description: ToolInjection contains specific status data for tool
-                  injection
+                  injection.
                 properties:
-                  imageDigest:
-                    description: ImageDigest is the specific image digest used for
-                      tool injection
-                    type: string
+                  checkout:
+                    description: Checkout is a reference to the PVPool checkout being
+                      managed for this tenant relative to the namespace in this status.
+                    properties:
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          TODO: Add other useful fields. apiVersion, kind, uid?'
+                        type: string
+                    type: object
                 type: object
             type: object
         required:
