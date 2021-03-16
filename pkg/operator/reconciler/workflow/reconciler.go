@@ -100,14 +100,31 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			return errmap.Wrap(err, "failed to apply dependencies")
 		}
 
-		pipeline, err := app.ApplyPipelineParts(ctx, r.Client, deps)
-		if err != nil {
-			return errmap.Wrap(err, "failed to apply Pipeline")
-		}
+		// We only need to build the pipeline when the workflow run is
+		// initializing or finalizing. While it's running, constantly persisting
+		// pipeline objects just puts strain on the Tekton webhook server.
+		//
+		// An exception is made of we get out of sync somehow such that the
+		// PipelineRun can't load (e.g. someone deletes it from under us).
+		switch {
+		case wr.Object.Status.Status == string(obj.WorkflowRunStatusInProgress) && !wr.IsCancelled():
+			pr = obj.NewPipelineRun(wr.Key)
+			if ok, err := pr.Load(ctx, r.Client); err != nil {
+				return errmap.Wrap(err, "failed to load PipelineRun")
+			} else if ok {
+				break
+			}
+			fallthrough
+		default:
+			pipeline, err := app.ApplyPipelineParts(ctx, r.Client, deps)
+			if err != nil {
+				return errmap.Wrap(err, "failed to apply Pipeline")
+			}
 
-		pr, err = app.ApplyPipelineRun(ctx, r.Client, pipeline)
-		if err != nil {
-			return errmap.Wrap(err, "failed to apply PipelineRun")
+			pr, err = app.ApplyPipelineRun(ctx, r.Client, pipeline)
+			if err != nil {
+				return errmap.Wrap(err, "failed to apply PipelineRun")
+			}
 		}
 
 		return nil
