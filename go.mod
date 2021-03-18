@@ -43,7 +43,7 @@ require (
 	github.com/puppetlabs/leg/storage v0.1.1
 	github.com/puppetlabs/leg/stringutil v0.1.0
 	github.com/puppetlabs/leg/timeutil v0.3.0
-	github.com/puppetlabs/pvpool v0.1.3
+	github.com/puppetlabs/pvpool v0.2.0
 	github.com/puppetlabs/relay-pls v0.0.0-20201125074651-13575df50b51
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/shurcooL/vfsgen v0.0.0-20181202132449-6a9ea43bcacd
