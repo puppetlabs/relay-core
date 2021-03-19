@@ -63,6 +63,7 @@ type YAMLWorkflowTrigger struct {
 type YAMLContainerMixin struct {
 	Image     string                        `yaml:"image" json:"image,omitempty"`
 	Spec      map[string]serialize.YAMLTree `yaml:"spec" json:"spec,omitempty"`
+	Env       map[string]serialize.YAMLTree `yaml:"env" json:"env,omitempty"`
 	Input     []string                      `yaml:"input" json:"input,omitempty"`
 	InputFile string                        `yaml:"inputFile" json:"inputFile,omitempty"`
 	Command   string                        `yaml:"command" json:"command,omitempty"`
@@ -207,6 +208,7 @@ type WorkflowStepVariant interface {
 type ContainerMixin struct {
 	Image     string        `yaml:"image" json:"image"`
 	Spec      ExpressionMap `yaml:"spec" json:"spec,omitempty"`
+	Env       ExpressionMap `yaml:"env" json:"env,omitempty"`
 	InputFile string        `yaml:"inputFile" json:"inputFile,omitempty"`
 	Input     []string      `yaml:"input" json:"input,omitempty"`
 	Command   string        `yaml:"command" json:"command,omitempty"`

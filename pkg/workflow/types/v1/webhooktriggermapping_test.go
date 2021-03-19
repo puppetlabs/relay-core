@@ -3,6 +3,7 @@ package v1
 import (
 	"testing"
 
+	"github.com/puppetlabs/relay-core/pkg/expr/serialize"
 	"github.com/stretchr/testify/require"
 )
 
@@ -26,6 +27,13 @@ func TestWebhookTriggerMapping(t *testing.T) {
 	source := &WebhookWorkflowTriggerSource{
 		ContainerMixin: ContainerMixin{
 			Image: "test-image:latest",
+			Spec: ExpressionMap{
+				"tag": serialize.JSONTree{Tree: "v1"},
+			},
+			Env: ExpressionMap{
+				"CI":      serialize.JSONTree{Tree: true},
+				"RETRIES": serialize.JSONTree{Tree: 3},
+			},
 		},
 	}
 
@@ -34,4 +42,7 @@ func TestWebhookTriggerMapping(t *testing.T) {
 
 	require.NotNil(t, manifest.WebhookTrigger)
 	require.Equal(t, tenant.Tenant.GetNamespace(), manifest.WebhookTrigger.GetNamespace())
+
+	require.Len(t, manifest.WebhookTrigger.Spec.Spec, 1)
+	require.Len(t, manifest.WebhookTrigger.Spec.Env, 2)
 }
