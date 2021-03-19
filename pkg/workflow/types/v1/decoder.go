@@ -135,6 +135,7 @@ func yamlWorkflowDataToWorkflowData(ywd *YAMLWorkflowData) (*WorkflowData, error
 					ContainerMixin: ContainerMixin{
 						Image:     step.Image,
 						Spec:      makeJSONTreeMap(step.Spec),
+						Env:       makeJSONTreeMap(step.Env),
 						InputFile: step.InputFile,
 						Input:     step.Input,
 						Command:   step.Command,
@@ -177,6 +178,7 @@ func yamlWorkflowDataToWorkflowData(ywd *YAMLWorkflowData) (*WorkflowData, error
 					ContainerMixin: ContainerMixin{
 						Image:     trigger.Source.Image,
 						Spec:      makeJSONTreeMap(trigger.Source.Spec),
+						Env:       makeJSONTreeMap(trigger.Source.Env),
 						InputFile: trigger.Source.InputFile,
 						Input:     trigger.Source.Input,
 						Command:   trigger.Source.Command,

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/puppetlabs/relay-core/pkg/expr/serialize"
 	"github.com/stretchr/testify/require"
 )
 
@@ -27,6 +28,13 @@ func validWorkflow(t *testing.T, wd *WorkflowData) {
 				Variant: &ContainerWorkflowStep{
 					ContainerMixin: ContainerMixin{
 						Image: "image-1",
+						Spec: ExpressionMap{
+							"tag": serialize.JSONTree{Tree: "v1"},
+						},
+						Env: ExpressionMap{
+							"CI":      serialize.JSONTree{Tree: true},
+							"RETRIES": serialize.JSONTree{Tree: 3},
+						},
 					},
 				},
 			},
