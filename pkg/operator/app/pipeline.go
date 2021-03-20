@@ -10,6 +10,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const ToolsWorkspaceName = "tools"
+
 type PipelineParts struct {
 	Deps *WorkflowRunDeps
 
@@ -81,6 +83,12 @@ func ConfigurePipelineParts(ctx context.Context, p *PipelineParts) error {
 		return err
 	}
 
+	if p.Deps.ToolInjectionCheckout.Satisfied() {
+		p.Pipeline.SetWorkspace(tektonv1beta1.PipelineWorkspaceDeclaration{
+			Name: ToolsWorkspaceName,
+		})
+	}
+
 	p.Pipeline.Object.Spec.Tasks = make([]tektonv1beta1.PipelineTask, 0, len(p.Tasks.List))
 
 	for i, t := range p.Tasks.List {
@@ -102,6 +110,15 @@ func ConfigurePipelineParts(ctx context.Context, p *PipelineParts) error {
 		if cond, ok := p.Conditions.GetByStepName(ws.Name); ok {
 			pt.Conditions = []tektonv1beta1.PipelineTaskCondition{
 				{ConditionRef: cond.Key.Name},
+			}
+		}
+
+		if p.Deps.ToolInjectionCheckout.Satisfied() {
+			pt.Workspaces = []tektonv1beta1.WorkspacePipelineTaskBinding{
+				{
+					Name:      ToolsWorkspaceName,
+					Workspace: ToolsWorkspaceName,
+				},
 			}
 		}
 

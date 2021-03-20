@@ -351,20 +351,6 @@ spec:
                   specification that this status matches.
                 format: int64
                 type: integer
-              toolInjection:
-                description: ToolInjection contains specific status data for tool
-                  injection.
-                properties:
-                  checkout:
-                    description: Checkout is a reference to the PVPool checkout being
-                      managed for this tenant relative to the namespace in this status.
-                    properties:
-                      name:
-                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                          TODO: Add other useful fields. apiVersion, kind, uid?'
-                        type: string
-                    type: object
-                type: object
             type: object
         required:
         - spec

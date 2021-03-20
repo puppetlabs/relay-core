@@ -15,7 +15,7 @@ import (
 	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
 	"github.com/puppetlabs/leg/storage"
 	pvpoolv1alpha1 "github.com/puppetlabs/pvpool/pkg/apis/pvpool.puppet.com/v1alpha1"
-	pvpoolv1alpha1obj "github.com/puppetlabs/pvpool/pkg/obj"
+	pvpoolv1alpha1obj "github.com/puppetlabs/pvpool/pkg/apis/pvpool.puppet.com/v1alpha1/obj"
 	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
@@ -306,7 +306,7 @@ func doConfigDependencyManager(ctx context.Context) doConfigFunc {
 			}
 			require.NoError(t, pool.Persist(ctx, cfg.Environment.ControllerClient))
 
-			wcc.ToolInjectionPool = &pool.Key
+			wcc.ToolInjectionPool = pool.Key
 		}
 
 		deps, err := dependency.NewDependencyManager(wcc, cfg.Environment.RESTConfig, cfg.Vault.Client, cfg.Vault.JWTSigner, cfg.blobStore, metrics)

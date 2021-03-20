@@ -6,6 +6,7 @@ import (
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/helper"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -34,6 +35,32 @@ func (t *Task) Owned(ctx context.Context, owner lifecycle.TypedObject) error {
 
 func (t *Task) Persist(ctx context.Context, cl client.Client) error {
 	return helper.CreateOrUpdate(ctx, cl, t.Object, helper.WithObjectKey(t.Key))
+}
+
+func (t *Task) SetVolume(spec corev1.Volume) {
+	for i := range t.Object.Spec.Volumes {
+		v := &t.Object.Spec.Volumes[i]
+
+		if v.Name == spec.Name {
+			*v = spec
+			return
+		}
+	}
+
+	t.Object.Spec.Volumes = append(t.Object.Spec.Volumes, spec)
+}
+
+func (t *Task) SetWorkspace(spec tektonv1beta1.WorkspaceDeclaration) {
+	for i := range t.Object.Spec.Workspaces {
+		ws := &t.Object.Spec.Workspaces[i]
+
+		if ws.Name == spec.Name {
+			*ws = spec
+			return
+		}
+	}
+
+	t.Object.Spec.Workspaces = append(t.Object.Spec.Workspaces, spec)
 }
 
 func NewTask(key client.ObjectKey) *Task {

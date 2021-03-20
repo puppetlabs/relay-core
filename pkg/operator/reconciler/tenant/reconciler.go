@@ -5,7 +5,6 @@ import (
 
 	"github.com/puppetlabs/leg/errmap/pkg/errmap"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
-	pvpoolv1alpha1obj "github.com/puppetlabs/pvpool/pkg/obj"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	"github.com/puppetlabs/relay-core/pkg/operator/app"
 	"github.com/puppetlabs/relay-core/pkg/operator/config"
@@ -37,12 +36,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, nil
 	}
 
-	opts := []app.TenantDepsOption{app.TenantDepsWithStandaloneMode(r.Config.Standalone)}
-	if p := r.Config.ToolInjectionPool; p != nil {
-		opts = append(opts, app.TenantDepsWithToolInjectionPool(pvpoolv1alpha1obj.NewPool(*p)))
-	}
-
-	deps := app.NewTenantDeps(tn, opts...)
+	deps := app.NewTenantDeps(tn, app.TenantDepsWithStandaloneMode(r.Config.Standalone))
 	if _, err := deps.Load(ctx, r.Client); err != nil {
 		return ctrl.Result{}, errmap.Wrap(err, "failed to load dependencies")
 	}

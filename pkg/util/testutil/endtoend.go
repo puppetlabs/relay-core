@@ -104,8 +104,8 @@ func WithEndToEndEnvironment(t *testing.T, ctx context.Context, installers []End
 
 	require.NoError(t, endtoend.WithEnvironment(opts, func(e *endtoend.Environment) {
 		ls := map[string]string{
-			"e2e.tests.pvpool.puppet.com/harness":   "end-to-end",
-			"e2e.tests.pvpool.puppet.com/test.hash": testHash(t),
+			"testutil.util.relay.sh/harness":   "end-to-end",
+			"testutil.util.relay.sh/test.hash": testHash(t),
 		}
 
 		tkc, err := tekton.NewForConfig(e.RESTConfig)

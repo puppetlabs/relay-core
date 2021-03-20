@@ -30,7 +30,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
@@ -173,10 +172,8 @@ func main() {
 			log.Fatal("Invalid namespaced name for tool injection pool", pool)
 		}
 
-		cfg.ToolInjectionPool = &client.ObjectKey{
-			Namespace: parts[0],
-			Name:      parts[1],
-		}
+		cfg.ToolInjectionPool.Namespace = parts[0]
+		cfg.ToolInjectionPool.Name = parts[1]
 	}
 
 	dm, err := dependency.NewDependencyManager(cfg, kcc, vc, jwtSigner, blobStore, mets)

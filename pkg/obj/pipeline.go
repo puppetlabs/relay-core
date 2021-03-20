@@ -36,6 +36,19 @@ func (p *Pipeline) Owned(ctx context.Context, owner lifecycle.TypedObject) error
 	return helper.Own(p.Object, owner)
 }
 
+func (p *Pipeline) SetWorkspace(spec tektonv1beta1.PipelineWorkspaceDeclaration) {
+	for i := range p.Object.Spec.Workspaces {
+		ws := &p.Object.Spec.Workspaces[i]
+
+		if ws.Name == spec.Name {
+			*ws = spec
+			return
+		}
+	}
+
+	p.Object.Spec.Workspaces = append(p.Object.Spec.Workspaces, spec)
+}
+
 func NewPipeline(key client.ObjectKey) *Pipeline {
 	return &Pipeline{
 		Key:    key,

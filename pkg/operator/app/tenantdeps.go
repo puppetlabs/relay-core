@@ -6,8 +6,6 @@ import (
 	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
 	networkingv1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/networkingv1"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
-	pvpoolv1alpha1 "github.com/puppetlabs/pvpool/pkg/apis/pvpool.puppet.com/v1alpha1"
-	pvpoolv1alpha1obj "github.com/puppetlabs/pvpool/pkg/obj"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
@@ -55,21 +53,16 @@ func NewAPITriggerEventSink(namespace string, sink *relayv1beta1.APITriggerEvent
 }
 
 type TenantDeps struct {
-	Tenant            *obj.Tenant
-	ToolInjectionPool *pvpoolv1alpha1obj.Pool
-	Standalone        bool
+	Tenant     *obj.Tenant
+	Standalone bool
 
 	// StaleNamespace is the old namespace of a tenant that needs to be cleaned
 	// up.
 	StaleNamespace *corev1obj.Namespace
 
-	// StaleToolInjectionCheckout is an old checkout from a different pool.
-	StaleToolInjectionCheckout *pvpoolv1alpha1obj.Checkout
-
-	Namespace             *corev1obj.Namespace
-	NetworkPolicy         *networkingv1obj.NetworkPolicy
-	LimitRange            *corev1obj.LimitRange
-	ToolInjectionCheckout *pvpoolv1alpha1obj.Checkout
+	Namespace     *corev1obj.Namespace
+	NetworkPolicy *networkingv1obj.NetworkPolicy
+	LimitRange    *corev1obj.LimitRange
 
 	APITriggerEventSink *APITriggerEventSink
 }
@@ -81,12 +74,6 @@ var _ lifecycle.Persister = &TenantDeps{}
 func (td *TenantDeps) Delete(ctx context.Context, cl client.Client, opts ...lifecycle.DeleteOption) (bool, error) {
 	if _, err := td.DeleteStale(ctx, cl, opts...); err != nil {
 		return false, err
-	}
-
-	if td.ToolInjectionCheckout != nil {
-		if _, err := td.ToolInjectionCheckout.Delete(ctx, cl, opts...); err != nil {
-			return false, err
-		}
 	}
 
 	if !td.Tenant.Managed() {
@@ -109,7 +96,6 @@ func (td *TenantDeps) Delete(ctx context.Context, cl client.Client, opts ...life
 func (td *TenantDeps) Load(ctx context.Context, cl client.Client) (bool, error) {
 	loaders := lifecycle.Loaders{
 		lifecycle.IgnoreNilLoader{td.APITriggerEventSink},
-		lifecycle.IgnoreNilLoader{td.ToolInjectionCheckout},
 	}
 
 	if !td.Tenant.Managed() {
@@ -125,16 +111,6 @@ func (td *TenantDeps) Load(ctx context.Context, cl client.Client) (bool, error) 
 		loaders = append(loaders, td.StaleNamespace)
 	}
 
-	// Check for stale checkout, which will be relative to a possible stale
-	// namespace.
-	if name := td.Tenant.Object.Status.ToolInjection.Checkout.Name; name != "" && (td.ToolInjectionCheckout == nil || name != td.ToolInjectionCheckout.Key.Name) {
-		td.StaleToolInjectionCheckout = pvpoolv1alpha1obj.NewCheckout(client.ObjectKey{
-			Namespace: td.Tenant.Object.Status.Namespace,
-			Name:      name,
-		})
-		loaders = append(loaders, td.StaleToolInjectionCheckout)
-	}
-
 	return loaders.Load(ctx, cl)
 }
 
@@ -144,8 +120,6 @@ func (td *TenantDeps) Persist(ctx context.Context, cl client.Client) error {
 	if td.Tenant.Managed() {
 		ps = append(ps, td.Namespace, td.NetworkPolicy, td.LimitRange)
 	}
-
-	ps = append(ps, lifecycle.IgnoreNilPersister{td.ToolInjectionCheckout})
 
 	for _, p := range ps {
 		if err := p.Persist(ctx, cl); err != nil {
@@ -167,16 +141,6 @@ func (td *TenantDeps) DeleteStale(ctx context.Context, cl client.Client, opts ..
 		}
 	}
 
-	if td.StaleToolInjectionCheckout != nil && td.StaleToolInjectionCheckout.Object.GetUID() != "" {
-		if ok, err := DependencyManager.IsDependencyOf(td.StaleToolInjectionCheckout.Object, lifecycle.TypedObject{Object: td.Tenant.Object, GVK: relayv1beta1.TenantKind}); err != nil {
-			return false, err
-		} else if ok {
-			if _, err := td.StaleToolInjectionCheckout.Delete(ctx, cl, opts...); err != nil {
-				return false, err
-			}
-		}
-	}
-
 	return true, nil
 }
 
@@ -185,20 +149,6 @@ type TenantDepsOption func(td *TenantDeps)
 func TenantDepsWithStandaloneMode(standalone bool) TenantDepsOption {
 	return func(td *TenantDeps) {
 		td.Standalone = standalone
-	}
-}
-
-func TenantDepsWithToolInjectionPool(p *pvpoolv1alpha1obj.Pool) TenantDepsOption {
-	return func(td *TenantDeps) {
-		if td.Tenant.Object.Spec.ToolInjection.VolumeClaimTemplate == nil {
-			return
-		}
-
-		td.ToolInjectionPool = p
-		td.ToolInjectionCheckout = pvpoolv1alpha1obj.NewCheckout(checkoutObjectKey(client.ObjectKey{
-			Namespace: td.Namespace.Name,
-			Name:      td.Tenant.Key.Name,
-		}, p.Key))
 	}
 }
 
@@ -229,18 +179,6 @@ func NewTenantDeps(t *obj.Tenant, opts ...TenantDepsOption) *TenantDeps {
 }
 
 func ConfigureTenantDeps(ctx context.Context, td *TenantDeps) {
-	if td.ToolInjectionCheckout != nil {
-		td.ToolInjectionCheckout.Object.Spec = pvpoolv1alpha1.CheckoutSpec{
-			PoolRef: pvpoolv1alpha1.PoolReference{
-				Namespace: td.ToolInjectionPool.Key.Namespace,
-				Name:      td.ToolInjectionPool.Key.Name,
-			},
-			AccessModes: td.Tenant.Object.Spec.ToolInjection.VolumeClaimTemplate.Spec.AccessModes,
-		}
-
-		DependencyManager.SetDependencyOf(&td.ToolInjectionCheckout.Object.ObjectMeta, lifecycle.TypedObject{Object: td.Tenant.Object, GVK: relayv1beta1.TenantKind})
-	}
-
 	if !td.Tenant.Managed() {
 		return
 	}

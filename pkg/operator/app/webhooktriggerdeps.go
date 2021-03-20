@@ -16,7 +16,7 @@ import (
 	rbacv1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/rbacv1"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/helper"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
-	pvpoolv1alpha1obj "github.com/puppetlabs/pvpool/pkg/obj"
+	pvpoolv1alpha1 "github.com/puppetlabs/pvpool/pkg/apis/pvpool.puppet.com/v1alpha1"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
 	"github.com/puppetlabs/relay-core/pkg/model"
@@ -44,8 +44,8 @@ type WebhookTriggerDeps struct {
 	Tenant         *obj.Tenant
 	TenantDeps     *TenantDeps
 
-	ToolInjectionPool *pvpoolv1alpha1obj.Pool
-	Standalone        bool
+	ToolInjectionPoolRef pvpoolv1alpha1.PoolReference
+	Standalone           bool
 
 	// StaleOwnerConfigMap is a reference to a now-outdated stub object that
 	// needs to be cleaned up. It is set if the tenant is deleted or if the
@@ -114,12 +114,7 @@ func (wtd *WebhookTriggerDeps) Load(ctx context.Context, cl client.Client) (*Web
 		return &WebhookTriggerDepsLoadResult{}, nil
 	}
 
-	opts := []TenantDepsOption{TenantDepsWithStandaloneMode(wtd.Standalone)}
-	if wtd.ToolInjectionPool != nil {
-		opts = append(opts, TenantDepsWithToolInjectionPool(wtd.ToolInjectionPool))
-	}
-
-	wtd.TenantDeps = NewTenantDeps(wtd.Tenant, opts...)
+	wtd.TenantDeps = NewTenantDeps(wtd.Tenant, TenantDepsWithStandaloneMode(wtd.Standalone))
 
 	if ok, err := wtd.TenantDeps.Load(ctx, cl); err != nil {
 		return nil, err
@@ -320,9 +315,9 @@ func WebhookTriggerDepsWithStandaloneMode(standalone bool) WebhookTriggerDepsOpt
 	}
 }
 
-func WebhookTriggerDepsWithToolInjectionPool(p *pvpoolv1alpha1obj.Pool) WebhookTriggerDepsOption {
+func WebhookTriggerDepsWithToolInjectionPool(pr pvpoolv1alpha1.PoolReference) WebhookTriggerDepsOption {
 	return func(wtd *WebhookTriggerDeps) {
-		wtd.ToolInjectionPool = p
+		wtd.ToolInjectionPoolRef = pr
 	}
 }
 

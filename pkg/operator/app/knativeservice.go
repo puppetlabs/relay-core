@@ -2,16 +2,12 @@ package app
 
 import (
 	"context"
-	"path"
 
-	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/helper"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
-	"github.com/puppetlabs/relay-core/pkg/entrypoint"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
-	"github.com/puppetlabs/relay-core/pkg/operator/admission"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -151,6 +147,7 @@ func ConfigureKnativeService(ctx context.Context, s *obj.KnativeService, wtd *We
 		args = []string{}
 	}
 
+	/* XXX FIXME
 	if co := wtd.TenantDeps.ToolInjectionCheckout; co != nil {
 		ep, err := entrypoint.ImageEntrypoint(image, []string{command}, args)
 		if err != nil {
@@ -161,15 +158,15 @@ func ConfigureKnativeService(ctx context.Context, s *obj.KnativeService, wtd *We
 		container.Args = ep.Args
 
 		helper.Annotate(&template.ObjectMeta, admission.ToolsVolumeClaimAnnotation, co.Object.Status.VolumeClaimRef.Name)
-	} else {
-		if command != "" {
-			container.Command = []string{command}
-		}
-
-		if len(args) > 0 {
-			container.Args = args
-		}
+	} else {*/
+	if command != "" {
+		container.Command = []string{command}
 	}
+
+	if len(args) > 0 {
+		container.Args = args
+	}
+	//}
 
 	template.Spec.PodSpec.Containers = []corev1.Container{container}
 

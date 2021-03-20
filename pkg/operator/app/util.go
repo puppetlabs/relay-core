@@ -1,9 +1,6 @@
 package app
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-
 	"github.com/puppetlabs/leg/k8sutil/pkg/norm"
 	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
 	"github.com/puppetlabs/relay-core/pkg/model"
@@ -49,15 +46,5 @@ func ModelStepObjectKey(key client.ObjectKey, ms *model.Step) client.ObjectKey {
 	return client.ObjectKey{
 		Namespace: key.Namespace,
 		Name:      norm.MetaNameSuffixed(key.Name+"-"+ms.Name, "-"+ms.Hash().HexEncoding()),
-	}
-}
-
-// XXX: TODO: This method can go away once we can read the tenant status from a
-// workflow run.
-func checkoutObjectKey(key, poolKey client.ObjectKey) client.ObjectKey {
-	hsh := sha256.Sum256([]byte(poolKey.String()))
-	return client.ObjectKey{
-		Namespace: key.Namespace,
-		Name:      norm.MetaNameSuffixed(key.Name+"-"+poolKey.Name, "-"+hex.EncodeToString(hsh[:16])),
 	}
 }

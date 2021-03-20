@@ -1697,8 +1697,8 @@ github.com/puppetlabs/leg/instrumentation v0.1.4 h1:uWRjhV/1ijL4T5uISgcWJXRb0Q9d
 github.com/puppetlabs/leg/instrumentation v0.1.4/go.mod h1:x6wQv38l6/tZRQHolqpL6mhnF+tjMYt4pu0MzoaM54s=
 github.com/puppetlabs/leg/jsonutil v0.2.0 h1:Hp21b/bVlEQET6PkHRXCZnUix3ujwfJuR92Ad7r7swk=
 github.com/puppetlabs/leg/jsonutil v0.2.0/go.mod h1:eiLGPpySpr87IiROi0e4WZcqc7bo0ucs23sjdyOwH9Q=
-github.com/puppetlabs/leg/k8sutil v0.3.2 h1:U0EWaKqieC4tEclMa4Jc9+2ZPKnwiUx1I9B0ijmdP5U=
-github.com/puppetlabs/leg/k8sutil v0.3.2/go.mod h1:5LN5B926v3QNyCQa8IYYIoFS+4f2ak2Mg0LHdIPFQZU=
+github.com/puppetlabs/leg/k8sutil v0.4.0 h1:DGGOOrJoiUte4V0o9HJu51+Zb2bzN0lHaDBIfIq9Ri8=
+github.com/puppetlabs/leg/k8sutil v0.4.0/go.mod h1:5LN5B926v3QNyCQa8IYYIoFS+4f2ak2Mg0LHdIPFQZU=
 github.com/puppetlabs/leg/lifecycle v0.2.0 h1:WYaQF+mdW8Wy+tRHkEE9175Bhkd3zJ7i0qnOQkb+BmY=
 github.com/puppetlabs/leg/lifecycle v0.2.0/go.mod h1:QtYNNukWpkcLWZAWcM9tVxcWfqn9mULH5J3dCkMqzGk=
 github.com/puppetlabs/leg/logging v0.1.0 h1:G8M2w3izYEtoaH+d3rIJZ9iLX2oW2T/jO+J4l+T0Ieo=
@@ -1721,8 +1721,8 @@ github.com/puppetlabs/leg/timeutil v0.3.0 h1:7JUYWWW8bvSRU7EcEBVmkDv2gTb1uLE/F7h
 github.com/puppetlabs/leg/timeutil v0.3.0/go.mod h1:FHkZ9rYegF0STjS4az6hsjdvcBHcG+FB4CsY5mx1DfI=
 github.com/puppetlabs/leg/workdir v0.1.0 h1:ErFrZiEK7eYufupQ34ytM4AFIVxZryuOktMGoSd3Y0c=
 github.com/puppetlabs/leg/workdir v0.1.0/go.mod h1:wqtQ5F1GvWJ2OH0OaDYkZnF4Iq+yV9uojU6kBub6jcA=
-github.com/puppetlabs/pvpool v0.2.0 h1:5Z62vYs7O2agKQwYC2l027hEvRqI55HM4mG5G2dbKFI=
-github.com/puppetlabs/pvpool v0.2.0/go.mod h1:HZPVmNms4gPpRJIiHGHhda+qPg1bt98FeOlqnDlJhvY=
+github.com/puppetlabs/pvpool v0.2.1-0.20210319215419-0ad86f1eaa5c h1:KD6BddW4rwTlddXuj4RviQ2mf/Wyk2hZwd8gj261S4k=
+github.com/puppetlabs/pvpool v0.2.1-0.20210319215419-0ad86f1eaa5c/go.mod h1:yxvaQJGhcIuzUrpmWnVKG+86JRDK1JR0RepBbImMM+Q=
 github.com/puppetlabs/relay-pls v0.0.0-20201125074651-13575df50b51 h1:NwccjCOhZOi0l4w68vPJOV99ctreO/YlrY+RNiz7Llc=
 github.com/puppetlabs/relay-pls v0.0.0-20201125074651-13575df50b51/go.mod h1:xtYyc7gvvVZtfAn5kM89ihJj6v5zdBjNjMfp+a6z+8o=
 github.com/qri-io/starlib v0.4.2-0.20200213133954-ff2e8cd5ef8d h1:K6eOUihrFLdZjZnA4XlRp864fmWXv9YTIk7VPLhRacA=

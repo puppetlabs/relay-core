@@ -9,7 +9,7 @@ import (
 	"github.com/puppetlabs/leg/errmap/pkg/errmark"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/errhandler"
 	"github.com/puppetlabs/leg/storage"
-	pvpoolv1alpha1obj "github.com/puppetlabs/pvpool/pkg/obj"
+	pvpoolv1alpha1 "github.com/puppetlabs/pvpool/pkg/apis/pvpool.puppet.com/v1alpha1"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	"github.com/puppetlabs/relay-core/pkg/operator/app"
@@ -80,18 +80,17 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 
 	var pr *obj.PipelineRun
 	err = r.metrics.trackDurationWithOutcome(metricWorkflowRunStartUpDuration, func() error {
-		opts := []app.WorkflowRunDepsOption{app.WorkflowRunDepsWithStandaloneMode(r.Config.Standalone)}
-		if p := r.Config.ToolInjectionPool; p != nil {
-			opts = append(opts, app.WorkflowRunDepsWithToolInjectionPool(pvpoolv1alpha1obj.NewPool(*p)))
-		}
-
 		deps, err := app.ApplyWorkflowRunDeps(
 			ctx,
 			r.Client,
 			wr,
 			r.issuer,
 			r.Config.MetadataAPIURL,
-			opts...,
+			app.WorkflowRunDepsWithStandaloneMode(r.Config.Standalone),
+			app.WorkflowRunDepsWithToolInjectionPool(pvpoolv1alpha1.PoolReference{
+				Namespace: r.Config.ToolInjectionPool.Namespace,
+				Name:      r.Config.ToolInjectionPool.Name,
+			}),
 		)
 
 		if err != nil {
