@@ -8,6 +8,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -29,6 +30,9 @@ func ConfigurePipelineRun(ctx context.Context, pr *obj.PipelineRun, pp *Pipeline
 		ServiceAccountNames: sans,
 		PipelineRef: &tektonv1beta1.PipelineRef{
 			Name: pp.Pipeline.Key.Name,
+		},
+		PodTemplate: &tektonv1beta1.PodTemplate{
+			EnableServiceLinks: pointer.BoolPtr(false),
 		},
 	}
 

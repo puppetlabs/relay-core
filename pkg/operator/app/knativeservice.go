@@ -14,6 +14,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/operator/admission"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -73,6 +74,7 @@ func ConfigureKnativeService(ctx context.Context, s *obj.KnativeService, wtd *We
 		Spec: servingv1.RevisionSpec{
 			PodSpec: corev1.PodSpec{
 				ServiceAccountName: wtd.KnativeServiceAccount.Key.Name,
+				EnableServiceLinks: pointer.BoolPtr(false),
 			},
 		},
 	}

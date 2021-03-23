@@ -390,24 +390,22 @@ func doConfigVolumeClaimAdmission(ctx context.Context) doConfigFunc {
 	}
 }
 
-func doConfigLifecycle(ctx context.Context) doConfigFunc {
-	return func(t *testing.T, cfg *Config, next func()) {
-		var wg sync.WaitGroup
+func doConfigLifecycle(t *testing.T, cfg *Config, next func()) {
+	var wg sync.WaitGroup
 
-		ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := context.WithCancel(context.Background())
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			require.NoError(t, cfg.Manager.Start(ctx))
-		}()
-		defer func() {
-			cancel()
-			wg.Wait()
-		}()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		require.NoError(t, cfg.Manager.Start(ctx))
+	}()
+	defer func() {
+		cancel()
+		wg.Wait()
+	}()
 
-		next()
-	}
+	next()
 }
 
 func doConfigUser(fn func(cfg *Config)) doConfigFunc {
@@ -519,7 +517,7 @@ func WithConfig(t *testing.T, ctx context.Context, opts []ConfigOption, fn func(
 				doConfigReconcilers,
 				doConfigPodEnforcementAdmission(ctx),
 				doConfigVolumeClaimAdmission(ctx),
-				doConfigLifecycle(ctx),
+				doConfigLifecycle,
 				doConfigUser(fn),
 				doConfigCleanup,
 			}

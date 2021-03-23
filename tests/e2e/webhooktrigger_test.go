@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"k8s.io/klog/v2"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -920,6 +921,7 @@ func TestWebhookTriggerCheckoutGarbageCollection(t *testing.T) {
 
 				// Delete the initial revision.
 				require.NoError(t, cfg.Environment.ControllerClient.Delete(ctx, initialRevision))
+				klog.InfoS("deleted initial revision", "revision", initialRevision.GetName())
 
 				// We should now drop down to a single checkout.
 				require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
