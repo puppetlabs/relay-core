@@ -1721,8 +1721,8 @@ github.com/puppetlabs/leg/timeutil v0.3.0 h1:7JUYWWW8bvSRU7EcEBVmkDv2gTb1uLE/F7h
 github.com/puppetlabs/leg/timeutil v0.3.0/go.mod h1:FHkZ9rYegF0STjS4az6hsjdvcBHcG+FB4CsY5mx1DfI=
 github.com/puppetlabs/leg/workdir v0.1.0 h1:ErFrZiEK7eYufupQ34ytM4AFIVxZryuOktMGoSd3Y0c=
 github.com/puppetlabs/leg/workdir v0.1.0/go.mod h1:wqtQ5F1GvWJ2OH0OaDYkZnF4Iq+yV9uojU6kBub6jcA=
-github.com/puppetlabs/pvpool v0.2.1-0.20210319215419-0ad86f1eaa5c h1:KD6BddW4rwTlddXuj4RviQ2mf/Wyk2hZwd8gj261S4k=
-github.com/puppetlabs/pvpool v0.2.1-0.20210319215419-0ad86f1eaa5c/go.mod h1:yxvaQJGhcIuzUrpmWnVKG+86JRDK1JR0RepBbImMM+Q=
+github.com/puppetlabs/pvpool v0.3.0 h1:skgMzLeiUy4f8LnyBgR+8At7OSWov6QUXQ7VfDR+jZY=
+github.com/puppetlabs/pvpool v0.3.0/go.mod h1:yxvaQJGhcIuzUrpmWnVKG+86JRDK1JR0RepBbImMM+Q=
 github.com/puppetlabs/relay-pls v0.0.0-20201125074651-13575df50b51 h1:NwccjCOhZOi0l4w68vPJOV99ctreO/YlrY+RNiz7Llc=
 github.com/puppetlabs/relay-pls v0.0.0-20201125074651-13575df50b51/go.mod h1:xtYyc7gvvVZtfAn5kM89ihJj6v5zdBjNjMfp+a6z+8o=
 github.com/qri-io/starlib v0.4.2-0.20200213133954-ff2e8cd5ef8d h1:K6eOUihrFLdZjZnA4XlRp864fmWXv9YTIk7VPLhRacA=

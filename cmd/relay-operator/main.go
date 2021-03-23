@@ -29,7 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )

@@ -43,7 +43,7 @@ require (
 	github.com/puppetlabs/leg/storage v0.1.1
 	github.com/puppetlabs/leg/stringutil v0.1.0
 	github.com/puppetlabs/leg/timeutil v0.3.0
-	github.com/puppetlabs/pvpool v0.2.1-0.20210319215419-0ad86f1eaa5c
+	github.com/puppetlabs/pvpool v0.3.0
 	github.com/puppetlabs/relay-pls v0.0.0-20201125074651-13575df50b51
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/shurcooL/vfsgen v0.0.0-20181202132449-6a9ea43bcacd
@@ -65,7 +65,6 @@ require (
 	k8s.io/apiextensions-apiserver v0.20.1
 	k8s.io/apimachinery v0.20.2
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
-	k8s.io/klog v1.0.0
 	k8s.io/klog/v2 v2.5.0
 	k8s.io/utils v0.0.0-20210111153108-fddb29f9d009
 	knative.dev/caching v0.0.0-20200630172829-a78409990d76

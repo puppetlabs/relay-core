@@ -9,6 +9,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	"github.com/puppetlabs/relay-core/pkg/operator/admission"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -39,13 +40,15 @@ func (wtc *WebhookTriggerCleanup) Delete(ctx context.Context, cl client.Client, 
 
 	// Even if a revision hasn't been created yet, we want to retain the claim
 	// that is explicitly specified on the current service.
-	if claimName := wtc.KnativeService.Object.Spec.Template.GetLabels()[admission.ToolsVolumeClaimAnnotation]; claimName != "" {
+	if claimName := wtc.KnativeService.Object.Spec.Template.GetAnnotations()[admission.ToolsVolumeClaimAnnotation]; claimName != "" {
+		klog.V(4).InfoS("webhook trigger cleanup: requiring PVC used by Knative service template", "pvc", client.ObjectKey{Namespace: wtc.KnativeService.Key.Namespace, Name: claimName})
 		claimNames = append(claimNames, claimName)
 	}
 
 	// Then we load the names from the rest of the revisions.
 	for _, rev := range wtc.KnativeRevisions.Revisions {
-		if claimName := rev.Object.GetLabels()[admission.ToolsVolumeClaimAnnotation]; claimName != "" {
+		if claimName := rev.Object.GetAnnotations()[admission.ToolsVolumeClaimAnnotation]; claimName != "" {
+			klog.V(4).InfoS("webhook trigger cleanup: requiring PVC used by Knative revision", "pvc", client.ObjectKey{Namespace: rev.Key.Namespace, Name: claimName})
 			claimNames = append(claimNames, claimName)
 		}
 	}

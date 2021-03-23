@@ -43,16 +43,18 @@ import (
 )
 
 type Config struct {
-	Environment      *testutil.EndToEndEnvironment
-	Namespace        *corev1.Namespace
-	MetadataAPIURL   *url.URL
-	Vault            *testutil.Vault
-	Manager          manager.Manager
-	ControllerConfig *config.WorkflowControllerConfig
+	Environment           *testutil.EndToEndEnvironment
+	Namespace             *corev1.Namespace
+	MetadataAPIURL        *url.URL
+	Vault                 *testutil.Vault
+	Manager               manager.Manager
+	ToolInjectionPoolName string
+	ControllerConfig      *config.WorkflowControllerConfig
 
 	blobStore         storage.BlobStore
 	dependencyManager *dependency.DependencyManager
 
+	withoutCleanup                bool
 	withVault                     bool
 	withMetadataAPI               bool
 	withMetadataAPIBoundInCluster bool
@@ -69,6 +71,16 @@ func ConfigInNamespace(ns *corev1.Namespace) ConfigOption {
 	return func(cfg *Config) {
 		cfg.Namespace = ns
 	}
+}
+
+func ConfigWithToolInjectionPoolName(name string) ConfigOption {
+	return func(cfg *Config) {
+		cfg.ToolInjectionPoolName = name
+	}
+}
+
+func ConfigWithoutCleanup(cfg *Config) {
+	cfg.withoutCleanup = true
 }
 
 func ConfigWithVault(cfg *Config) {
@@ -233,6 +245,8 @@ func doConfigDependencyManager(ctx context.Context) doConfigFunc {
 			Namespace: cfg.Namespace.GetName(),
 			Name:      "docker-registry-system",
 		})
+		_, err := imagePullSecret.Load(ctx, cfg.Environment.ControllerClient)
+		require.NoError(t, err)
 		imagePullSecret.Object.Data = map[string][]byte{
 			".dockerconfigjson": []byte(`{}`),
 		}
@@ -251,18 +265,20 @@ func doConfigDependencyManager(ctx context.Context) doConfigFunc {
 		if cfg.withTenantReconciler {
 			pool := pvpoolv1alpha1obj.NewPool(client.ObjectKey{
 				Namespace: cfg.Namespace.GetName(),
-				Name:      "tool-injection-pool",
+				Name:      cfg.ToolInjectionPoolName,
 			})
+			_, err := pool.Load(ctx, cfg.Environment.ControllerClient)
+			require.NoError(t, err)
 			pool.Object.Spec = pvpoolv1alpha1.PoolSpec{
 				Selector: metav1.LabelSelector{
 					MatchLabels: map[string]string{
-						"testing.relay.sh/selector": "tool-injection-pool",
+						"testing.relay.sh/selector": cfg.ToolInjectionPoolName,
 					},
 				},
 				Template: pvpoolv1alpha1.PersistentVolumeClaimTemplate{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{
-							"testing.relay.sh/selector": "tool-injection-pool",
+							"testing.relay.sh/selector": cfg.ToolInjectionPoolName,
 						},
 					},
 					Spec: corev1.PersistentVolumeClaimSpec{
@@ -404,6 +420,10 @@ func doConfigUser(fn func(cfg *Config)) doConfigFunc {
 func doConfigCleanup(t *testing.T, cfg *Config, next func()) {
 	defer next()
 
+	if cfg.withoutCleanup {
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -455,7 +475,8 @@ func doConfigCleanup(t *testing.T, cfg *Config, next func()) {
 
 func WithConfig(t *testing.T, ctx context.Context, opts []ConfigOption, fn func(cfg *Config)) {
 	cfg := &Config{
-		MetadataAPIURL: &url.URL{Scheme: "http", Host: "stub.example.com"},
+		MetadataAPIURL:        &url.URL{Scheme: "http", Host: "stub.example.com"},
+		ToolInjectionPoolName: "tool-injection-pool",
 	}
 
 	for _, opt := range opts {

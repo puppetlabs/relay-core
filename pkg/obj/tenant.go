@@ -26,10 +26,6 @@ const (
 	TenantStatusReasonError = "Error"
 )
 
-var (
-	TenantKind = relayv1beta1.SchemeGroupVersion.WithKind("Tenant")
-)
-
 type Tenant struct {
 	*helper.NamespaceScopedAPIObject
 
@@ -39,7 +35,7 @@ type Tenant struct {
 
 func makeTenant(key client.ObjectKey, obj *relayv1beta1.Tenant) *Tenant {
 	t := &Tenant{Key: key, Object: obj}
-	t.NamespaceScopedAPIObject = helper.ForNamespaceScopedAPIObject(&t.Key, lifecycle.TypedObject{GVK: TenantKind, Object: t.Object})
+	t.NamespaceScopedAPIObject = helper.ForNamespaceScopedAPIObject(&t.Key, lifecycle.TypedObject{GVK: relayv1beta1.TenantKind, Object: t.Object})
 	return t
 }
 

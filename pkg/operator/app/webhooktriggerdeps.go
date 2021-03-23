@@ -369,6 +369,7 @@ func ConfigureWebhookTriggerDeps(ctx context.Context, wtd *WebhookTriggerDeps) e
 	}
 	for _, laf := range lafs {
 		laf.LabelAnnotateFrom(ctx, wtd.WebhookTrigger.Object)
+		lifecycle.Label(ctx, laf, model.RelayControllerWebhookTriggerIDLabel, wtd.WebhookTrigger.Key.Name)
 	}
 
 	if wtd.Standalone {
