@@ -21,32 +21,20 @@ const (
 )
 
 type WebhookTrigger struct {
+	*helper.NamespaceScopedAPIObject
+
 	Key    client.ObjectKey
 	Object *relayv1beta1.WebhookTrigger
 }
 
-var _ lifecycle.Finalizable = &WebhookTrigger{}
-var _ lifecycle.Loader = &WebhookTrigger{}
-var _ lifecycle.Persister = &WebhookTrigger{}
-
-func (wt *WebhookTrigger) Finalizing() bool {
-	return !wt.Object.GetDeletionTimestamp().IsZero()
+func makeWebhookTrigger(key client.ObjectKey, obj *relayv1beta1.WebhookTrigger) *WebhookTrigger {
+	wt := &WebhookTrigger{Key: key, Object: obj}
+	wt.NamespaceScopedAPIObject = helper.ForNamespaceScopedAPIObject(&wt.Key, lifecycle.TypedObject{GVK: relayv1beta1.WebhookTriggerKind, Object: wt.Object})
+	return wt
 }
 
-func (wt *WebhookTrigger) AddFinalizer(ctx context.Context, name string) bool {
-	return helper.AddFinalizer(&wt.Object.ObjectMeta, name)
-}
-
-func (wt *WebhookTrigger) RemoveFinalizer(ctx context.Context, name string) bool {
-	return helper.RemoveFinalizer(&wt.Object.ObjectMeta, name)
-}
-
-func (wt *WebhookTrigger) Load(ctx context.Context, cl client.Client) (bool, error) {
-	return helper.GetIgnoreNotFound(ctx, cl, wt.Key, wt.Object)
-}
-
-func (wt *WebhookTrigger) Persist(ctx context.Context, cl client.Client) error {
-	return helper.CreateOrUpdate(ctx, cl, wt.Object, helper.WithObjectKey(wt.Key))
+func (wt *WebhookTrigger) Copy() *WebhookTrigger {
+	return makeWebhookTrigger(wt.Key, wt.Object.DeepCopy())
 }
 
 func (wt *WebhookTrigger) PersistStatus(ctx context.Context, cl client.Client) error {
@@ -74,8 +62,13 @@ func (wt *WebhookTrigger) PodSelector() metav1.LabelSelector {
 }
 
 func NewWebhookTrigger(key client.ObjectKey) *WebhookTrigger {
-	return &WebhookTrigger{
-		Key:    key,
-		Object: &relayv1beta1.WebhookTrigger{},
-	}
+	return makeWebhookTrigger(key, &relayv1beta1.WebhookTrigger{})
+}
+
+func NewWebhookTriggerFromObject(obj *relayv1beta1.WebhookTrigger) *WebhookTrigger {
+	return makeWebhookTrigger(client.ObjectKeyFromObject(obj), obj)
+}
+
+func NewWebhookTriggerPatcher(upd, orig *WebhookTrigger) lifecycle.Persister {
+	return helper.NewPatcher(upd.Object, orig.Object, helper.WithObjectKey(upd.Key))
 }

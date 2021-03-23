@@ -19,7 +19,6 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	"gopkg.in/square/go-jose.v2/jwt"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -188,7 +187,9 @@ func NewWorkflowRunDeps(wr *obj.WorkflowRun, issuer authenticate.Issuer, metadat
 
 		NetworkPolicy: networkingv1obj.NewNetworkPolicy(key),
 
-		ToolInjectionCheckout: &PoolRefPredicatedCheckout{Checkout: pvpoolv1alpha1obj.NewCheckout(key)},
+		ToolInjectionCheckout: &PoolRefPredicatedCheckout{
+			Checkout: pvpoolv1alpha1obj.NewCheckout(SuffixObjectKey(key, "tools")),
+		},
 
 		ImmutableConfigMap: corev1obj.NewConfigMap(SuffixObjectKey(key, "immutable")),
 		MutableConfigMap:   corev1obj.NewConfigMap(SuffixObjectKey(key, "mutable")),
@@ -260,16 +261,7 @@ func ConfigureWorkflowRunDeps(ctx context.Context, wrd *WorkflowRunDeps) error {
 		ConfigureNetworkPolicyForWorkflowRun(wrd.NetworkPolicy, wrd.WorkflowRun)
 	}
 
-	// TODO Reference the tool injection from the tenant (once this is available)
-	// For now, we'll assume an explicit tenant reference implies the use of the entrypoint handling
-	if wrd.WorkflowRun.Object.Spec.TenantRef != nil && wrd.ToolInjectionPoolRef.Name != "" && wrd.ToolInjectionCheckout.Object.Status.VolumeName == "" {
-		wrd.ToolInjectionCheckout.Object.Spec = pvpoolv1alpha1.CheckoutSpec{
-			PoolRef:   wrd.ToolInjectionPoolRef,
-			ClaimName: wrd.WorkflowRun.Key.Name,
-			// XXX: TODO: This should come from the tenant!
-			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadOnlyMany},
-		}
-	}
+	ConfigureToolInjectionCheckoutForWorkflowRun(wrd.ToolInjectionCheckout, wrd.WorkflowRun, wrd.ToolInjectionPoolRef)
 
 	if err := ConfigureImmutableConfigMapForWorkflowRun(ctx, wrd.ImmutableConfigMap, wrd.WorkflowRun); err != nil {
 		return err

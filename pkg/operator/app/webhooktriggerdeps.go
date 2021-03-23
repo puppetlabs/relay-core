@@ -17,6 +17,7 @@ import (
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/helper"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	pvpoolv1alpha1 "github.com/puppetlabs/pvpool/pkg/apis/pvpool.puppet.com/v1alpha1"
+	pvpoolv1alpha1obj "github.com/puppetlabs/pvpool/pkg/apis/pvpool.puppet.com/v1alpha1/obj"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
 	"github.com/puppetlabs/relay-core/pkg/model"
@@ -57,6 +58,8 @@ type WebhookTriggerDeps struct {
 	OwnerConfigMap *corev1obj.ConfigMap
 
 	NetworkPolicy *networkingv1obj.NetworkPolicy
+
+	ToolInjectionCheckout *PoolRefPredicatedCheckout
 
 	ImmutableConfigMap *corev1obj.ConfigMap
 	MutableConfigMap   *corev1obj.ConfigMap
@@ -138,6 +141,13 @@ func (wtd *WebhookTriggerDeps) Load(ctx context.Context, cl client.Client) (*Web
 
 	wtd.NetworkPolicy = networkingv1obj.NewNetworkPolicy(key)
 
+	wtd.ToolInjectionCheckout = &PoolRefPredicatedCheckout{
+		Checkout: pvpoolv1alpha1obj.NewCheckout(SuffixObjectKeyWithHashOfObjectKey(SuffixObjectKey(key, "tools"), client.ObjectKey{
+			Namespace: wtd.ToolInjectionPoolRef.Namespace,
+			Name:      wtd.ToolInjectionPoolRef.Name,
+		})),
+	}
+
 	wtd.ImmutableConfigMap = corev1obj.NewConfigMap(SuffixObjectKey(key, "immutable"))
 	wtd.MutableConfigMap = corev1obj.NewConfigMap(SuffixObjectKey(key, "mutable"))
 
@@ -152,6 +162,7 @@ func (wtd *WebhookTriggerDeps) Load(ctx context.Context, cl client.Client) (*Web
 		lifecycle.IgnoreNilLoader{wtd.StaleOwnerConfigMap},
 		wtd.OwnerConfigMap,
 		wtd.NetworkPolicy,
+		wtd.ToolInjectionCheckout,
 		wtd.ImmutableConfigMap,
 		wtd.MutableConfigMap,
 		wtd.MetadataAPIServiceAccount,
@@ -185,6 +196,7 @@ func (wtd *WebhookTriggerDeps) Persist(ctx context.Context, cl client.Client) er
 
 	os := []lifecycle.Ownable{
 		wtd.NetworkPolicy,
+		wtd.ToolInjectionCheckout,
 		wtd.ImmutableConfigMap,
 		wtd.MetadataAPIServiceAccount,
 		wtd.MetadataAPIRole,
@@ -199,6 +211,7 @@ func (wtd *WebhookTriggerDeps) Persist(ctx context.Context, cl client.Client) er
 
 	ps := []lifecycle.Persister{
 		wtd.NetworkPolicy,
+		wtd.ToolInjectionCheckout,
 		wtd.ImmutableConfigMap,
 		wtd.MutableConfigMap,
 		wtd.MetadataAPIServiceAccount,
@@ -347,6 +360,7 @@ func ConfigureWebhookTriggerDeps(ctx context.Context, wtd *WebhookTriggerDeps) e
 	}
 
 	lafs := []lifecycle.LabelAnnotatableFrom{
+		wtd.ToolInjectionCheckout,
 		wtd.ImmutableConfigMap,
 		wtd.MutableConfigMap,
 		wtd.MetadataAPIServiceAccount,
@@ -362,6 +376,8 @@ func ConfigureWebhookTriggerDeps(ctx context.Context, wtd *WebhookTriggerDeps) e
 	} else {
 		ConfigureNetworkPolicyForWebhookTrigger(wtd.NetworkPolicy, wtd.WebhookTrigger)
 	}
+
+	ConfigureToolInjectionCheckout(wtd.ToolInjectionCheckout, wtd.TenantDeps.Tenant, wtd.ToolInjectionPoolRef)
 
 	if err := ConfigureImmutableConfigMapForWebhookTrigger(ctx, wtd.ImmutableConfigMap, wtd.WebhookTrigger); err != nil {
 		return err

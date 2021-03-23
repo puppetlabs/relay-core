@@ -129,6 +129,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, err
 	}
 
+	// Finally delete stale objects that we created as part of the lifecycle of
+	// the trigger. (This should not block the status update, but should cause a
+	// requeue if it fails).
+	if err := app.ApplyWebhookTriggerCleanup(ctx, r.Client, deps, ksr); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	if !wt.Ready() {
 		return ctrl.Result{RequeueAfter: 2 * time.Minute}, nil
 	}

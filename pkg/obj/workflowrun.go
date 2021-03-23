@@ -32,24 +32,21 @@ const (
 	WorkflowRunStatusTimedOut   WorkflowRunStatus = "timed-out"
 )
 
-var (
-	WorkflowRunKind = nebulav1.SchemeGroupVersion.WithKind("WorkflowRun")
-)
-
 type WorkflowRun struct {
+	*helper.NamespaceScopedAPIObject
+
 	Key    client.ObjectKey
 	Object *nebulav1.WorkflowRun
 }
 
-var _ lifecycle.Loader = &WorkflowRun{}
-var _ lifecycle.Owner = &WorkflowRun{}
-
-func (wr *WorkflowRun) Load(ctx context.Context, cl client.Client) (bool, error) {
-	return helper.GetIgnoreNotFound(ctx, cl, wr.Key, wr.Object)
+func makeWorkflowRun(key client.ObjectKey, obj *nebulav1.WorkflowRun) *WorkflowRun {
+	wr := &WorkflowRun{Key: key, Object: obj}
+	wr.NamespaceScopedAPIObject = helper.ForNamespaceScopedAPIObject(&wr.Key, lifecycle.TypedObject{GVK: nebulav1.WorkflowRunKind, Object: wr.Object})
+	return wr
 }
 
-func (wr *WorkflowRun) Own(ctx context.Context, other lifecycle.Ownable) error {
-	return other.Owned(ctx, lifecycle.TypedObject{GVK: WorkflowRunKind, Object: wr.Object})
+func (wr *WorkflowRun) Copy() *WorkflowRun {
+	return makeWorkflowRun(wr.Key, wr.Object.DeepCopy())
 }
 
 func (wr *WorkflowRun) PersistStatus(ctx context.Context, cl client.Client) error {
@@ -96,10 +93,15 @@ func (wr *WorkflowRun) applyStatus(ctx context.Context, cl client.Client, status
 }
 
 func NewWorkflowRun(key client.ObjectKey) *WorkflowRun {
-	return &WorkflowRun{
-		Key:    key,
-		Object: &nebulav1.WorkflowRun{},
-	}
+	return makeWorkflowRun(key, &nebulav1.WorkflowRun{})
+}
+
+func NewWorkflowRunFromObject(obj *nebulav1.WorkflowRun) *WorkflowRun {
+	return makeWorkflowRun(client.ObjectKeyFromObject(obj), obj)
+}
+
+func NewWorkflowRunPatcher(upd, orig *WorkflowRun) lifecycle.Persister {
+	return helper.NewPatcher(upd.Object, orig.Object, helper.WithObjectKey(upd.Key))
 }
 
 // TODO: Where does this method really belong?

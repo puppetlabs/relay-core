@@ -1,11 +1,8 @@
 package obj
 
 import (
-	"context"
-
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/helper"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -15,34 +12,30 @@ var (
 )
 
 type KnativeService struct {
+	*helper.NamespaceScopedAPIObject
+
 	Key    client.ObjectKey
 	Object *servingv1.Service
 }
 
-var _ lifecycle.LabelAnnotatableFrom = &KnativeService{}
-var _ lifecycle.Loader = &KnativeService{}
-var _ lifecycle.Ownable = &KnativeService{}
-var _ lifecycle.Persister = &KnativeService{}
-
-func (ks *KnativeService) LabelAnnotateFrom(ctx context.Context, from metav1.Object) {
-	helper.CopyLabelsAndAnnotations(&ks.Object.ObjectMeta, from)
+func makeKnativeService(key client.ObjectKey, obj *servingv1.Service) *KnativeService {
+	ks := &KnativeService{Key: key, Object: obj}
+	ks.NamespaceScopedAPIObject = helper.ForNamespaceScopedAPIObject(&ks.Key, lifecycle.TypedObject{GVK: KnativeServiceKind, Object: ks.Object})
+	return ks
 }
 
-func (ks *KnativeService) Load(ctx context.Context, cl client.Client) (bool, error) {
-	return helper.GetIgnoreNotFound(ctx, cl, ks.Key, ks.Object)
-}
-
-func (ks *KnativeService) Owned(ctx context.Context, owner lifecycle.TypedObject) error {
-	return helper.Own(ks.Object, owner)
-}
-
-func (ks *KnativeService) Persist(ctx context.Context, cl client.Client) error {
-	return helper.CreateOrUpdate(ctx, cl, ks.Object, helper.WithObjectKey(ks.Key))
+func (ks *KnativeService) Copy() *KnativeService {
+	return makeKnativeService(ks.Key, ks.Object.DeepCopy())
 }
 
 func NewKnativeService(key client.ObjectKey) *KnativeService {
-	return &KnativeService{
-		Key:    key,
-		Object: &servingv1.Service{},
-	}
+	return makeKnativeService(key, &servingv1.Service{})
+}
+
+func NewKnativeServiceFromObject(obj *servingv1.Service) *KnativeService {
+	return makeKnativeService(client.ObjectKeyFromObject(obj), obj)
+}
+
+func NewKnativeServicePatcher(upd, orig *KnativeService) lifecycle.Persister {
+	return helper.NewPatcher(upd.Object, orig.Object, helper.WithObjectKey(upd.Key))
 }
