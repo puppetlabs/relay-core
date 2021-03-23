@@ -1,39 +1,31 @@
 package obj
 
 import (
-	"context"
-
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/helper"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+var (
+	PipelineRunKind = tektonv1beta1.SchemeGroupVersion.WithKind("PipelineRun")
+)
+
 type PipelineRun struct {
+	*helper.NamespaceScopedAPIObject
+
 	Key    client.ObjectKey
 	Object *tektonv1beta1.PipelineRun
 }
 
-var _ lifecycle.LabelAnnotatableFrom = &PipelineRun{}
-var _ lifecycle.Loader = &PipelineRun{}
-var _ lifecycle.Ownable = &PipelineRun{}
-var _ lifecycle.Persister = &PipelineRun{}
-
-func (pr *PipelineRun) LabelAnnotateFrom(ctx context.Context, from metav1.Object) {
-	helper.CopyLabelsAndAnnotations(&pr.Object.ObjectMeta, from)
+func makePipelineRun(key client.ObjectKey, obj *tektonv1beta1.PipelineRun) *PipelineRun {
+	pr := &PipelineRun{Key: key, Object: obj}
+	pr.NamespaceScopedAPIObject = helper.ForNamespaceScopedAPIObject(&pr.Key, lifecycle.TypedObject{GVK: PipelineRunKind, Object: pr.Object})
+	return pr
 }
 
-func (pr *PipelineRun) Load(ctx context.Context, cl client.Client) (bool, error) {
-	return helper.GetIgnoreNotFound(ctx, cl, pr.Key, pr.Object)
-}
-
-func (pr *PipelineRun) Owned(ctx context.Context, owner lifecycle.TypedObject) error {
-	return helper.Own(pr.Object, owner)
-}
-
-func (pr *PipelineRun) Persist(ctx context.Context, cl client.Client) error {
-	return helper.CreateOrUpdate(ctx, cl, pr.Object, helper.WithObjectKey(pr.Key))
+func (pr *PipelineRun) Copy() *PipelineRun {
+	return makePipelineRun(pr.Key, pr.Object.DeepCopy())
 }
 
 func (pr *PipelineRun) Complete() bool {
@@ -55,8 +47,13 @@ func (pr *PipelineRun) Complete() bool {
 }
 
 func NewPipelineRun(key client.ObjectKey) *PipelineRun {
-	return &PipelineRun{
-		Key:    key,
-		Object: &tektonv1beta1.PipelineRun{},
-	}
+	return makePipelineRun(key, &tektonv1beta1.PipelineRun{})
+}
+
+func NewPipelineRunFromObject(obj *tektonv1beta1.PipelineRun) *PipelineRun {
+	return makePipelineRun(client.ObjectKeyFromObject(obj), obj)
+}
+
+func NewPipelineRunPatcher(upd, orig *PipelineRun) lifecycle.Persister {
+	return helper.NewPatcher(upd.Object, orig.Object, helper.WithObjectKey(upd.Key))
 }

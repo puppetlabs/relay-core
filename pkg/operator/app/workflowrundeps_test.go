@@ -23,7 +23,7 @@ import (
 func TestWorkflowRunDepsConfigureAnnotate(t *testing.T) {
 	ctx := context.Background()
 
-	testutil.WithEndToEndEnvironment(t, ctx, nil, func(e2e *testutil.EndToEndEnvironment) {
+	testutil.WithEndToEndEnvironment(t, ctx, []testutil.EndToEndEnvironmentInstaller{testutil.EndToEndEnvironmentWithPVPool}, func(e2e *testutil.EndToEndEnvironment) {
 		e2e.WithTestNamespace(ctx, func(namespace *corev1.Namespace) {
 			cl := e2e.ControllerClient
 

@@ -7,6 +7,8 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -29,6 +31,21 @@ func ConfigurePipelineRun(ctx context.Context, pr *obj.PipelineRun, pp *Pipeline
 		PipelineRef: &tektonv1beta1.PipelineRef{
 			Name: pp.Pipeline.Key.Name,
 		},
+		PodTemplate: &tektonv1beta1.PodTemplate{
+			EnableServiceLinks: pointer.BoolPtr(false),
+		},
+	}
+
+	if pp.Deps.ToolInjectionCheckout.Satisfied() {
+		pr.Object.Spec.Workspaces = []tektonv1beta1.WorkspaceBinding{
+			{
+				Name: ToolsWorkspaceName,
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: pp.Deps.ToolInjectionCheckout.Object.Spec.ClaimName,
+					ReadOnly:  true,
+				},
+			},
+		}
 	}
 
 	if pp.Deps.WorkflowRun.IsCancelled() {

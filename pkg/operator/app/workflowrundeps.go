@@ -12,7 +12,8 @@ import (
 	rbacv1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/rbacv1"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/helper"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
-	pvpoolv1alpha1obj "github.com/puppetlabs/pvpool/pkg/obj"
+	pvpoolv1alpha1 "github.com/puppetlabs/pvpool/pkg/apis/pvpool.puppet.com/v1alpha1"
+	pvpoolv1alpha1obj "github.com/puppetlabs/pvpool/pkg/apis/pvpool.puppet.com/v1alpha1/obj"
 	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
 	"github.com/puppetlabs/relay-core/pkg/model"
@@ -24,12 +25,9 @@ import (
 
 // WorkflowRunDeps represents the Kubernetes objects required to create a Pipeline.
 type WorkflowRunDeps struct {
-	WorkflowRun *obj.WorkflowRun
-	Issuer      authenticate.Issuer
-
-	// TODO: We only need this to resolve the name of the checkout. We should
-	// just read it from the tenant instead.
-	ToolInjectionPool *pvpoolv1alpha1obj.Pool
+	WorkflowRun          *obj.WorkflowRun
+	ToolInjectionPoolRef pvpoolv1alpha1.PoolReference
+	Issuer               authenticate.Issuer
 
 	Namespace *corev1obj.Namespace
 
@@ -38,6 +36,8 @@ type WorkflowRunDeps struct {
 	LimitRange *corev1obj.LimitRange
 
 	NetworkPolicy *networkingv1obj.NetworkPolicy
+
+	ToolInjectionCheckout *PoolRefPredicatedCheckout
 
 	ImmutableConfigMap *corev1obj.ConfigMap
 	MutableConfigMap   *corev1obj.ConfigMap
@@ -60,6 +60,7 @@ func (wrd *WorkflowRunDeps) Load(ctx context.Context, cl client.Client) (bool, e
 		lifecycle.RequiredLoader{wrd.Namespace},
 		lifecycle.IgnoreNilLoader{wrd.LimitRange},
 		lifecycle.IgnoreNilLoader{wrd.NetworkPolicy},
+		wrd.ToolInjectionCheckout,
 		wrd.ImmutableConfigMap,
 		wrd.MutableConfigMap,
 		wrd.MetadataAPIServiceAccount,
@@ -78,6 +79,7 @@ func (wrd *WorkflowRunDeps) Persist(ctx context.Context, cl client.Client) error
 	ps := []lifecycle.Persister{
 		lifecycle.IgnoreNilPersister{wrd.LimitRange},
 		lifecycle.IgnoreNilPersister{wrd.NetworkPolicy},
+		wrd.ToolInjectionCheckout,
 		wrd.ImmutableConfigMap,
 		wrd.MutableConfigMap,
 		wrd.MetadataAPIServiceAccount,
@@ -166,9 +168,9 @@ func WorkflowRunDepsWithStandaloneMode(standalone bool) WorkflowRunDepsOption {
 	}
 }
 
-func WorkflowRunDepsWithToolInjectionPool(p *pvpoolv1alpha1obj.Pool) WorkflowRunDepsOption {
+func WorkflowRunDepsWithToolInjectionPool(pr pvpoolv1alpha1.PoolReference) WorkflowRunDepsOption {
 	return func(wrd *WorkflowRunDeps) {
-		wrd.ToolInjectionPool = p
+		wrd.ToolInjectionPoolRef = pr
 	}
 }
 
@@ -184,6 +186,10 @@ func NewWorkflowRunDeps(wr *obj.WorkflowRun, issuer authenticate.Issuer, metadat
 		LimitRange: corev1obj.NewLimitRange(key),
 
 		NetworkPolicy: networkingv1obj.NewNetworkPolicy(key),
+
+		ToolInjectionCheckout: &PoolRefPredicatedCheckout{
+			Checkout: pvpoolv1alpha1obj.NewCheckout(SuffixObjectKey(key, "tools")),
+		},
 
 		ImmutableConfigMap: corev1obj.NewConfigMap(SuffixObjectKey(key, "immutable")),
 		MutableConfigMap:   corev1obj.NewConfigMap(SuffixObjectKey(key, "mutable")),
@@ -207,6 +213,7 @@ func NewWorkflowRunDeps(wr *obj.WorkflowRun, issuer authenticate.Issuer, metadat
 
 func ConfigureWorkflowRunDeps(ctx context.Context, wrd *WorkflowRunDeps) error {
 	os := []lifecycle.Ownable{
+		wrd.ToolInjectionCheckout,
 		wrd.ImmutableConfigMap,
 		wrd.MutableConfigMap,
 		wrd.MetadataAPIServiceAccount,
@@ -234,6 +241,7 @@ func ConfigureWorkflowRunDeps(ctx context.Context, wrd *WorkflowRunDeps) error {
 	}
 
 	lafs := []lifecycle.LabelAnnotatableFrom{
+		wrd.ToolInjectionCheckout,
 		wrd.ImmutableConfigMap,
 		wrd.MutableConfigMap,
 		wrd.MetadataAPIServiceAccount,
@@ -252,6 +260,8 @@ func ConfigureWorkflowRunDeps(ctx context.Context, wrd *WorkflowRunDeps) error {
 	if wrd.NetworkPolicy != nil {
 		ConfigureNetworkPolicyForWorkflowRun(wrd.NetworkPolicy, wrd.WorkflowRun)
 	}
+
+	ConfigureToolInjectionCheckoutForWorkflowRun(wrd.ToolInjectionCheckout, wrd.WorkflowRun, wrd.ToolInjectionPoolRef)
 
 	if err := ConfigureImmutableConfigMapForWorkflowRun(ctx, wrd.ImmutableConfigMap, wrd.WorkflowRun); err != nil {
 		return err

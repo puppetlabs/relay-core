@@ -22,7 +22,7 @@ type WorkflowControllerConfig struct {
 	WebhookServerPort       int
 	WebhookServerKeyDir     string
 	DynamicRBACBinding      bool
-	ToolInjectionPool       *client.ObjectKey
+	ToolInjectionPool       client.ObjectKey
 	AlertsDelegate          alerts.DelegateFunc
 }
 

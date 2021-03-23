@@ -16,6 +16,7 @@ import (
 	_ "github.com/puppetlabs/leg/storage/file"
 	"github.com/puppetlabs/leg/timeutil/pkg/backoff"
 	"github.com/puppetlabs/leg/timeutil/pkg/retry"
+	pvpoolv1alpha1 "github.com/puppetlabs/pvpool/pkg/apis/pvpool.puppet.com/v1alpha1"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	exprmodel "github.com/puppetlabs/relay-core/pkg/expr/model"
 	"github.com/puppetlabs/relay-core/pkg/model"
@@ -25,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"k8s.io/klog/v2"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -777,5 +779,169 @@ func TestWebhookTriggerInGVisor(t *testing.T) {
 		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, wt))
 
 		assertWebhookTriggerResponseContains(t, ctx, cfg, "gVisor", wt)
+	})
+}
+
+func TestWebhookTriggerCheckoutGarbageCollection(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
+	defer cancel()
+
+	WithConfig(t, ctx, nil, func(cfg *Config) {
+		tn := &relayv1beta1.Tenant{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-tenant-" + uuid.New().String(),
+				Namespace: cfg.Namespace.GetName(),
+			},
+			Spec: relayv1beta1.TenantSpec{
+				ToolInjection: relayv1beta1.ToolInjection{
+					VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
+						Spec: corev1.PersistentVolumeClaimSpec{
+							AccessModes: []corev1.PersistentVolumeAccessMode{
+								corev1.ReadOnlyMany,
+							},
+						},
+					},
+				},
+			},
+		}
+
+		wt := &relayv1beta1.WebhookTrigger{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-trigger-" + uuid.New().String(),
+				Namespace: cfg.Namespace.GetName(),
+			},
+			Spec: relayv1beta1.WebhookTriggerSpec{
+				Image: "hashicorp/http-echo",
+				Args: []string{
+					"-listen", ":8080",
+					"-text", "Hello, Relay!",
+				},
+				TenantRef: corev1.LocalObjectReference{
+					Name: tn.GetName(),
+				},
+			},
+		}
+
+		var initialRevision *servingv1.Revision
+
+		{
+			end, _ := ctx.Deadline()
+			ctx, cancel := context.WithTimeout(ctx, time.Until(end)/2)
+			defer cancel()
+
+			WithConfig(t, ctx, []ConfigOption{
+				ConfigInNamespace(cfg.Namespace),
+				ConfigWithToolInjectionPoolName("tools-1"),
+				ConfigWithTenantReconciler,
+				ConfigWithWebhookTriggerReconciler,
+				ConfigWithVolumeClaimAdmission,
+				ConfigWithoutCleanup,
+			}, func(cfg *Config) {
+				CreateAndWaitForTenant(t, ctx, cfg, tn)
+				require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, wt))
+
+				// Wait for a revision and checkout to appear.
+				require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
+					revs := &servingv1.RevisionList{}
+					if err := cfg.Environment.ControllerClient.List(ctx, revs, client.InNamespace(tn.Status.Namespace), client.MatchingLabels{
+						model.RelayControllerWebhookTriggerIDLabel: wt.GetName(),
+					}); err != nil {
+						return true, err
+					}
+
+					if len(revs.Items) == 0 {
+						return false, fmt.Errorf("waiting for revision")
+					}
+
+					initialRevision = &revs.Items[0]
+					return true, nil
+				}))
+
+				require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
+					cos := &pvpoolv1alpha1.CheckoutList{}
+					if err := cfg.Environment.ControllerClient.List(ctx, cos, client.InNamespace(tn.Status.Namespace), client.MatchingLabels{
+						model.RelayControllerWebhookTriggerIDLabel: wt.GetName(),
+					}); err != nil {
+						return true, err
+					}
+
+					if len(cos.Items) == 0 {
+						return false, fmt.Errorf("waiting for checkout")
+					}
+
+					return true, nil
+				}))
+			})
+		}
+
+		{
+			WithConfig(t, ctx, []ConfigOption{
+				ConfigInNamespace(cfg.Namespace),
+				ConfigWithToolInjectionPoolName("tools-2"),
+				ConfigWithTenantReconciler,
+				ConfigWithWebhookTriggerReconciler,
+				ConfigWithVolumeClaimAdmission,
+			}, func(cfg *Config) {
+				// Wait for another revision and checkout because the pool name changed.
+				require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
+					revs := &servingv1.RevisionList{}
+					if err := cfg.Environment.ControllerClient.List(ctx, revs, client.InNamespace(tn.Status.Namespace), client.MatchingLabels{
+						model.RelayControllerWebhookTriggerIDLabel: wt.GetName(),
+					}); err != nil {
+						return true, err
+					}
+
+					switch len(revs.Items) {
+					case 1:
+						return false, fmt.Errorf("waiting for revision")
+					case 2:
+						return true, nil
+					default:
+						return true, fmt.Errorf("expected 1 or 2 revisions, got %d", len(revs.Items))
+					}
+				}))
+
+				require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
+					cos := &pvpoolv1alpha1.CheckoutList{}
+					if err := cfg.Environment.ControllerClient.List(ctx, cos, client.InNamespace(tn.Status.Namespace), client.MatchingLabels{
+						model.RelayControllerWebhookTriggerIDLabel: wt.GetName(),
+					}); err != nil {
+						return true, err
+					}
+
+					switch len(cos.Items) {
+					case 1:
+						return false, fmt.Errorf("waiting for checkout")
+					case 2:
+						return true, nil
+					default:
+						return true, fmt.Errorf("expected 1 or 2 checkouts, got %d", len(cos.Items))
+					}
+				}))
+
+				// Delete the initial revision.
+				require.NoError(t, cfg.Environment.ControllerClient.Delete(ctx, initialRevision))
+				klog.InfoS("deleted initial revision", "revision", initialRevision.GetName())
+
+				// We should now drop down to a single checkout.
+				require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
+					cos := &pvpoolv1alpha1.CheckoutList{}
+					if err := cfg.Environment.ControllerClient.List(ctx, cos, client.InNamespace(tn.Status.Namespace), client.MatchingLabels{
+						model.RelayControllerWebhookTriggerIDLabel: wt.GetName(),
+					}); err != nil {
+						return true, err
+					}
+
+					switch len(cos.Items) {
+					case 1:
+						return true, nil
+					case 2:
+						return false, fmt.Errorf("waiting for checkout to be deleted")
+					default:
+						return true, fmt.Errorf("expected 1 or 2 checkouts, got %d", len(cos.Items))
+					}
+				}))
+			})
+		}
 	})
 }

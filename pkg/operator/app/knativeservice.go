@@ -14,6 +14,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/operator/admission"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -73,8 +74,15 @@ func ConfigureKnativeService(ctx context.Context, s *obj.KnativeService, wtd *We
 		Spec: servingv1.RevisionSpec{
 			PodSpec: corev1.PodSpec{
 				ServiceAccountName: wtd.KnativeServiceAccount.Key.Name,
+				EnableServiceLinks: pointer.BoolPtr(false),
 			},
 		},
+	}
+
+	// The revisions will be marked with a dependency reference as well as we
+	// need to track them to clean up stale checkouts.
+	if err := DependencyManager.SetDependencyOf(&template.ObjectMeta, lifecycle.TypedObject{Object: wtd.WebhookTrigger.Object, GVK: relayv1beta1.WebhookTriggerKind}); err != nil {
+		return err
 	}
 
 	image := wtd.WebhookTrigger.Object.Spec.Image
@@ -151,7 +159,7 @@ func ConfigureKnativeService(ctx context.Context, s *obj.KnativeService, wtd *We
 		args = []string{}
 	}
 
-	if co := wtd.TenantDeps.ToolInjectionCheckout; co != nil {
+	if wtd.ToolInjectionCheckout.Satisfied() {
 		ep, err := entrypoint.ImageEntrypoint(image, []string{command}, args)
 		if err != nil {
 			return err
@@ -160,7 +168,7 @@ func ConfigureKnativeService(ctx context.Context, s *obj.KnativeService, wtd *We
 		container.Command = []string{path.Join(model.ToolsMountPath, ep.Entrypoint)}
 		container.Args = ep.Args
 
-		helper.Annotate(&template.ObjectMeta, admission.ToolsVolumeClaimAnnotation, co.Object.Status.VolumeClaimRef.Name)
+		helper.Annotate(&template.ObjectMeta, admission.ToolsVolumeClaimAnnotation, wtd.ToolInjectionCheckout.Object.Spec.ClaimName)
 	} else {
 		if command != "" {
 			container.Command = []string{command}
