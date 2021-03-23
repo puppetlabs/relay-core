@@ -61,7 +61,8 @@ func (m *DefaultWebhookTriggerEngineMapper) ToRuntimeObjectsManifest(tenant *v1b
 			Input:   source.Input,
 			Command: source.Command,
 			Args:    source.Args,
-			Spec:    mapStepSpec(source.Spec),
+			Spec:    mapSpec(source.Spec),
+			Env:     mapSpec(source.Env),
 		},
 	}
 
