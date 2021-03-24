@@ -7,7 +7,6 @@ import (
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -21,58 +20,31 @@ const (
 
 	TenantStatusReasonToolInjectionNotDefined = "ToolInjectionNotDefined"
 	TenantStatusReasonToolInjectionError      = "ToolInjectionError"
+	TenantStatusReasonToolInjectionReady      = "ToolInjectionReady"
 
 	TenantStatusReasonReady = "Ready"
 	TenantStatusReasonError = "Error"
 )
 
-var (
-	TenantKind = relayv1beta1.SchemeGroupVersion.WithKind("Tenant")
-)
-
 type Tenant struct {
+	*helper.NamespaceScopedAPIObject
+
 	Key    client.ObjectKey
 	Object *relayv1beta1.Tenant
 }
 
-var _ lifecycle.Finalizable = &Tenant{}
-var _ lifecycle.LabelAnnotatableFrom = &Tenant{}
-var _ lifecycle.Loader = &Tenant{}
-var _ lifecycle.Persister = &Tenant{}
-
-func (t *Tenant) Finalizing() bool {
-	return !t.Object.GetDeletionTimestamp().IsZero()
+func makeTenant(key client.ObjectKey, obj *relayv1beta1.Tenant) *Tenant {
+	t := &Tenant{Key: key, Object: obj}
+	t.NamespaceScopedAPIObject = helper.ForNamespaceScopedAPIObject(&t.Key, lifecycle.TypedObject{GVK: relayv1beta1.TenantKind, Object: t.Object})
+	return t
 }
 
-func (t *Tenant) AddFinalizer(ctx context.Context, name string) bool {
-	return helper.AddFinalizer(&t.Object.ObjectMeta, name)
-}
-
-func (t *Tenant) RemoveFinalizer(ctx context.Context, name string) bool {
-	return helper.RemoveFinalizer(&t.Object.ObjectMeta, name)
-}
-
-func (t *Tenant) LabelAnnotateFrom(ctx context.Context, from metav1.Object) {
-	helper.CopyLabelsAndAnnotations(&t.Object.ObjectMeta, from)
-}
-
-func (t *Tenant) Persist(ctx context.Context, cl client.Client) error {
-	return helper.CreateOrUpdate(ctx, cl, t.Object, helper.WithObjectKey(t.Key))
+func (t *Tenant) Copy() *Tenant {
+	return makeTenant(t.Key, t.Object.DeepCopy())
 }
 
 func (t *Tenant) PersistStatus(ctx context.Context, cl client.Client) error {
 	return cl.Status().Update(ctx, t.Object)
-}
-
-func (t *Tenant) Load(ctx context.Context, cl client.Client) (bool, error) {
-	return helper.GetIgnoreNotFound(ctx, cl, t.Key, t.Object)
-}
-
-func (t *Tenant) Copy() *Tenant {
-	return &Tenant{
-		Key:    t.Key,
-		Object: t.Object.DeepCopy(),
-	}
 }
 
 func (t *Tenant) Managed() bool {
@@ -92,10 +64,11 @@ func (t *Tenant) Ready() bool {
 }
 
 func NewTenant(key client.ObjectKey) *Tenant {
-	return &Tenant{
-		Key:    key,
-		Object: &relayv1beta1.Tenant{},
-	}
+	return makeTenant(key, &relayv1beta1.Tenant{})
+}
+
+func NewTenantFromObject(obj *relayv1beta1.Tenant) *Tenant {
+	return makeTenant(client.ObjectKeyFromObject(obj), obj)
 }
 
 func NewTenantPatcher(upd, orig *Tenant) lifecycle.Persister {

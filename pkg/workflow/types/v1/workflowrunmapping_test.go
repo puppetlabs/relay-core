@@ -36,5 +36,8 @@ func TestWorkflowRunEngineMapping(t *testing.T) {
 	require.Equal(t, "valid-workflow-name", manifest.WorkflowRun.Spec.Workflow.Name)
 
 	require.Len(t, manifest.WorkflowRun.Spec.Workflow.Steps, 1)
+	require.Len(t, manifest.WorkflowRun.Spec.Workflow.Steps[0].Spec, 1)
+	require.Len(t, manifest.WorkflowRun.Spec.Workflow.Steps[0].Env, 2)
+
 	require.Len(t, manifest.WorkflowRun.Spec.Workflow.Parameters, 1)
 }

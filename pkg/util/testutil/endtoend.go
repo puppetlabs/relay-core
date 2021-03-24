@@ -64,10 +64,17 @@ func EndToEndEnvironmentWithHostpathProvisioner(t *testing.T, ctx context.Contex
 	}))
 }
 
+func EndToEndEnvironmentWithPVPool(t *testing.T, ctx context.Context, e *EndToEndEnvironment) {
+	require.NoError(t, WithExclusive(ctx, "pvpool", func() {
+		InstallPVPool(t, ctx, e.ControllerClient)
+	}))
+}
+
 var _ EndToEndEnvironmentInstaller = EndToEndEnvironmentWithTekton
 var _ EndToEndEnvironmentInstaller = EndToEndEnvironmentWithKnative
 var _ EndToEndEnvironmentInstaller = EndToEndEnvironmentWithAmbassador
 var _ EndToEndEnvironmentInstaller = EndToEndEnvironmentWithHostpathProvisioner
+var _ EndToEndEnvironmentInstaller = EndToEndEnvironmentWithPVPool
 
 func WithEndToEndEnvironment(t *testing.T, ctx context.Context, installers []EndToEndEnvironmentInstaller, fn func(e *EndToEndEnvironment)) {
 	viper.SetEnvPrefix("relay_test_e2e")
@@ -97,8 +104,8 @@ func WithEndToEndEnvironment(t *testing.T, ctx context.Context, installers []End
 
 	require.NoError(t, endtoend.WithEnvironment(opts, func(e *endtoend.Environment) {
 		ls := map[string]string{
-			"e2e.tests.pvpool.puppet.com/harness":   "end-to-end",
-			"e2e.tests.pvpool.puppet.com/test.hash": testHash(t),
+			"testutil.util.relay.sh/harness":   "end-to-end",
+			"testutil.util.relay.sh/test.hash": testHash(t),
 		}
 
 		tkc, err := tekton.NewForConfig(e.RESTConfig)

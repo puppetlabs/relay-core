@@ -9,6 +9,7 @@ import (
 	"github.com/puppetlabs/leg/errmap/pkg/errmark"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/errhandler"
 	"github.com/puppetlabs/leg/storage"
+	pvpoolv1alpha1 "github.com/puppetlabs/pvpool/pkg/apis/pvpool.puppet.com/v1alpha1"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	"github.com/puppetlabs/relay-core/pkg/operator/app"
@@ -16,7 +17,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	"knative.dev/pkg/apis"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -28,9 +29,8 @@ type Reconciler struct {
 	Client client.Client
 	Scheme *runtime.Scheme
 
-	standalone bool
-	metrics    *controllerObservations
-	issuer     authenticate.Issuer
+	metrics *controllerObservations
+	issuer  authenticate.Issuer
 }
 
 func NewReconciler(dm *dependency.DependencyManager) *Reconciler {
@@ -40,8 +40,7 @@ func NewReconciler(dm *dependency.DependencyManager) *Reconciler {
 		Client: dm.Manager.GetClient(),
 		Scheme: dm.Manager.GetScheme(),
 
-		standalone: dm.Config.Standalone,
-		metrics:    newControllerObservations(dm.Metrics),
+		metrics: newControllerObservations(dm.Metrics),
 		issuer: authenticate.IssuerFunc(func(ctx context.Context, claims *authenticate.Claims) (authenticate.Raw, error) {
 			raw, err := authenticate.NewKeySignerIssuer(dm.JWTSigner).Issue(ctx, claims)
 			if err != nil {
@@ -87,7 +86,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			wr,
 			r.issuer,
 			r.Config.MetadataAPIURL,
-			app.WorkflowRunDepsWithStandaloneMode(r.standalone),
+			app.WorkflowRunDepsWithStandaloneMode(r.Config.Standalone),
+			app.WorkflowRunDepsWithToolInjectionPool(pvpoolv1alpha1.PoolReference{
+				Namespace: r.Config.ToolInjectionPool.Namespace,
+				Name:      r.Config.ToolInjectionPool.Name,
+			}),
 		)
 
 		if err != nil {
@@ -96,14 +99,31 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			return errmap.Wrap(err, "failed to apply dependencies")
 		}
 
-		pipeline, err := app.ApplyPipelineParts(ctx, r.Client, deps)
-		if err != nil {
-			return errmap.Wrap(err, "failed to apply Pipeline")
-		}
+		// We only need to build the pipeline when the workflow run is
+		// initializing or finalizing. While it's running, constantly persisting
+		// pipeline objects just puts strain on the Tekton webhook server.
+		//
+		// An exception is made of we get out of sync somehow such that the
+		// PipelineRun can't load (e.g. someone deletes it from under us).
+		switch {
+		case wr.Object.Status.Status == string(obj.WorkflowRunStatusInProgress) && !wr.IsCancelled():
+			pr = obj.NewPipelineRun(wr.Key)
+			if ok, err := pr.Load(ctx, r.Client); err != nil {
+				return errmap.Wrap(err, "failed to load PipelineRun")
+			} else if ok {
+				break
+			}
+			fallthrough
+		default:
+			pipeline, err := app.ApplyPipelineParts(ctx, r.Client, deps)
+			if err != nil {
+				return errmap.Wrap(err, "failed to apply Pipeline")
+			}
 
-		pr, err = app.ApplyPipelineRun(ctx, r.Client, pipeline)
-		if err != nil {
-			return errmap.Wrap(err, "failed to apply PipelineRun")
+			pr, err = app.ApplyPipelineRun(ctx, r.Client, pipeline)
+			if err != nil {
+				return errmap.Wrap(err, "failed to apply PipelineRun")
+			}
 		}
 
 		return nil

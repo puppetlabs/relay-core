@@ -1,22 +1,20 @@
 package tenant
 
 import (
-	"context"
-
 	"github.com/puppetlabs/leg/errmap/pkg/errmark"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/errhandler"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/filter"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
+	"github.com/puppetlabs/relay-core/pkg/operator/app"
 	"github.com/puppetlabs/relay-core/pkg/operator/config"
 	"github.com/puppetlabs/relay-core/pkg/operator/reconciler/tenant"
 	"github.com/puppetlabs/relay-core/pkg/util/capturer"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 func add(mgr manager.Manager, r reconcile.Reconciler, cfg *config.WorkflowControllerConfig) error {
@@ -25,7 +23,10 @@ func add(mgr manager.Manager, r reconcile.Reconciler, cfg *config.WorkflowContro
 			MaxConcurrentReconciles: cfg.MaxConcurrentReconciles,
 		}).
 		For(&relayv1beta1.Tenant{}).
-		WithEventFilter(predicate.GenerationChangedPredicate{}).
+		Watches(
+			&source.Kind{Type: &corev1.Namespace{}},
+			app.DependencyManager.NewEnqueueRequestForAnnotatedDependencyOf(&relayv1beta1.Tenant{}),
+		).
 		Complete(filter.ChainR(
 			r,
 			errhandler.ChainReconciler(
@@ -45,14 +46,5 @@ func add(mgr manager.Manager, r reconcile.Reconciler, cfg *config.WorkflowContro
 }
 
 func Add(mgr manager.Manager, cfg *config.WorkflowControllerConfig) error {
-	mgr.GetFieldIndexer().IndexField(context.Background(), &corev1.PersistentVolume{}, "status.phase", func(o client.Object) []string {
-		var res []string
-		vol, ok := o.(*corev1.PersistentVolume)
-		if ok {
-			res = append(res, string(vol.Status.Phase))
-		}
-		return res
-	})
-
 	return add(mgr, tenant.NewReconciler(mgr.GetClient(), cfg), cfg)
 }

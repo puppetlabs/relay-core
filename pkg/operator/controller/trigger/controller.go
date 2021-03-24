@@ -34,6 +34,10 @@ func add(mgr manager.Manager, r reconcile.Reconciler, cfg *config.WorkflowContro
 			&source.Kind{Type: &servingv1.Service{}},
 			app.DependencyManager.NewEnqueueRequestForAnnotatedDependencyOf(&relayv1beta1.WebhookTrigger{}),
 		).
+		Watches(
+			&source.Kind{Type: &servingv1.Revision{}},
+			app.DependencyManager.NewEnqueueRequestForAnnotatedDependencyOf(&relayv1beta1.WebhookTrigger{}),
+		).
 		Complete(filter.ChainR(
 			r,
 			errhandler.ChainReconciler(

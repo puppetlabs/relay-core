@@ -14,6 +14,8 @@ import (
 	"github.com/puppetlabs/leg/k8sutil/pkg/app/tunnel"
 	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
 	"github.com/puppetlabs/leg/storage"
+	pvpoolv1alpha1 "github.com/puppetlabs/pvpool/pkg/apis/pvpool.puppet.com/v1alpha1"
+	pvpoolv1alpha1obj "github.com/puppetlabs/pvpool/pkg/apis/pvpool.puppet.com/v1alpha1/obj"
 	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
@@ -28,25 +30,31 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/util/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 type Config struct {
-	Environment      *testutil.EndToEndEnvironment
-	Namespace        *corev1.Namespace
-	MetadataAPIURL   *url.URL
-	Vault            *testutil.Vault
-	Manager          manager.Manager
-	ControllerConfig *config.WorkflowControllerConfig
+	Environment           *testutil.EndToEndEnvironment
+	Namespace             *corev1.Namespace
+	MetadataAPIURL        *url.URL
+	Vault                 *testutil.Vault
+	Manager               manager.Manager
+	ToolInjectionPoolName string
+	ControllerConfig      *config.WorkflowControllerConfig
 
 	blobStore         storage.BlobStore
 	dependencyManager *dependency.DependencyManager
 
+	withoutCleanup                bool
 	withVault                     bool
 	withMetadataAPI               bool
 	withMetadataAPIBoundInCluster bool
@@ -63,6 +71,16 @@ func ConfigInNamespace(ns *corev1.Namespace) ConfigOption {
 	return func(cfg *Config) {
 		cfg.Namespace = ns
 	}
+}
+
+func ConfigWithToolInjectionPoolName(name string) ConfigOption {
+	return func(cfg *Config) {
+		cfg.ToolInjectionPoolName = name
+	}
+}
+
+func ConfigWithoutCleanup(cfg *Config) {
+	cfg.withoutCleanup = true
 }
 
 func ConfigWithVault(cfg *Config) {
@@ -133,7 +151,7 @@ func doConfigNamespace(ctx context.Context) doConfigFunc {
 }
 
 func doConfigInit(t *testing.T, cfg *Config, next func()) {
-	if !cfg.withWebhookTriggerReconciler && !cfg.withWorkflowRunReconciler {
+	if !cfg.withTenantReconciler && !cfg.withWebhookTriggerReconciler && !cfg.withWorkflowRunReconciler {
 		next()
 		return
 	}
@@ -150,7 +168,7 @@ func doConfigInit(t *testing.T, cfg *Config, next func()) {
 }
 
 func doConfigVault(t *testing.T, cfg *Config, next func()) {
-	if !cfg.withVault && !cfg.withWebhookTriggerReconciler && !cfg.withWorkflowRunReconciler {
+	if !cfg.withVault && !cfg.withTenantReconciler && !cfg.withWebhookTriggerReconciler && !cfg.withWorkflowRunReconciler {
 		next()
 		return
 	}
@@ -214,7 +232,7 @@ func doConfigMetadataAPI(ctx context.Context) doConfigFunc {
 
 func doConfigDependencyManager(ctx context.Context) doConfigFunc {
 	return func(t *testing.T, cfg *Config, next func()) {
-		if !cfg.withWebhookTriggerReconciler && !cfg.withWorkflowRunReconciler {
+		if !cfg.withTenantReconciler && !cfg.withWebhookTriggerReconciler && !cfg.withWorkflowRunReconciler {
 			next()
 			return
 		}
@@ -227,6 +245,8 @@ func doConfigDependencyManager(ctx context.Context) doConfigFunc {
 			Namespace: cfg.Namespace.GetName(),
 			Name:      "docker-registry-system",
 		})
+		_, err := imagePullSecret.Load(ctx, cfg.Environment.ControllerClient)
+		require.NoError(t, err)
 		imagePullSecret.Object.Data = map[string][]byte{
 			".dockerconfigjson": []byte(`{}`),
 		}
@@ -240,6 +260,69 @@ func doConfigDependencyManager(ctx context.Context) doConfigFunc {
 			MetadataAPIURL:          cfg.MetadataAPIURL,
 			VaultTransitPath:        cfg.Vault.TransitPath,
 			VaultTransitKey:         cfg.Vault.TransitKey,
+		}
+
+		if cfg.withTenantReconciler {
+			pool := pvpoolv1alpha1obj.NewPool(client.ObjectKey{
+				Namespace: cfg.Namespace.GetName(),
+				Name:      cfg.ToolInjectionPoolName,
+			})
+			_, err := pool.Load(ctx, cfg.Environment.ControllerClient)
+			require.NoError(t, err)
+			pool.Object.Spec = pvpoolv1alpha1.PoolSpec{
+				Selector: metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"testing.relay.sh/selector": cfg.ToolInjectionPoolName,
+					},
+				},
+				Template: pvpoolv1alpha1.PersistentVolumeClaimTemplate{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{
+							"testing.relay.sh/selector": cfg.ToolInjectionPoolName,
+						},
+					},
+					Spec: corev1.PersistentVolumeClaimSpec{
+						AccessModes: []corev1.PersistentVolumeAccessMode{
+							corev1.ReadWriteOnce,
+							corev1.ReadOnlyMany,
+						},
+						StorageClassName: pointer.StringPtr("relay-hostpath"),
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceStorage: resource.MustParse("50Mi"),
+							},
+						},
+					},
+				},
+				InitJob: &pvpoolv1alpha1.MountJob{
+					Template: pvpoolv1alpha1.JobTemplate{
+						Spec: batchv1.JobSpec{
+							BackoffLimit:          pointer.Int32Ptr(2),
+							ActiveDeadlineSeconds: pointer.Int64Ptr(60),
+							Template: corev1.PodTemplateSpec{
+								Spec: corev1.PodSpec{
+									Containers: []corev1.Container{
+										{
+											Name: "init",
+											// XXX: TODO: This should come from ko!
+											Image:           "relaysh/relay-runtime-tools:latest",
+											ImagePullPolicy: corev1.PullAlways,
+											Command:         []string{"cp"},
+											Args:            []string{"-r", "/relay/runtime/tools/.", "/workspace"},
+											VolumeMounts: []corev1.VolumeMount{
+												{Name: "workspace", MountPath: "/workspace"},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			require.NoError(t, pool.Persist(ctx, cfg.Environment.ControllerClient))
+
+			wcc.ToolInjectionPool = pool.Key
 		}
 
 		deps, err := dependency.NewDependencyManager(wcc, cfg.Environment.RESTConfig, cfg.Vault.Client, cfg.Vault.JWTSigner, cfg.blobStore, metrics)
@@ -307,24 +390,22 @@ func doConfigVolumeClaimAdmission(ctx context.Context) doConfigFunc {
 	}
 }
 
-func doConfigLifecycle(ctx context.Context) doConfigFunc {
-	return func(t *testing.T, cfg *Config, next func()) {
-		var wg sync.WaitGroup
+func doConfigLifecycle(t *testing.T, cfg *Config, next func()) {
+	var wg sync.WaitGroup
 
-		ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := context.WithCancel(context.Background())
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			require.NoError(t, cfg.Manager.Start(ctx))
-		}()
-		defer func() {
-			cancel()
-			wg.Wait()
-		}()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		require.NoError(t, cfg.Manager.Start(ctx))
+	}()
+	defer func() {
+		cancel()
+		wg.Wait()
+	}()
 
-		next()
-	}
+	next()
 }
 
 func doConfigUser(fn func(cfg *Config)) doConfigFunc {
@@ -336,6 +417,10 @@ func doConfigUser(fn func(cfg *Config)) doConfigFunc {
 
 func doConfigCleanup(t *testing.T, cfg *Config, next func()) {
 	defer next()
+
+	if cfg.withoutCleanup {
+		return
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -388,7 +473,8 @@ func doConfigCleanup(t *testing.T, cfg *Config, next func()) {
 
 func WithConfig(t *testing.T, ctx context.Context, opts []ConfigOption, fn func(cfg *Config)) {
 	cfg := &Config{
-		MetadataAPIURL: &url.URL{Scheme: "http", Host: "stub.example.com"},
+		MetadataAPIURL:        &url.URL{Scheme: "http", Host: "stub.example.com"},
+		ToolInjectionPoolName: "tool-injection-pool",
 	}
 
 	for _, opt := range opts {
@@ -405,6 +491,7 @@ func WithConfig(t *testing.T, ctx context.Context, opts []ConfigOption, fn func(
 	}
 	if cfg.withTenantReconciler || cfg.withVolumeClaimAdmission {
 		installers = append(installers, testutil.EndToEndEnvironmentWithHostpathProvisioner)
+		installers = append(installers, testutil.EndToEndEnvironmentWithPVPool)
 	}
 
 	testutil.WithEndToEndEnvironment(
@@ -430,7 +517,7 @@ func WithConfig(t *testing.T, ctx context.Context, opts []ConfigOption, fn func(
 				doConfigReconcilers,
 				doConfigPodEnforcementAdmission(ctx),
 				doConfigVolumeClaimAdmission(ctx),
-				doConfigLifecycle(ctx),
+				doConfigLifecycle,
 				doConfigUser(fn),
 				doConfigCleanup,
 			}

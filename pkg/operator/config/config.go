@@ -5,7 +5,6 @@ import (
 
 	"github.com/puppetlabs/leg/instrumentation/alerts"
 	"github.com/puppetlabs/leg/instrumentation/alerts/trackers"
-	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -23,7 +22,7 @@ type WorkflowControllerConfig struct {
 	WebhookServerPort       int
 	WebhookServerKeyDir     string
 	DynamicRBACBinding      bool
-	ToolInjectionImage      string
+	ToolInjectionPool       client.ObjectKey
 	AlertsDelegate          alerts.DelegateFunc
 }
 
@@ -40,26 +39,4 @@ func (c *WorkflowControllerConfig) Capturer() trackers.Capturer {
 	return a.NewCapturer().
 		WithNewTrace().
 		WithAppPackages([]string{"github.com/puppetlabs/relay-core"})
-}
-
-func (c *WorkflowControllerConfig) ImagePullSecretKey() client.ObjectKey {
-	namespace, name, err := cache.SplitMetaNamespaceKey(c.ImagePullSecret)
-	if err != nil {
-		name = c.ImagePullSecret
-	}
-
-	if namespace == "" {
-		namespace = c.Namespace
-	}
-
-	return client.ObjectKey{
-		Namespace: namespace,
-		Name:      name,
-	}
-}
-
-// K8sClusterProvisionerConfig is the configuration object to used
-// to configure the Kubernetes provisioner task.
-type K8sClusterProvisionerConfig struct {
-	WorkDir string
 }

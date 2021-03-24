@@ -9,13 +9,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/puppetlabs/leg/timeutil/pkg/retry"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
-	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -287,8 +285,6 @@ func TestTenantToolInjection(t *testing.T) {
 	}, func(cfg *Config) {
 		child := fmt.Sprintf("%s-child-1", cfg.Namespace.GetName())
 
-		size, _ := resource.ParseQuantity("50Mi")
-		storageClassName := "relay-hostpath"
 		tenant := &relayv1beta1.Tenant{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: cfg.Namespace.GetName(),
@@ -303,12 +299,9 @@ func TestTenantToolInjection(t *testing.T) {
 				ToolInjection: relayv1beta1.ToolInjection{
 					VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
 						Spec: corev1.PersistentVolumeClaimSpec{
-							Resources: corev1.ResourceRequirements{
-								Requests: map[corev1.ResourceName]resource.Quantity{
-									corev1.ResourceStorage: size,
-								},
+							AccessModes: []corev1.PersistentVolumeAccessMode{
+								corev1.ReadOnlyMany,
 							},
-							StorageClassName: &storageClassName,
 						},
 					},
 				},
@@ -320,9 +313,5 @@ func TestTenantToolInjection(t *testing.T) {
 		var ns corev1.Namespace
 		require.Equal(t, child, tenant.Status.Namespace)
 		require.NoError(t, cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: child}, &ns))
-
-		var pvc corev1.PersistentVolumeClaim
-		require.NoError(t, cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: tenant.GetName() + model.ToolInjectionVolumeClaimSuffixReadOnlyMany, Namespace: tenant.Status.Namespace}, &pvc))
-		cfg.Environment.ControllerClient.Delete(ctx, &pvc)
 	})
 }

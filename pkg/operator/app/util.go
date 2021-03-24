@@ -1,8 +1,11 @@
 package app
 
 import (
-	"fmt"
+	"crypto/sha256"
+	"encoding/base32"
+	"strings"
 
+	"github.com/puppetlabs/leg/k8sutil/pkg/norm"
 	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
@@ -39,13 +42,18 @@ func ModelWebhookTrigger(wt *obj.WebhookTrigger) *model.Trigger {
 func SuffixObjectKey(key client.ObjectKey, suffix string) client.ObjectKey {
 	return client.ObjectKey{
 		Namespace: key.Namespace,
-		Name:      fmt.Sprintf("%s-%s", key.Name, suffix),
+		Name:      norm.MetaNameSuffixed(key.Name, "-"+suffix),
 	}
+}
+
+func SuffixObjectKeyWithHashOfObjectKey(key, hashable client.ObjectKey) client.ObjectKey {
+	hsh := sha256.Sum256([]byte(hashable.String()))
+	return SuffixObjectKey(key, strings.ToLower(base32.HexEncoding.WithPadding(base32.NoPadding).EncodeToString(hsh[:12])))
 }
 
 func ModelStepObjectKey(key client.ObjectKey, ms *model.Step) client.ObjectKey {
 	return client.ObjectKey{
 		Namespace: key.Namespace,
-		Name:      ms.Hash().HexEncoding(),
+		Name:      norm.MetaNameSuffixed(key.Name+"-"+ms.Name, "-"+ms.Hash().HexEncoding()),
 	}
 }

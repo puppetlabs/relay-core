@@ -9,7 +9,6 @@ import (
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
-	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -53,21 +52,8 @@ func NewAPITriggerEventSink(namespace string, sink *relayv1beta1.APITriggerEvent
 	return tes
 }
 
-type ToolInjection struct {
-	VolumeClaimTemplate *corev1.PersistentVolumeClaim
-}
-
-func NewToolInjection(namespace string, toolInjection relayv1beta1.ToolInjection) *ToolInjection {
-	ti := &ToolInjection{
-		VolumeClaimTemplate: toolInjection.VolumeClaimTemplate,
-	}
-
-	return ti
-}
-
 type TenantDeps struct {
-	Tenant *obj.Tenant
-
+	Tenant     *obj.Tenant
 	Standalone bool
 
 	// StaleNamespace is the old namespace of a tenant that needs to be cleaned
@@ -79,7 +65,6 @@ type TenantDeps struct {
 	LimitRange    *corev1obj.LimitRange
 
 	APITriggerEventSink *APITriggerEventSink
-	ToolInjection       *ToolInjection
 }
 
 var _ lifecycle.Deleter = &TenantDeps{}
@@ -109,7 +94,9 @@ func (td *TenantDeps) Delete(ctx context.Context, cl client.Client, opts ...life
 }
 
 func (td *TenantDeps) Load(ctx context.Context, cl client.Client) (bool, error) {
-	loaders := lifecycle.Loaders{lifecycle.IgnoreNilLoader{td.APITriggerEventSink}}
+	loaders := lifecycle.Loaders{
+		lifecycle.IgnoreNilLoader{td.APITriggerEventSink},
+	}
 
 	if !td.Tenant.Managed() {
 		loaders = append(loaders, lifecycle.RequiredLoader{td.Namespace})
@@ -128,14 +115,10 @@ func (td *TenantDeps) Load(ctx context.Context, cl client.Client) (bool, error) 
 }
 
 func (td *TenantDeps) Persist(ctx context.Context, cl client.Client) error {
-	if !td.Tenant.Managed() {
-		return nil
-	}
+	var ps []lifecycle.Persister
 
-	ps := []lifecycle.Persister{
-		td.Namespace,
-		td.NetworkPolicy,
-		td.LimitRange,
+	if td.Tenant.Managed() {
+		ps = append(ps, td.Namespace, td.NetworkPolicy, td.LimitRange)
 	}
 
 	for _, p := range ps {
@@ -148,14 +131,14 @@ func (td *TenantDeps) Persist(ctx context.Context, cl client.Client) error {
 }
 
 func (td *TenantDeps) DeleteStale(ctx context.Context, cl client.Client, opts ...lifecycle.DeleteOption) (bool, error) {
-	if td.StaleNamespace == nil || td.StaleNamespace.Object.GetUID() == "" {
-		return true, nil
-	}
-
-	if ok, err := DependencyManager.IsDependencyOf(td.StaleNamespace.Object, lifecycle.TypedObject{Object: td.Tenant.Object, GVK: relayv1beta1.TenantKind}); err != nil {
-		return false, err
-	} else if ok {
-		return td.StaleNamespace.Delete(ctx, cl, opts...)
+	if td.StaleNamespace != nil && td.StaleNamespace.Object.GetUID() != "" {
+		if ok, err := DependencyManager.IsDependencyOf(td.StaleNamespace.Object, lifecycle.TypedObject{Object: td.Tenant.Object, GVK: relayv1beta1.TenantKind}); err != nil {
+			return false, err
+		} else if ok {
+			if _, err := td.StaleNamespace.Delete(ctx, cl, opts...); err != nil {
+				return false, err
+			}
+		}
 	}
 
 	return true, nil
@@ -188,8 +171,6 @@ func NewTenantDeps(t *obj.Tenant, opts ...TenantDepsOption) *TenantDeps {
 		td.APITriggerEventSink = NewAPITriggerEventSink(td.Tenant.Key.Namespace, sink)
 	}
 
-	td.ToolInjection = NewToolInjection(td.Tenant.Key.Namespace, td.Tenant.Object.Spec.ToolInjection)
-
 	for _, opt := range opts {
 		opt(td)
 	}
@@ -203,7 +184,6 @@ func ConfigureTenantDeps(ctx context.Context, td *TenantDeps) {
 	}
 
 	DependencyManager.SetDependencyOf(&td.Namespace.Object.ObjectMeta, lifecycle.TypedObject{Object: td.Tenant.Object, GVK: relayv1beta1.TenantKind})
-	DependencyManager.SetDependencyOf(&td.NetworkPolicy.Object.ObjectMeta, lifecycle.TypedObject{Object: td.Tenant.Object, GVK: relayv1beta1.TenantKind})
 
 	lifecycle.Label(ctx, td.Namespace, model.RelayControllerTenantWorkloadLabel, "true")
 	td.Namespace.LabelAnnotateFrom(ctx, &td.Tenant.Object.Spec.NamespaceTemplate.Metadata)

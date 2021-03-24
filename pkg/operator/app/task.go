@@ -4,7 +4,6 @@ import (
 	"context"
 	"path"
 
-	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/helper"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
 	"github.com/puppetlabs/relay-core/pkg/entrypoint"
@@ -41,9 +40,6 @@ func ConfigureTask(ctx context.Context, t *obj.Task, wrd *WorkflowRunDeps, ws *n
 			},
 		},
 		SecurityContext: &corev1.SecurityContext{
-			// We can't use RunAsUser et al. here because they don't allow write
-			// access to the container filesystem. Eventually, we'll use gVisor
-			// to protect us here.
 			AllowPrivilegeEscalation: func(b bool) *bool { return &b }(false),
 		},
 	}
@@ -54,37 +50,27 @@ func ConfigureTask(ctx context.Context, t *obj.Task, wrd *WorkflowRunDeps, ws *n
 	if len(ws.Input) > 0 {
 		sm := ModelStep(wrd.WorkflowRun, ws)
 
-		found := false
-		config := configVolumeKey(sm)
-		for _, volume := range t.Object.Spec.Volumes {
-			if volume.Name == config {
-				found = true
-				break
-			}
-		}
-
-		if !found {
-			t.Object.Spec.Volumes = append(t.Object.Spec.Volumes, corev1.Volume{
-				Name: config,
-				VolumeSource: corev1.VolumeSource{
-					ConfigMap: &corev1.ConfigMapVolumeSource{
-						LocalObjectReference: corev1.LocalObjectReference{
-							Name: wrd.ImmutableConfigMap.Key.Name,
-						},
-						Items: []corev1.KeyToPath{
-							{
-								Key:  scriptConfigMapKey(sm),
-								Path: "input-script",
-								Mode: func(i int32) *int32 { return &i }(0755),
-							},
+		vol := corev1.Volume{
+			Name: configVolumeKey(sm),
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: wrd.ImmutableConfigMap.Key.Name,
+					},
+					Items: []corev1.KeyToPath{
+						{
+							Key:  scriptConfigMapKey(sm),
+							Path: "input-script",
+							Mode: func(i int32) *int32 { return &i }(0755),
 						},
 					},
 				},
-			})
+			},
 		}
 
+		t.SetVolume(vol)
 		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
-			Name:      config,
+			Name:      vol.Name,
 			ReadOnly:  true,
 			MountPath: "/var/run/puppet/relay/config",
 		})
@@ -93,15 +79,18 @@ func ConfigureTask(ctx context.Context, t *obj.Task, wrd *WorkflowRunDeps, ws *n
 		args = []string{}
 	}
 
-	// TODO Reference the tool injection from the tenant (once this is available)
-	// For now, we'll assume an explicit tenant reference implies the use of the entrypoint handling
-	if wrd.WorkflowRun.Object.Spec.TenantRef != nil {
+	if wrd.ToolInjectionCheckout.Satisfied() {
 		ep, err := entrypoint.ImageEntrypoint(image, []string{command}, args)
 		if err != nil {
 			return err
 		}
 
-		container.Command = []string{path.Join(model.ToolInjectionMountPath, ep.Entrypoint)}
+		t.SetWorkspace(tektonv1beta1.WorkspaceDeclaration{
+			Name:      ToolsWorkspaceName,
+			MountPath: model.ToolsMountPath,
+			ReadOnly:  true,
+		})
+		container.Command = []string{path.Join(model.ToolsMountPath, ep.Entrypoint)}
 		container.Args = ep.Args
 	} else {
 		if command != "" {
@@ -115,13 +104,6 @@ func ConfigureTask(ctx context.Context, t *obj.Task, wrd *WorkflowRunDeps, ws *n
 
 	if err := wrd.AnnotateStepToken(ctx, &t.Object.ObjectMeta, ws); err != nil {
 		return err
-	}
-
-	// TODO Reference the tool injection from the tenant (once this is available)
-	// For now, we'll assume an explicit tenant reference implies the use of the tool injection suite
-	if wrd.WorkflowRun.Object.Spec.TenantRef != nil {
-		claim := wrd.WorkflowRun.Object.Spec.TenantRef.Name + model.ToolInjectionVolumeClaimSuffixReadOnlyMany
-		helper.Annotate(&t.Object.ObjectMeta, model.RelayControllerToolsVolumeClaimAnnotation, claim)
 	}
 
 	t.Object.Spec.Steps = []tektonv1beta1.Step{

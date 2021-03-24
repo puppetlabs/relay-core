@@ -27,6 +27,9 @@ type TenantSpec struct {
 	// +optional
 	NamespaceTemplate NamespaceTemplate `json:"namespaceTemplate,omitempty"`
 
+	// ToolInjection allows configuration of the PVC to be used for the
+	// container runtime tools.
+	//
 	// +optional
 	ToolInjection ToolInjection `json:"toolInjection,omitempty"`
 
@@ -97,13 +100,6 @@ type SecretKeySelector struct {
 	Key string `json:"key"`
 }
 
-type ToolInjectionStatus struct {
-	// ImageDigest is the specific image digest used for tool injection
-	//
-	// +optional
-	ImageDigest string `json:"imageDigest,omitempty"`
-}
-
 type TenantStatus struct {
 	// ObservedGeneration is the generation of the resource specification that
 	// this status matches.
@@ -123,11 +119,6 @@ type TenantStatus struct {
 	// +listType=map
 	// +listMapKey=type
 	Conditions []TenantCondition `json:"conditions,omitempty"`
-
-	// ToolInjection contains specific status data for tool injection
-	//
-	// +optional
-	ToolInjection ToolInjectionStatus `json:"toolInjection,omitempty"`
 }
 
 type TenantConditionType string
@@ -140,10 +131,6 @@ const (
 	// TenantEventSinkReady indicates whether the event sink can be used. For
 	// example, any secret references must be resolvable.
 	TenantEventSinkReady TenantConditionType = "EventSinkReady"
-
-	// TenantToolInjectionReady indicates whether the tool injection
-	// suite is ready to use.
-	TenantToolInjectionReady TenantConditionType = "ToolInjectionReady"
 
 	// TenantReady is set when all other conditions are ready.
 	TenantReady TenantConditionType = "Ready"

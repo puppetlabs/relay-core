@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/puppetlabs/relay-core/pkg/model"
+	"github.com/puppetlabs/relay-core/pkg/operator/admission"
 	"github.com/puppetlabs/relay-core/pkg/util/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -32,7 +32,7 @@ func TestVolumeClaimHandler(t *testing.T) {
 						Namespace: ns.GetName(),
 						Name:      "sneaky-pod",
 						Annotations: map[string]string{
-							model.RelayControllerToolsVolumeClaimAnnotation: "tools-volume-claim",
+							admission.ToolsVolumeClaimAnnotation: "tools-volume-claim",
 						},
 					},
 					Spec: corev1.PodSpec{
@@ -54,7 +54,7 @@ func TestVolumeClaimHandler(t *testing.T) {
 
 				volume := false
 				for _, v := range pod.Spec.Volumes {
-					if v.Name == model.ToolInjectionMountName &&
+					if v.Name == admission.ToolsMountName &&
 						v.VolumeSource.PersistentVolumeClaim.ClaimName == "tools-volume-claim" {
 						volume = true
 					}
@@ -65,7 +65,7 @@ func TestVolumeClaimHandler(t *testing.T) {
 				volumeMount := false
 				for _, c := range pod.Spec.Containers {
 					for _, vm := range c.VolumeMounts {
-						if vm.Name == model.ToolInjectionMountName {
+						if vm.Name == admission.ToolsMountName {
 							volumeMount = true
 						}
 					}

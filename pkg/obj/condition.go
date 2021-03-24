@@ -1,44 +1,41 @@
 package obj
 
 import (
-	"context"
-
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/helper"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	tektonv1alpha1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+var (
+	ConditionKind = tektonv1alpha1.SchemeGroupVersion.WithKind("Condition")
+)
+
 type Condition struct {
+	*helper.NamespaceScopedAPIObject
+
 	Key    client.ObjectKey
 	Object *tektonv1alpha1.Condition
 }
 
-var _ lifecycle.LabelAnnotatableFrom = &Condition{}
-var _ lifecycle.Loader = &Condition{}
-var _ lifecycle.Ownable = &Condition{}
-var _ lifecycle.Persister = &Condition{}
-
-func (c *Condition) LabelAnnotateFrom(ctx context.Context, from metav1.Object) {
-	helper.CopyLabelsAndAnnotations(&c.Object.ObjectMeta, from)
+func makeCondition(key client.ObjectKey, obj *tektonv1alpha1.Condition) *Condition {
+	c := &Condition{Key: key, Object: obj}
+	c.NamespaceScopedAPIObject = helper.ForNamespaceScopedAPIObject(&c.Key, lifecycle.TypedObject{GVK: ConditionKind, Object: c.Object})
+	return c
 }
 
-func (c *Condition) Owned(ctx context.Context, owner lifecycle.TypedObject) error {
-	return helper.Own(c.Object, owner)
-}
-
-func (c *Condition) Load(ctx context.Context, cl client.Client) (bool, error) {
-	return helper.GetIgnoreNotFound(ctx, cl, c.Key, c.Object)
-}
-
-func (c *Condition) Persist(ctx context.Context, cl client.Client) error {
-	return helper.CreateOrUpdate(ctx, cl, c.Object, helper.WithObjectKey(c.Key))
+func (c *Condition) Copy() *Condition {
+	return makeCondition(c.Key, c.Object.DeepCopy())
 }
 
 func NewCondition(key client.ObjectKey) *Condition {
-	return &Condition{
-		Key:    key,
-		Object: &tektonv1alpha1.Condition{},
-	}
+	return makeCondition(key, &tektonv1alpha1.Condition{})
+}
+
+func NewConditionFromObject(obj *tektonv1alpha1.Condition) *Condition {
+	return makeCondition(client.ObjectKeyFromObject(obj), obj)
+}
+
+func NewConditionPatcher(upd, orig *Condition) lifecycle.Persister {
+	return helper.NewPatcher(upd.Object, orig.Object, helper.WithObjectKey(upd.Key))
 }

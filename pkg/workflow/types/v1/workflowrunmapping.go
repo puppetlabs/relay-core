@@ -161,7 +161,8 @@ func mapSteps(wd *WorkflowData) []*nebulav1.WorkflowStep {
 		switch variant := value.Variant.(type) {
 		case *ContainerWorkflowStep:
 			workflowStep.Image = variant.Image
-			workflowStep.Spec = mapStepSpec(variant.Spec)
+			workflowStep.Spec = mapSpec(variant.Spec)
+			workflowStep.Env = mapSpec(variant.Env)
 			workflowStep.Input = variant.Input
 			workflowStep.Command = variant.Command
 			workflowStep.Args = variant.Args
@@ -173,7 +174,7 @@ func mapSteps(wd *WorkflowData) []*nebulav1.WorkflowStep {
 	return workflowSteps
 }
 
-func mapStepSpec(jm map[string]serialize.JSONTree) v1beta1.UnstructuredObject {
+func mapSpec(jm map[string]serialize.JSONTree) v1beta1.UnstructuredObject {
 	uo := make(v1beta1.UnstructuredObject, len(jm))
 	for k, v := range jm {
 		// The inner data type has to be compatible with transfer.JSONInterface
