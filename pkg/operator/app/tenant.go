@@ -15,7 +15,9 @@ func ConfigureTenant(t *obj.Tenant, td *TenantDepsResult) {
 	}
 
 	for _, cond := range t.Object.Status.Conditions {
-		*conds[cond.Type] = cond.Condition
+		if target, ok := conds[cond.Type]; ok {
+			*target = cond.Condition
+		}
 	}
 
 	// Update with dependency data.

@@ -14,7 +14,9 @@ func ConfigureWebhookTrigger(wt *obj.WebhookTrigger, ksr *KnativeServiceResult) 
 	}
 
 	for _, cond := range wt.Object.Status.Conditions {
-		*conds[cond.Type] = cond.Condition
+		if target, ok := conds[cond.Type]; ok {
+			*target = cond.Condition
+		}
 	}
 
 	// Update with data from Knative service.
