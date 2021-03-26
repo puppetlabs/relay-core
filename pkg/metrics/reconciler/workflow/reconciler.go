@@ -6,7 +6,7 @@ import (
 	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
 	"github.com/puppetlabs/relay-core/pkg/metrics/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
-	"go.opentelemetry.io/otel/label"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	"k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -42,7 +42,7 @@ func (r *WorkflowRunReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		string(obj.WorkflowRunStatusCancelled), string(obj.WorkflowRunStatusTimedOut), string(obj.WorkflowRunStatusSkipped):
 		counter := metric.Must(*r.meter).NewInt64Counter(model.MetricWorkflowRunOutcome)
 		counter.Add(context.Background(), 1,
-			label.String(model.MetricLabelOutcome, status),
+			attribute.String(model.MetricAttributeOutcome, status),
 		)
 	}
 

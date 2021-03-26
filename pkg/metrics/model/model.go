@@ -7,9 +7,9 @@ const (
 	MetricWorkflowRunOutcome = "workflow_run_outcome"
 	MetricWorkflowRunStatus  = "workflow_run_status"
 
-	MetricLabelReason  = "reason"
-	MetricLabelOutcome = "outcome"
-	MetricLabelStatus  = "status"
+	MetricAttributeReason  = "reason"
+	MetricAttributeOutcome = "outcome"
+	MetricAttributeStatus  = "status"
 )
 
 type EventFilter struct {
