@@ -16,13 +16,15 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path"
 	"strings"
 	"syscall"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/puppetlabs/leg/timeutil/pkg/retry"
-	"github.com/puppetlabs/relay-core/pkg/expr/model"
+	exprmodel "github.com/puppetlabs/relay-core/pkg/expr/model"
+	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-pls/pkg/plspb"
 	"google.golang.org/protobuf/proto"
 )
@@ -131,7 +133,7 @@ func (rr *RealRunner) Run(args ...string) error {
 	scannerErr := bufio.NewScanner(stderrPipe)
 
 	// Start defined command
-	if err := cmd.Start(); err != nil {
+	if err := rr.startCommand(mu, cmd); err != nil {
 		return err
 	}
 
@@ -219,7 +221,7 @@ func (rr *RealRunner) getEnvironmentVariables(mu *url.URL) error {
 	}
 
 	if resp != nil && resp.Body != nil {
-		var r model.JSONResultEnvelope
+		var r exprmodel.JSONResultEnvelope
 		json.NewDecoder(resp.Body).Decode(&r)
 
 		if r.Value.Data != nil {
@@ -330,6 +332,26 @@ func (rr *RealRunner) validateSchemas(mu *url.URL) error {
 	}
 
 	return nil
+}
+
+// startCommand wrapps cmd.Start() with a timing call to inform the metadata API
+// what our actual start time is.
+func (rr *RealRunner) startCommand(mu *url.URL, cmd *exec.Cmd) error {
+	if mu != nil {
+		te := &url.URL{Path: path.Join("/timers", url.PathEscape(model.TimerStepInit))}
+
+		req, err := http.NewRequest(http.MethodPut, mu.ResolveReference(te).String(), nil)
+		if err != nil {
+			return err
+		}
+
+		_, err = getResponse(req, rr.TimeoutShort, []retry.WaitOption{})
+		if err != nil {
+			return err
+		}
+	}
+
+	return cmd.Start()
 }
 
 func getResponse(request *http.Request, timeout time.Duration, waitOptions []retry.WaitOption) (*http.Response, error) {

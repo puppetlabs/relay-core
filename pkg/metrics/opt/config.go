@@ -47,7 +47,16 @@ func (c *Config) Metrics() (*metric.Meter, error) {
 		return &meter, nil
 	}
 
-	exporter, err := prometheus.InstallNewPipeline(prometheus.Config{})
+	exporter, err := prometheus.InstallNewPipeline(prometheus.Config{
+		DefaultHistogramBoundaries: []float64{
+			// TODO: Once views are implemented into OpenTelemetry, we should
+			// define this in the spec. In the meantime, this is used to bucket
+			// timings, so we'll use seconds-based histograms.
+			//
+			// https://github.com/open-telemetry/oteps/pull/89
+			0, 5, 10, 20, 30, 45, 60, 120, 300, 600, 1800, 3600,
+		},
+	})
 	if err != nil {
 		return nil, err
 	}

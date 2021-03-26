@@ -52,6 +52,9 @@ func (s *Server) Route(r *mux.Router) {
 	// State
 	r.HandleFunc("/state/{name}", s.GetState).Methods(http.MethodGet)
 
+	// Timers
+	r.HandleFunc("/timers/{name}", s.PutTimer).Methods(http.MethodPut)
+
 	// Validation
 	r.HandleFunc("/validate", s.PostValidate).Methods(http.MethodPost)
 }

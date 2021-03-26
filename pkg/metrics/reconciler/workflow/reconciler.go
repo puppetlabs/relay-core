@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"context"
+	"time"
 
 	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
 	"github.com/puppetlabs/relay-core/pkg/metrics/model"
@@ -40,10 +41,34 @@ func (r *WorkflowRunReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	switch status {
 	case string(obj.WorkflowRunStatusSuccess), string(obj.WorkflowRunStatusFailure),
 		string(obj.WorkflowRunStatusCancelled), string(obj.WorkflowRunStatusTimedOut), string(obj.WorkflowRunStatusSkipped):
-		counter := metric.Must(*r.meter).NewInt64Counter(model.MetricWorkflowRunOutcome)
-		counter.Add(context.Background(), 1,
+		attrs := []attribute.KeyValue{
 			attribute.String(model.MetricAttributeOutcome, status),
-		)
+		}
+
+		counter := metric.Must(*r.meter).NewInt64Counter(model.MetricWorkflowRunOutcome)
+		counter.Add(ctx, 1, attrs...)
+
+		if wr.Status.CompletionTime != nil {
+			totalTimeRecorder := metric.Must(*r.meter).NewInt64ValueRecorder(model.MetricWorkflowRunTotalTimeSeconds)
+			totalTimeRecorder.Record(ctx, int64(wr.Status.CompletionTime.Sub(wr.CreationTimestamp.Time)/time.Second), attrs...)
+
+			if wr.Status.StartTime != nil {
+				execTimeRecorder := metric.Must(*r.meter).NewInt64ValueRecorder(model.MetricWorkflowRunExecutionTimeSeconds)
+				execTimeRecorder.Record(ctx, int64(wr.Status.CompletionTime.Sub(wr.Status.StartTime.Time)/time.Second), attrs...)
+			}
+		}
+
+		var initTime time.Time
+		for _, step := range wr.Status.Steps {
+			if step.InitTime != nil && (initTime.IsZero() || step.InitTime.Time.Before(initTime)) {
+				initTime = step.InitTime.Time
+			}
+		}
+
+		if !initTime.IsZero() {
+			initTimeRecorder := metric.Must(*r.meter).NewInt64ValueRecorder(model.MetricWorkflowRunInitTimeSeconds)
+			initTimeRecorder.Record(ctx, int64(initTime.Sub(wr.CreationTimestamp.Time)/time.Second), attrs...)
+		}
 	}
 
 	return ctrl.Result{}, nil

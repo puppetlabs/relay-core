@@ -22,6 +22,8 @@ func ModelWriteError(err error) errors.Error {
 		return errors.NewModelNotFoundError()
 	case model.ErrRejected:
 		return errors.NewModelAuthorizationError()
+	case model.ErrConflict:
+		return errors.NewModelConflictError()
 	default:
 		return errors.NewModelWriteError().WithCause(err)
 	}

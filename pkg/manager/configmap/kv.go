@@ -50,6 +50,24 @@ func (kcm *KVConfigMap) Set(ctx context.Context, key string, value interface{}) 
 	return nil
 }
 
+func (kcm *KVConfigMap) Insert(ctx context.Context, key string, value interface{}) (bool, error) {
+	encoded, err := json.Marshal(transfer.JSONInterface{Data: value})
+	if err != nil {
+		return false, err
+	}
+
+	var found bool
+	if _, err := MutateConfigMap(ctx, kcm.cm, func(cm *corev1.ConfigMap) {
+		if _, found = cm.Data[key]; !found {
+			cm.Data[key] = string(encoded)
+		}
+	}); err != nil {
+		return false, err
+	}
+
+	return !found, nil
+}
+
 func NewKVConfigMap(backend ConfigMap) *KVConfigMap {
 	kcm := &KVConfigMap{
 		cm: backend,

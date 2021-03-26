@@ -564,6 +564,57 @@ func NewModelAuthorizationError() Error {
 	return NewModelAuthorizationErrorBuilder().Build()
 }
 
+// ModelConflictErrorCode is the code for an instance of "conflict_error".
+const ModelConflictErrorCode = "rma_model_conflict_error"
+
+// IsModelConflictError tests whether a given error is an instance of "conflict_error".
+func IsModelConflictError(err errawr.Error) bool {
+	return err != nil && err.Is(ModelConflictErrorCode)
+}
+
+// IsModelConflictError tests whether a given error is an instance of "conflict_error".
+func (External) IsModelConflictError(err errawr.Error) bool {
+	return IsModelConflictError(err)
+}
+
+// ModelConflictErrorBuilder is a builder for "conflict_error" errors.
+type ModelConflictErrorBuilder struct {
+	arguments impl.ErrorArguments
+}
+
+// Build creates the error for the code "conflict_error" from this builder.
+func (b *ModelConflictErrorBuilder) Build() Error {
+	description := &impl.ErrorDescription{
+		Friendly:  "The resource you're updating already exists, and your version conflicts with the stored version.",
+		Technical: "The resource you're updating already exists, and your version conflicts with the stored version.",
+	}
+
+	return &impl.Error{
+		ErrorArguments:   b.arguments,
+		ErrorCode:        "conflict_error",
+		ErrorDescription: description,
+		ErrorDomain:      Domain,
+		ErrorMetadata: &impl.ErrorMetadata{HTTPErrorMetadata: &impl.HTTPErrorMetadata{
+			ErrorHeaders: impl.HTTPErrorMetadataHeaders{},
+			ErrorStatus:  409,
+		}},
+		ErrorSection:     ModelSection,
+		ErrorSensitivity: errawr.ErrorSensitivityNone,
+		ErrorTitle:       "Conflict",
+		Version:          1,
+	}
+}
+
+// NewModelConflictErrorBuilder creates a new error builder for the code "conflict_error".
+func NewModelConflictErrorBuilder() *ModelConflictErrorBuilder {
+	return &ModelConflictErrorBuilder{arguments: impl.ErrorArguments{}}
+}
+
+// NewModelConflictError creates a new error with the code "conflict_error".
+func NewModelConflictError() Error {
+	return NewModelConflictErrorBuilder().Build()
+}
+
 // ModelNotFoundErrorCode is the code for an instance of "not_found_error".
 const ModelNotFoundErrorCode = "rma_model_not_found_error"
 
