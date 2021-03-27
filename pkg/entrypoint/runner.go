@@ -342,12 +342,12 @@ func (rr *RealRunner) startCommand(mu *url.URL, cmd *exec.Cmd) error {
 
 		req, err := http.NewRequest(http.MethodPut, mu.ResolveReference(te).String(), nil)
 		if err != nil {
-			return err
-		}
-
-		_, err = getResponse(req, rr.TimeoutShort, []retry.WaitOption{})
-		if err != nil {
-			return err
+			log.Println(err)
+		} else {
+			_, err := getResponse(req, rr.TimeoutShort, []retry.WaitOption{})
+			if err != nil {
+				log.Println(err)
+			}
 		}
 	}
 
