@@ -10,7 +10,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/metrics/reconciler/event"
 	"github.com/puppetlabs/relay-core/pkg/metrics/reconciler/workflow"
 	"github.com/puppetlabs/relay-core/pkg/obj"
-	"go.opentelemetry.io/otel/label"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -62,7 +62,7 @@ func processStatuses(ctx context.Context, c client.Client, meter *metric.Meter) 
 		case string(obj.WorkflowRunStatusQueued), string(obj.WorkflowRunStatusPending), string(obj.WorkflowRunStatusInProgress):
 			counter := metric.Must(*meter).NewInt64Counter(model.MetricWorkflowRunStatus)
 			counter.Add(context.Background(), 1,
-				label.String(model.MetricLabelStatus, status),
+				attribute.String(model.MetricAttributeStatus, status),
 			)
 		}
 	}

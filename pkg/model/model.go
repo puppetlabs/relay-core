@@ -35,6 +35,7 @@ type MetadataManagers interface {
 	Secrets() SecretManager
 	Spec() SpecGetterManager
 	State() StateGetterManager
+	Timers() TimerSetterManager
 	ActionMetadata() ActionMetadataManager
 	StepOutputs() StepOutputManager
 }
@@ -47,6 +48,7 @@ type RunReconcilerManagers interface {
 	Environment() EnvironmentSetterManager
 	Spec() SpecSetterManager
 	State() StateSetterManager
+	Timers() TimerGetterManager
 }
 
 // WebhookTriggerReconcilerManagers are the managers used by the workflow

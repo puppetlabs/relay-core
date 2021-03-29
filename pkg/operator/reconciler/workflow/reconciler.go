@@ -78,9 +78,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, nil
 	}
 
+	var deps *app.WorkflowRunDeps
 	var pr *obj.PipelineRun
 	err = r.metrics.trackDurationWithOutcome(metricWorkflowRunStartUpDuration, func() error {
-		deps, err := app.ApplyWorkflowRunDeps(
+		deps, err = app.ApplyWorkflowRunDeps(
 			ctx,
 			r.Client,
 			wr,
@@ -148,7 +149,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		klog.Warning(err)
 	}
 
-	app.ConfigureWorkflowRun(wr, pr)
+	app.ConfigureWorkflowRun(ctx, deps, pr)
 
 	if err := wr.PersistStatus(ctx, r.Client); err != nil {
 		return ctrl.Result{}, errmap.Wrap(err, "failed to persist WorkflowRun")

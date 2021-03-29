@@ -214,6 +214,10 @@ func (in *WorkflowRunStatusSummary) DeepCopyInto(out *WorkflowRunStatusSummary) 
 		in, out := &in.StartTime, &out.StartTime
 		*out = (*in).DeepCopy()
 	}
+	if in.InitTime != nil {
+		in, out := &in.InitTime, &out.InitTime
+		*out = (*in).DeepCopy()
+	}
 	if in.CompletionTime != nil {
 		in, out := &in.CompletionTime, &out.CompletionTime
 		*out = (*in).DeepCopy()

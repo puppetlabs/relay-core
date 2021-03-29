@@ -53,6 +53,15 @@ sections:
           http:
             status: 404
 
+      conflict_error:
+        title: Conflict
+        description: >
+          The resource you're updating already exists, and your version
+          conflicts with the stored version.
+        metadata:
+          http:
+            status: 409
+
       authorization_error:
         title: Unauthorized
         description: >
