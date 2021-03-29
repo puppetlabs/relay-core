@@ -48,6 +48,26 @@ func waitForStepToStart(t *testing.T, ctx context.Context, cfg *Config, wr *nebu
 	}))
 }
 
+func waitForStepToSucceed(t *testing.T, ctx context.Context, cfg *Config, wr *nebulav1.WorkflowRun, stepName string) {
+	require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
+		if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{
+			Namespace: wr.GetNamespace(),
+			Name:      wr.GetName(),
+		}, wr); err != nil {
+			return true, err
+		}
+
+		switch obj.WorkflowRunStatus(wr.Status.Steps[stepName].Status) {
+		case obj.WorkflowRunStatusSuccess:
+			return true, nil
+		case obj.WorkflowRunStatusFailure:
+			return true, fmt.Errorf("step failed")
+		default:
+			return false, fmt.Errorf("waiting for step to succeed")
+		}
+	}))
+}
+
 func waitForStepPodToComplete(t *testing.T, ctx context.Context, cfg *Config, wr *nebulav1.WorkflowRun, stepName string) *corev1.Pod {
 	waitForStepToStart(t, ctx, cfg, wr, stepName)
 
@@ -522,6 +542,52 @@ func TestWorkflowRunWithoutSteps(t *testing.T) {
 	})
 }
 
+func TestWorkflowRunStepInitTime(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	WithConfig(t, ctx, []ConfigOption{
+		ConfigWithMetadataAPIBoundInCluster,
+		ConfigWithWorkflowRunReconciler,
+	}, func(cfg *Config) {
+		wr := &nebulav1.WorkflowRun{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: cfg.Namespace.GetName(),
+				Name:      "my-test-run",
+				Annotations: map[string]string{
+					model.RelayVaultEngineMountAnnotation:    cfg.Vault.SecretsPath,
+					model.RelayVaultConnectionPathAnnotation: "connections/my-domain-id",
+					model.RelayVaultSecretPathAnnotation:     "workflows/my-tenant-id",
+					model.RelayDomainIDAnnotation:            "my-domain-id",
+					model.RelayTenantIDAnnotation:            "my-tenant-id",
+				},
+			},
+			Spec: nebulav1.WorkflowRunSpec{
+				Name: "my-workflow-run-1234",
+				Workflow: nebulav1.Workflow{
+					Name: "my-workflow",
+					Steps: []*nebulav1.WorkflowStep{
+						{
+							// TODO: Once we have the entrypointer image in
+							// test, we could just end-to-end test it here.
+							Name:  "my-test-step",
+							Image: "alpine:latest",
+							Input: []string{
+								"apk --no-cache add curl",
+								fmt.Sprintf(`curl -XPUT "${METADATA_API_URL}/timers/%s"`, model.TimerStepInit),
+							},
+						},
+					},
+				},
+			},
+		}
+		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, wr))
+
+		waitForStepToSucceed(t, ctx, cfg, wr, "my-test-step")
+		require.NotEmpty(t, wr.Status.Steps["my-test-step"].InitTime)
+	})
+}
+
 func TestWorkflowRunInGVisor(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 6*time.Minute)
 	defer cancel()
@@ -592,24 +658,7 @@ func TestWorkflowRunInGVisor(t *testing.T) {
 				}
 				require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, wr))
 
-				// Wait for step to succeed.
-				require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
-					if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{
-						Namespace: wr.GetNamespace(),
-						Name:      wr.GetName(),
-					}, wr); err != nil {
-						return true, err
-					}
-
-					switch obj.WorkflowRunStatus(wr.Status.Steps["my-test-step"].Status) {
-					case obj.WorkflowRunStatusSuccess:
-						return true, nil
-					case obj.WorkflowRunStatusFailure:
-						return true, fmt.Errorf("step failed")
-					default:
-						return false, fmt.Errorf("waiting for step to succeed")
-					}
-				}))
+				waitForStepToSucceed(t, ctx, cfg, wr, "my-test-step")
 
 				// Get the logs from the pod.
 				pod := &corev1.Pod{}

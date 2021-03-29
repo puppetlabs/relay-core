@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
@@ -45,6 +46,10 @@ var _ admission.Handler = &PodEnforcementHandler{}
 var _ admission.DecoderInjector = &PodEnforcementHandler{}
 
 func (peh *PodEnforcementHandler) Handle(ctx context.Context, req admission.Request) admission.Response {
+	if req.Operation != admissionv1.Create {
+		return admission.Allowed("")
+	}
+
 	pod := &corev1.Pod{}
 	if err := peh.decoder.Decode(req, pod); err != nil {
 		return admission.Errored(http.StatusBadRequest, err)

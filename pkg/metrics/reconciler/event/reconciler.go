@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/puppetlabs/relay-core/pkg/metrics/model"
-	"go.opentelemetry.io/otel/label"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -68,7 +68,7 @@ func (r *EventReconciler) filterMetrics(event *corev1.Event) {
 		if strings.Contains(event.Reason, filter) || strings.Contains(event.Message, filter) {
 			counter := metric.Must(*r.meter).NewInt64Counter(ef.Metric)
 			counter.Add(context.Background(), 1,
-				label.String(model.MetricLabelReason, filter),
+				attribute.String(model.MetricAttributeReason, filter),
 			)
 		}
 	}

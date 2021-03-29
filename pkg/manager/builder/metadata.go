@@ -17,6 +17,7 @@ type metadataManagers struct {
 	spec           model.SpecGetterManager
 	state          model.StateGetterManager
 	stepOutputs    model.StepOutputManager
+	timers         model.TimerSetterManager
 }
 
 var _ model.MetadataManagers = &metadataManagers{}
@@ -65,6 +66,10 @@ func (mm *metadataManagers) StepOutputs() model.StepOutputManager {
 	return mm.stepOutputs
 }
 
+func (mm *metadataManagers) Timers() model.TimerSetterManager {
+	return mm.timers
+}
+
 type MetadataBuilder struct {
 	actionMetadata model.ActionMetadataManager
 	connections    model.ConnectionManager
@@ -77,6 +82,7 @@ type MetadataBuilder struct {
 	spec           model.SpecGetterManager
 	state          model.StateGetterManager
 	stepOutputs    model.StepOutputManager
+	timers         model.TimerSetterManager
 }
 
 func (mb *MetadataBuilder) SetActionMetadata(m model.ActionMetadataManager) *MetadataBuilder {
@@ -134,6 +140,11 @@ func (mb *MetadataBuilder) SetStepOutputs(m model.StepOutputManager) *MetadataBu
 	return mb
 }
 
+func (mb *MetadataBuilder) SetTimers(m model.TimerSetterManager) *MetadataBuilder {
+	mb.timers = m
+	return mb
+}
+
 func (mb *MetadataBuilder) Build() model.MetadataManagers {
 	return &metadataManagers{
 		actionMetadata: mb.actionMetadata,
@@ -147,6 +158,7 @@ func (mb *MetadataBuilder) Build() model.MetadataManagers {
 		spec:           mb.spec,
 		state:          mb.state,
 		stepOutputs:    mb.stepOutputs,
+		timers:         mb.timers,
 	}
 }
 
@@ -163,5 +175,6 @@ func NewMetadataBuilder() *MetadataBuilder {
 		spec:           reject.SpecManager,
 		state:          reject.StateManager,
 		stepOutputs:    reject.StepOutputManager,
+		timers:         reject.TimerManager,
 	}
 }

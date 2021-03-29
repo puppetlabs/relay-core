@@ -146,6 +146,9 @@ spec:
                     completionTime:
                       format: date-time
                       type: string
+                    initTime:
+                      format: date-time
+                      type: string
                     logKey:
                       type: string
                     name:
@@ -169,6 +172,9 @@ spec:
                 additionalProperties:
                   properties:
                     completionTime:
+                      format: date-time
+                      type: string
+                    initTime:
                       format: date-time
                       type: string
                     logKey:

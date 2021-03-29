@@ -83,6 +83,9 @@ type WorkflowRunStatusSummary struct {
 	StartTime *metav1.Time `json:"startTime,omitempty"`
 
 	// +optional
+	InitTime *metav1.Time `json:"initTime,omitempty"`
+
+	// +optional
 	CompletionTime *metav1.Time `json:"completionTime,omitempty"`
 }
 

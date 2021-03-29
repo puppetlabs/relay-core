@@ -58,9 +58,10 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/tektoncd/pipeline v0.22.0
 	github.com/xeipuuv/gojsonschema v1.2.0
-	go.opentelemetry.io/otel v0.16.0
-	go.opentelemetry.io/otel/exporters/metric/prometheus v0.16.0
-	go.opentelemetry.io/otel/exporters/stdout v0.16.0
+	go.opentelemetry.io/otel v0.19.0
+	go.opentelemetry.io/otel/exporters/metric/prometheus v0.19.0
+	go.opentelemetry.io/otel/exporters/stdout v0.19.0
+	go.opentelemetry.io/otel/metric v0.19.0
 	golang.org/x/net v0.0.0-20210119194325-5f4716e94777
 	google.golang.org/grpc v1.35.0
 	google.golang.org/protobuf v1.25.0
