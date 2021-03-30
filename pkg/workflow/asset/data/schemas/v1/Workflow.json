@@ -20,15 +20,18 @@
     },
     "name": {
       "type": "string",
-      "description": "An optional name for the workflow"
+      "description": "An optional name for the workflow",
+      "minLength": 1
     },
     "summary": {
       "type": "string",
-      "description": "A high-level phrase describing what the workflow does"
+      "description": "A high-level phrase describing what the workflow does",
+      "minLength": 1
     },
     "description": {
       "type": "string",
-      "description": "A more detailed description of the workflow"
+      "description": "A more detailed description of the workflow",
+      "minLength": 1
     },
     "homepage": {
       "type": "string",
@@ -44,7 +47,8 @@
       "type": "array",
       "description": "An optional list of free-form labels to help people find the workflow",
       "items": {
-        "type": "string"
+        "type": "string",
+        "minLength": 1
       }
     },
     "locals": {
@@ -80,7 +84,8 @@
       "properties": {
         "type": {
           "type": "string",
-          "description": "A value type"
+          "description": "A value type",
+          "minLength": 1
         }
       },
       "required": ["type"]
@@ -97,7 +102,8 @@
         },
         "description": {
           "type": "string",
-          "description": "Optional parameter description"
+          "description": "Optional parameter description",
+          "minLength": 1
         }
       }
     },
@@ -107,18 +113,21 @@
       "properties": {
         "name": {
           "type": "string",
-          "description": "Unique workflow step name"
+          "description": "Unique workflow step name",
+          "minLength": 1
         },
         "dependsOn": {
           "description": "Step dependencies",
           "oneOf": [
             {
-              "type": "string"
+              "type": "string",
+              "minLength": 1
             },
             {
               "type": "array",
               "items": {
-                "type": "string"
+                "type": "string",
+                "minLength": 1
               }
             }
           ]
@@ -136,11 +145,13 @@
       "properties": {
         "image": {
           "type": "string",
-          "description": "Docker image for step execution"
+          "description": "Docker image for step execution",
+          "minLength": 1
         },
         "command": {
           "type": "string",
-          "description": "Command to issue"
+          "description": "Command to issue",
+          "minLength": 1
         },
         "args": {
           "type": "array",
@@ -151,7 +162,8 @@
         },
         "inputFile": {
           "type": "string",
-          "description": "The relative path to an file to use for the input script"
+          "description": "The relative path to an file to use for the input script",
+          "minLength": 1
         },
         "input": {
           "type": "array",
@@ -189,7 +201,8 @@
       "properties": {
         "name": {
           "type": "string",
-          "description": "Unique workflow trigger name"
+          "description": "Unique workflow trigger name",
+          "minLength": 1
         },
         "source": {
           "$ref": "#/definitions/TriggerSource"
@@ -270,7 +283,8 @@
       "properties": {
         "key": {
           "type": "string",
-          "description": "An optional key binding to uniquely identify an event"
+          "description": "An optional key binding to uniquely identify an event",
+          "minLength": 1
         },
         "parameters": {
           "type": "object",
