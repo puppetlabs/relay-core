@@ -1,0 +1,8 @@
+apiVersion: v1
+triggers:
+- name: ''
+  source:
+    type: push
+steps:
+- name: ''
+  image: alpine:latest
