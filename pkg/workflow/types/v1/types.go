@@ -3,7 +3,6 @@ package v1
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"time"
 
@@ -120,8 +119,7 @@ type ScheduleWorkflowTriggerSource struct {
 func (swts *ScheduleWorkflowTriggerSource) Next(from time.Time) (time.Time, error) {
 	sched, err := cron.ParseStandard(swts.Schedule)
 	if err != nil {
-		return time.Time{}, fmt.Errorf("TODO")
-		//return time.Time{}, errors.NewWorkflowTriggerScheduleFormatError(swts.Schedule, err.Error())
+		return time.Time{}, err
 	}
 
 	return sched.Next(from), nil
@@ -227,10 +225,9 @@ func (c *ContainerMixin) LoadInputFile(ctx context.Context, im input.FileManager
 		return err
 	}
 
-	content, gerr := ioutil.ReadAll(inputFileReader)
-	if gerr != nil {
-		return fmt.Errorf("TODO")
-		//return errors.NewWorkflowInputFileContentError().WithCause(gerr)
+	content, err := ioutil.ReadAll(inputFileReader)
+	if err != nil {
+		return err
 	}
 
 	c.Input = []string{string(content)}
