@@ -52,14 +52,21 @@ func WithTokenSecretNameTenantOption(name string) DefaultTenantEngineMapperOptio
 	}
 }
 
+func WithToolInjectionTenantOption(enabled bool) DefaultTenantEngineMapperOption {
+	return func(m *DefaultTenantEngineMapper) {
+		m.enableToolInjection = enabled
+	}
+}
+
 type DefaultTenantEngineMapper struct {
-	id              string
-	name            string
-	namespace       string
-	workflowID      string
-	workflowName    string
-	tokenSecretName string
-	eventURL        *url.URL
+	id                  string
+	name                string
+	namespace           string
+	workflowID          string
+	workflowName        string
+	tokenSecretName     string
+	eventURL            *url.URL
+	enableToolInjection bool
 }
 
 func (m *DefaultTenantEngineMapper) ToRuntimeObjectsManifest() (*TenantKubernetesObjectMapping, error) {
@@ -101,6 +108,18 @@ func (m *DefaultTenantEngineMapper) ToRuntimeObjectsManifest() (*TenantKubernete
 				},
 			},
 		},
+	}
+
+	if m.enableToolInjection {
+		tenant.Spec.ToolInjection = v1beta1.ToolInjection{
+			VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
+				Spec: corev1.PersistentVolumeClaimSpec{
+					AccessModes: []corev1.PersistentVolumeAccessMode{
+						corev1.ReadOnlyMany,
+					},
+				},
+			},
+		}
 	}
 
 	if m.eventURL != nil {

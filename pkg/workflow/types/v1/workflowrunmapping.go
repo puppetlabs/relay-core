@@ -52,6 +52,12 @@ func WithVaultEngineMountRunOption(mount string) DefaultRunEngineMapperOption {
 	}
 }
 
+func WithTenantRunOption(tenant *v1beta1.Tenant) DefaultRunEngineMapperOption {
+	return func(m *DefaultRunEngineMapper) {
+		m.tenant = tenant
+	}
+}
+
 // DefaultRunEngineMapper maps a WorkflowRun to Kubernetes runtime objects. It
 // is the default for relay-operator.
 type DefaultRunEngineMapper struct {
@@ -61,6 +67,7 @@ type DefaultRunEngineMapper struct {
 	runParameters    WorkflowRunParameters
 	domainID         string
 	vaultEngineMount string
+	tenant           *v1beta1.Tenant
 }
 
 // ToRuntimeObjectsManifest returns a RunKubernetesObjectMapping that contains
@@ -110,6 +117,12 @@ func (m *DefaultRunEngineMapper) ToRuntimeObjectsManifest(wd *WorkflowData) (*Ru
 				Steps:      mapSteps(wd),
 			},
 		},
+	}
+
+	if m.tenant != nil {
+		manifest.WorkflowRun.Spec.TenantRef = &corev1.LocalObjectReference{
+			Name: m.tenant.GetName(),
+		}
 	}
 
 	return &manifest, nil
