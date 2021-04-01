@@ -38,6 +38,8 @@ jobs:
     - RELAY_TEST_E2E_KUBECONFIG="${KUBECONFIG}" RELAY_TEST_E2E_GVISOR_HANDLER=runsc ./scripts/ci test
   - stage: build
     before_script:
+    - mkdir -p ~/.config/containers
+    - cp -r hack/containers/registries.conf ~/.config/containers
     - if [ ! -d "$HOME/google-cloud-sdk/bin" ]; then rm -rf $HOME/google-cloud-sdk;
       export CLOUDSDK_CORE_DISABLE_PROMPTS=1; curl https://sdk.cloud.google.com |
       bash; fi
