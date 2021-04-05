@@ -16,6 +16,10 @@ jobs:
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
         restore-keys: |
           ${{ runner.os }}-go-
+    - name: Set up Buildah
+      run: |
+        mkdir -p ~/.config/containers
+        cp -r hack/containers/* ~/.config/containers
     - name: Build
       run: scripts/ci build
   test:

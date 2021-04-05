@@ -12,7 +12,6 @@ const (
 	WorkflowNameLabel        = "managed.relay.sh/workflow-name"
 	WorkflowTriggerIDLabel   = "managed.relay.sh/workflow-trigger-id"
 	WorkflowTriggerNameLabel = "managed.relay.sh/workflow-trigger-name"
-	ExpirationTimeAnnotation = "managed.relay.sh/expiration-time"
 )
 
 const (

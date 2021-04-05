@@ -3,7 +3,6 @@ package v1
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/expr/serialize"
 	"github.com/puppetlabs/relay-core/pkg/manager/input"
 	"github.com/robfig/cron/v3"
+	"gopkg.in/yaml.v3"
 )
 
 type WorkflowStepType string
@@ -120,8 +120,7 @@ type ScheduleWorkflowTriggerSource struct {
 func (swts *ScheduleWorkflowTriggerSource) Next(from time.Time) (time.Time, error) {
 	sched, err := cron.ParseStandard(swts.Schedule)
 	if err != nil {
-		return time.Time{}, fmt.Errorf("TODO")
-		//return time.Time{}, errors.NewWorkflowTriggerScheduleFormatError(swts.Schedule, err.Error())
+		return time.Time{}, err
 	}
 
 	return sched.Next(from), nil
@@ -178,9 +177,121 @@ type WorkflowDataTriggerBinding struct {
 type WorkflowParameters map[string]*WorkflowParameter
 
 type WorkflowParameter struct {
-	Default     interface{} `json:"default"`
-	Description string      `json:"description,omitempty"`
-	Type        string      `json:"type,omitempty"`
+	Description  string
+	Type         string
+	defaultValue interface{}
+	defaultSet   bool
+}
+
+var (
+	_ json.Marshaler   = &WorkflowParameter{}
+	_ json.Unmarshaler = &WorkflowParameter{}
+	_ yaml.Marshaler   = &WorkflowParameter{}
+	_ yaml.Unmarshaler = &WorkflowParameter{}
+)
+
+func (wp WorkflowParameter) MarshalJSON() ([]byte, error) {
+	m := make(map[string]interface{})
+	if wp.Description != "" {
+		m["description"] = wp.Description
+	}
+	if wp.Type != "" {
+		m["type"] = wp.Type
+	}
+	if def, ok := wp.Default(); ok {
+		m["default"] = def
+	}
+
+	return json.Marshal(m)
+}
+
+func (wp *WorkflowParameter) UnmarshalJSON(data []byte) error {
+	var wpd struct {
+		Description string      `json:"description"`
+		Type        string      `json:"type"`
+		Default     interface{} `json:"default"`
+	}
+	if err := json.Unmarshal(data, &wpd); err != nil {
+		return err
+	}
+
+	wp.Description = wpd.Description
+	wp.Type = wpd.Type
+	wp.defaultValue = wpd.Default
+
+	if wp.defaultValue != nil {
+		wp.defaultSet = true
+	} else {
+		// Need to detect whether the value is present.
+		var m map[string]interface{}
+		if err := json.Unmarshal(data, &m); err != nil {
+			return err
+		}
+
+		_, wp.defaultSet = m["default"]
+	}
+
+	return nil
+}
+
+func (wp WorkflowParameter) MarshalYAML() (interface{}, error) {
+	m := make(map[string]interface{})
+	if wp.Description != "" {
+		m["description"] = wp.Description
+	}
+	if wp.Type != "" {
+		m["type"] = wp.Type
+	}
+	if def, ok := wp.Default(); ok {
+		m["default"] = def
+	}
+
+	return m, nil
+}
+
+func (wp *WorkflowParameter) UnmarshalYAML(node *yaml.Node) error {
+	var wpd struct {
+		Description string      `yaml:"description"`
+		Type        string      `yaml:"type"`
+		Default     interface{} `yaml:"default"`
+	}
+	if err := node.Decode(&wpd); err != nil {
+		return err
+	}
+
+	wp.Description = wpd.Description
+	wp.Type = wpd.Type
+	wp.defaultValue = wpd.Default
+
+	if wp.defaultValue != nil {
+		wp.defaultSet = true
+	} else {
+		// Need to detect whether the value is present.
+		var m map[string]interface{}
+		if err := node.Decode(&m); err != nil {
+			return err
+		}
+
+		_, wp.defaultSet = m["default"]
+	}
+
+	return nil
+}
+
+func (wp *WorkflowParameter) WithDefault(value interface{}) *WorkflowParameter {
+	wp.defaultSet = true
+	wp.defaultValue = value
+	return wp
+}
+
+func (wp *WorkflowParameter) WithoutDefault() *WorkflowParameter {
+	wp.defaultSet = false
+	wp.defaultValue = nil
+	return wp
+}
+
+func (wp *WorkflowParameter) Default() (interface{}, bool) {
+	return wp.defaultValue, wp.defaultSet
 }
 
 type WorkflowRunParameters map[string]*WorkflowRunParameter
@@ -227,10 +338,9 @@ func (c *ContainerMixin) LoadInputFile(ctx context.Context, im input.FileManager
 		return err
 	}
 
-	content, gerr := ioutil.ReadAll(inputFileReader)
-	if gerr != nil {
-		return fmt.Errorf("TODO")
-		//return errors.NewWorkflowInputFileContentError().WithCause(gerr)
+	content, err := ioutil.ReadAll(inputFileReader)
+	if err != nil {
+		return err
 	}
 
 	c.Input = []string{string(content)}

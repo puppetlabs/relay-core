@@ -17,10 +17,9 @@ func validWorkflow(t *testing.T, wd *WorkflowData) {
 		APIVersion:  "v1",
 		Description: "This is a workflow",
 		Parameters: WorkflowParameters(map[string]*WorkflowParameter{
-			"hi": {
-				Default:     5,
+			"hi": (&WorkflowParameter{
 				Description: "Hello",
-			},
+			}).WithDefault(5),
 		}),
 		Steps: []*WorkflowStep{
 			{
@@ -49,8 +48,12 @@ func complicatedWorkflow(t *testing.T, wd *WorkflowData) {
 	require.Equal(t, "a more complicated workflow", wd.Description)
 
 	require.Len(t, wd.Parameters, 2)
-	require.Equal(t, "param-1-default", wd.Parameters["param-1"].Default)
-	require.Equal(t, "param-2-default", wd.Parameters["param-2"].Default)
+	val, ok := wd.Parameters["param-1"].Default()
+	require.True(t, ok)
+	require.Equal(t, "param-1-default", val)
+	val, ok = wd.Parameters["param-2"].Default()
+	require.True(t, ok)
+	require.Equal(t, "param-2-default", val)
 
 	require.Len(t, wd.Steps, 3)
 
