@@ -82,7 +82,9 @@ func (m *DefaultRunEngineMapper) ToRuntimeObjectsManifest(wd *WorkflowData) (*Ru
 
 	wp := map[string]interface{}{}
 	for k, v := range wd.Parameters {
-		wp[k] = v.Default
+		if def, ok := v.Default(); ok {
+			wp[k] = def
+		}
 	}
 
 	wrp := map[string]interface{}{}
