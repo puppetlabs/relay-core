@@ -2,6 +2,8 @@ package v1
 
 import (
 	"context"
+	"encoding/json"
+	"io/ioutil"
 	"os"
 	"testing"
 
@@ -40,4 +42,7 @@ func TestWorkflowRunEngineMapping(t *testing.T) {
 	require.Len(t, manifest.WorkflowRun.Spec.Workflow.Steps[0].Env, 2)
 
 	require.Len(t, manifest.WorkflowRun.Spec.Workflow.Parameters, 1)
+
+	require.NoError(t, json.NewEncoder(ioutil.Discard).Encode(manifest.Namespace))
+	require.NoError(t, json.NewEncoder(ioutil.Discard).Encode(manifest.WorkflowRun))
 }

@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"encoding/json"
+	"io/ioutil"
 	"net/url"
 	"testing"
 
@@ -31,4 +33,7 @@ func TestTenantEngineMapping(t *testing.T) {
 	require.NotNil(t, manifest.Tenant.Spec.TriggerEventSink)
 	require.Equal(t, u.String(), manifest.Tenant.Spec.TriggerEventSink.API.URL)
 	require.Equal(t, "test-token-secret", manifest.Tenant.Spec.TriggerEventSink.API.TokenFrom.SecretKeyRef.LocalObjectReference.Name)
+
+	require.NoError(t, json.NewEncoder(ioutil.Discard).Encode(manifest.Namespace))
+	require.NoError(t, json.NewEncoder(ioutil.Discard).Encode(manifest.Tenant))
 }
