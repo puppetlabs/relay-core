@@ -88,17 +88,14 @@ func (m *DefaultTenantEngineMapper) ToRuntimeObjectsManifest() (*TenantKubernete
 		namespace = mapNamespace(m.namespace)
 	}
 
-	labels := map[string]string{
-		AccountIDLabel:    m.id,
-		WorkflowIDLabel:   m.workflowID,
-		WorkflowNameLabel: m.workflowName,
-	}
-
 	tenant := &v1beta1.Tenant{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        name,
-			Namespace:   m.namespace,
-			Labels:      labels,
+			Name:      name,
+			Namespace: m.namespace,
+			Labels: map[string]string{
+				AccountIDLabel:  m.id,
+				WorkflowIDLabel: m.workflowID,
+			},
 			Annotations: map[string]string{},
 		},
 		Spec: v1beta1.TenantSpec{
