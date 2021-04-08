@@ -78,8 +78,7 @@ func (m *DefaultWebhookTriggerEngineMapper) ToRuntimeObjectsManifest(tenant *v1b
 			Name:      fmt.Sprintf("trigger-%s", m.id),
 			Namespace: tenant.GetNamespace(),
 			Labels: map[string]string{
-				WorkflowTriggerIDLabel:   m.id,
-				WorkflowTriggerNameLabel: m.name,
+				WorkflowTriggerIDLabel: m.id,
 			},
 			Annotations: annotations,
 			OwnerReferences: []metav1.OwnerReference{
