@@ -109,6 +109,10 @@ func (m *vaultAgentManager) getRole() string {
 	role := fmt.Sprintf("%s-%s", m.rc.Name, m.component.String())
 
 	switch m.component {
+	case componentLogService:
+		if m.rc.Spec.LogService.VaultAgentRole != nil {
+			role = *m.rc.Spec.LogService.VaultAgentRole
+		}
 	case componentOperator:
 		if m.rc.Spec.Operator.VaultAgentRole != nil {
 			role = *m.rc.Spec.Operator.VaultAgentRole
