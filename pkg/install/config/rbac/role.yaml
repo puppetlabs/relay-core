@@ -29,26 +29,11 @@ rules:
   - update
   - watch
 - apiGroups:
-  - batch
-  - extensions
-  resources:
-  - jobs
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
   - ""
   resources:
   - configmaps
   - limitranges
   - namespaces
-  - persistentvolumeclaims
-  - persistentvolumes
   - secrets
   - serviceaccounts
   - services
@@ -113,6 +98,15 @@ rules:
   - update
   - watch
 - apiGroups:
+  - pvpool.puppet.com
+  resources:
+  - checkouts
+  - checkouts/status
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - rbac.authorization.k8s.io
   resources:
   - clusterrolebindings
@@ -153,6 +147,7 @@ rules:
 - apiGroups:
   - serving.knative.dev
   resources:
+  - revisions
   - services
   verbs:
   - create

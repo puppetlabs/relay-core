@@ -51,18 +51,18 @@ type RelayCoreReconciler struct {
 
 // +kubebuilder:rbac:groups=install.relay.sh,resources=relaycores,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=install.relay.sh,resources=relaycores/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core,resources=configmaps;limitranges;serviceaccounts;services;secrets;namespaces;persistentvolumes;persistentvolumeclaims,verbs=get;list;watch;patch;create;update;delete
+// +kubebuilder:rbac:groups=core,resources=configmaps;limitranges;serviceaccounts;services;secrets;namespaces,verbs=get;list;watch;patch;create;update;delete
 // +kubebuilder:rbac:groups=core,resources=pods;pods/log,verbs=get;list;watch
 // +kubebuilder:rbac:groups=tekton.dev,resources=pipelineruns;taskruns;pipelines;tasks;conditions,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=batch;extensions,resources=jobs,verbs=get;list;watch;patch;create;update;delete
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;patch;create;update
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings,verbs=get;list;watch;patch;create;update
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles;rolebindings,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=mutatingwebhookconfiguration,verbs=get;list;watch;create;update;patch
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=networkpolicies,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=nebula.puppet.com,resources=workflowruns;workflowruns/status,verbs=get;list;watch;patch;update
+// +kubebuilder:rbac:groups=pvpool.puppet.com,resources=checkouts;checkouts/status,verbs=get;list;watch
 // +kubebuilder:rbac:groups=relay.sh,resources=tenants;tenants/status;webhooktriggers;webhooktriggers/status,verbs=get;list;watch;patch;update
-// +kubebuilder:rbac:groups=serving.knative.dev,resources=services,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=serving.knative.dev,resources=revisions;services,verbs=get;list;watch;create;update;patch;delete
 
 func (r *RelayCoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := r.Log.WithValues("relaycore", req.NamespacedName)
