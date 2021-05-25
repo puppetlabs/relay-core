@@ -1288,6 +1288,8 @@ github.com/puppetlabs/leg/jsonutil v0.2.0 h1:Hp21b/bVlEQET6PkHRXCZnUix3ujwfJuR92
 github.com/puppetlabs/leg/jsonutil v0.2.0/go.mod h1:eiLGPpySpr87IiROi0e4WZcqc7bo0ucs23sjdyOwH9Q=
 github.com/puppetlabs/leg/k8sutil v0.4.0 h1:DGGOOrJoiUte4V0o9HJu51+Zb2bzN0lHaDBIfIq9Ri8=
 github.com/puppetlabs/leg/k8sutil v0.4.0/go.mod h1:5LN5B926v3QNyCQa8IYYIoFS+4f2ak2Mg0LHdIPFQZU=
+github.com/puppetlabs/leg/k8sutil v0.4.1 h1:TDsM3ELl9vESfyhtTpOn8dRrZBjNHe9ZsjuDO1wiJjg=
+github.com/puppetlabs/leg/k8sutil v0.4.1/go.mod h1:5LN5B926v3QNyCQa8IYYIoFS+4f2ak2Mg0LHdIPFQZU=
 github.com/puppetlabs/leg/lifecycle v0.2.0 h1:WYaQF+mdW8Wy+tRHkEE9175Bhkd3zJ7i0qnOQkb+BmY=
 github.com/puppetlabs/leg/lifecycle v0.2.0/go.mod h1:QtYNNukWpkcLWZAWcM9tVxcWfqn9mULH5J3dCkMqzGk=
 github.com/puppetlabs/leg/logging v0.1.0 h1:G8M2w3izYEtoaH+d3rIJZ9iLX2oW2T/jO+J4l+T0Ieo=

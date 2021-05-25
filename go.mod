@@ -41,7 +41,7 @@ require (
 	github.com/puppetlabs/leg/httputil v0.1.4
 	github.com/puppetlabs/leg/instrumentation v0.1.4
 	github.com/puppetlabs/leg/jsonutil v0.2.0
-	github.com/puppetlabs/leg/k8sutil v0.4.0
+	github.com/puppetlabs/leg/k8sutil v0.4.1
 	github.com/puppetlabs/leg/logging v0.1.0
 	github.com/puppetlabs/leg/mainutil v0.1.2
 	github.com/puppetlabs/leg/scheduler v0.1.4
