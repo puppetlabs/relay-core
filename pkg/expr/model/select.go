@@ -8,7 +8,7 @@ import (
 	"github.com/puppetlabs/leg/gvalutil/pkg/eval"
 )
 
-func VariableSelector(ev Evaluator, u *Unresolvable) func(path gval.Evaluables) gval.Evaluable {
+func VariableSelector(ev Evaluator) func(path gval.Evaluables) gval.Evaluable {
 	return func(path gval.Evaluables) gval.Evaluable {
 		return func(ctx context.Context, v interface{}) (rv interface{}, err error) {
 			var parents []interface{}
@@ -43,7 +43,7 @@ func VariableSelector(ev Evaluator, u *Unresolvable) func(path gval.Evaluables) 
 					if err != nil {
 						return nil, err
 					} else if !nr.Complete() {
-						u.Extends(nr.Unresolvable)
+						UnresolvableFromContext(ctx).Extends(nr.Unresolvable)
 						return nil, nil
 					}
 
@@ -54,17 +54,13 @@ func VariableSelector(ev Evaluator, u *Unresolvable) func(path gval.Evaluables) 
 				}
 			}
 
-			// TODO: This is potentially resource-intensive in places where it
-			// isn't needed (e.g., unused arguments to coalesce()), but right
-			// now we sadly don't have a good workaround that also allows
-			// operators to work correctly.
-			nr, err := EvaluateAll(ctx, ev, v)
+			nr, err := ev.Evaluate(ctx, v, 1)
 			if err != nil {
 				return nil, err
 			} else if !nr.Complete() {
-				u.Extends(nr.Unresolvable)
-				// Note: no return here; we'll use the expanded value even
-				// if it's unresolvable.
+				UnresolvableFromContext(ctx).Extends(nr.Unresolvable)
+				// Note: no return here; we'll use the evaluated value even if
+				// it's unresolvable.
 			}
 
 			return nr.Value, nil

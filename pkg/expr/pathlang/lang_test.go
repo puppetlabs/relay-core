@@ -28,15 +28,19 @@ func TestExpressions(t *testing.T) {
 			"x": 1,
 			"y": 2,
 		},
+		"d": model.StaticExpandable(nil, model.Unresolvable{
+			Parameters: []model.UnresolvableParameter{{Name: "foo"}},
+		}),
 	}
 
 	fac := pathlang.NewFactory(pathlang.WithFunctionMap{Map: fnlib.Library()})
 
 	tests := []struct {
-		Name          string
-		Expression    string
-		Expected      interface{}
-		ExpectedError string
+		Name                 string
+		Expression           string
+		Expected             interface{}
+		ExpectedUnresolvable model.Unresolvable
+		ExpectedError        string
 	}{
 		{
 			Name:       "map path",
@@ -56,7 +60,18 @@ func TestExpressions(t *testing.T) {
 		{
 			Name:       "root",
 			Expression: "$",
-			Expected:   input,
+			Expected: map[string]interface{}{
+				"a": []interface{}{1, 2, 3},
+				"b": 10,
+				"c": map[string]interface{}{
+					"x": 1,
+					"y": 2,
+				},
+				"d": nil,
+			},
+			ExpectedUnresolvable: model.Unresolvable{
+				Parameters: []model.UnresolvableParameter{{Name: "foo"}},
+			},
 		},
 		{
 			Name:       "map path from root",
@@ -133,6 +148,33 @@ func TestExpressions(t *testing.T) {
 			Expression: `b * (jsonUnmarshal('{"x": 20}') |> x) + b`,
 			Expected:   float64(210),
 		},
+		{
+			Name:       "pipe dot equivalence",
+			Expression: `jsonUnmarshal('{"x": {"y": "z"}}') |> x |> y`,
+			Expected:   "z",
+		},
+		{
+			Name:       "resolvable coalesce evaluation",
+			Expression: `coalesce(c.x, d)`,
+			Expected:   1,
+		},
+		{
+			Name:       "unresolvable coalesce evaluation",
+			Expression: `coalesce(null, d)`,
+			Expected:   nil,
+		},
+		{
+			Name:       "resolvable path query",
+			Expression: `path($, 'c.x')`,
+			Expected:   1,
+		},
+		{
+			Name:       "unresolvable path query",
+			Expression: `path($, 'd.g')`,
+			ExpectedUnresolvable: model.Unresolvable{
+				Parameters: []model.UnresolvableParameter{{Name: "foo"}},
+			},
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
@@ -145,7 +187,7 @@ func TestExpressions(t *testing.T) {
 					require.Contains(t, err.Error(), test.ExpectedError)
 				} else {
 					require.NoError(t, err)
-					require.NoError(t, u.AsError())
+					require.Equal(t, test.ExpectedUnresolvable, u)
 					require.Equal(t, test.Expected, r)
 				}
 			})
@@ -159,7 +201,7 @@ func TestExpressions(t *testing.T) {
 					require.Contains(t, err.Error(), test.ExpectedError)
 				} else {
 					require.NoError(t, err)
-					require.NoError(t, u.AsError())
+					require.Equal(t, test.ExpectedUnresolvable, u)
 					require.Equal(t, test.Expected, r)
 				}
 			})

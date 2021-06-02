@@ -127,6 +127,10 @@ func (ve *visitorEvaluator) Evaluate(ctx context.Context, tree parse.Tree, depth
 		return nil, err
 	}
 
+	if depth == 0 {
+		return candidate, nil
+	}
+
 	switch candidate.Value.(type) {
 	// Valid JSON types per https://golang.org/pkg/encoding/json/:
 	case bool, float64, string, []interface{}, map[string]interface{}, nil:

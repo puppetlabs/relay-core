@@ -17,6 +17,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/expr/query"
 	"github.com/puppetlabs/relay-core/pkg/expr/resolve"
 	"github.com/puppetlabs/relay-core/pkg/expr/testutil"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -98,8 +99,8 @@ func (tt test) Run(t *testing.T) {
 		}
 	}
 
-	require.Equal(t, expected, v)
-	require.Equal(t, tt.ExpectedUnresolvable, u)
+	assert.Equal(t, expected, v)
+	assert.Equal(t, tt.ExpectedUnresolvable, u)
 }
 
 type tests []test
@@ -1066,6 +1067,28 @@ func TestEvaluate(t *testing.T) {
 					),
 				},
 			},
+		},
+		{
+			Name: "complex conditionals",
+			Data: `"${parameters.comp == outputs.baz && outputs.baz.id < 'second'}"`,
+			Opts: []evaluate.Option{
+				evaluate.WithParameterTypeResolver{
+					ParameterTypeResolver: resolve.NewMemoryParameterTypeResolver(
+						map[string]interface{}{
+							"comp": map[string]interface{}{"ip": "127.0.0.1", "id": "first"},
+						},
+					),
+				},
+				evaluate.WithOutputTypeResolver{
+					OutputTypeResolver: resolve.NewMemoryOutputTypeResolver(
+						map[resolve.MemoryOutputKey]interface{}{
+							{From: "baz", Name: "ip"}: "127.0.0.1",
+							{From: "baz", Name: "id"}: "first",
+						},
+					),
+				},
+			},
+			ExpectedValue: true,
 		},
 		{
 			Name: "encoded string",

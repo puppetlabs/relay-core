@@ -44,7 +44,28 @@ func (f *Factory) Expression(u *model.Unresolvable) gval.Language {
 	return gval.NewLanguage(
 		base,
 		ident(f.opts),
-		gval.VariableSelector(model.VariableSelector(f.opts.Evaluator, u)),
+		gval.VariableSelector(model.VariableSelector(f.opts.Evaluator)),
+		gval.Init(func(ctx context.Context, p *gval.Parser) (gval.Evaluable, error) {
+			eval, err := p.ParseExpression(ctx)
+			if err != nil {
+				return nil, err
+			}
+
+			return func(ctx context.Context, parameter interface{}) (interface{}, error) {
+				v, err := eval(model.ContextWithUnresolvable(ctx, u), parameter)
+				if err != nil {
+					return nil, err
+				}
+
+				r, err := model.EvaluateAll(ctx, f.opts.Evaluator, v)
+				if err != nil {
+					return nil, err
+				}
+
+				u.Extends(r.Unresolvable)
+				return r.Value, nil
+			}, nil
+		}),
 	)
 }
 
@@ -83,6 +104,7 @@ var base = gval.NewLanguage(
 	gval.PropositionalLogic(),
 	gval.JSON(),
 	gvalstrings.SingleQuoted(),
+	gval.Constant("null", nil),
 	gval.PrefixExtension('$', func(ctx context.Context, p *gval.Parser) (gval.Evaluable, error) {
 		switch p.Scan() {
 		case '.':
