@@ -38,11 +38,11 @@ require (
 	github.com/puppetlabs/leg/encoding v0.1.0
 	github.com/puppetlabs/leg/errmap v0.1.0
 	github.com/puppetlabs/leg/graph v0.1.1
-	github.com/puppetlabs/leg/gvalutil v0.1.0
+	github.com/puppetlabs/leg/gvalutil v0.2.0
 	github.com/puppetlabs/leg/hashutil v0.1.0
 	github.com/puppetlabs/leg/httputil v0.1.4
 	github.com/puppetlabs/leg/instrumentation v0.1.4
-	github.com/puppetlabs/leg/jsonutil v0.2.0
+	github.com/puppetlabs/leg/jsonutil v0.2.2
 	github.com/puppetlabs/leg/k8sutil v0.4.1
 	github.com/puppetlabs/leg/logging v0.1.0
 	github.com/puppetlabs/leg/mainutil v0.1.2
@@ -91,7 +91,3 @@ replace (
 	k8s.io/apimachinery => k8s.io/apimachinery v0.19.7
 	k8s.io/client-go => k8s.io/client-go v0.19.7
 )
-
-replace github.com/puppetlabs/leg/gvalutil => ../leg/gvalutil
-
-replace github.com/puppetlabs/leg/jsonutil => ../leg/jsonutil

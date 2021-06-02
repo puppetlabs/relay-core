@@ -1278,12 +1278,16 @@ github.com/puppetlabs/leg/errmap v0.1.0 h1:1oH50d/sch1kB5JuIRrLf0hg9gSr5pfAmTUc6
 github.com/puppetlabs/leg/errmap v0.1.0/go.mod h1:8oVNaeaaprDjbMYWHj5lLHsD1nsnKZbv0Jw+SjoJ6hY=
 github.com/puppetlabs/leg/graph v0.1.1 h1:S1KCLhbhNcOHpK523mKx+TVN9FdStKE1KDJSNlNOTuo=
 github.com/puppetlabs/leg/graph v0.1.1/go.mod h1:NzQn1eyixNpRC3jW8g7WRLyWeGVlTVZdOUxfU4nS0iI=
+github.com/puppetlabs/leg/gvalutil v0.2.0 h1:fwGciIthyuM1IhjNantSMn2qLWnLXbsA2mTQMIJ1qzY=
+github.com/puppetlabs/leg/gvalutil v0.2.0/go.mod h1:ESTC0hP1vGr75QDVBkxBM/IBd0LziabiSfIvnWFchkA=
 github.com/puppetlabs/leg/hashutil v0.1.0 h1:buXA4Mgm7v7/hYx3YL6RDEGbORRKMgLbjP7Jqy6HZF0=
 github.com/puppetlabs/leg/hashutil v0.1.0/go.mod h1:7Tgllir9DG8/HAIAzGeUWl79vOda2C3CcfW1dZm7PYE=
 github.com/puppetlabs/leg/httputil v0.1.4 h1:EZwi3AUwlUTV7feXuarcYokkV5gv/mASyUHtYpSuU6E=
 github.com/puppetlabs/leg/httputil v0.1.4/go.mod h1:UFUX0e6nwqrcp3v7qactusd/JHqBsRRaJL8meW5ZXW4=
 github.com/puppetlabs/leg/instrumentation v0.1.4 h1:uWRjhV/1ijL4T5uISgcWJXRb0Q9dbsCCE/rq//BhHek=
 github.com/puppetlabs/leg/instrumentation v0.1.4/go.mod h1:x6wQv38l6/tZRQHolqpL6mhnF+tjMYt4pu0MzoaM54s=
+github.com/puppetlabs/leg/jsonutil v0.2.2 h1:vjWbc4HMT7STEgavaMi9AjJoAPrn3Y4sg47xDmq/nJY=
+github.com/puppetlabs/leg/jsonutil v0.2.2/go.mod h1:CsTmPdDmiQFH6dwRs/AXHu+gBRspew+w66tCxzy9ojg=
 github.com/puppetlabs/leg/k8sutil v0.4.0 h1:DGGOOrJoiUte4V0o9HJu51+Zb2bzN0lHaDBIfIq9Ri8=
 github.com/puppetlabs/leg/k8sutil v0.4.0/go.mod h1:5LN5B926v3QNyCQa8IYYIoFS+4f2ak2Mg0LHdIPFQZU=
 github.com/puppetlabs/leg/k8sutil v0.4.1 h1:TDsM3ELl9vESfyhtTpOn8dRrZBjNHe9ZsjuDO1wiJjg=
