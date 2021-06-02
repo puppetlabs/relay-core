@@ -4,9 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/puppetlabs/leg/errmap/pkg/errmark"
 	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
-	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
 	"github.com/puppetlabs/relay-core/pkg/manager/configmap"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
@@ -20,15 +18,8 @@ func ConfigureImmutableConfigMapForWebhookTrigger(ctx context.Context, cm *corev
 	// it later.
 	lcm := configmap.NewLocalConfigMap(cm.Object)
 
-	ev := evaluate.NewEvaluator()
-
 	if len(wt.Object.Spec.Spec) > 0 {
-		r, err := ev.EvaluateAll(ctx, wt.Object.Spec.Spec.Value())
-		if err != nil {
-			return errmark.MarkUser(err)
-		}
-
-		if _, err := configmap.NewSpecManager(tm, lcm).Set(ctx, r.Value.(map[string]interface{})); err != nil {
+		if _, err := configmap.NewSpecManager(tm, lcm).Set(ctx, wt.Object.Spec.Spec.Value()); err != nil {
 			return err
 		}
 	}
@@ -38,12 +29,7 @@ func ConfigureImmutableConfigMapForWebhookTrigger(ctx context.Context, cm *corev
 
 		vars := make(map[string]interface{})
 		for name, value := range env {
-			r, err := ev.EvaluateAll(ctx, value)
-			if err != nil {
-				return errmark.MarkUser(err)
-			}
-
-			vars[name] = r.Value
+			vars[name] = value
 		}
 
 		if _, err := em.Set(ctx, vars); err != nil {
@@ -78,20 +64,13 @@ func ConfigureImmutableConfigMapForWorkflowRun(ctx context.Context, cm *corev1ob
 		}
 	}
 
-	ev := evaluate.NewEvaluator()
-
 	configMapData := make(map[string]string)
 
 	for _, step := range wr.Object.Spec.Workflow.Steps {
 		sm := ModelStep(wr, step)
 
 		if len(step.Spec) > 0 {
-			r, err := ev.EvaluateAll(ctx, step.Spec.Value())
-			if err != nil {
-				return errmark.MarkUser(err)
-			}
-
-			if _, err := configmap.NewSpecManager(sm, lcm).Set(ctx, r.Value.(map[string]interface{})); err != nil {
+			if _, err := configmap.NewSpecManager(sm, lcm).Set(ctx, step.Spec.Value()); err != nil {
 				return err
 			}
 		}
@@ -101,12 +80,7 @@ func ConfigureImmutableConfigMapForWorkflowRun(ctx context.Context, cm *corev1ob
 
 			vars := make(map[string]interface{})
 			for name, value := range env {
-				r, err := ev.EvaluateAll(ctx, value)
-				if err != nil {
-					return errmark.MarkUser(err)
-				}
-
-				vars[name] = r.Value
+				vars[name] = value
 			}
 
 			if _, err := em.Set(ctx, vars); err != nil {
@@ -115,12 +89,7 @@ func ConfigureImmutableConfigMapForWorkflowRun(ctx context.Context, cm *corev1ob
 		}
 
 		if when := step.When.Value(); when != nil {
-			r, err := ev.EvaluateAll(ctx, when)
-			if err != nil {
-				return errmark.MarkUser(err)
-			}
-
-			if _, err := configmap.NewConditionManager(sm, lcm).Set(ctx, r.Value); err != nil {
+			if _, err := configmap.NewConditionManager(sm, lcm).Set(ctx, when); err != nil {
 				return err
 			}
 		}
