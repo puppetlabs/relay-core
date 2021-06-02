@@ -8,6 +8,7 @@ type Parameter struct {
 }
 
 type ParameterGetterManager interface {
+	List(ctx context.Context) ([]*Parameter, error)
 	Get(ctx context.Context, name string) (*Parameter, error)
 }
 

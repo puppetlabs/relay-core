@@ -13,11 +13,10 @@ func TestAppend(t *testing.T) {
 	desc, err := fnlib.Library().Descriptor("append")
 	require.NoError(t, err)
 
-	invoker, err := desc.PositionalInvoker([]model.Evaluable{
-		model.StaticEvaluable([]interface{}{1, 2}),
-		model.StaticEvaluable(3),
-		model.StaticEvaluable(4),
-	})
+	invoker, err := desc.PositionalInvoker(
+		model.DefaultEvaluator,
+		[]interface{}{[]interface{}{1, 2}, 3, 4},
+	)
 	require.NoError(t, err)
 
 	r, err := invoker.Invoke(context.Background())

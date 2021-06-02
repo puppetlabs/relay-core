@@ -26,7 +26,7 @@ func TestGetSpec(t *testing.T) {
 
 	sc := &opt.SampleConfig{
 		Connections: map[memory.ConnectionKey]map[string]interface{}{
-			memory.ConnectionKey{Type: "aws", Name: "test-aws-connection"}: {
+			{Type: "aws", Name: "test-aws-connection"}: {
 				"accessKeyID":     "testaccesskey",
 				"secretAccessKey": "testsecretaccesskey",
 			},
@@ -35,12 +35,12 @@ func TestGetSpec(t *testing.T) {
 			"test-secret-key": "test-secret-value",
 		},
 		Runs: map[string]*opt.SampleConfigRun{
-			"test": &opt.SampleConfigRun{
+			"test": {
 				Parameters: map[string]interface{}{
 					"nice-parameter": "nice-value",
 				},
 				Steps: map[string]*opt.SampleConfigStep{
-					"previous-task": &opt.SampleConfigStep{
+					"previous-task": {
 						Outputs: map[string]interface{}{
 							"test-output-key": "test-output-value",
 							"test-structured-output-key": map[string]interface{}{
@@ -49,7 +49,7 @@ func TestGetSpec(t *testing.T) {
 							},
 						},
 					},
-					"current-task": &opt.SampleConfigStep{
+					"current-task": {
 						Spec: opt.SampleConfigSpec{
 							"superParameter": serialize.YAMLTree{
 								Tree: sdktestutil.JSONParameter("nice-parameter"),
@@ -74,6 +74,9 @@ func TestGetSpec(t *testing.T) {
 							},
 							"superNormal": serialize.YAMLTree{
 								Tree: "test-normal-value",
+							},
+							"superExpansion": serialize.YAMLTree{
+								Tree: "${$}",
 							},
 						},
 					},
@@ -118,6 +121,31 @@ func TestGetSpec(t *testing.T) {
 			"merge":           "me",
 		},
 		"superNormal": "test-normal-value",
+		"superExpansion": map[string]interface{}{
+			"connections": map[string]interface{}{
+				"aws": map[string]interface{}{
+					"test-aws-connection": map[string]interface{}{
+						"accessKeyID":     "testaccesskey",
+						"secretAccessKey": "testsecretaccesskey",
+					},
+				},
+			},
+			"outputs": map[string]interface{}{
+				"previous-task": map[string]interface{}{
+					"test-output-key": "test-output-value",
+					"test-structured-output-key": map[string]interface{}{
+						"a":       "value",
+						"another": "thing",
+					},
+				},
+			},
+			"parameters": map[string]interface{}{
+				"nice-parameter": "nice-value",
+			},
+			"secrets": map[string]interface{}{
+				"test-secret-key": "test-secret-value",
+			},
+		},
 	}, r.Value.Data)
 	require.True(t, r.Complete)
 

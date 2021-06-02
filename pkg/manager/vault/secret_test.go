@@ -30,5 +30,10 @@ func TestSecretManager(t *testing.T) {
 
 		_, err = sm.Get(ctx, "nonexistent")
 		require.Equal(t, model.ErrNotFound, err)
+
+		secs, err := sm.List(ctx)
+		require.NoError(t, err)
+		require.Len(t, secs, 1)
+		require.Contains(t, secs, &model.Secret{Name: "bar", Value: "baz"})
 	})
 }

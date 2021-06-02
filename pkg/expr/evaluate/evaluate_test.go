@@ -8,11 +8,13 @@ import (
 	"testing"
 
 	"github.com/puppetlabs/leg/encoding/transfer"
-	"github.com/puppetlabs/leg/jsonutil/pkg/jsonpath"
+	"github.com/puppetlabs/leg/gvalutil/pkg/eval"
+	"github.com/puppetlabs/leg/gvalutil/pkg/template"
 	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
 	"github.com/puppetlabs/relay-core/pkg/expr/fn"
 	"github.com/puppetlabs/relay-core/pkg/expr/model"
 	"github.com/puppetlabs/relay-core/pkg/expr/parse"
+	"github.com/puppetlabs/relay-core/pkg/expr/query"
 	"github.com/puppetlabs/relay-core/pkg/expr/resolve"
 	"github.com/puppetlabs/relay-core/pkg/expr/testutil"
 	"github.com/stretchr/testify/require"
@@ -25,6 +27,7 @@ type test struct {
 	Data                 string
 	Opts                 []evaluate.Option
 	Depth                int
+	QueryLanguage        query.Language
 	Query                string
 	Into                 interface{}
 	ExpectedValue        interface{}
@@ -33,6 +36,8 @@ type test struct {
 }
 
 func (tt test) Run(t *testing.T) {
+	ctx := context.Background()
+
 	tree, err := parse.ParseJSONString(tt.Data)
 	require.NoError(t, err)
 
@@ -49,7 +54,12 @@ func (tt test) Run(t *testing.T) {
 	var v interface{}
 	var u model.Unresolvable
 	if tt.Query != "" {
-		r, err := ev.EvaluateQuery(context.Background(), tree, tt.Query)
+		lang := tt.QueryLanguage
+		if lang == nil {
+			lang = query.PathLanguage()
+		}
+
+		r, err := query.EvaluateQuery(ctx, ev, lang, tree, tt.Query)
 		check(t, err)
 
 		if r != nil {
@@ -57,7 +67,7 @@ func (tt test) Run(t *testing.T) {
 			u = r.Unresolvable
 		}
 	} else if tt.Into != nil {
-		u, err = ev.EvaluateInto(context.Background(), tree, tt.Into)
+		u, err = model.EvaluateInto(ctx, ev, tree, tt.Into)
 		check(t, err)
 
 		v = tt.Into
@@ -67,7 +77,7 @@ func (tt test) Run(t *testing.T) {
 			depth = -1
 		}
 
-		r, err := ev.Evaluate(context.Background(), tree, depth)
+		r, err := ev.Evaluate(ctx, tree, depth)
 		check(t, err)
 
 		if r != nil {
@@ -101,22 +111,20 @@ func (tts tests) RunAll(t *testing.T) {
 }
 
 func TestEvaluate(t *testing.T) {
-	fns := resolve.NewMemoryInvocationResolver(
-		fn.NewMap(map[string]fn.Descriptor{
-			"foo": fn.DescriptorFuncs{
-				PositionalInvokerFunc: func(args []model.Evaluable) (fn.Invoker, error) {
-					return fn.EvaluatedPositionalInvoker(args, func(ctx context.Context, args []interface{}) (interface{}, error) {
-						return fmt.Sprintf("~~%v~~", args), nil
-					}), nil
-				},
-				KeywordInvokerFunc: func(args map[string]model.Evaluable) (fn.Invoker, error) {
-					return fn.EvaluatedKeywordInvoker(args, func(ctx context.Context, args map[string]interface{}) (interface{}, error) {
-						return fmt.Sprintf("~~%v~~", args["whiz"]), nil
-					}), nil
-				},
+	fns := fn.NewMap(map[string]fn.Descriptor{
+		"foo": fn.DescriptorFuncs{
+			PositionalInvokerFunc: func(ev model.Evaluator, args []interface{}) (fn.Invoker, error) {
+				return fn.EvaluatedPositionalInvoker(ev, args, func(ctx context.Context, args []interface{}) (interface{}, error) {
+					return fmt.Sprintf("~~%v~~", args), nil
+				}), nil
 			},
-		}),
-	)
+			KeywordInvokerFunc: func(ev model.Evaluator, args map[string]interface{}) (fn.Invoker, error) {
+				return fn.EvaluatedKeywordInvoker(ev, args, func(ctx context.Context, args map[string]interface{}) (interface{}, error) {
+					return fmt.Sprintf("~~%v~~", args["whiz"]), nil
+				}), nil
+			},
+		},
+	})
 
 	tests{
 		{
@@ -125,14 +133,29 @@ func TestEvaluate(t *testing.T) {
 			ExpectedValue: map[string]interface{}{"foo": "bar"},
 		},
 		{
-			Name: "unresolvable data",
+			Name: "invalid data resolver",
 			Data: `{"baz": {"$type": "Data", "query": "foo.bar"}}`,
-			ExpectedValue: map[string]interface{}{
-				"baz": testutil.JSONData("foo.bar"),
+			ExpectedError: &model.PathEvaluationError{
+				Path: "baz",
+				Cause: &evaluate.InvalidTypeError{
+					Type:  "Data",
+					Cause: &evaluate.DataResolverNotFoundError{},
+				},
 			},
-			ExpectedUnresolvable: model.Unresolvable{
-				Data: []model.UnresolvableData{
-					{Query: "foo.bar"},
+		},
+		{
+			Name: "invalid data resolver in template",
+			Data: `{"baz": "${event.foo.bar}"}`,
+			ExpectedError: &model.PathEvaluationError{
+				Path: "baz",
+				Cause: &template.EvaluationError{
+					Start: "${",
+					Cause: &model.PathEvaluationError{
+						Path: "event",
+						Cause: &eval.UnknownKeyError{
+							Key: "event",
+						},
+					},
 				},
 			},
 		},
@@ -141,6 +164,18 @@ func TestEvaluate(t *testing.T) {
 			Data: `{"foo": {"$type": "Secret", "name": "bar"}}`,
 			ExpectedValue: map[string]interface{}{
 				"foo": testutil.JSONSecret("bar"),
+			},
+			ExpectedUnresolvable: model.Unresolvable{
+				Secrets: []model.UnresolvableSecret{
+					{Name: "bar"},
+				},
+			},
+		},
+		{
+			Name: "unresolvable secret in template",
+			Data: `{"foo": "${secrets.bar}"}`,
+			ExpectedValue: map[string]interface{}{
+				"foo": "${secrets.bar}",
 			},
 			ExpectedUnresolvable: model.Unresolvable{
 				Secrets: []model.UnresolvableSecret{
@@ -161,10 +196,34 @@ func TestEvaluate(t *testing.T) {
 			},
 		},
 		{
+			Name: "unresolvable connection in template",
+			Data: `{"foo": "${connections.blort.bar}"}`,
+			ExpectedValue: map[string]interface{}{
+				"foo": "${connections.blort.bar}",
+			},
+			ExpectedUnresolvable: model.Unresolvable{
+				Connections: []model.UnresolvableConnection{
+					{Type: "blort", Name: "bar"},
+				},
+			},
+		},
+		{
 			Name: "unresolvable output",
 			Data: `{"foo": {"$type": "Output", "from": "baz", "name": "bar"}}`,
 			ExpectedValue: map[string]interface{}{
 				"foo": testutil.JSONOutput("baz", "bar"),
+			},
+			ExpectedUnresolvable: model.Unresolvable{
+				Outputs: []model.UnresolvableOutput{
+					{From: "baz", Name: "bar"},
+				},
+			},
+		},
+		{
+			Name: "unresolvable output in template",
+			Data: `{"foo": "${outputs.baz.bar}"}`,
+			ExpectedValue: map[string]interface{}{
+				"foo": "${outputs.baz.bar}",
 			},
 			ExpectedUnresolvable: model.Unresolvable{
 				Outputs: []model.UnresolvableOutput{
@@ -185,11 +244,23 @@ func TestEvaluate(t *testing.T) {
 			},
 		},
 		{
+			Name: "unresolvable parameter in template",
+			Data: `{"foo": "${parameters.bar}"}`,
+			ExpectedValue: map[string]interface{}{
+				"foo": "${parameters.bar}",
+			},
+			ExpectedUnresolvable: model.Unresolvable{
+				Parameters: []model.UnresolvableParameter{
+					{Name: "bar"},
+				},
+			},
+		},
+		{
 			Name: "invalid data",
 			Data: `{"foo": [{"$type": "Data"}]}`,
-			ExpectedError: &evaluate.PathEvaluationError{
+			ExpectedError: &model.PathEvaluationError{
 				Path: "foo",
-				Cause: &evaluate.PathEvaluationError{
+				Cause: &model.PathEvaluationError{
 					Path: "0",
 					Cause: &evaluate.InvalidTypeError{
 						Type:  "Data",
@@ -201,9 +272,9 @@ func TestEvaluate(t *testing.T) {
 		{
 			Name: "invalid secret",
 			Data: `{"foo": [{"$type": "Secret"}]}`,
-			ExpectedError: &evaluate.PathEvaluationError{
+			ExpectedError: &model.PathEvaluationError{
 				Path: "foo",
-				Cause: &evaluate.PathEvaluationError{
+				Cause: &model.PathEvaluationError{
 					Path: "0",
 					Cause: &evaluate.InvalidTypeError{
 						Type:  "Secret",
@@ -215,9 +286,9 @@ func TestEvaluate(t *testing.T) {
 		{
 			Name: "invalid connection",
 			Data: `{"foo": [{"$type": "Connection", "name": "foo"}]}`,
-			ExpectedError: &evaluate.PathEvaluationError{
+			ExpectedError: &model.PathEvaluationError{
 				Path: "foo",
-				Cause: &evaluate.PathEvaluationError{
+				Cause: &model.PathEvaluationError{
 					Path: "0",
 					Cause: &evaluate.InvalidTypeError{
 						Type:  "Connection",
@@ -229,9 +300,9 @@ func TestEvaluate(t *testing.T) {
 		{
 			Name: "invalid output",
 			Data: `{"foo": [{"$type": "Output", "name": "foo"}]}`,
-			ExpectedError: &evaluate.PathEvaluationError{
+			ExpectedError: &model.PathEvaluationError{
 				Path: "foo",
-				Cause: &evaluate.PathEvaluationError{
+				Cause: &model.PathEvaluationError{
 					Path: "0",
 					Cause: &evaluate.InvalidTypeError{
 						Type:  "Output",
@@ -243,9 +314,9 @@ func TestEvaluate(t *testing.T) {
 		{
 			Name: "invalid parameter",
 			Data: `{"foo": [{"$type": "Parameter"}]}`,
-			ExpectedError: &evaluate.PathEvaluationError{
+			ExpectedError: &model.PathEvaluationError{
 				Path: "foo",
-				Cause: &evaluate.PathEvaluationError{
+				Cause: &model.PathEvaluationError{
 					Path: "0",
 					Cause: &evaluate.InvalidTypeError{
 						Type:  "Parameter",
@@ -257,9 +328,9 @@ func TestEvaluate(t *testing.T) {
 		{
 			Name: "invalid encoding",
 			Data: `{"foo": [{"$encoding": "base32", "data": "nooo"}]}`,
-			ExpectedError: &evaluate.PathEvaluationError{
+			ExpectedError: &model.PathEvaluationError{
 				Path: "foo",
-				Cause: &evaluate.PathEvaluationError{
+				Cause: &model.PathEvaluationError{
 					Path: "0",
 					Cause: &evaluate.InvalidEncodingError{
 						Type:  "base32",
@@ -274,16 +345,19 @@ func TestEvaluate(t *testing.T) {
 				"data": {"$type": "Data", "query": "fo{o.b}ar"}
 			}`,
 			Opts: []evaluate.Option{
-				evaluate.WithDataTypeResolver(resolve.NewMemoryDataTypeResolver(
-					map[string]interface{}{"foo": map[string]string{"bar": "baz"}},
-				)),
+				evaluate.WithDataTypeResolver{
+					DataTypeResolver: resolve.NewMemoryDataTypeResolver(
+						map[string]interface{}{"foo": map[string]string{"bar": "baz"}},
+					),
+				},
 			},
-			ExpectedError: &evaluate.PathEvaluationError{
+			ExpectedError: &model.PathEvaluationError{
 				Path: "data",
 				Cause: &evaluate.InvalidTypeError{
 					Type: "Data",
-					Cause: &model.DataQueryError{
+					Cause: &evaluate.DataQueryError{
 						Query: "fo{o.b}ar",
+						Cause: fmt.Errorf("parsing error: fo{o.b}ar\t:1:3 - 1:4 unexpected \"{\" while scanning operator"),
 					},
 				},
 			},
@@ -301,6 +375,18 @@ func TestEvaluate(t *testing.T) {
 			},
 		},
 		{
+			Name: "unresolvable invocation in template",
+			Data: `{"foo": "${foo('bar')}"}`,
+			ExpectedValue: map[string]interface{}{
+				"foo": "${foo('bar')}",
+			},
+			ExpectedUnresolvable: model.Unresolvable{
+				Invocations: []model.UnresolvableInvocation{
+					{Name: "foo", Cause: fn.ErrFunctionNotFound},
+				},
+			},
+		},
+		{
 			Name: "many unresolvable",
 			Data: `{
 				"a": {"$type": "Secret", "name": "foo"},
@@ -309,8 +395,7 @@ func TestEvaluate(t *testing.T) {
 				"d": {"$fn.foo": "bar"},
 				"e": "hello",
 				"f": {"$type": "Answer", "askRef": "baz", "name": "bar"},
-				"g": {"$type": "Data", "query": "foo.bar"},
-				"h": {"$type": "Connection", "type": "blort", "name": "bar"}
+				"g": {"$type": "Connection", "type": "blort", "name": "bar"}
 			}`,
 			ExpectedValue: map[string]interface{}{
 				"a": testutil.JSONSecret("foo"),
@@ -319,8 +404,7 @@ func TestEvaluate(t *testing.T) {
 				"d": testutil.JSONInvocation("foo", "bar"),
 				"e": "hello",
 				"f": testutil.JSONAnswer("baz", "bar"),
-				"g": testutil.JSONData("foo.bar"),
-				"h": testutil.JSONConnection("blort", "bar"),
+				"g": testutil.JSONConnection("blort", "bar"),
 			},
 			ExpectedUnresolvable: model.Unresolvable{
 				Secrets: []model.UnresolvableSecret{
@@ -338,8 +422,41 @@ func TestEvaluate(t *testing.T) {
 				Answers: []model.UnresolvableAnswer{
 					{AskRef: "baz", Name: "bar"},
 				},
-				Data: []model.UnresolvableData{
-					{Query: "foo.bar"},
+				Connections: []model.UnresolvableConnection{
+					{Type: "blort", Name: "bar"},
+				},
+			},
+		},
+		{
+			Name: "many unresolvable in template",
+			Data: `{
+				"a": "${secrets.foo}",
+				"b": "${outputs.baz.bar}",
+				"c": "${parameters.quux}",
+				"d": "${foo('bar')}",
+				"e": "hello",
+				"g": "${connections.blort.bar}"
+			}`,
+			ExpectedValue: map[string]interface{}{
+				"a": "${secrets.foo}",
+				"b": "${outputs.baz.bar}",
+				"c": "${parameters.quux}",
+				"d": "${foo('bar')}",
+				"e": "hello",
+				"g": "${connections.blort.bar}",
+			},
+			ExpectedUnresolvable: model.Unresolvable{
+				Secrets: []model.UnresolvableSecret{
+					{Name: "foo"},
+				},
+				Outputs: []model.UnresolvableOutput{
+					{From: "baz", Name: "bar"},
+				},
+				Parameters: []model.UnresolvableParameter{
+					{Name: "quux"},
+				},
+				Invocations: []model.UnresolvableInvocation{
+					{Name: "foo", Cause: fn.ErrFunctionNotFound},
 				},
 				Connections: []model.UnresolvableConnection{
 					{Type: "blort", Name: "bar"},
@@ -371,6 +488,30 @@ func TestEvaluate(t *testing.T) {
 			},
 		},
 		{
+			Name: "unresolvable at depth in template",
+			Data: `{
+				"foo": [
+					{"a": "${secrets.foo}"},
+					"${parameters.bar}"
+				],
+				"bar": "${parameters.frob}"
+			}`,
+			Depth: 3,
+			ExpectedValue: map[string]interface{}{
+				"foo": []interface{}{
+					map[string]interface{}{"a": "${secrets.foo}"},
+					"${parameters.bar}",
+				},
+				"bar": "${parameters.frob}",
+			},
+			ExpectedUnresolvable: model.Unresolvable{
+				Parameters: []model.UnresolvableParameter{
+					{Name: "bar"},
+					{Name: "frob"},
+				},
+			},
+		},
+		{
 			Name: "resolvable",
 			Data: `{
 				"a": {"$type": "Secret", "name": "foo"},
@@ -383,31 +524,43 @@ func TestEvaluate(t *testing.T) {
 				"h": {"$type": "Connection", "type": "blort", "name": "bar"}
 			}`,
 			Opts: []evaluate.Option{
-				evaluate.WithSecretTypeResolver(resolve.NewMemorySecretTypeResolver(
-					map[string]string{"foo": "v3ry s3kr3t!"},
-				)),
-				evaluate.WithOutputTypeResolver(resolve.NewMemoryOutputTypeResolver(
-					map[resolve.MemoryOutputKey]interface{}{
-						{From: "baz", Name: "bar"}: "127.0.0.1",
-					},
-				)),
-				evaluate.WithParameterTypeResolver(resolve.NewMemoryParameterTypeResolver(
-					map[string]interface{}{"quux": []interface{}{1, 2, 3}},
-				)),
-				evaluate.WithInvocationResolver(fns),
-				evaluate.WithAnswerTypeResolver(resolve.NewMemoryAnswerTypeResolver(
-					map[resolve.MemoryAnswerKey]interface{}{
-						{AskRef: "baz", Name: "bar"}: "approved",
-					},
-				)),
-				evaluate.WithDataTypeResolver(resolve.NewMemoryDataTypeResolver(
-					map[string]interface{}{"foo": map[string]string{"bar": "baz"}},
-				)),
-				evaluate.WithConnectionTypeResolver(resolve.NewMemoryConnectionTypeResolver(
-					map[resolve.MemoryConnectionKey]interface{}{
-						{Type: "blort", Name: "bar"}: map[string]interface{}{"bar": "blort"},
-					},
-				)),
+				evaluate.WithSecretTypeResolver{
+					SecretTypeResolver: resolve.NewMemorySecretTypeResolver(map[string]string{"foo": "v3ry s3kr3t!"}),
+				},
+				evaluate.WithOutputTypeResolver{
+					OutputTypeResolver: resolve.NewMemoryOutputTypeResolver(
+						map[resolve.MemoryOutputKey]interface{}{
+							{From: "baz", Name: "bar"}: "127.0.0.1",
+						},
+					),
+				},
+				evaluate.WithParameterTypeResolver{
+					ParameterTypeResolver: resolve.NewMemoryParameterTypeResolver(
+						map[string]interface{}{"quux": []interface{}{1, 2, 3}},
+					),
+				},
+				evaluate.WithFunctionMap{Map: fns},
+				evaluate.WithAnswerTypeResolver{
+					AnswerTypeResolver: resolve.NewMemoryAnswerTypeResolver(
+						map[resolve.MemoryAnswerKey]interface{}{
+							{AskRef: "baz", Name: "bar"}: "approved",
+						},
+					),
+				},
+				evaluate.WithDataTypeResolver{
+					Name:    "event",
+					Default: true,
+					DataTypeResolver: resolve.NewMemoryDataTypeResolver(
+						map[string]interface{}{"foo": map[string]interface{}{"bar": "baz"}},
+					),
+				},
+				evaluate.WithConnectionTypeResolver{
+					ConnectionTypeResolver: resolve.NewMemoryConnectionTypeResolver(
+						map[resolve.MemoryConnectionKey]interface{}{
+							{Type: "blort", Name: "bar"}: map[string]interface{}{"bar": "blort"},
+						},
+					),
+				},
 			},
 			ExpectedValue: map[string]interface{}{
 				"a": "v3ry s3kr3t!",
@@ -421,6 +574,126 @@ func TestEvaluate(t *testing.T) {
 			},
 		},
 		{
+			Name: "resolvable in template",
+			Data: `{
+				"a": "${secrets.foo}",
+				"b": "${outputs.baz.bar}",
+				"c": "${parameters.quux}",
+				"d": "${foo('bar')}",
+				"e": "hello",
+				"g": "${event.foo.bar}",
+				"h": "${connections.blort.bar}"
+			}`,
+			Opts: []evaluate.Option{
+				evaluate.WithSecretTypeResolver{
+					SecretTypeResolver: resolve.NewMemorySecretTypeResolver(map[string]string{"foo": "v3ry s3kr3t!"}),
+				},
+				evaluate.WithOutputTypeResolver{
+					OutputTypeResolver: resolve.NewMemoryOutputTypeResolver(
+						map[resolve.MemoryOutputKey]interface{}{
+							{From: "baz", Name: "bar"}: "127.0.0.1",
+						},
+					),
+				},
+				evaluate.WithParameterTypeResolver{
+					ParameterTypeResolver: resolve.NewMemoryParameterTypeResolver(
+						map[string]interface{}{"quux": []interface{}{1, 2, 3}},
+					),
+				},
+				evaluate.WithFunctionMap{Map: fns},
+				evaluate.WithDataTypeResolver{
+					Name: "event",
+					DataTypeResolver: resolve.NewMemoryDataTypeResolver(
+						map[string]interface{}{"foo": map[string]interface{}{"bar": "baz"}},
+					),
+				},
+				evaluate.WithConnectionTypeResolver{
+					ConnectionTypeResolver: resolve.NewMemoryConnectionTypeResolver(
+						map[resolve.MemoryConnectionKey]interface{}{
+							{Type: "blort", Name: "bar"}: map[string]interface{}{"bar": "blort"},
+						},
+					),
+				},
+			},
+			ExpectedValue: map[string]interface{}{
+				"a": "v3ry s3kr3t!",
+				"b": "127.0.0.1",
+				"c": []interface{}{1, 2, 3},
+				"d": "~~[bar]~~",
+				"e": "hello",
+				"g": "baz",
+				"h": map[string]interface{}{"bar": "blort"},
+			},
+		},
+		{
+			Name: "resolvable expansion in template",
+			Data: `{
+				"foo": "${$}"
+			}`,
+			Opts: []evaluate.Option{
+				evaluate.WithSecretTypeResolver{
+					SecretTypeResolver: resolve.NewMemorySecretTypeResolver(map[string]string{"foo": "v3ry s3kr3t!"}),
+				},
+				evaluate.WithOutputTypeResolver{
+					OutputTypeResolver: resolve.NewMemoryOutputTypeResolver(
+						map[resolve.MemoryOutputKey]interface{}{
+							{From: "baz", Name: "bar"}: "127.0.0.1",
+						},
+					),
+				},
+				evaluate.WithParameterTypeResolver{
+					ParameterTypeResolver: resolve.NewMemoryParameterTypeResolver(
+						map[string]interface{}{"quux": []interface{}{1, 2, 3}},
+					),
+				},
+				evaluate.WithFunctionMap{Map: fns},
+				evaluate.WithDataTypeResolver{
+					Name: "event",
+					DataTypeResolver: resolve.NewMemoryDataTypeResolver(
+						map[string]interface{}{"foo": map[string]interface{}{"bar": "baz"}},
+					),
+				},
+				evaluate.WithConnectionTypeResolver{
+					ConnectionTypeResolver: resolve.NewMemoryConnectionTypeResolver(
+						map[resolve.MemoryConnectionKey]interface{}{
+							{Type: "blort", Name: "bar"}:  map[string]interface{}{"bar": "blort"},
+							{Type: "zup", Name: "bar"}:    map[string]interface{}{"waz": "mux"},
+							{Type: "blort", Name: "wish"}: map[string]interface{}{"sim": "jax"},
+						},
+					),
+				},
+			},
+			ExpectedValue: map[string]interface{}{
+				"foo": map[string]interface{}{
+					"secrets": map[string]interface{}{
+						"foo": "v3ry s3kr3t!",
+					},
+					"outputs": map[string]interface{}{
+						"baz": map[string]interface{}{
+							"bar": "127.0.0.1",
+						},
+					},
+					"parameters": map[string]interface{}{
+						"quux": []interface{}{1, 2, 3},
+					},
+					"event": map[string]interface{}{
+						"foo": map[string]interface{}{
+							"bar": "baz",
+						},
+					},
+					"connections": map[string]interface{}{
+						"blort": map[string]interface{}{
+							"bar":  map[string]interface{}{"bar": "blort"},
+							"wish": map[string]interface{}{"sim": "jax"},
+						},
+						"zup": map[string]interface{}{
+							"bar": map[string]interface{}{"waz": "mux"},
+						},
+					},
+				},
+			},
+		},
+		{
 			Name: "nested resolvable",
 			Data: `{
 				"aws": {
@@ -430,12 +703,16 @@ func TestEvaluate(t *testing.T) {
 				"instanceID": {"$type": "Parameter", "name": "instanceID"}
 			}`,
 			Opts: []evaluate.Option{
-				evaluate.WithSecretTypeResolver(resolve.NewMemorySecretTypeResolver(
-					map[string]string{"accessKeyID": "AKIANOAHISCOOL", "secretAccessKey": "abcdefs3cr37s"},
-				)),
-				evaluate.WithParameterTypeResolver(resolve.NewMemoryParameterTypeResolver(
-					map[string]interface{}{"instanceID": "i-abcdef123456"},
-				)),
+				evaluate.WithSecretTypeResolver{
+					SecretTypeResolver: resolve.NewMemorySecretTypeResolver(
+						map[string]string{"accessKeyID": "AKIANOAHISCOOL", "secretAccessKey": "abcdefs3cr37s"},
+					),
+				},
+				evaluate.WithParameterTypeResolver{
+					ParameterTypeResolver: resolve.NewMemoryParameterTypeResolver(
+						map[string]interface{}{"instanceID": "i-abcdef123456"},
+					),
+				},
 			},
 			ExpectedValue: map[string]interface{}{
 				"aws": map[string]interface{}{
@@ -446,14 +723,120 @@ func TestEvaluate(t *testing.T) {
 			},
 		},
 		{
+			Name: "nested resolvable in template",
+			Data: `{
+				"aws": {
+					"accessKeyID": "${secrets.accessKeyID}",
+					"secretAccessKey": "${secrets.secretAccessKey}"
+				},
+				"instanceID": "${parameters.instanceID}"
+			}`,
+			Opts: []evaluate.Option{
+				evaluate.WithSecretTypeResolver{
+					SecretTypeResolver: resolve.NewMemorySecretTypeResolver(
+						map[string]string{"accessKeyID": "AKIANOAHISCOOL", "secretAccessKey": "abcdefs3cr37s"},
+					),
+				},
+				evaluate.WithParameterTypeResolver{
+					ParameterTypeResolver: resolve.NewMemoryParameterTypeResolver(
+						map[string]interface{}{"instanceID": "i-abcdef123456"},
+					),
+				},
+			},
+			ExpectedValue: map[string]interface{}{
+				"aws": map[string]interface{}{
+					"accessKeyID":     "AKIANOAHISCOOL",
+					"secretAccessKey": "abcdefs3cr37s",
+				},
+				"instanceID": "i-abcdef123456",
+			},
+		},
+		{
+			Name: "resolvable parameter traversal",
+			Data: `{
+				"accessKeyID": "${parameters.aws.accessKeyID}"
+			}`,
+			Opts: []evaluate.Option{
+				evaluate.WithParameterTypeResolver{
+					ParameterTypeResolver: resolve.NewMemoryParameterTypeResolver(
+						map[string]interface{}{"aws": map[string]interface{}{"accessKeyID": "foo", "secretAccessKey": "bar"}},
+					),
+				},
+			},
+			ExpectedValue: map[string]interface{}{
+				"accessKeyID": "foo",
+			},
+		},
+		{
+			Name: "resolvable output traversal",
+			Data: `{
+				"test": "${outputs.baz.bar.b[1]}"
+			}`,
+			Opts: []evaluate.Option{
+				evaluate.WithOutputTypeResolver{
+					OutputTypeResolver: resolve.NewMemoryOutputTypeResolver(
+						map[resolve.MemoryOutputKey]interface{}{
+							{From: "baz", Name: "bar"}: map[string]interface{}{
+								"a": "test",
+								"b": []interface{}{"c", "d"},
+							},
+						},
+					),
+				},
+			},
+			ExpectedValue: map[string]interface{}{
+				"test": "d",
+			},
+		},
+		{
 			Name: "resolvable parameter in invocation argument",
 			Data: `{
 				"aws": {"$fn.jsonUnmarshal": {"$type": "Parameter", "name": "aws"}}
 			}`,
 			Opts: []evaluate.Option{
-				evaluate.WithParameterTypeResolver(resolve.NewMemoryParameterTypeResolver(
-					map[string]interface{}{"aws": `{"accessKeyID": "foo", "secretAccessKey": "bar"}`},
-				)),
+				evaluate.WithParameterTypeResolver{
+					ParameterTypeResolver: resolve.NewMemoryParameterTypeResolver(
+						map[string]interface{}{"aws": `{"accessKeyID": "foo", "secretAccessKey": "bar"}`},
+					),
+				},
+			},
+			ExpectedValue: map[string]interface{}{
+				"aws": map[string]interface{}{
+					"accessKeyID":     "foo",
+					"secretAccessKey": "bar",
+				},
+			},
+		},
+		{
+			Name: "resolvable parameter in invocation argument in partial template",
+			Data: `{
+				"aws": {"$fn.jsonUnmarshal": "${parameters.aws}"}
+			}`,
+			Opts: []evaluate.Option{
+				evaluate.WithParameterTypeResolver{
+					ParameterTypeResolver: resolve.NewMemoryParameterTypeResolver(
+						map[string]interface{}{"aws": `{"accessKeyID": "foo", "secretAccessKey": "bar"}`},
+					),
+				},
+			},
+			ExpectedValue: map[string]interface{}{
+				"aws": map[string]interface{}{
+					"accessKeyID":     "foo",
+					"secretAccessKey": "bar",
+				},
+			},
+		},
+		{
+			Name: "resolvable parameter in invocation argument in template",
+			Data: `{
+				"aws": "${jsonUnmarshal(parameters.aws)}"
+			}`,
+			Opts: []evaluate.Option{
+				evaluate.WithParameterTypeResolver{
+					ParameterTypeResolver: resolve.NewMemoryParameterTypeResolver(
+						map[string]interface{}{"aws": `{"accessKeyID": "foo", "secretAccessKey": "bar"}`},
+					),
+				},
 			},
 			ExpectedValue: map[string]interface{}{
 				"aws": map[string]interface{}{
@@ -469,6 +852,34 @@ func TestEvaluate(t *testing.T) {
 			}`,
 			ExpectedValue: map[string]interface{}{
 				"aws": testutil.JSONInvocation("jsonUnmarshal", []interface{}{testutil.JSONParameter("aws")}),
+			},
+			ExpectedUnresolvable: model.Unresolvable{
+				Parameters: []model.UnresolvableParameter{
+					{Name: "aws"},
+				},
+			},
+		},
+		{
+			Name: "unresolvable parameter in invocation argument in partial template",
+			Data: `{
+				"aws": {"$fn.jsonUnmarshal": "${parameters.aws}"}
+			}`,
+			ExpectedValue: map[string]interface{}{
+				"aws": testutil.JSONInvocation("jsonUnmarshal", []interface{}{"${parameters.aws}"}),
+			},
+			ExpectedUnresolvable: model.Unresolvable{
+				Parameters: []model.UnresolvableParameter{
+					{Name: "aws"},
+				},
+			},
+		},
+		{
+			Name: "unresolvable parameter in invocation argument in template",
+			Data: `{
+				"aws": "${jsonUnmarshal(parameters.aws)}"
+			}`,
+			ExpectedValue: map[string]interface{}{
+				"aws": "${jsonUnmarshal(parameters.aws)}",
 			},
 			ExpectedUnresolvable: model.Unresolvable{
 				Parameters: []model.UnresolvableParameter{
@@ -493,9 +904,61 @@ func TestEvaluate(t *testing.T) {
 				}),
 			},
 			Opts: []evaluate.Option{
-				evaluate.WithParameterTypeResolver(resolve.NewMemoryParameterTypeResolver(
-					map[string]interface{}{"first": "bar"},
-				)),
+				evaluate.WithParameterTypeResolver{
+					ParameterTypeResolver: resolve.NewMemoryParameterTypeResolver(
+						map[string]interface{}{"first": "bar"},
+					),
+				},
+			},
+			ExpectedUnresolvable: model.Unresolvable{
+				Parameters: []model.UnresolvableParameter{
+					{Name: "second"},
+				},
+			},
+		},
+		{
+			Name: "partially resolvable invocation in partial template",
+			Data: `{
+				"foo": {
+					"$fn.concat": [
+						"${parameters.first}",
+						"${parameters.second}"
+					]
+				}
+			}`,
+			ExpectedValue: map[string]interface{}{
+				"foo": testutil.JSONInvocation("concat", []interface{}{
+					"bar",
+					"${parameters.second}",
+				}),
+			},
+			Opts: []evaluate.Option{
+				evaluate.WithParameterTypeResolver{
+					ParameterTypeResolver: resolve.NewMemoryParameterTypeResolver(
+						map[string]interface{}{"first": "bar"},
+					),
+				},
+			},
+			ExpectedUnresolvable: model.Unresolvable{
+				Parameters: []model.UnresolvableParameter{
+					{Name: "second"},
+				},
+			},
+		},
+		{
+			Name: "partially resolvable invocation in template",
+			Data: `{
+				"foo": "${concat(parameters.first, parameters.second)}"
+			}`,
+			ExpectedValue: map[string]interface{}{
+				"foo": "${concat(parameters.first, parameters.second)}",
+			},
+			Opts: []evaluate.Option{
+				evaluate.WithParameterTypeResolver{
+					ParameterTypeResolver: resolve.NewMemoryParameterTypeResolver(
+						map[string]interface{}{"first": "bar"},
+					),
+				},
 			},
 			ExpectedUnresolvable: model.Unresolvable{
 				Parameters: []model.UnresolvableParameter{
@@ -513,6 +976,13 @@ func TestEvaluate(t *testing.T) {
 					]
 				}
 			}`,
+			ExpectedValue: map[string]interface{}{
+				"foo": "\n----\n{code}code{code}\n----\n",
+			},
+		},
+		{
+			Name: "successful invocation of fn.convertMarkdown to Jira syntax in template",
+			Data: fmt.Sprintf(`{"foo": %q}`, "${convertMarkdown('jira', '--- `code` ---')}"),
 			ExpectedValue: map[string]interface{}{
 				"foo": "\n----\n{code}code{code}\n----\n",
 			},
@@ -538,6 +1008,22 @@ func TestEvaluate(t *testing.T) {
 			},
 		},
 		{
+			Name: "unresolved conditionals evaluation in template",
+			Data: `{
+				"conditions": ["${parameters.first == 'foobar'}"]
+			}`,
+			ExpectedValue: map[string]interface{}{
+				"conditions": []interface{}{
+					"${parameters.first == 'foobar'}",
+				},
+			},
+			ExpectedUnresolvable: model.Unresolvable{
+				Parameters: []model.UnresolvableParameter{
+					{Name: "first"},
+				},
+			},
+		},
+		{
 			Name: "resolved conditionals evaluation",
 			Data: `{
 				"conditions": [
@@ -555,9 +1041,30 @@ func TestEvaluate(t *testing.T) {
 				"conditions": []interface{}{true, true},
 			},
 			Opts: []evaluate.Option{
-				evaluate.WithParameterTypeResolver(resolve.NewMemoryParameterTypeResolver(
-					map[string]interface{}{"first": "foobar"},
-				)),
+				evaluate.WithParameterTypeResolver{
+					ParameterTypeResolver: resolve.NewMemoryParameterTypeResolver(
+						map[string]interface{}{"first": "foobar"},
+					),
+				},
+			},
+		},
+		{
+			Name: "resolved conditionals evaluation in template",
+			Data: `{
+				"conditions": [
+					"${parameters.first == 'foobar'}",
+					"${parameters.first != 'barfoo'}"
+				]
+			}`,
+			ExpectedValue: map[string]interface{}{
+				"conditions": []interface{}{true, true},
+			},
+			Opts: []evaluate.Option{
+				evaluate.WithParameterTypeResolver{
+					ParameterTypeResolver: resolve.NewMemoryParameterTypeResolver(
+						map[string]interface{}{"first": "foobar"},
+					),
+				},
 			},
 		},
 		{
@@ -581,9 +1088,30 @@ func TestEvaluate(t *testing.T) {
 				}
 			}`,
 			Opts: []evaluate.Option{
-				evaluate.WithSecretTypeResolver(resolve.NewMemorySecretTypeResolver(
-					map[string]string{"bar": "SGVsbG8sIJCiikU="},
-				)),
+				evaluate.WithSecretTypeResolver{
+					SecretTypeResolver: resolve.NewMemorySecretTypeResolver(
+						map[string]string{"bar": "SGVsbG8sIJCiikU="},
+					),
+				},
+			},
+			ExpectedValue: map[string]interface{}{
+				"foo": "Hello, \x90\xA2\x8A\x45",
+			},
+		},
+		{
+			Name: "encoded string from secret in template",
+			Data: `{
+				"foo": {
+					"$encoding": "base64",
+					"data": "${secrets.bar}"
+				}
+			}`,
+			Opts: []evaluate.Option{
+				evaluate.WithSecretTypeResolver{
+					SecretTypeResolver: resolve.NewMemorySecretTypeResolver(
+						map[string]string{"bar": "SGVsbG8sIJCiikU="},
+					),
+				},
 			},
 			ExpectedValue: map[string]interface{}{
 				"foo": "Hello, \x90\xA2\x8A\x45",
@@ -607,32 +1135,50 @@ func TestEvaluate(t *testing.T) {
 			},
 		},
 		{
+			Name: "encoded string from unresolvable secret in template",
+			Data: `{
+				"foo": {
+					"$encoding": "base64",
+					"data": "${secrets.bar}"
+				}
+			}`,
+			ExpectedValue: map[string]interface{}{
+				"foo": testutil.JSONEncoding(transfer.Base64EncodingType, "${secrets.bar}"),
+			},
+			ExpectedUnresolvable: model.Unresolvable{
+				Secrets: []model.UnresolvableSecret{
+					{Name: "bar"},
+				},
+			},
+		},
+		{
 			Name:          "invocation with array arguments",
 			Data:          `{"$fn.foo": ["bar", "baz"]}`,
-			Opts:          []evaluate.Option{evaluate.WithInvocationResolver(fns)},
+			Opts:          []evaluate.Option{evaluate.WithFunctionMap{Map: fns}},
+			ExpectedValue: "~~[bar baz]~~",
+		},
+		{
+			Name:          "invocation with array arguments in template",
+			Data:          `"${foo('bar', 'baz')}"`,
+			Opts:          []evaluate.Option{evaluate.WithFunctionMap{Map: fns}},
 			ExpectedValue: "~~[bar baz]~~",
 		},
 		{
 			Name:          "invocation with object arguments",
 			Data:          `{"$fn.foo": {"whiz": "bang", "not": "this"}}`,
-			Opts:          []evaluate.Option{evaluate.WithInvocationResolver(fns)},
+			Opts:          []evaluate.Option{evaluate.WithFunctionMap{Map: fns}},
 			ExpectedValue: "~~bang~~",
 		},
 		{
-			Name: "custom invocation",
-			Data: `{"$fn.foo": {"whiz": "bang", "not": "this"}}`,
-			Opts: []evaluate.Option{
-				evaluate.WithInvocationResolver(fns),
-				evaluate.WithInvokeFunc(func(ctx context.Context, i fn.Invoker) (*model.Result, error) {
-					return &model.Result{Value: "nope"}, nil
-				}),
-			},
-			ExpectedValue: "nope",
+			Name:          "invocation with object arguments in template",
+			Data:          `"${foo(whiz: 'bang', not: 'this')}"`,
+			Opts:          []evaluate.Option{evaluate.WithFunctionMap{Map: fns}},
+			ExpectedValue: "~~bang~~",
 		},
 		{
 			Name: "bad invocation",
 			Data: `{"$fn.append": [1, 2, 3]}`,
-			ExpectedError: &evaluate.InvocationError{
+			ExpectedError: &model.InvocationError{
 				Name: "append",
 				Cause: &fn.PositionalArgError{
 					Arg: 1,
@@ -641,6 +1187,252 @@ func TestEvaluate(t *testing.T) {
 						Got:    reflect.TypeOf(float64(0)),
 					},
 				},
+			},
+		},
+		{
+			Name: "bad invocation in template",
+			Data: `"${append(1, 2, 3)}"`,
+			ExpectedError: &template.EvaluationError{
+				Start: "${",
+				Cause: &model.InvocationError{
+					Name: "append",
+					Cause: &fn.PositionalArgError{
+						Arg: 1,
+						Cause: &fn.UnexpectedTypeError{
+							Wanted: []reflect.Type{reflect.TypeOf([]interface{}(nil))},
+							Got:    reflect.TypeOf(float64(0)),
+						},
+					},
+				},
+			},
+		},
+		{
+			Name: "resolvable template dereferencing",
+			Data: `"${secrets['regions.' + parameters.region]}"`,
+			Opts: []evaluate.Option{
+				evaluate.WithParameterTypeResolver{
+					ParameterTypeResolver: resolve.NewMemoryParameterTypeResolver(
+						map[string]interface{}{
+							"region": "us-east-1",
+						},
+					),
+				},
+				evaluate.WithSecretTypeResolver{
+					SecretTypeResolver: resolve.NewMemorySecretTypeResolver(
+						map[string]string{
+							"regions.us-east-1": "EAST",
+							"regions.us-west-1": "WEST",
+						},
+					),
+				},
+			},
+			ExpectedValue: "EAST",
+		},
+		{
+			Name: "unresolvable template dereferencing",
+			Data: `"${secrets['regions.' + parameters.region]}"`,
+			Opts: []evaluate.Option{
+				evaluate.WithParameterTypeResolver{
+					ParameterTypeResolver: resolve.NewMemoryParameterTypeResolver(
+						map[string]interface{}{
+							"region": "us-east-2",
+						},
+					),
+				},
+				evaluate.WithSecretTypeResolver{
+					SecretTypeResolver: resolve.NewMemorySecretTypeResolver(
+						map[string]string{
+							"regions.us-east-1": "EAST",
+							"regions.us-west-1": "WEST",
+						},
+					),
+				},
+			},
+			ExpectedValue: `${secrets['regions.' + parameters.region]}`,
+			ExpectedUnresolvable: model.Unresolvable{
+				Secrets: []model.UnresolvableSecret{
+					{Name: "regions.us-east-2"},
+				},
+			},
+		},
+		{
+			Name:          "nested unresolvable template dereferencing",
+			Data:          `"${secrets['regions.' + parameters.region]}"`,
+			ExpectedValue: `${secrets['regions.' + parameters.region]}`,
+			ExpectedUnresolvable: model.Unresolvable{
+				Parameters: []model.UnresolvableParameter{
+					{Name: "region"},
+				},
+			},
+		},
+		{
+			Name: "parameters expansion in template",
+			Data: `{
+				"foo": "${parameters}"
+			}`,
+			Opts: []evaluate.Option{
+				evaluate.WithParameterTypeResolver{
+					ParameterTypeResolver: resolve.NewMemoryParameterTypeResolver(
+						map[string]interface{}{
+							"region": "us-east-1",
+						},
+					),
+				},
+			},
+			ExpectedValue: map[string]interface{}{
+				"foo": map[string]interface{}{
+					"region": "us-east-1",
+				},
+			},
+		},
+		{
+			Name: "secrets expansion in template",
+			Data: `{
+				"foo": "${secrets}"
+			}`,
+			Opts: []evaluate.Option{
+				evaluate.WithSecretTypeResolver{
+					SecretTypeResolver: resolve.NewMemorySecretTypeResolver(
+						map[string]string{
+							"regions.us-east-1": "EAST",
+							"regions.us-west-1": "WEST",
+						},
+					),
+				},
+			},
+			ExpectedValue: map[string]interface{}{
+				"foo": map[string]interface{}{
+					"regions.us-east-1": "EAST",
+					"regions.us-west-1": "WEST",
+				},
+			},
+		},
+		{
+			Name: "outputs expansion in template",
+			Data: `{
+				"foo": "${outputs}"
+			}`,
+			Opts: []evaluate.Option{
+				evaluate.WithOutputTypeResolver{
+					OutputTypeResolver: resolve.NewMemoryOutputTypeResolver(
+						map[resolve.MemoryOutputKey]interface{}{
+							{From: "baz", Name: "bar"}: "127.0.0.1",
+						},
+					),
+				},
+			},
+			ExpectedValue: map[string]interface{}{
+				"foo": map[string]interface{}{
+					"baz": map[string]interface{}{
+						"bar": "127.0.0.1",
+					},
+				},
+			},
+		},
+		{
+			Name: "single step output expansion in template",
+			Data: `{
+				"foo": "${outputs.baz}"
+			}`,
+			Opts: []evaluate.Option{
+				evaluate.WithOutputTypeResolver{
+					OutputTypeResolver: resolve.NewMemoryOutputTypeResolver(
+						map[resolve.MemoryOutputKey]interface{}{
+							{From: "baz", Name: "bar"}: "127.0.0.1",
+						},
+					),
+				},
+			},
+			ExpectedValue: map[string]interface{}{
+				"foo": map[string]interface{}{
+					"bar": "127.0.0.1",
+				},
+			},
+		},
+		{
+			Name: "connections expansion in template",
+			Data: `{
+				"foo": "${connections}"
+			}`,
+			Opts: []evaluate.Option{
+				evaluate.WithConnectionTypeResolver{
+					ConnectionTypeResolver: resolve.NewMemoryConnectionTypeResolver(
+						map[resolve.MemoryConnectionKey]interface{}{
+							{Type: "blort", Name: "bar"}:  map[string]interface{}{"bar": "blort"},
+							{Type: "zup", Name: "bar"}:    map[string]interface{}{"waz": "mux"},
+							{Type: "blort", Name: "wish"}: map[string]interface{}{"sim": "jax"},
+						},
+					),
+				},
+			},
+			ExpectedValue: map[string]interface{}{
+				"foo": map[string]interface{}{
+					"blort": map[string]interface{}{
+						"bar":  map[string]interface{}{"bar": "blort"},
+						"wish": map[string]interface{}{"sim": "jax"},
+					},
+					"zup": map[string]interface{}{
+						"bar": map[string]interface{}{"waz": "mux"},
+					},
+				},
+			},
+		},
+		{
+			Name: "single connection type expansion in template",
+			Data: `{
+				"foo": "${connections.blort}"
+			}`,
+			Opts: []evaluate.Option{
+				evaluate.WithConnectionTypeResolver{
+					ConnectionTypeResolver: resolve.NewMemoryConnectionTypeResolver(
+						map[resolve.MemoryConnectionKey]interface{}{
+							{Type: "blort", Name: "bar"}:  map[string]interface{}{"bar": "blort"},
+							{Type: "zup", Name: "bar"}:    map[string]interface{}{"waz": "mux"},
+							{Type: "blort", Name: "wish"}: map[string]interface{}{"sim": "jax"},
+						},
+					),
+				},
+			},
+			ExpectedValue: map[string]interface{}{
+				"foo": map[string]interface{}{
+					"bar":  map[string]interface{}{"bar": "blort"},
+					"wish": map[string]interface{}{"sim": "jax"},
+				},
+			},
+		},
+		{
+			Name: "template interpolation",
+			Data: `{
+				"foo": "Hello, ${secrets.who}!"
+			}`,
+			Opts: []evaluate.Option{
+				evaluate.WithSecretTypeResolver{
+					SecretTypeResolver: resolve.NewMemorySecretTypeResolver(
+						map[string]string{"who": "friend"},
+					),
+				},
+			},
+			ExpectedValue: map[string]interface{}{
+				"foo": "Hello, friend!",
+			},
+		},
+		{
+			Name: "template interpolation with mapping type",
+			Data: `{
+				"foo": "Some secret people:\n${secrets}"
+			}`,
+			Opts: []evaluate.Option{
+				evaluate.WithSecretTypeResolver{
+					SecretTypeResolver: resolve.NewMemorySecretTypeResolver(
+						map[string]string{"who": "friend"},
+					),
+				},
+			},
+			ExpectedValue: map[string]interface{}{
+				"foo": `Some secret people:
+{
+	"who": "friend"
+}`,
 			},
 		},
 	}.RunAll(t)
@@ -658,13 +1450,13 @@ func TestEvaluateQuery(t *testing.T) {
 			Name:  "nonexistent key",
 			Data:  `{"foo": [{"bar": "baz"}]}`,
 			Query: `foo[0].quux`,
-			ExpectedError: &evaluate.PathEvaluationError{
+			ExpectedError: &model.PathEvaluationError{
 				Path: "foo",
-				Cause: &evaluate.PathEvaluationError{
+				Cause: &model.PathEvaluationError{
 					Path: "0",
-					Cause: &evaluate.PathEvaluationError{
+					Cause: &model.PathEvaluationError{
 						Path:  "quux",
-						Cause: &jsonpath.UnknownKeyError{Key: "quux"},
+						Cause: &eval.UnknownKeyError{Key: "quux"},
 					},
 				},
 			},
@@ -673,11 +1465,11 @@ func TestEvaluateQuery(t *testing.T) {
 			Name:  "nonexistent index",
 			Data:  `{"foo": [{"bar": "baz"}]}`,
 			Query: `foo[1].quux`,
-			ExpectedError: &evaluate.PathEvaluationError{
+			ExpectedError: &model.PathEvaluationError{
 				Path: "foo",
-				Cause: &evaluate.PathEvaluationError{
+				Cause: &model.PathEvaluationError{
 					Path:  "1",
-					Cause: &jsonpath.IndexOutOfBoundsError{Index: 1},
+					Cause: &eval.IndexOutOfBoundsError{Index: 1},
 				},
 			},
 		},
@@ -688,13 +1480,15 @@ func TestEvaluateQuery(t *testing.T) {
 			}`,
 			Query: "foo.bar.baz",
 			Opts: []evaluate.Option{
-				evaluate.WithParameterTypeResolver(resolve.NewMemoryParameterTypeResolver(
-					map[string]interface{}{
-						"bar": map[string]interface{}{
-							"bar": map[string]interface{}{"baz": "quux"},
+				evaluate.WithParameterTypeResolver{
+					ParameterTypeResolver: resolve.NewMemoryParameterTypeResolver(
+						map[string]interface{}{
+							"bar": map[string]interface{}{
+								"bar": map[string]interface{}{"baz": "quux"},
+							},
 						},
-					},
-				)),
+					),
+				},
 			},
 			ExpectedValue: "quux",
 		},
@@ -703,16 +1497,18 @@ func TestEvaluateQuery(t *testing.T) {
 			Data: `{
 				"foo": {"$type": "Parameter", "name": "bar"}
 			}`,
-			Query: "$.foo.bar.baz",
+			QueryLanguage: query.JSONPathLanguage,
+			Query:         "$.foo.bar.baz",
 			Opts: []evaluate.Option{
-				evaluate.WithLanguage(evaluate.LanguageJSONPath),
-				evaluate.WithParameterTypeResolver(resolve.NewMemoryParameterTypeResolver(
-					map[string]interface{}{
-						"bar": map[string]interface{}{
-							"bar": map[string]interface{}{"baz": "quux"},
+				evaluate.WithParameterTypeResolver{
+					ParameterTypeResolver: resolve.NewMemoryParameterTypeResolver(
+						map[string]interface{}{
+							"bar": map[string]interface{}{
+								"bar": map[string]interface{}{"baz": "quux"},
+							},
 						},
-					},
-				)),
+					),
+				},
 			},
 			ExpectedValue: "quux",
 		},
@@ -721,17 +1517,19 @@ func TestEvaluateQuery(t *testing.T) {
 			Data: `{
 				"foo": {"$type": "Output", "from": "baz", "name": "bar"}
 			}`,
-			Query: "$.foo.b[1]",
+			QueryLanguage: query.JSONPathLanguage,
+			Query:         "$.foo.b[1]",
 			Opts: []evaluate.Option{
-				evaluate.WithLanguage(evaluate.LanguageJSONPath),
-				evaluate.WithOutputTypeResolver(resolve.NewMemoryOutputTypeResolver(
-					map[resolve.MemoryOutputKey]interface{}{
-						{From: "baz", Name: "bar"}: map[string]interface{}{
-							"a": "test",
-							"b": []interface{}{"c", "d"},
+				evaluate.WithOutputTypeResolver{
+					OutputTypeResolver: resolve.NewMemoryOutputTypeResolver(
+						map[resolve.MemoryOutputKey]interface{}{
+							{From: "baz", Name: "bar"}: map[string]interface{}{
+								"a": "test",
+								"b": []interface{}{"c", "d"},
+							},
 						},
-					},
-				)),
+					),
+				},
 			},
 			ExpectedValue: "d",
 		},
@@ -740,16 +1538,18 @@ func TestEvaluateQuery(t *testing.T) {
 			Data: `{
 				"foo": {"$type": "Parameter", "name": "bar"}
 			}`,
-			Query: "{.foo.bar.baz}",
+			QueryLanguage: query.JSONPathTemplateLanguage,
+			Query:         "{.foo.bar.baz}",
 			Opts: []evaluate.Option{
-				evaluate.WithLanguage(evaluate.LanguageJSONPathTemplate),
-				evaluate.WithParameterTypeResolver(resolve.NewMemoryParameterTypeResolver(
-					map[string]interface{}{
-						"bar": map[string]interface{}{
-							"bar": map[string]interface{}{"baz": "quux"},
+				evaluate.WithParameterTypeResolver{
+					ParameterTypeResolver: resolve.NewMemoryParameterTypeResolver(
+						map[string]interface{}{
+							"bar": map[string]interface{}{
+								"bar": map[string]interface{}{"baz": "quux"},
+							},
 						},
-					},
-				)),
+					),
+				},
 			},
 			ExpectedValue: "quux",
 		},
@@ -772,10 +1572,8 @@ func TestEvaluateQuery(t *testing.T) {
 				"b": {"name": "bb", "value": {"$type": "Secret", "name": "bar"}},
 				"c": {"name": "cc", "value": "gggggg"}
 			}`,
-			Query: "$.*.value",
-			Opts: []evaluate.Option{
-				evaluate.WithLanguage(evaluate.LanguageJSONPath),
-			},
+			QueryLanguage: query.JSONPathLanguage,
+			Query:         "$.*.value",
 			ExpectedValue: []interface{}{"gggggg"},
 			ExpectedUnresolvable: model.Unresolvable{
 				Secrets: []model.UnresolvableSecret{
@@ -792,9 +1590,11 @@ func TestEvaluateQuery(t *testing.T) {
 			}`,
 			Query: "b.c",
 			Opts: []evaluate.Option{
-				evaluate.WithSecretTypeResolver(resolve.NewMemorySecretTypeResolver(
-					map[string]string{"foo": "very secret"},
-				)),
+				evaluate.WithSecretTypeResolver{
+					SecretTypeResolver: resolve.NewMemorySecretTypeResolver(
+						map[string]string{"foo": "very secret"},
+					),
+				},
 			},
 			ExpectedValue: "very secret",
 		},
@@ -804,10 +1604,8 @@ func TestEvaluateQuery(t *testing.T) {
 				"a": {"name": "aa", "value": {"$type": "Parameter", "name": "bar"}},
 				"b": {"name": "bb", "value": {"$type": "Secret", "name": "foo"}}
 			}`,
-			Query: "$.*.name",
-			Opts: []evaluate.Option{
-				evaluate.WithLanguage(evaluate.LanguageJSONPath),
-			},
+			QueryLanguage: query.JSONPathLanguage,
+			Query:         "$.*.name",
 			ExpectedValue: randomOrder{"aa", "bb"},
 		},
 		{
@@ -816,26 +1614,30 @@ func TestEvaluateQuery(t *testing.T) {
 				{"name": "aa", "value": {"$type": "Parameter", "name": "bar"}},
 				{"name": "bb", "value": {"$type": "Secret", "name": "foo"}}
 			]`,
-			Query: "$.*.name",
-			Opts: []evaluate.Option{
-				evaluate.WithLanguage(evaluate.LanguageJSONPath),
-			},
+			QueryLanguage: query.JSONPathLanguage,
+			Query:         "$.*.name",
 			ExpectedValue: randomOrder{"aa", "bb"},
-		}, {
+		},
+		{
 			Name: "type resolver returns an unsupported type",
 			Data: `{
 				"a": {"$type": "Parameter", "name": "foo"}
 			}`,
 			Query: "a.inner",
 			Opts: []evaluate.Option{
-				evaluate.WithParameterTypeResolver(resolve.NewMemoryParameterTypeResolver(map[string]interface{}{
-					"foo": map[string]string{"inner": "test"},
-				})),
+				evaluate.WithParameterTypeResolver{
+					ParameterTypeResolver: resolve.NewMemoryParameterTypeResolver(map[string]interface{}{
+						"foo": map[string]string{"inner": "test"},
+					}),
+				},
 			},
-			ExpectedError: &evaluate.PathEvaluationError{
+			ExpectedError: &model.PathEvaluationError{
 				Path: "a",
-				Cause: &evaluate.UnsupportedValueError{
-					Type: reflect.TypeOf(map[string]string(nil)),
+				Cause: &model.PathEvaluationError{
+					Path: "inner",
+					Cause: &model.UnsupportedValueError{
+						Type: reflect.TypeOf(map[string]string(nil)),
+					},
 				},
 			},
 		},
@@ -845,15 +1647,17 @@ func TestEvaluateQuery(t *testing.T) {
 				"a": {"$type": "Parameter", "name": "foo"},
 				"b": {"$type": "Parameter", "name": "bar"}
 			}`,
-			Query: "$.a.inner",
+			QueryLanguage: query.JSONPathLanguage,
+			Query:         "$.a.inner",
 			Opts: []evaluate.Option{
-				evaluate.WithLanguage(evaluate.LanguageJSONPath),
-				evaluate.WithParameterTypeResolver(resolve.NewMemoryParameterTypeResolver(map[string]interface{}{
-					"foo": map[string]string{"inner": "test"},
-					"bar": map[string]interface{}{"inner": "test"},
-				})),
+				evaluate.WithParameterTypeResolver{
+					ParameterTypeResolver: resolve.NewMemoryParameterTypeResolver(map[string]interface{}{
+						"foo": map[string]string{"inner": "test"},
+						"bar": map[string]interface{}{"inner": "test"},
+					}),
+				},
 			},
-			ExpectedError: &evaluate.UnsupportedValueError{
+			ExpectedError: &model.UnsupportedValueError{
 				Type: reflect.TypeOf(map[string]string(nil)),
 			},
 		},
@@ -862,15 +1666,20 @@ func TestEvaluateQuery(t *testing.T) {
 			Data: `{
 				"a": {"$type": "Parameter", "name": "foo"}
 			}`,
-			Query: "{.a.inner}",
+			QueryLanguage: query.JSONPathTemplateLanguage,
+			Query:         "{.a.inner}",
 			Opts: []evaluate.Option{
-				evaluate.WithLanguage(evaluate.LanguageJSONPathTemplate),
-				evaluate.WithParameterTypeResolver(resolve.NewMemoryParameterTypeResolver(map[string]interface{}{
-					"foo": map[string]string{"inner": "test"},
-				})),
+				evaluate.WithParameterTypeResolver{
+					ParameterTypeResolver: resolve.NewMemoryParameterTypeResolver(map[string]interface{}{
+						"foo": map[string]string{"inner": "test"},
+					}),
+				},
 			},
-			ExpectedError: &evaluate.UnsupportedValueError{
-				Type: reflect.TypeOf(map[string]string(nil)),
+			ExpectedError: &template.EvaluationError{
+				Start: "{",
+				Cause: &model.UnsupportedValueError{
+					Type: reflect.TypeOf(map[string]string(nil)),
+				},
 			},
 		},
 		{
@@ -881,12 +1690,14 @@ func TestEvaluateQuery(t *testing.T) {
 					"b": {"$fn.concat": ["deployment.v1.apps/", {"$type": "Parameter", "name": "deployment"}]}
 				}
 			}`,
-			Query: "{.args}",
+			QueryLanguage: query.JSONPathTemplateLanguage,
+			Query:         "{.args}",
 			Opts: []evaluate.Option{
-				evaluate.WithLanguage(evaluate.LanguageJSONPathTemplate),
-				evaluate.WithParameterTypeResolver(resolve.NewMemoryParameterTypeResolver(map[string]interface{}{
-					"deployment": "my-test-deployment",
-				})),
+				evaluate.WithParameterTypeResolver{
+					ParameterTypeResolver: resolve.NewMemoryParameterTypeResolver(map[string]interface{}{
+						"deployment": "my-test-deployment",
+					}),
+				},
 			},
 			ExpectedValue: "map[a:undo b:deployment.v1.apps/my-test-deployment]",
 		},
@@ -898,12 +1709,14 @@ func TestEvaluateQuery(t *testing.T) {
 					{"$fn.concat": ["deployment.v1.apps/", {"$type": "Parameter", "name": "deployment"}]}
 				]
 			}`,
-			Query: "{.args}",
+			QueryLanguage: query.JSONPathTemplateLanguage,
+			Query:         "{.args}",
 			Opts: []evaluate.Option{
-				evaluate.WithLanguage(evaluate.LanguageJSONPathTemplate),
-				evaluate.WithParameterTypeResolver(resolve.NewMemoryParameterTypeResolver(map[string]interface{}{
-					"deployment": "my-test-deployment",
-				})),
+				evaluate.WithParameterTypeResolver{
+					ParameterTypeResolver: resolve.NewMemoryParameterTypeResolver(map[string]interface{}{
+						"deployment": "my-test-deployment",
+					}),
+				},
 			},
 			ExpectedValue: "undo deployment.v1.apps/my-test-deployment",
 		},
@@ -915,10 +1728,8 @@ func TestEvaluateQuery(t *testing.T) {
 					{"$fn.concat": ["deployment.v1.apps/", {"$type": "Parameter", "name": "deployment"}]}
 				]
 			}`,
-			Query: "{.args}",
-			Opts: []evaluate.Option{
-				evaluate.WithLanguage(evaluate.LanguageJSONPathTemplate),
-			},
+			QueryLanguage: query.JSONPathTemplateLanguage,
+			Query:         "{.args}",
 			ExpectedValue: "undo map[$fn.concat:[deployment.v1.apps/ map[$type:Parameter name:deployment]]]",
 			ExpectedUnresolvable: model.Unresolvable{
 				Parameters: []model.UnresolvableParameter{
@@ -930,16 +1741,17 @@ func TestEvaluateQuery(t *testing.T) {
 			Name:  "query has an error under a path",
 			Data:  `{"foo": {"bar": ["baz", "quux"]}}`,
 			Query: "foo.bar[0].nope",
-			ExpectedError: &evaluate.PathEvaluationError{
+			ExpectedError: &model.PathEvaluationError{
 				Path: "foo",
-				Cause: &evaluate.PathEvaluationError{
+				Cause: &model.PathEvaluationError{
 					Path: "bar",
-					Cause: &evaluate.PathEvaluationError{
+					Cause: &model.PathEvaluationError{
 						Path: "0",
-						Cause: &evaluate.PathEvaluationError{
+						Cause: &model.PathEvaluationError{
 							Path: "nope",
-							Cause: &jsonpath.UnsupportedValueTypeError{
+							Cause: &eval.UnsupportedValueTypeError{
 								Value: "baz",
+								Field: "nope",
 							},
 						},
 					},
@@ -969,9 +1781,11 @@ func TestEvaluateIntoBasic(t *testing.T) {
 			Name: "resolvable",
 			Data: `{"foo": {"bar": {"$type": "Secret", "name": "foo"}}}`,
 			Opts: []evaluate.Option{
-				evaluate.WithSecretTypeResolver(resolve.NewMemorySecretTypeResolver(
-					map[string]string{"foo": "v3ry s3kr3t!"},
-				)),
+				evaluate.WithSecretTypeResolver{
+					SecretTypeResolver: resolve.NewMemorySecretTypeResolver(
+						map[string]string{"foo": "v3ry s3kr3t!"},
+					),
+				},
 			},
 			Into:          &root{},
 			ExpectedValue: &root{Foo: foo{Bar: "v3ry s3kr3t!"}},
@@ -991,9 +1805,11 @@ func TestEvaluateIntoBasic(t *testing.T) {
 			Name: "map",
 			Data: `{"foo": {"bar": {"$type": "Secret", "name": "foo"}}}`,
 			Opts: []evaluate.Option{
-				evaluate.WithSecretTypeResolver(resolve.NewMemorySecretTypeResolver(
-					map[string]string{"foo": "v3ry s3kr3t!"},
-				)),
+				evaluate.WithSecretTypeResolver{
+					SecretTypeResolver: resolve.NewMemorySecretTypeResolver(
+						map[string]string{"foo": "v3ry s3kr3t!"},
+					),
+				},
 			},
 			Into:          &map[string]interface{}{},
 			ExpectedValue: &map[string]interface{}{"foo": map[string]interface{}{"bar": "v3ry s3kr3t!"}},
@@ -1023,14 +1839,16 @@ func TestEvaluatePath(t *testing.T) {
 				}
 			}`,
 			Opts: []evaluate.Option{
-				evaluate.WithConnectionTypeResolver(resolve.NewMemoryConnectionTypeResolver(
-					map[resolve.MemoryConnectionKey]interface{}{
-						{Type: "aws", Name: "aws"}: map[string]interface{}{
-							"accessKeyID":     "AKIANOAHISCOOL",
-							"secretAccessKey": "abcdefs3cr37s",
+				evaluate.WithConnectionTypeResolver{
+					ConnectionTypeResolver: resolve.NewMemoryConnectionTypeResolver(
+						map[resolve.MemoryConnectionKey]interface{}{
+							{Type: "aws", Name: "aws"}: map[string]interface{}{
+								"accessKeyID":     "AKIANOAHISCOOL",
+								"secretAccessKey": "abcdefs3cr37s",
+							},
 						},
-					},
-				)),
+					),
+				},
 			},
 			Into: &awsSpec{},
 			ExpectedValue: &awsSpec{
@@ -1082,13 +1900,15 @@ func TestEvaluatePath(t *testing.T) {
 				}
 			}`,
 			Opts: []evaluate.Option{
-				evaluate.WithSecretTypeResolver(resolve.NewMemorySecretTypeResolver(
-					map[string]string{"aws": `{
+				evaluate.WithSecretTypeResolver{
+					SecretTypeResolver: resolve.NewMemorySecretTypeResolver(
+						map[string]string{"aws": `{
 							"accessKeyID": "AKIANOAHISCOOL",
 							"secretAccessKey": "abcdefs3cr37s"
 						}`,
-					},
-				)),
+						},
+					),
+				},
 			},
 			Into: &awsSpec{},
 			ExpectedValue: &awsSpec{
@@ -1175,12 +1995,14 @@ func TestEvaluateIntoStepHelper(t *testing.T) {
 				"op": {"$type": "Parameter", "name": "op"}
 			}`,
 			Opts: []evaluate.Option{
-				evaluate.WithSecretTypeResolver(resolve.NewMemorySecretTypeResolver(
-					map[string]string{
-						"aws.accessKeyID":     "AKIANOAHISCOOL",
-						"aws.secretAccessKey": "abcdefs3cr37s",
-					},
-				)),
+				evaluate.WithSecretTypeResolver{
+					SecretTypeResolver: resolve.NewMemorySecretTypeResolver(
+						map[string]string{
+							"aws.accessKeyID":     "AKIANOAHISCOOL",
+							"aws.secretAccessKey": "abcdefs3cr37s",
+						},
+					),
+				},
 			},
 			Into: &awsSpec{},
 			ExpectedValue: &awsSpec{
@@ -1198,16 +2020,18 @@ func TestEvaluateIntoStepHelper(t *testing.T) {
 				"op": {"$type": "Parameter", "name": "op"}
 			}`,
 			Opts: []evaluate.Option{
-				evaluate.WithSecretTypeResolver(resolve.NewMemorySecretTypeResolver(
-					map[string]string{
-						"aws": `{
+				evaluate.WithSecretTypeResolver{
+					SecretTypeResolver: resolve.NewMemorySecretTypeResolver(
+						map[string]string{
+							"aws": `{
 							"accessKeyID": "AKIANOAHISCOOL",
 							"secretAccessKey": "abcdefs3cr37s",
 							"region": "us-west-2",
 							"extra": "unused"
 						}`,
-					},
-				)),
+						},
+					),
+				},
 			},
 			Into: &awsSpec{},
 			ExpectedValue: &awsSpec{
@@ -1217,37 +2041,6 @@ func TestEvaluateIntoStepHelper(t *testing.T) {
 					Region:          "us-west-2",
 				},
 			},
-		},
-	}.RunAll(t)
-}
-
-func TestJSON(t *testing.T) {
-	tests{
-		{
-			Name: "encoded safe string",
-			Data: `{
-				"foo": {
-					"$encoding": "base64",
-					"data": "SGVsbG8sIHdvcmxkIQ=="
-				}
-			}`,
-			Opts: []evaluate.Option{
-				evaluate.WithResultMapper(model.NewJSONResultMapper()),
-			},
-			ExpectedValue: []byte(`{"foo":"Hello, world!"}`),
-		},
-		{
-			Name: "encoded unsafe string",
-			Data: `{
-				"foo": {
-					"$encoding": "base64",
-					"data": "SGVsbG8sIJCiikU="
-				}
-			}`,
-			Opts: []evaluate.Option{
-				evaluate.WithResultMapper(model.NewJSONResultMapper()),
-			},
-			ExpectedValue: []byte(`{"foo":{"$encoding":"base64","data":"SGVsbG8sIJCiikU="}}`),
 		},
 	}.RunAll(t)
 }

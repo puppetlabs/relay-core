@@ -14,6 +14,22 @@ type ParameterManager struct {
 
 var _ model.ParameterManager = &ParameterManager{}
 
+func (m *ParameterManager) List(ctx context.Context) ([]*model.Parameter, error) {
+	m.mut.RLock()
+	defer m.mut.RUnlock()
+
+	var l []*model.Parameter
+
+	for name, value := range m.params {
+		l = append(l, &model.Parameter{
+			Name:  name,
+			Value: value,
+		})
+	}
+
+	return l, nil
+}
+
 func (m *ParameterManager) Get(ctx context.Context, name string) (*model.Parameter, error) {
 	m.mut.RLock()
 	defer m.mut.RUnlock()

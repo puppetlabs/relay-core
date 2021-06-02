@@ -123,7 +123,7 @@ func NewAuthenticator(sc *opt.SampleConfig, key interface{}) *Authenticator {
 			actionMetadataManager := memory.NewActionMetadataManager(am)
 
 			for name, value := range sc.Outputs {
-				som.Set(step, name, value)
+				som.Set(memory.StepOutputKey{StepName: step.Name, Name: name}, value)
 			}
 
 			stepOutputManager := memory.NewStepOutputManager(step, som)

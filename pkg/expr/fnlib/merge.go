@@ -46,12 +46,12 @@ var mergeDescriptor = fn.DescriptorFuncs{
 
 Merges are performed deeply by default. Use the keyword form and set mode: shallow to perform a shallow merge.`
 	},
-	PositionalInvokerFunc: func(args []model.Evaluable) (fn.Invoker, error) {
+	PositionalInvokerFunc: func(ev model.Evaluator, args []interface{}) (fn.Invoker, error) {
 		if len(args) == 0 {
 			return fn.StaticInvoker(map[string]interface{}{}), nil
 		}
 
-		return fn.EvaluatedPositionalInvoker(args, func(ctx context.Context, args []interface{}) (interface{}, error) {
+		return fn.EvaluatedPositionalInvoker(ev, args, func(ctx context.Context, args []interface{}) (interface{}, error) {
 			objs, err := mergeCast(args, func(i int, err error) error {
 				return &fn.PositionalArgError{
 					Arg:   i + 1,
@@ -69,12 +69,12 @@ Merges are performed deeply by default. Use the keyword form and set mode: shall
 			return r, nil
 		}), nil
 	},
-	KeywordInvokerFunc: func(args map[string]model.Evaluable) (fn.Invoker, error) {
+	KeywordInvokerFunc: func(ev model.Evaluator, args map[string]interface{}) (fn.Invoker, error) {
 		if _, found := args["objects"]; !found {
 			return nil, &fn.KeywordArgError{Arg: "objects", Cause: fn.ErrArgNotFound}
 		}
 
-		return fn.EvaluatedKeywordInvoker(args, func(ctx context.Context, args map[string]interface{}) (interface{}, error) {
+		return fn.EvaluatedKeywordInvoker(ev, args, func(ctx context.Context, args map[string]interface{}) (interface{}, error) {
 			mode, found := args["mode"]
 			if !found {
 				mode = "deep"

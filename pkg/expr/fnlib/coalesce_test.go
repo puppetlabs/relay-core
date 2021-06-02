@@ -15,49 +15,41 @@ func TestCoalesce(t *testing.T) {
 
 	tests := []struct {
 		Name     string
-		Args     []model.Evaluable
+		Args     []interface{}
 		Expected interface{}
 	}{
 		{
-			Name: "null then values",
-			Args: []model.Evaluable{
-				model.StaticEvaluable(nil),
-				model.StaticEvaluable(3),
-				model.StaticEvaluable(4),
-			},
+			Name:     "null then values",
+			Args:     []interface{}{nil, 3, 4},
 			Expected: 3,
 		},
 		{
 			Name: "unresolvable then values",
-			Args: []model.Evaluable{
-				model.UnresolvableEvaluable(model.Unresolvable{
+			Args: []interface{}{
+				model.StaticExpandable(nil, model.Unresolvable{
 					Parameters: []model.UnresolvableParameter{
 						{Name: "foo"},
 					},
 				}),
-				model.StaticEvaluable(3),
-				model.StaticEvaluable(4),
+				3,
+				4,
 			},
 			Expected: 3,
 		},
 		{
-			Name: "values first",
-			Args: []model.Evaluable{
-				model.StaticEvaluable(1),
-				model.StaticEvaluable(nil),
-			},
+			Name:     "values first",
+			Args:     []interface{}{1, nil},
 			Expected: 1,
 		},
 		{
 			Name:     "no arguments",
-			Args:     []model.Evaluable{},
 			Expected: nil,
 		},
 		{
 			Name: "no unresolvable or non-null values",
-			Args: []model.Evaluable{
-				model.StaticEvaluable(nil),
-				model.UnresolvableEvaluable(model.Unresolvable{
+			Args: []interface{}{
+				nil,
+				model.StaticExpandable(nil, model.Unresolvable{
 					Parameters: []model.UnresolvableParameter{
 						{Name: "foo"},
 					},
@@ -68,7 +60,7 @@ func TestCoalesce(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			invoker, err := desc.PositionalInvoker(test.Args)
+			invoker, err := desc.PositionalInvoker(model.DefaultEvaluator, test.Args)
 			require.NoError(t, err)
 
 			r, err := invoker.Invoke(context.Background())

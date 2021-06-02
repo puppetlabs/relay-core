@@ -1,10 +1,9 @@
 package resolve
 
 var (
-	NoOpDataTypeResolver       DataTypeResolver       = ChainDataTypeResolvers()
-	NoOpSecretTypeResolver     SecretTypeResolver     = ChainSecretTypeResolvers()
-	NoOpConnectionTypeResolver ConnectionTypeResolver = ChainConnectionTypeResolvers()
-	NoOpOutputTypeResolver     OutputTypeResolver     = ChainOutputTypeResolvers()
-	NoOpParameterTypeResolver  ParameterTypeResolver  = ChainParameterTypeResolvers()
-	NoOpAnswerTypeResolver     AnswerTypeResolver     = ChainAnswerTypeResolvers()
+	NoOpSecretTypeResolver     SecretTypeResolver     = NewMemorySecretTypeResolver(map[string]string{})
+	NoOpConnectionTypeResolver ConnectionTypeResolver = NewMemoryConnectionTypeResolver(map[MemoryConnectionKey]interface{}{})
+	NoOpOutputTypeResolver     OutputTypeResolver     = NewMemoryOutputTypeResolver(map[MemoryOutputKey]interface{}{})
+	NoOpParameterTypeResolver  ParameterTypeResolver  = NewMemoryParameterTypeResolver(map[string]interface{}{})
+	NoOpAnswerTypeResolver     AnswerTypeResolver     = NewMemoryAnswerTypeResolver(map[MemoryAnswerKey]interface{}{})
 )

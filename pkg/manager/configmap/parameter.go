@@ -13,6 +13,24 @@ type ParameterManager struct {
 
 var _ model.ParameterManager = &ParameterManager{}
 
+func (m *ParameterManager) List(ctx context.Context) ([]*model.Parameter, error) {
+	pm, err := m.kcm.List(ctx, parameterKey(""))
+	if err != nil {
+		return nil, err
+	}
+
+	var l []*model.Parameter
+
+	for name, value := range pm {
+		l = append(l, &model.Parameter{
+			Name:  name,
+			Value: value,
+		})
+	}
+
+	return l, nil
+}
+
 func (m *ParameterManager) Get(ctx context.Context, name string) (*model.Parameter, error) {
 	value, err := m.kcm.Get(ctx, parameterKey(name))
 	if err != nil {

@@ -1,13 +1,10 @@
 package serialize
 
 import (
-	"context"
+	"encoding/json"
 
-	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
-	"github.com/puppetlabs/relay-core/pkg/expr/fn"
-	"github.com/puppetlabs/relay-core/pkg/expr/model"
+	"github.com/puppetlabs/leg/encoding/transfer"
 	"github.com/puppetlabs/relay-core/pkg/expr/parse"
-	"github.com/puppetlabs/relay-core/pkg/expr/resolve"
 )
 
 type JSONTree struct {
@@ -25,13 +22,5 @@ func (jt *JSONTree) UnmarshalJSON(data []byte) error {
 }
 
 func (jt JSONTree) MarshalJSON() ([]byte, error) {
-	r, err := evaluate.NewEvaluator(
-		evaluate.WithInvocationResolver(resolve.NewMemoryInvocationResolver(fn.NewMap(map[string]fn.Descriptor{}))),
-		evaluate.WithResultMapper(model.NewJSONResultMapper()),
-	).EvaluateAll(context.Background(), jt.Tree)
-	if err != nil {
-		return nil, err
-	}
-
-	return r.Value.([]byte), nil
+	return json.Marshal(transfer.JSONInterface{Data: jt.Tree})
 }

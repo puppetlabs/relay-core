@@ -4,13 +4,14 @@ go 1.13
 
 require (
 	github.com/Microsoft/go-winio v0.4.15-0.20190919025122-fc70bd9a86b5 // indirect
-	github.com/PaesslerAG/gval v1.1.1-0.20201218133124-6ca878f8a063
+	github.com/PaesslerAG/gval v1.1.1-0.20210429131240-4f5f9c091d78
 	github.com/PaesslerAG/jsonpath v0.1.1 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20200108200545-475eaeb16496 // indirect
 	github.com/certifi/gocertifi v0.0.0-20180118203423-deb3ae2ef261 // indirect
 	github.com/containerd/continuity v0.0.0-20200413184840-d3ef23f19fbb // indirect
 	github.com/denisenkom/go-mssqldb v0.0.0-20191124224453-732737034ffd // indirect
 	github.com/frankban/quicktest v1.8.1 // indirect
+	github.com/generikvault/gvalstrings v0.0.0-20180926130504-471f38f0112a
 	github.com/go-logr/logr v0.4.0
 	github.com/go-test/deep v1.0.4 // indirect
 	github.com/gofrs/flock v0.8.0
@@ -37,6 +38,7 @@ require (
 	github.com/puppetlabs/leg/encoding v0.1.0
 	github.com/puppetlabs/leg/errmap v0.1.0
 	github.com/puppetlabs/leg/graph v0.1.1
+	github.com/puppetlabs/leg/gvalutil v0.1.0
 	github.com/puppetlabs/leg/hashutil v0.1.0
 	github.com/puppetlabs/leg/httputil v0.1.4
 	github.com/puppetlabs/leg/instrumentation v0.1.4
@@ -89,3 +91,7 @@ replace (
 	k8s.io/apimachinery => k8s.io/apimachinery v0.19.7
 	k8s.io/client-go => k8s.io/client-go v0.19.7
 )
+
+replace github.com/puppetlabs/leg/gvalutil => ../leg/gvalutil
+
+replace github.com/puppetlabs/leg/jsonutil => ../leg/jsonutil

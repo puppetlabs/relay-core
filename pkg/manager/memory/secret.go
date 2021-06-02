@@ -12,6 +12,19 @@ type SecretManager struct {
 
 var _ model.SecretManager = &SecretManager{}
 
+func (m *SecretManager) List(ctx context.Context) ([]*model.Secret, error) {
+	var l []*model.Secret
+
+	for name, value := range m.secrets {
+		l = append(l, &model.Secret{
+			Name:  name,
+			Value: value,
+		})
+	}
+
+	return l, nil
+}
+
 func (m *SecretManager) Get(ctx context.Context, name string) (*model.Secret, error) {
 	value, found := m.secrets[name]
 	if !found {

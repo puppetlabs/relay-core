@@ -11,6 +11,7 @@ type StepOutput struct {
 }
 
 type StepOutputGetterManager interface {
+	List(ctx context.Context) ([]*StepOutput, error)
 	Get(ctx context.Context, stepName, name string) (*StepOutput, error)
 }
 

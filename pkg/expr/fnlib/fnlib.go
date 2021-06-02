@@ -9,9 +9,11 @@ var (
 		"concat":          concatDescriptor,
 		"convertMarkdown": convertMarkdownDescriptor,
 		"equals":          equalsDescriptor,
+		"jsonMarshal":     jsonMarshalDescriptor,
 		"jsonUnmarshal":   jsonUnmarshalDescriptor,
 		"merge":           mergeDescriptor,
 		"notEquals":       notEqualsDescriptor,
+		"now":             nowDescriptor,
 		"path":            pathDescriptor,
 		"toString":        toStringDescriptor,
 	}
