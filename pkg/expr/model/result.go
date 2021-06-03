@@ -6,6 +6,16 @@ import (
 	"github.com/puppetlabs/leg/datastructure"
 )
 
+type UnresolvableData struct {
+	Name string
+}
+
+type unresolvableDataSort []UnresolvableData
+
+func (s unresolvableDataSort) Len() int           { return len(s) }
+func (s unresolvableDataSort) Less(i, j int) bool { return s[i].Name < s[j].Name }
+func (s unresolvableDataSort) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+
 type UnresolvableSecret struct {
 	Name string
 }
@@ -79,6 +89,7 @@ func (s unresolvableInvocationSort) Less(i, j int) bool {
 func (s unresolvableInvocationSort) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
 
 type Unresolvable struct {
+	Data        []UnresolvableData
 	Secrets     []UnresolvableSecret
 	Connections []UnresolvableConnection
 	Outputs     []UnresolvableOutput
@@ -89,6 +100,10 @@ type Unresolvable struct {
 
 func (u *Unresolvable) AsError() error {
 	err := &UnresolvableError{}
+
+	for _, d := range u.Data {
+		err.Causes = append(err.Causes, &DataNotFoundError{Name: d.Name})
+	}
 
 	for _, s := range u.Secrets {
 		err.Causes = append(err.Causes, &SecretNotFoundError{Name: s.Name})
@@ -122,6 +137,22 @@ func (u *Unresolvable) AsError() error {
 }
 
 func (u *Unresolvable) Extends(other Unresolvable) {
+	// Data
+	if len(u.Data) == 0 {
+		u.Data = append(u.Data, other.Data...)
+	} else if len(other.Data) != 0 {
+		set := datastructure.NewHashSet()
+		for _, p := range u.Data {
+			set.Add(p)
+		}
+		for _, p := range other.Data {
+			set.Add(p)
+		}
+		u.Data = nil
+		set.ValuesInto(&u.Data)
+		sort.Sort(unresolvableDataSort(u.Data))
+	}
+
 	// Secrets
 	if len(u.Secrets) == 0 {
 		u.Secrets = append(u.Secrets, other.Secrets...)

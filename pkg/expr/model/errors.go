@@ -21,6 +21,18 @@ func (e *UnresolvableError) Error() string {
 	return fmt.Sprintf("unresolvable:\n%s", strings.Join(causes, "\n"))
 }
 
+type DataNotFoundError struct {
+	Name string
+}
+
+func (e *DataNotFoundError) Error() string {
+	if e.Name == "" {
+		return "model: data could not be found"
+	}
+
+	return fmt.Sprintf("model: %s data could not be found", e.Name)
+}
+
 type SecretNotFoundError struct {
 	Name string
 }

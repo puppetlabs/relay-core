@@ -2,6 +2,10 @@ package model
 
 import "github.com/puppetlabs/leg/encoding/transfer"
 
+type JSONUnresolvableDataEnvelope struct {
+	Name string `json:"name"`
+}
+
 type JSONUnresolvableSecretEnvelope struct {
 	Name string `json:"name"`
 }
@@ -30,6 +34,7 @@ type JSONUnresolvableInvocationEnvelope struct {
 }
 
 type JSONUnresolvableEnvelope struct {
+	Data        []*JSONUnresolvableDataEnvelope       `json:"data,omitempty"`
 	Secrets     []*JSONUnresolvableSecretEnvelope     `json:"secrets,omitempty"`
 	Connections []*JSONUnresolvableConnectionEnvelope `json:"connections,omitempty"`
 	Outputs     []*JSONUnresolvableOutputEnvelope     `json:"outputs,omitempty"`
@@ -40,6 +45,15 @@ type JSONUnresolvableEnvelope struct {
 
 func NewJSONUnresolvableEnvelope(ur Unresolvable) *JSONUnresolvableEnvelope {
 	env := &JSONUnresolvableEnvelope{}
+
+	if len(ur.Data) > 0 {
+		env.Data = make([]*JSONUnresolvableDataEnvelope, len(ur.Data))
+		for i, d := range ur.Data {
+			env.Data[i] = &JSONUnresolvableDataEnvelope{
+				Name: d.Name,
+			}
+		}
+	}
 
 	if len(ur.Secrets) > 0 {
 		env.Secrets = make([]*JSONUnresolvableSecretEnvelope, len(ur.Secrets))
