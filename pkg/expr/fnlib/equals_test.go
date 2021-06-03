@@ -41,27 +41,27 @@ func TestConditionals(t *testing.T) {
 		},
 		{
 			descriptor:     equals,
-			args:           []interface{}{[]string{"foo", "bar"}, []string{"foo", "bar"}},
+			args:           []interface{}{[]interface{}{"foo", "bar"}, []interface{}{"foo", "bar"}},
 			expectedResult: true,
 		},
 		{
 			descriptor:     equals,
-			args:           []interface{}{[]int{1, 2}, []int{1, 2}},
+			args:           []interface{}{[]interface{}{1, 2}, []interface{}{1, 2}},
 			expectedResult: true,
 		},
 		{
 			descriptor:     equals,
-			args:           []interface{}{[]float32{1.1, 2.0}, []float32{1.1, 2.0}},
+			args:           []interface{}{[]interface{}{1.1, 2.0}, []interface{}{1.1, 2.0}},
 			expectedResult: true,
 		},
 		{
 			descriptor:     equals,
-			args:           []interface{}{[]float64{1.1, 2.0}, []float64{1.1, 2.0}},
+			args:           []interface{}{[]interface{}{1.1, 2.0}, []interface{}{1.1, 2.0}},
 			expectedResult: true,
 		},
 		{
 			descriptor:     equals,
-			args:           []interface{}{map[string]string{"foo": "bar"}, map[string]string{"foo": "bar"}},
+			args:           []interface{}{map[string]interface{}{"foo": "bar"}, map[string]interface{}{"foo": "bar"}},
 			expectedResult: true,
 		},
 		{
@@ -106,27 +106,27 @@ func TestConditionals(t *testing.T) {
 		},
 		{
 			descriptor:     notEquals,
-			args:           []interface{}{[]string{"foo", "bar", "baz"}, []string{"foo", "bar"}},
+			args:           []interface{}{[]interface{}{"foo", "bar", "baz"}, []interface{}{"foo", "bar"}},
 			expectedResult: true,
 		},
 		{
 			descriptor:     notEquals,
-			args:           []interface{}{[]int{1, 2, 3}, []int{1, 2}},
+			args:           []interface{}{[]interface{}{1, 2, 3}, []interface{}{1, 2}},
 			expectedResult: true,
 		},
 		{
 			descriptor:     notEquals,
-			args:           []interface{}{[]float32{1.1, 2.0, 3.2}, []float32{1.1, 2.0}},
+			args:           []interface{}{[]interface{}{1.1, 2.0, 3.2}, []interface{}{1.1, 2.0}},
 			expectedResult: true,
 		},
 		{
 			descriptor:     notEquals,
-			args:           []interface{}{[]float64{1.1, 2.0, 3.2}, []float64{1.1, 2.0}},
+			args:           []interface{}{[]interface{}{1.1, 2.0, 3.2}, []interface{}{1.1, 2.0}},
 			expectedResult: true,
 		},
 		{
 			descriptor:     notEquals,
-			args:           []interface{}{map[string]string{"foo": "bar", "baz": "biz"}, map[string]string{"foo": "bar"}},
+			args:           []interface{}{map[string]interface{}{"foo": "bar", "baz": "biz"}, map[string]interface{}{"foo": "bar"}},
 			expectedResult: true,
 		},
 		{
@@ -153,12 +153,7 @@ func TestConditionals(t *testing.T) {
 
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("%d %v", i, c.args), func(t *testing.T) {
-			args := make([]model.Evaluable, len(c.args))
-			for i, arg := range c.args {
-				args[i] = model.StaticEvaluable(arg)
-			}
-
-			invoker, err := c.descriptor.PositionalInvoker(args)
+			invoker, err := c.descriptor.PositionalInvoker(model.DefaultEvaluator, c.args)
 			if c.expectedError != nil {
 				require.EqualError(t, err, c.expectedError.Error())
 			} else {

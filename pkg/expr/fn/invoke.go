@@ -22,9 +22,9 @@ func StaticInvoker(value interface{}) Invoker {
 	return InvokerFunc(func(_ context.Context) (*model.Result, error) { return &model.Result{Value: value}, nil })
 }
 
-func EvaluatedPositionalInvoker(args []model.Evaluable, fn func(ctx context.Context, args []interface{}) (interface{}, error)) Invoker {
+func EvaluatedPositionalInvoker(ev model.Evaluator, args []interface{}, fn func(ctx context.Context, args []interface{}) (interface{}, error)) Invoker {
 	return InvokerFunc(func(ctx context.Context) (*model.Result, error) {
-		vs, err := model.EvaluateAllSlice(ctx, args)
+		vs, err := model.EvaluateAllSlice(ctx, ev, args)
 		if err != nil {
 			return nil, err
 		}
@@ -43,9 +43,9 @@ func EvaluatedPositionalInvoker(args []model.Evaluable, fn func(ctx context.Cont
 	})
 }
 
-func EvaluatedKeywordInvoker(args map[string]model.Evaluable, fn func(ctx context.Context, args map[string]interface{}) (interface{}, error)) Invoker {
+func EvaluatedKeywordInvoker(ev model.Evaluator, args map[string]interface{}, fn func(ctx context.Context, args map[string]interface{}) (interface{}, error)) Invoker {
 	return InvokerFunc(func(ctx context.Context) (*model.Result, error) {
-		vs, err := model.EvaluateAllMap(ctx, args)
+		vs, err := model.EvaluateAllMap(ctx, ev, args)
 		if err != nil {
 			return nil, err
 		}

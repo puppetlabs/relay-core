@@ -52,6 +52,13 @@ func TestStepOutputManager(t *testing.T) {
 
 			_, err = om.Get(ctx, step2.Name, "key-b")
 			require.Equal(t, model.ErrNotFound, err)
+
+			outs, err := om.List(ctx)
+			require.NoError(t, err)
+			require.Len(t, outs, 3)
+			require.Contains(t, outs, &model.StepOutput{Step: step1, Name: "key-a", Value: "value-a-step-1"})
+			require.Contains(t, outs, &model.StepOutput{Step: step2, Name: "key-a", Value: "value-a-step-2"})
+			require.Contains(t, outs, &model.StepOutput{Step: step1, Name: "key-b", Value: "value-b-step-1"})
 		})
 	}
 }

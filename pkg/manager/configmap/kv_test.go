@@ -29,4 +29,15 @@ func TestKVConfigMap(t *testing.T) {
 
 	_, err = kcm.Get(ctx, "bar")
 	require.Equal(t, model.ErrNotFound, err)
+
+	vals, err := kcm.List(ctx, "")
+	require.NoError(t, err)
+	require.Len(t, vals, 2)
+	require.Equal(t, "bar", vals["foo"])
+	require.Equal(t, "quux", vals["baz"])
+
+	vals, err = kcm.List(ctx, "f")
+	require.NoError(t, err)
+	require.Len(t, vals, 1)
+	require.Equal(t, "bar", vals["oo"])
 }

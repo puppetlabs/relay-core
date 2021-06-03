@@ -21,3 +21,19 @@ func TestJSON(t *testing.T) {
 	require.NoError(t, err)
 	require.JSONEq(t, string(expected), string(actual))
 }
+
+func TestJSONEncodedUnsafeString(t *testing.T) {
+	expected := []byte(`{
+		"foo": {
+			"$encoding": "base64",
+			"data": "SGVsbG8sIJCiikU="
+		}
+	}`)
+
+	var tree serialize.JSONTree
+	require.NoError(t, json.Unmarshal(expected, &tree))
+
+	actual, err := json.Marshal(tree)
+	require.NoError(t, err)
+	require.JSONEq(t, string(expected), string(actual))
+}

@@ -3,34 +3,21 @@ package resolve
 import (
 	"context"
 
-	"github.com/PaesslerAG/gval"
-	"github.com/puppetlabs/relay-core/pkg/expr/fn"
-	"github.com/puppetlabs/relay-core/pkg/expr/fnlib"
 	"github.com/puppetlabs/relay-core/pkg/expr/model"
 )
 
 type MemoryDataTypeResolver struct {
-	m map[string]interface{}
+	value interface{}
 }
 
 var _ DataTypeResolver = &MemoryDataTypeResolver{}
 
-func (mr *MemoryDataTypeResolver) ResolveData(ctx context.Context, query string) (interface{}, error) {
-	pl, err := gval.NewLanguage(gval.Base()).NewEvaluable(query)
-	if err != nil {
-		return "", &model.DataQueryError{Query: query}
-	}
-
-	v, err := pl(ctx, mr.m)
-	if err != nil {
-		return "", &model.DataNotFoundError{Query: query}
-	}
-
-	return v, nil
+func (mr *MemoryDataTypeResolver) ResolveData(ctx context.Context) (interface{}, error) {
+	return mr.value, nil
 }
 
-func NewMemoryDataTypeResolver(m map[string]interface{}) *MemoryDataTypeResolver {
-	return &MemoryDataTypeResolver{m: m}
+func NewMemoryDataTypeResolver(value interface{}) *MemoryDataTypeResolver {
+	return &MemoryDataTypeResolver{value: value}
 }
 
 type MemorySecretTypeResolver struct {
@@ -38,6 +25,10 @@ type MemorySecretTypeResolver struct {
 }
 
 var _ SecretTypeResolver = &MemorySecretTypeResolver{}
+
+func (mr *MemorySecretTypeResolver) ResolveAllSecrets(ctx context.Context) (map[string]string, error) {
+	return mr.m, nil
+}
 
 func (mr *MemorySecretTypeResolver) ResolveSecret(ctx context.Context, name string) (string, error) {
 	s, ok := mr.m[name]
@@ -63,6 +54,42 @@ type MemoryConnectionTypeResolver struct {
 
 var _ ConnectionTypeResolver = &MemoryConnectionTypeResolver{}
 
+func (mr *MemoryConnectionTypeResolver) ResolveAllConnections(ctx context.Context) (map[string]map[string]interface{}, error) {
+	if len(mr.m) == 0 {
+		return nil, nil
+	}
+
+	cm := make(map[string]map[string]interface{})
+
+	for k, c := range mr.m {
+		tm, found := cm[k.Type]
+		if !found {
+			tm = make(map[string]interface{})
+			cm[k.Type] = tm
+		}
+
+		tm[k.Name] = c
+	}
+
+	return cm, nil
+}
+
+func (mr *MemoryConnectionTypeResolver) ResolveTypeOfConnections(ctx context.Context, connectionType string) (map[string]interface{}, error) {
+	var tm map[string]interface{}
+
+	for k, c := range mr.m {
+		if k.Type != connectionType {
+			continue
+		} else if tm == nil {
+			tm = make(map[string]interface{})
+		}
+
+		tm[k.Name] = c
+	}
+
+	return tm, nil
+}
+
 func (mr *MemoryConnectionTypeResolver) ResolveConnection(ctx context.Context, connectionType, name string) (interface{}, error) {
 	o, ok := mr.m[MemoryConnectionKey{Type: connectionType, Name: name}]
 	if !ok {
@@ -87,6 +114,42 @@ type MemoryOutputTypeResolver struct {
 
 var _ OutputTypeResolver = &MemoryOutputTypeResolver{}
 
+func (mr *MemoryOutputTypeResolver) ResolveAllOutputs(ctx context.Context) (map[string]map[string]interface{}, error) {
+	if len(mr.m) == 0 {
+		return nil, nil
+	}
+
+	om := make(map[string]map[string]interface{})
+
+	for k, c := range mr.m {
+		sm, found := om[k.From]
+		if !found {
+			sm = make(map[string]interface{})
+			om[k.From] = sm
+		}
+
+		sm[k.Name] = c
+	}
+
+	return om, nil
+}
+
+func (mr *MemoryOutputTypeResolver) ResolveStepOutputs(ctx context.Context, from string) (map[string]interface{}, error) {
+	var sm map[string]interface{}
+
+	for k, c := range mr.m {
+		if k.From != from {
+			continue
+		} else if sm == nil {
+			sm = make(map[string]interface{})
+		}
+
+		sm[k.Name] = c
+	}
+
+	return sm, nil
+}
+
 func (mr *MemoryOutputTypeResolver) ResolveOutput(ctx context.Context, from, name string) (interface{}, error) {
 	o, ok := mr.m[MemoryOutputKey{From: from, Name: name}]
 	if !ok {
@@ -105,6 +168,10 @@ type MemoryParameterTypeResolver struct {
 }
 
 var _ ParameterTypeResolver = &MemoryParameterTypeResolver{}
+
+func (mr *MemoryParameterTypeResolver) ResolveAllParameters(ctx context.Context) (map[string]interface{}, error) {
+	return mr.m, nil
+}
 
 func (mr *MemoryParameterTypeResolver) ResolveParameter(ctx context.Context, name string) (interface{}, error) {
 	p, ok := mr.m[name]
@@ -141,46 +208,4 @@ func (mr *MemoryAnswerTypeResolver) ResolveAnswer(ctx context.Context, askRef, n
 
 func NewMemoryAnswerTypeResolver(m map[MemoryAnswerKey]interface{}) *MemoryAnswerTypeResolver {
 	return &MemoryAnswerTypeResolver{m: m}
-}
-
-type MemoryInvocationResolver struct {
-	m fn.Map
-}
-
-var _ InvocationResolver = &MemoryInvocationResolver{}
-
-func (mr *MemoryInvocationResolver) ResolveInvocationPositional(ctx context.Context, name string, args []model.Evaluable) (fn.Invoker, error) {
-	f, err := mr.m.Descriptor(name)
-	if err != nil {
-		return nil, &model.FunctionResolutionError{Name: name, Cause: err}
-	}
-
-	i, err := f.PositionalInvoker(args)
-	if err != nil {
-		return nil, &model.FunctionResolutionError{Name: name, Cause: err}
-	}
-
-	return i, nil
-}
-
-func (mr *MemoryInvocationResolver) ResolveInvocation(ctx context.Context, name string, args map[string]model.Evaluable) (fn.Invoker, error) {
-	f, err := mr.m.Descriptor(name)
-	if err != nil {
-		return nil, &model.FunctionResolutionError{Name: name, Cause: err}
-	}
-
-	i, err := f.KeywordInvoker(args)
-	if err != nil {
-		return nil, &model.FunctionResolutionError{Name: name, Cause: err}
-	}
-
-	return i, nil
-}
-
-func NewMemoryInvocationResolver(m fn.Map) *MemoryInvocationResolver {
-	return &MemoryInvocationResolver{m: m}
-}
-
-func NewDefaultMemoryInvocationResolver() *MemoryInvocationResolver {
-	return NewMemoryInvocationResolver(fnlib.Library())
 }

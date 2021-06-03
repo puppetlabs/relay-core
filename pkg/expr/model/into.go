@@ -1,14 +1,15 @@
-package evaluate
+package model
 
 import (
 	"context"
 	"reflect"
+	"time"
 
 	"github.com/mitchellh/mapstructure"
-	"github.com/puppetlabs/relay-core/pkg/expr/model"
+	"github.com/puppetlabs/relay-core/pkg/expr/parse"
 )
 
-func mapstructureHookFunc(ctx context.Context, e *Evaluator, u *model.Unresolvable) mapstructure.DecodeHookFunc {
+func mapstructureHookFunc(ctx context.Context, ev Evaluator, u *Unresolvable) mapstructure.DecodeHookFunc {
 	return func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
 		depth := -1
 
@@ -24,7 +25,7 @@ func mapstructureHookFunc(ctx context.Context, e *Evaluator, u *model.Unresolvab
 			depth = 1
 		}
 
-		r, err := e.evaluate(ctx, data, depth)
+		r, err := ev.Evaluate(ctx, data, depth)
 		if err != nil {
 			return nil, err
 		} else if !r.Complete() {
@@ -36,4 +37,24 @@ func mapstructureHookFunc(ctx context.Context, e *Evaluator, u *model.Unresolvab
 
 		return r.Value, nil
 	}
+}
+
+func EvaluateInto(ctx context.Context, ev Evaluator, from parse.Tree, to interface{}) (Unresolvable, error) {
+	var u Unresolvable
+
+	d, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		DecodeHook: mapstructure.ComposeDecodeHookFunc(
+			mapstructureHookFunc(ctx, ev, &u),
+			mapstructure.StringToTimeDurationHookFunc(),
+			mapstructure.StringToTimeHookFunc(time.RFC3339Nano),
+		),
+		ZeroFields: true,
+		Result:     to,
+		TagName:    "spec",
+	})
+	if err != nil {
+		return u, err
+	}
+
+	return u, d.Decode(from)
 }

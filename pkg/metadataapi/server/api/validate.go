@@ -31,13 +31,13 @@ func (s *Server) PostValidate(w http.ResponseWriter, r *http.Request) {
 		}
 
 		ev := evaluate.NewEvaluator(
-			evaluate.WithConnectionTypeResolver(resolve.NewConnectionTypeResolver(managers.Connections())),
-			evaluate.WithParameterTypeResolver(resolve.NewParameterTypeResolver(managers.Parameters())),
-			evaluate.WithOutputTypeResolver(resolve.NewOutputTypeResolver(managers.StepOutputs())),
-			evaluate.WithSecretTypeResolver(resolve.NewSecretTypeResolver(managers.Secrets())),
-		).ScopeTo(spec.Tree)
+			evaluate.WithConnectionTypeResolver{ConnectionTypeResolver: resolve.NewConnectionTypeResolver(managers.Connections())},
+			evaluate.WithSecretTypeResolver{SecretTypeResolver: resolve.NewSecretTypeResolver(managers.Secrets())},
+			evaluate.WithParameterTypeResolver{ParameterTypeResolver: resolve.NewParameterTypeResolver(managers.Parameters())},
+			evaluate.WithOutputTypeResolver{OutputTypeResolver: resolve.NewOutputTypeResolver(managers.StepOutputs())},
+		)
 
-		rv, err := ev.EvaluateAll(ctx)
+		rv, err := model.EvaluateAll(ctx, ev, spec.Tree)
 		if err != nil {
 			utilapi.WriteError(ctx, w, errors.NewExpressionEvaluationError(err.Error()))
 

@@ -33,9 +33,9 @@ func TestConvertMarkdown(t *testing.T) {
 
 	for _, test := range tcs {
 		t.Run(fmt.Sprintf("%s", test.Name), func(t *testing.T) {
-			invoker, err := desc.PositionalInvoker([]model.Evaluable{
-				model.StaticEvaluable(test.ConvertType.String()),
-				model.StaticEvaluable(test.Markdown),
+			invoker, err := desc.PositionalInvoker(model.DefaultEvaluator, []interface{}{
+				test.ConvertType.String(),
+				test.Markdown,
 			})
 			require.NoError(t, err)
 
@@ -45,9 +45,9 @@ func TestConvertMarkdown(t *testing.T) {
 			require.True(t, r.Complete())
 			require.Equal(t, test.Expected, r.Value)
 
-			invoker, err = desc.KeywordInvoker(map[string]model.Evaluable{
-				"to":      model.StaticEvaluable(test.ConvertType.String()),
-				"content": model.StaticEvaluable(test.Markdown),
+			invoker, err = desc.KeywordInvoker(model.DefaultEvaluator, map[string]interface{}{
+				"to":      test.ConvertType.String(),
+				"content": test.Markdown,
 			})
 
 			r, err = invoker.Invoke(context.Background())
@@ -72,9 +72,9 @@ func TestConvertMarkdownFunction(t *testing.T) {
 		{
 			Name: "keyword invoker with unsupported convert type",
 			Invoker: func() (fn.Invoker, error) {
-				return desc.KeywordInvoker(map[string]model.Evaluable{
-					"to":      model.StaticEvaluable("foo"),
-					"content": model.StaticEvaluable("bar"),
+				return desc.KeywordInvoker(model.DefaultEvaluator, map[string]interface{}{
+					"to":      "foo",
+					"content": "bar",
 				})
 			},
 			ExpectedInvokerError: convert.ErrConvertTypeNotSupported,
@@ -82,9 +82,9 @@ func TestConvertMarkdownFunction(t *testing.T) {
 		{
 			Name: "keyword invoker with invalid to keyword type",
 			Invoker: func() (fn.Invoker, error) {
-				return desc.KeywordInvoker(map[string]model.Evaluable{
-					"to":      model.StaticEvaluable(false),
-					"content": model.StaticEvaluable("bar"),
+				return desc.KeywordInvoker(model.DefaultEvaluator, map[string]interface{}{
+					"to":      false,
+					"content": "bar",
 				})
 			},
 			ExpectedInvokerError: &fn.KeywordArgError{
@@ -100,9 +100,9 @@ func TestConvertMarkdownFunction(t *testing.T) {
 		{
 			Name: "keyword invoker with invalid content keyword type",
 			Invoker: func() (fn.Invoker, error) {
-				return desc.KeywordInvoker(map[string]model.Evaluable{
-					"to":      model.StaticEvaluable("jira"),
-					"content": model.StaticEvaluable(false),
+				return desc.KeywordInvoker(model.DefaultEvaluator, map[string]interface{}{
+					"to":      "jira",
+					"content": false,
 				})
 			},
 			ExpectedInvokerError: &fn.KeywordArgError{
@@ -118,8 +118,8 @@ func TestConvertMarkdownFunction(t *testing.T) {
 		{
 			Name: "keyword invoker with missing to keyword",
 			Invoker: func() (fn.Invoker, error) {
-				return desc.KeywordInvoker(map[string]model.Evaluable{
-					"content": model.StaticEvaluable("bar"),
+				return desc.KeywordInvoker(model.DefaultEvaluator, map[string]interface{}{
+					"content": "bar",
 				})
 			},
 			ExpectedInvokeError: &fn.KeywordArgError{
@@ -130,8 +130,8 @@ func TestConvertMarkdownFunction(t *testing.T) {
 		{
 			Name: "keyword invoker with missing content",
 			Invoker: func() (fn.Invoker, error) {
-				return desc.KeywordInvoker(map[string]model.Evaluable{
-					"to": model.StaticEvaluable("jira"),
+				return desc.KeywordInvoker(model.DefaultEvaluator, map[string]interface{}{
+					"to": "jira",
 				})
 			},
 			ExpectedInvokeError: &fn.KeywordArgError{

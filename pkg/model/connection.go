@@ -9,5 +9,6 @@ type Connection struct {
 }
 
 type ConnectionManager interface {
+	List(ctx context.Context) ([]*Connection, error)
 	Get(ctx context.Context, typ, name string) (*Connection, error)
 }

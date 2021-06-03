@@ -50,5 +50,9 @@ func TestConnectionManager(t *testing.T) {
 
 		_, err = cm.Get(ctx, "some-other-type", "test")
 		require.Equal(t, model.ErrNotFound, err)
+
+		conns, err := cm.List(ctx)
+		require.Len(t, conns, 1)
+		require.Contains(t, conns, &model.Connection{Type: "some-type", Name: "test", Attributes: attrs})
 	})
 }
