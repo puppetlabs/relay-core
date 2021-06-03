@@ -29,7 +29,14 @@ func evaluateType(ctx context.Context, tm map[string]interface{}, o *Options) (*
 		}
 
 		d, err := resolver.ResolveData(ctx)
-		if err != nil {
+		if _, ok := err.(*model.DataNotFoundError); ok {
+			return &model.Result{
+				Value: tm,
+				Unresolvable: model.Unresolvable{Data: []model.UnresolvableData{
+					{Name: name},
+				}},
+			}, nil
+		} else if err != nil {
 			return nil, &InvalidTypeError{Type: "Data", Cause: err}
 		}
 

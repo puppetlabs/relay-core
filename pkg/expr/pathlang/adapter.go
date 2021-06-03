@@ -20,7 +20,11 @@ var (
 
 func (dtra *DataTypeResolverAdapter) Index(ctx context.Context, idx interface{}) (interface{}, error) {
 	d, err := dtra.ResolveData(ctx)
-	if err != nil {
+	if errmark.Matches(err, errmark.RuleType(&model.DataNotFoundError{})) {
+		return model.StaticExpandable(nil, model.Unresolvable{
+			Data: []model.UnresolvableData{{}},
+		}), nil
+	} else if err != nil {
 		return nil, err
 	}
 
