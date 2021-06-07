@@ -20,8 +20,9 @@ func TestConnectionManager(t *testing.T) {
 
 		// Write data.
 		attrs := map[string]interface{}{
-			"foo": "bar",
-			"baz": "quux",
+			"foo":  "bar",
+			"baz":  "quux",
+			"flub": "wh\nup",
 		}
 		for k, v := range attrs {
 			_, err := vcfg.Client.Logical().Write(path.Join(vcfg.SecretsPath, "data", "foo", id, k), map[string]interface{}{
@@ -52,6 +53,7 @@ func TestConnectionManager(t *testing.T) {
 		require.Equal(t, model.ErrNotFound, err)
 
 		conns, err := cm.List(ctx)
+		require.NoError(t, err)
 		require.Len(t, conns, 1)
 		require.Contains(t, conns, &model.Connection{Type: "some-type", Name: "test", Attributes: attrs})
 	})
