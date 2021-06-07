@@ -202,13 +202,19 @@ func identFunc(ctx context.Context, p *gval.Parser, o *Options, name string) (gv
 }
 
 func identVar(ctx context.Context, p *gval.Parser, vars []gval.Evaluable) (gval.Evaluable, error) {
-	switch p.Scan() {
+	switch scanIgnoreFloats(p) {
 	case '.':
-		switch p.Scan() {
+		switch scanIgnoreFloats(p) {
 		case scanner.Ident:
 			return identVar(ctx, p, append(vars, p.Const(p.TokenText())))
 		default:
-			return nil, p.Expected("field", scanner.Ident)
+			p.Camouflage("field")
+			eval, err := p.ParseNextExpression(ctx)
+			if err != nil {
+				return nil, err
+			}
+
+			return identVar(ctx, p, append(vars, eval))
 		}
 	case '[':
 		key, err := p.ParseExpression(ctx)
@@ -233,7 +239,7 @@ func ident(o *Options) gval.Language {
 		gval.PrefixMetaPrefix(scanner.Ident, func(ctx context.Context, p *gval.Parser) (call string, alternative func() (gval.Evaluable, error), err error) {
 			call = p.TokenText()
 			alternative = func() (gval.Evaluable, error) {
-				switch p.Scan() {
+				switch scanIgnoreFloats(p) {
 				case '(':
 					return identFunc(ctx, p, o, call)
 				default:
@@ -244,4 +250,10 @@ func ident(o *Options) gval.Language {
 			return
 		}),
 	)
+}
+
+func scanIgnoreFloats(p *gval.Parser) rune {
+	p.SetMode((scanner.GoTokens | scanner.ScanInts) &^ scanner.ScanFloats)
+	defer p.SetMode(scanner.GoTokens)
+	return p.Scan()
 }

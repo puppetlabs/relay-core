@@ -3,6 +3,7 @@ package vault
 import (
 	"context"
 	"strings"
+	"unicode"
 
 	"github.com/puppetlabs/relay-core/pkg/model"
 )
@@ -55,6 +56,13 @@ func (m *ConnectionManager) Get(ctx context.Context, typ, name string) (*model.C
 	connectionID, err := m.client.In(typ, name).ReadString(ctx)
 	if err != nil {
 		return nil, err
+	}
+
+	if strings.IndexFunc(connectionID, func(r rune) bool { return !unicode.IsPrint(r) }) >= 0 {
+		// Vault includes a sanitization handler that rejects any
+		// non-printable characters from paths, so we know this cannot
+		// be a valid key of any connection.
+		return nil, model.ErrNotFound
 	}
 
 	keys, err := m.client.In(connectionID).List(ctx)

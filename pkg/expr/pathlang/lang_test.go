@@ -22,11 +22,15 @@ func TestExpressions(t *testing.T) {
 	ctx = clockctx.WithClock(ctx, k8sext.NewClock(fc))
 
 	input := map[string]interface{}{
-		"a": []interface{}{1, 2, 3},
+		"a": []interface{}{1, 2, []interface{}{3, 4}},
 		"b": 10,
 		"c": map[string]interface{}{
 			"x": 1,
 			"y": 2,
+			"x y": map[string]interface{}{
+				"z": 3,
+			},
+			"false": 4,
 		},
 		"d": model.StaticExpandable(nil, model.Unresolvable{
 			Parameters: []model.UnresolvableParameter{{Name: "foo"}},
@@ -43,14 +47,56 @@ func TestExpressions(t *testing.T) {
 		ExpectedError        string
 	}{
 		{
-			Name:       "map path",
+			Name:       "map path with bracket syntax",
+			Expression: "c['x y']['z']",
+			Expected:   3,
+		},
+		{
+			Name:       "map path with dot syntax",
 			Expression: "c.x",
 			Expected:   1,
 		},
 		{
-			Name:       "array path",
+			Name:       "map path with dot syntax and constant string",
+			Expression: "c.'x y'",
+			Expected: map[string]interface{}{
+				"z": 3,
+			},
+		},
+		{
+			Name:       "map path with dot syntax and constant string traversal",
+			Expression: "c.'x y'.z",
+			Expected:   3,
+		},
+		{
+			Name:       "map path with reserved identifier",
+			Expression: "c.false",
+			Expected:   4,
+		},
+		{
+			Name:       "map path with operators",
+			Expression: "c.('x ' + 'y').z",
+			Expected:   3,
+		},
+		{
+			Name:       "array path with bracket syntax",
 			Expression: "a[0]",
 			Expected:   1,
+		},
+		{
+			Name:       "array path with dot syntax",
+			Expression: "a.0",
+			Expected:   1,
+		},
+		{
+			Name:       "array path with dot syntax traversal with dot syntax",
+			Expression: "a.2.1",
+			Expected:   4,
+		},
+		{
+			Name:       "array path with dot syntax traversal with bracket syntax",
+			Expression: "a.2[1]",
+			Expected:   4,
 		},
 		{
 			Name:          "invalid map path",
@@ -61,11 +107,15 @@ func TestExpressions(t *testing.T) {
 			Name:       "root",
 			Expression: "$",
 			Expected: map[string]interface{}{
-				"a": []interface{}{1, 2, 3},
+				"a": []interface{}{1, 2, []interface{}{3, 4}},
 				"b": 10,
 				"c": map[string]interface{}{
 					"x": 1,
 					"y": 2,
+					"x y": map[string]interface{}{
+						"z": 3,
+					},
+					"false": 4,
 				},
 				"d": nil,
 			},
@@ -100,7 +150,7 @@ func TestExpressions(t *testing.T) {
 		},
 		{
 			Name:       "map creation",
-			Expression: `{'foo': a[0] + a[1], 'bar': a[1] + a[2]}`,
+			Expression: `{'foo': a[0] + a[1], 'bar': a[1] + a[2][0]}`,
 			Expected:   map[string]interface{}{"foo": float64(3), "bar": float64(5)},
 		},
 		{
