@@ -5,6 +5,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/google/uuid"
 	"github.com/puppetlabs/relay-core/pkg/model"
 )
 
@@ -30,6 +31,12 @@ func (m *ConnectionManager) List(ctx context.Context) ([]*model.Connection, erro
 	var l []*model.Connection
 
 	for _, candidateType := range candidateTypes {
+		// Small hack: skip anything that looks like a UUID because it's not
+		// going to be a type. TODO: Better design without namespace conflicts.
+		if _, err := uuid.Parse(strings.TrimSuffix(candidateType, "/")); err == nil {
+			continue
+		}
+
 		candidateNames, err := m.client.In(candidateType).List(ctx)
 		if err == model.ErrNotFound {
 			continue
