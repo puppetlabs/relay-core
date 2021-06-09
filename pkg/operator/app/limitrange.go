@@ -35,16 +35,19 @@ func LimitRangeWithContainerMaxLimit(rl corev1.ResourceList) LimitRangeOption {
 func ConfigureLimitRange(lr *corev1obj.LimitRange, opts ...LimitRangeOption) {
 	lro := &limitRangeOptions{
 		containerDefaultLimit: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("750m"),
-			corev1.ResourceMemory: resource.MustParse("2Gi"),
+			corev1.ResourceCPU:              resource.MustParse("750m"),
+			corev1.ResourceMemory:           resource.MustParse("2Gi"),
+			corev1.ResourceEphemeralStorage: resource.MustParse("2Gi"),
 		},
 		containerDefaultRequestLimit: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("100m"),
-			corev1.ResourceMemory: resource.MustParse("256Mi"),
+			corev1.ResourceCPU:              resource.MustParse("100m"),
+			corev1.ResourceMemory:           resource.MustParse("256Mi"),
+			corev1.ResourceEphemeralStorage: resource.MustParse("2Gi"),
 		},
 		containerMaxLimit: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("1"),
-			corev1.ResourceMemory: resource.MustParse("3Gi"),
+			corev1.ResourceCPU:              resource.MustParse("1"),
+			corev1.ResourceMemory:           resource.MustParse("3Gi"),
+			corev1.ResourceEphemeralStorage: resource.MustParse("20Gi"),
 		},
 	}
 

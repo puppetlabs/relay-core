@@ -11,6 +11,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -42,6 +43,17 @@ func ConfigureTask(ctx context.Context, t *obj.Task, wrd *WorkflowRunDeps, ws *n
 		SecurityContext: &corev1.SecurityContext{
 			AllowPrivilegeEscalation: func(b bool) *bool { return &b }(false),
 		},
+	}
+
+	if wrd.LimitRange != nil {
+		container.Resources = corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceEphemeralStorage: resource.MustParse("20Gi"),
+			},
+			Limits: corev1.ResourceList{
+				corev1.ResourceEphemeralStorage: resource.MustParse("20Gi"),
+			},
+		}
 	}
 
 	command := ws.Command
