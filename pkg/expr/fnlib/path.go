@@ -5,24 +5,25 @@ import (
 	"errors"
 	"reflect"
 
-	"github.com/puppetlabs/leg/jsonutil/pkg/jsonpath"
+	"github.com/puppetlabs/leg/gvalutil/pkg/eval"
 	"github.com/puppetlabs/relay-core/pkg/expr/fn"
 	"github.com/puppetlabs/relay-core/pkg/expr/model"
+	"github.com/puppetlabs/relay-core/pkg/expr/query"
 )
 
 type pathArg struct {
-	e   model.Evaluable
+	v   interface{}
 	r   *model.Result
 	err error
 }
 
-func path(ctx context.Context, objArg, qArg, defArg *pathArg) *model.Result {
+func path(ctx context.Context, ev model.Evaluator, objArg, qArg, defArg *pathArg) *model.Result {
 	for _, arg := range []*pathArg{objArg, qArg, defArg} {
 		if arg == nil {
 			continue
 		}
 
-		arg.r, arg.err = arg.e.Evaluate(ctx, 0)
+		arg.r, arg.err = ev.Evaluate(ctx, arg.v, 0)
 		if arg.err != nil {
 			return nil
 		}
@@ -30,7 +31,7 @@ func path(ctx context.Context, objArg, qArg, defArg *pathArg) *model.Result {
 
 	defUsable := defArg != nil
 
-	qArg.r, qArg.err = qArg.e.EvaluateAll(ctx)
+	qArg.r, qArg.err = model.EvaluateAll(ctx, ev, qArg.v)
 	if qArg.err != nil || !qArg.r.Complete() {
 		return nil
 	}
@@ -45,11 +46,11 @@ func path(ctx context.Context, objArg, qArg, defArg *pathArg) *model.Result {
 	}
 
 	var vr *model.Result
-	vr, objArg.err = objArg.e.EvaluateQuery(ctx, q)
+	vr, objArg.err = query.EvaluateQuery(ctx, ev, query.PathLanguage(), objArg.v, q)
 	if objArg.err != nil {
 		var (
-			iobe *jsonpath.IndexOutOfBoundsError
-			uke  *jsonpath.UnknownKeyError
+			iobe *eval.IndexOutOfBoundsError
+			uke  *eval.UnknownKeyError
 		)
 		switch {
 		case errors.As(objArg.err, &iobe), errors.As(objArg.err, &uke):
@@ -79,7 +80,7 @@ func path(ctx context.Context, objArg, qArg, defArg *pathArg) *model.Result {
 	// resolvable if the default is not resolvable.
 	objArg.err = nil
 
-	defArg.r, defArg.err = defArg.e.EvaluateAll(ctx)
+	defArg.r, defArg.err = model.EvaluateAll(ctx, ev, defArg.v)
 	if defArg.err != nil || !defArg.r.Complete() {
 		return nil
 	}
@@ -91,7 +92,7 @@ var pathDescriptor = fn.DescriptorFuncs{
 	DescriptionFunc: func() string {
 		return "Looks up a value at a given path in an object, optionally returning a default value if the path does not exist"
 	},
-	PositionalInvokerFunc: func(args []model.Evaluable) (fn.Invoker, error) {
+	PositionalInvokerFunc: func(ev model.Evaluator, args []interface{}) (fn.Invoker, error) {
 		if len(args) < 2 || len(args) > 3 {
 			return nil, &fn.ArityError{Wanted: []int{2, 3}, Got: len(args)}
 		}
@@ -99,14 +100,14 @@ var pathDescriptor = fn.DescriptorFuncs{
 		fn := fn.InvokerFunc(func(ctx context.Context) (*model.Result, error) {
 			// For unresolved values, we want to show all of the arguments on
 			// the way out.
-			objArg := &pathArg{e: args[0]}
-			qArg := &pathArg{e: args[1]}
+			objArg := &pathArg{v: args[0]}
+			qArg := &pathArg{v: args[1]}
 			var defArg *pathArg
 			if len(args) > 2 {
-				defArg = &pathArg{e: args[2]}
+				defArg = &pathArg{v: args[2]}
 			}
 
-			r := path(ctx, objArg, qArg, defArg)
+			r := path(ctx, ev, objArg, qArg, defArg)
 			if r != nil {
 				return r, nil
 			}
@@ -132,7 +133,7 @@ var pathDescriptor = fn.DescriptorFuncs{
 		})
 		return fn, nil
 	},
-	KeywordInvokerFunc: func(args map[string]model.Evaluable) (fn.Invoker, error) {
+	KeywordInvokerFunc: func(ev model.Evaluator, args map[string]interface{}) (fn.Invoker, error) {
 		for _, arg := range []string{"object", "query"} {
 			if _, found := args[arg]; !found {
 				return nil, &fn.KeywordArgError{Arg: arg, Cause: fn.ErrArgNotFound}
@@ -140,14 +141,14 @@ var pathDescriptor = fn.DescriptorFuncs{
 		}
 
 		fn := fn.InvokerFunc(func(ctx context.Context) (*model.Result, error) {
-			objArg := &pathArg{e: args["object"]}
-			qArg := &pathArg{e: args["query"]}
+			objArg := &pathArg{v: args["object"]}
+			qArg := &pathArg{v: args["query"]}
 			var defArg *pathArg
 			if arg, found := args["default"]; found {
-				defArg = &pathArg{e: arg}
+				defArg = &pathArg{v: arg}
 			}
 
-			r := path(ctx, objArg, qArg, defArg)
+			r := path(ctx, ev, objArg, qArg, defArg)
 			if r != nil {
 				return r, nil
 			}

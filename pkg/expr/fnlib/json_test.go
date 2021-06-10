@@ -13,7 +13,7 @@ func TestJSONUnmarshal(t *testing.T) {
 	desc, err := fnlib.Library().Descriptor("jsonUnmarshal")
 	require.NoError(t, err)
 
-	invoker, err := desc.PositionalInvoker([]model.Evaluable{model.StaticEvaluable(`{"foo": "bar"}`)})
+	invoker, err := desc.PositionalInvoker(model.DefaultEvaluator, []interface{}{`{"foo": "bar"}`})
 	require.NoError(t, err)
 
 	r, err := invoker.Invoke(context.Background())

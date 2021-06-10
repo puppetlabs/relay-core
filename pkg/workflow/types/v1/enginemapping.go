@@ -7,11 +7,9 @@ import (
 )
 
 const (
-	AccountIDLabel           = "managed.relay.sh/account-id"
-	WorkflowIDLabel          = "managed.relay.sh/workflow-id"
-	WorkflowNameLabel        = "managed.relay.sh/workflow-name"
-	WorkflowTriggerIDLabel   = "managed.relay.sh/workflow-trigger-id"
-	WorkflowTriggerNameLabel = "managed.relay.sh/workflow-trigger-name"
+	AccountIDLabel         = "managed.relay.sh/account-id"
+	WorkflowIDLabel        = "managed.relay.sh/workflow-id"
+	WorkflowTriggerIDLabel = "managed.relay.sh/workflow-trigger-id"
 )
 
 const (

@@ -7,5 +7,6 @@ type Secret struct {
 }
 
 type SecretManager interface {
+	List(ctx context.Context) ([]*Secret, error)
 	Get(ctx context.Context, name string) (*Secret, error)
 }

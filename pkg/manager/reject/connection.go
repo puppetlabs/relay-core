@@ -8,6 +8,10 @@ import (
 
 type connectionManager struct{}
 
+func (*connectionManager) List(ctx context.Context) ([]*model.Connection, error) {
+	return nil, model.ErrRejected
+}
+
 func (*connectionManager) Get(ctx context.Context, typ, name string) (*model.Connection, error) {
 	return nil, model.ErrRejected
 }

@@ -16,6 +16,20 @@ type ConnectionManager struct {
 
 var _ model.ConnectionManager = &ConnectionManager{}
 
+func (cm *ConnectionManager) List(ctx context.Context) ([]*model.Connection, error) {
+	var l []*model.Connection
+
+	for k, v := range cm.connections {
+		l = append(l, &model.Connection{
+			Type:       k.Type,
+			Name:       k.Name,
+			Attributes: v,
+		})
+	}
+
+	return l, nil
+}
+
 func (cm *ConnectionManager) Get(ctx context.Context, typ, name string) (*model.Connection, error) {
 	attrs, found := cm.connections[ConnectionKey{Type: typ, Name: name}]
 	if !found {

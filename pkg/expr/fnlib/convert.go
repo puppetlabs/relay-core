@@ -11,12 +11,12 @@ import (
 
 var convertMarkdownDescriptor = fn.DescriptorFuncs{
 	DescriptionFunc: func() string { return "Converts a string in markdown format to another applicable syntax" },
-	PositionalInvokerFunc: func(args []model.Evaluable) (fn.Invoker, error) {
+	PositionalInvokerFunc: func(ev model.Evaluator, args []interface{}) (fn.Invoker, error) {
 		if len(args) != 2 {
 			return nil, &fn.ArityError{Wanted: []int{2}, Variadic: false, Got: len(args)}
 		}
 
-		fn := fn.EvaluatedPositionalInvoker(args, func(ctx context.Context, args []interface{}) (m interface{}, err error) {
+		fn := fn.EvaluatedPositionalInvoker(ev, args, func(ctx context.Context, args []interface{}) (m interface{}, err error) {
 			to, found := args[0].(string)
 			if !found {
 				return nil, &fn.PositionalArgError{
@@ -47,14 +47,14 @@ var convertMarkdownDescriptor = fn.DescriptorFuncs{
 		})
 		return fn, nil
 	},
-	KeywordInvokerFunc: func(args map[string]model.Evaluable) (fn.Invoker, error) {
+	KeywordInvokerFunc: func(ev model.Evaluator, args map[string]interface{}) (fn.Invoker, error) {
 		for _, arg := range []string{"to", "content"} {
 			if _, found := args[arg]; !found {
 				return nil, &fn.KeywordArgError{Arg: arg, Cause: fn.ErrArgNotFound}
 			}
 		}
 
-		return fn.EvaluatedKeywordInvoker(args, func(ctx context.Context, args map[string]interface{}) (interface{}, error) {
+		return fn.EvaluatedKeywordInvoker(ev, args, func(ctx context.Context, args map[string]interface{}) (interface{}, error) {
 			ct, ok := args["to"].(string)
 			if !ok {
 				return nil, &fn.KeywordArgError{

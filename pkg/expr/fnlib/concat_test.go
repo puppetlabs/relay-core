@@ -15,35 +15,27 @@ func TestConcat(t *testing.T) {
 
 	tests := []struct {
 		Name     string
-		Args     []model.Evaluable
+		Args     []interface{}
 		Expected interface{}
 	}{
 		{
 			Name:     "empty",
-			Args:     []model.Evaluable{},
 			Expected: "",
 		},
 		{
-			Name: "basic",
-			Args: []model.Evaluable{
-				model.StaticEvaluable("Hello, "),
-				model.StaticEvaluable("world!"),
-			},
+			Name:     "basic",
+			Args:     []interface{}{"Hello, ", "world!"},
 			Expected: "Hello, world!",
 		},
 		{
-			Name: "type conversion",
-			Args: []model.Evaluable{
-				model.StaticEvaluable("H"),
-				model.StaticEvaluable(3),
-				model.StaticEvaluable("llo, world!"),
-			},
+			Name:     "type conversion",
+			Args:     []interface{}{"H", 3, "llo, world!"},
 			Expected: "H3llo, world!",
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			invoker, err := desc.PositionalInvoker(test.Args)
+			invoker, err := desc.PositionalInvoker(model.DefaultEvaluator, test.Args)
 			require.NoError(t, err)
 
 			r, err := invoker.Invoke(context.Background())

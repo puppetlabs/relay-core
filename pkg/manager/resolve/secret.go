@@ -14,15 +14,32 @@ type SecretTypeResolver struct {
 
 var _ resolve.SecretTypeResolver = &SecretTypeResolver{}
 
+func (str *SecretTypeResolver) ResolveAllSecrets(ctx context.Context) (map[string]string, error) {
+	l, err := str.m.List(ctx)
+	if err != nil {
+		return nil, err
+	} else if len(l) == 0 {
+		return nil, nil
+	}
+
+	sm := make(map[string]string, len(l))
+
+	for _, s := range l {
+		sm[s.Name] = s.Value
+	}
+
+	return sm, nil
+}
+
 func (str *SecretTypeResolver) ResolveSecret(ctx context.Context, name string) (string, error) {
-	so, err := str.m.Get(ctx, name)
+	s, err := str.m.Get(ctx, name)
 	if err == model.ErrNotFound {
 		return "", &exprmodel.SecretNotFoundError{Name: name}
 	} else if err != nil {
 		return "", err
 	}
 
-	return so.Value, nil
+	return s.Value, nil
 }
 
 func NewSecretTypeResolver(m model.SecretManager) *SecretTypeResolver {

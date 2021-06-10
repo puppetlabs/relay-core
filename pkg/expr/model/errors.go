@@ -2,7 +2,10 @@ package model
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
+
+	"github.com/puppetlabs/leg/jsonutil/pkg/jsonpath"
 )
 
 type UnresolvableError struct {
@@ -18,20 +21,16 @@ func (e *UnresolvableError) Error() string {
 	return fmt.Sprintf("unresolvable:\n%s", strings.Join(causes, "\n"))
 }
 
-type DataQueryError struct {
-	Query string
-}
-
-func (e *DataQueryError) Error() string {
-	return fmt.Sprintf("model: data query %q could not be processed", e.Query)
-}
-
 type DataNotFoundError struct {
-	Query string
+	Name string
 }
 
 func (e *DataNotFoundError) Error() string {
-	return fmt.Sprintf("model: data for query %q could not be found", e.Query)
+	if e.Name == "" {
+		return "model: data could not be found"
+	}
+
+	return fmt.Sprintf("model: %s data could not be found", e.Name)
 }
 
 type SecretNotFoundError struct {
@@ -82,6 +81,76 @@ type FunctionResolutionError struct {
 	Cause error
 }
 
+func (e *FunctionResolutionError) Unwrap() error {
+	return e.Cause
+}
+
 func (e *FunctionResolutionError) Error() string {
 	return fmt.Sprintf("model: function %q could not be invoked: %+v", e.Name, e.Cause)
 }
+
+type UnsupportedValueError struct {
+	Type reflect.Type
+}
+
+var _ jsonpath.PropagatableError = &UnsupportedValueError{}
+
+func (e *UnsupportedValueError) Error() string {
+	return fmt.Sprintf("could not evaluate a value of type %s, must be a YAML-compatible type", e.Type)
+}
+
+func (e *UnsupportedValueError) Propagate() bool { return true }
+
+type InvocationError struct {
+	Name  string
+	Cause error
+}
+
+var _ jsonpath.PropagatableError = &InvocationError{}
+
+func (e *InvocationError) Unwrap() error {
+	return e.Cause
+}
+
+func (e *InvocationError) Error() string {
+	return fmt.Sprintf("invocation of function %q failed: %+v", e.Name, e.Cause)
+}
+
+func (e *InvocationError) Propagate() bool { return true }
+
+type PathEvaluationError struct {
+	Path  string
+	Cause error
+}
+
+var _ jsonpath.PropagatableError = &PathEvaluationError{}
+
+func (e *PathEvaluationError) trace() ([]string, error) {
+	var path []string
+	for {
+		path = append(path, e.Path)
+
+		en, ok := e.Cause.(*PathEvaluationError)
+		if !ok {
+			return path, e.Cause
+		}
+
+		e = en
+	}
+}
+
+func (e *PathEvaluationError) UnderlyingCause() error {
+	_, err := e.trace()
+	return err
+}
+
+func (e *PathEvaluationError) Unwrap() error {
+	return e.Cause
+}
+
+func (e *PathEvaluationError) Error() string {
+	path, err := e.trace()
+	return fmt.Sprintf("path %q: %+v", strings.Join(path, "."), err)
+}
+
+func (e *PathEvaluationError) Propagate() bool { return true }

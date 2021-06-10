@@ -10,12 +10,12 @@ import (
 
 var concatDescriptor = fn.DescriptorFuncs{
 	DescriptionFunc: func() string { return "Concatenates string arguments into a single string" },
-	PositionalInvokerFunc: func(args []model.Evaluable) (fn.Invoker, error) {
+	PositionalInvokerFunc: func(ev model.Evaluator, args []interface{}) (fn.Invoker, error) {
 		if len(args) == 0 {
 			return fn.StaticInvoker(""), nil
 		}
 
-		fn := fn.EvaluatedPositionalInvoker(args, func(ctx context.Context, args []interface{}) (m interface{}, err error) {
+		fn := fn.EvaluatedPositionalInvoker(ev, args, func(ctx context.Context, args []interface{}) (m interface{}, err error) {
 			strs := make([]string, len(args))
 			for i, iarg := range args {
 				arg, err := toString(iarg)

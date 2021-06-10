@@ -7,42 +7,46 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/model"
 )
 
-type StepOutputMap struct {
-	mut     sync.RWMutex
-	outputs map[model.Hash]map[string]interface{}
+type StepOutputKey struct {
+	StepName, Name string
 }
 
-func (m *StepOutputMap) Get(step *model.Step, name string) (interface{}, bool) {
+type StepOutputMap struct {
+	mut     sync.RWMutex
+	outputs map[StepOutputKey]interface{}
+}
+
+func (m *StepOutputMap) Keys() []StepOutputKey {
 	m.mut.RLock()
 	defer m.mut.RUnlock()
 
-	outputs, found := m.outputs[step.Hash()]
-	if !found {
-		return nil, false
+	var l []StepOutputKey
+
+	for k := range m.outputs {
+		l = append(l, k)
 	}
 
-	value, found := outputs[name]
+	return l
+}
+
+func (m *StepOutputMap) Get(key StepOutputKey) (interface{}, bool) {
+	m.mut.RLock()
+	defer m.mut.RUnlock()
+
+	value, found := m.outputs[key]
 	return value, found
 }
 
-func (m *StepOutputMap) Set(step *model.Step, name string, value interface{}) {
+func (m *StepOutputMap) Set(key StepOutputKey, value interface{}) {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
-	h := step.Hash()
-
-	outputs, found := m.outputs[h]
-	if !found {
-		outputs = make(map[string]interface{})
-		m.outputs[h] = outputs
-	}
-
-	outputs[name] = value
+	m.outputs[key] = value
 }
 
 func NewStepOutputMap() *StepOutputMap {
 	return &StepOutputMap{
-		outputs: make(map[model.Hash]map[string]interface{}),
+		outputs: make(map[StepOutputKey]interface{}),
 	}
 }
 
@@ -53,13 +57,35 @@ type StepOutputManager struct {
 
 var _ model.StepOutputManager = &StepOutputManager{}
 
+func (m *StepOutputManager) List(ctx context.Context) ([]*model.StepOutput, error) {
+	var l []*model.StepOutput
+
+	for _, key := range m.m.Keys() {
+		value, found := m.m.Get(key)
+		if !found {
+			continue
+		}
+
+		l = append(l, &model.StepOutput{
+			Step: &model.Step{
+				Run:  m.me.Run,
+				Name: key.StepName,
+			},
+			Name:  key.Name,
+			Value: value,
+		})
+	}
+
+	return l, nil
+}
+
 func (m *StepOutputManager) Get(ctx context.Context, stepName, name string) (*model.StepOutput, error) {
 	step := &model.Step{
 		Run:  m.me.Run,
 		Name: stepName,
 	}
 
-	value, found := m.m.Get(step, name)
+	value, found := m.m.Get(StepOutputKey{StepName: step.Name, Name: name})
 	if !found {
 		return nil, model.ErrNotFound
 	}
@@ -72,7 +98,7 @@ func (m *StepOutputManager) Get(ctx context.Context, stepName, name string) (*mo
 }
 
 func (m *StepOutputManager) Set(ctx context.Context, name string, value interface{}) (*model.StepOutput, error) {
-	m.m.Set(m.me, name, value)
+	m.m.Set(StepOutputKey{StepName: m.me.Name, Name: name}, value)
 
 	return &model.StepOutput{
 		Step:  m.me,

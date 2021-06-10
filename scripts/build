@@ -23,9 +23,11 @@ do_build() {
   else
     (
       set -x
+      GO_PKG_DIR=$(go env GOPATH)/pkg
+      [ ! -d "$GO_PKG_DIR" ] && mkdir -p "$GO_PKG_DIR"
       buildah bud \
         "${BUILD_ARGS[@]}" \
-        -v "$(go env GOPATH)/pkg:/go/pkg:O" \
+        -v "$GO_PKG_DIR:/go/pkg:O" \
         .
       buildah push "${BUILD_IMAGE}" "docker-daemon:${BUILD_IMAGE}"
     )

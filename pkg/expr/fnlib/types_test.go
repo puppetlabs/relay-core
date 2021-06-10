@@ -79,9 +79,7 @@ func TestToString(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			invoker, err := desc.PositionalInvoker([]model.Evaluable{
-				model.StaticEvaluable(test.Value),
-			})
+			invoker, err := desc.PositionalInvoker(model.DefaultEvaluator, []interface{}{test.Value})
 			require.NoError(t, err)
 
 			r, err := invoker.Invoke(context.Background())

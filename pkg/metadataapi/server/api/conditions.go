@@ -30,13 +30,14 @@ func (s *Server) GetConditions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ev := evaluate.NewEvaluator(
-		evaluate.WithParameterTypeResolver(resolve.NewParameterTypeResolver(managers.Parameters())),
-		evaluate.WithSecretTypeResolver(resolve.NewSecretTypeResolver(managers.Secrets())),
-		evaluate.WithOutputTypeResolver(resolve.NewOutputTypeResolver(managers.StepOutputs())),
-		evaluate.WithAnswerTypeResolver(resolve.NewAnswerTypeResolver(managers.State())),
+		evaluate.WithConnectionTypeResolver{ConnectionTypeResolver: resolve.NewConnectionTypeResolver(managers.Connections())},
+		evaluate.WithSecretTypeResolver{SecretTypeResolver: resolve.NewSecretTypeResolver(managers.Secrets())},
+		evaluate.WithParameterTypeResolver{ParameterTypeResolver: resolve.NewParameterTypeResolver(managers.Parameters())},
+		evaluate.WithOutputTypeResolver{OutputTypeResolver: resolve.NewOutputTypeResolver(managers.StepOutputs())},
+		evaluate.WithAnswerTypeResolver{AnswerTypeResolver: resolve.NewAnswerTypeResolver(managers.State())},
 	)
 
-	rv, rerr := ev.EvaluateAll(ctx, cond.Tree)
+	rv, rerr := model.EvaluateAll(ctx, ev, cond.Tree)
 	if rerr != nil {
 		utilapi.WriteError(ctx, w, errors.NewExpressionEvaluationError(rerr.Error()).Bug())
 		return

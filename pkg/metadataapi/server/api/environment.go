@@ -31,13 +31,13 @@ func (s *Server) GetEnvironmentVariable(w http.ResponseWriter, r *http.Request) 
 	}
 
 	eval := evaluate.NewEvaluator(
-		evaluate.WithConnectionTypeResolver(resolve.NewConnectionTypeResolver(managers.Connections())),
-		evaluate.WithParameterTypeResolver(resolve.NewParameterTypeResolver(managers.Parameters())),
-		evaluate.WithOutputTypeResolver(resolve.NewOutputTypeResolver(managers.StepOutputs())),
-		evaluate.WithSecretTypeResolver(resolve.NewSecretTypeResolver(managers.Secrets())),
-	).ScopeTo(value)
+		evaluate.WithConnectionTypeResolver{ConnectionTypeResolver: resolve.NewConnectionTypeResolver(managers.Connections())},
+		evaluate.WithSecretTypeResolver{SecretTypeResolver: resolve.NewSecretTypeResolver(managers.Secrets())},
+		evaluate.WithParameterTypeResolver{ParameterTypeResolver: resolve.NewParameterTypeResolver(managers.Parameters())},
+		evaluate.WithOutputTypeResolver{OutputTypeResolver: resolve.NewOutputTypeResolver(managers.StepOutputs())},
+	)
 
-	rv, rerr := eval.EvaluateAll(ctx)
+	rv, rerr := model.EvaluateAll(ctx, eval, value)
 	if rerr != nil {
 		utilapi.WriteError(ctx, w, errors.NewExpressionEvaluationError(rerr.Error()))
 		return
@@ -57,17 +57,17 @@ func (s *Server) GetEnvironment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	eval := evaluate.NewEvaluator(
+		evaluate.WithConnectionTypeResolver{ConnectionTypeResolver: resolve.NewConnectionTypeResolver(managers.Connections())},
+		evaluate.WithSecretTypeResolver{SecretTypeResolver: resolve.NewSecretTypeResolver(managers.Secrets())},
+		evaluate.WithParameterTypeResolver{ParameterTypeResolver: resolve.NewParameterTypeResolver(managers.Parameters())},
+		evaluate.WithOutputTypeResolver{OutputTypeResolver: resolve.NewOutputTypeResolver(managers.StepOutputs())},
+	)
+
 	complete := true
 	evs := make(map[string]interface{})
 	for name, value := range environment.Value {
-		eval := evaluate.NewEvaluator(
-			evaluate.WithConnectionTypeResolver(resolve.NewConnectionTypeResolver(managers.Connections())),
-			evaluate.WithParameterTypeResolver(resolve.NewParameterTypeResolver(managers.Parameters())),
-			evaluate.WithOutputTypeResolver(resolve.NewOutputTypeResolver(managers.StepOutputs())),
-			evaluate.WithSecretTypeResolver(resolve.NewSecretTypeResolver(managers.Secrets())),
-		).ScopeTo(value)
-
-		rv, rerr := eval.EvaluateAll(ctx)
+		rv, rerr := model.EvaluateAll(ctx, eval, value)
 		if rerr != nil {
 			utilapi.WriteError(ctx, w, errors.NewExpressionEvaluationError(rerr.Error()))
 			return

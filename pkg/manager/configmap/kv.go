@@ -3,6 +3,7 @@ package configmap
 import (
 	"context"
 	"encoding/json"
+	"strings"
 
 	"github.com/puppetlabs/leg/encoding/transfer"
 	"github.com/puppetlabs/relay-core/pkg/model"
@@ -12,6 +13,34 @@ import (
 
 type KVConfigMap struct {
 	cm ConfigMap
+}
+
+func (kcm *KVConfigMap) List(ctx context.Context, prefix string) (map[string]interface{}, error) {
+	cm, err := kcm.cm.Get(ctx)
+	if errors.IsNotFound(err) {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+
+	var values map[string]interface{}
+
+	for key, encoded := range cm.Data {
+		if !strings.HasPrefix(key, prefix) {
+			continue
+		} else if values == nil {
+			values = make(map[string]interface{})
+		}
+
+		var value transfer.JSONInterface
+		if err := json.Unmarshal([]byte(encoded), &value); err != nil {
+			return nil, err
+		}
+
+		values[key[len(prefix):]] = value.Data
+	}
+
+	return values, nil
 }
 
 func (kcm *KVConfigMap) Get(ctx context.Context, key string) (interface{}, error) {

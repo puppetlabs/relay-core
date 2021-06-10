@@ -8,6 +8,10 @@ import (
 
 type secretManager struct{}
 
+func (*secretManager) List(ctx context.Context) ([]*model.Secret, error) {
+	return nil, model.ErrRejected
+}
+
 func (*secretManager) Get(ctx context.Context, name string) (*model.Secret, error) {
 	return nil, model.ErrRejected
 }

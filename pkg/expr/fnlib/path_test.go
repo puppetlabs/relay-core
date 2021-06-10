@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/puppetlabs/leg/jsonutil/pkg/jsonpath"
+	"github.com/puppetlabs/leg/gvalutil/pkg/eval"
 	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
 	"github.com/puppetlabs/relay-core/pkg/expr/fn"
 	"github.com/puppetlabs/relay-core/pkg/expr/fnlib"
@@ -58,21 +58,21 @@ func TestPath(t *testing.T) {
 			QArg: "foo.quux",
 			ExpectedPositionalError: &fn.PositionalArgError{
 				Arg: 1,
-				Cause: &evaluate.PathEvaluationError{
+				Cause: &model.PathEvaluationError{
 					Path: "foo",
-					Cause: &evaluate.PathEvaluationError{
+					Cause: &model.PathEvaluationError{
 						Path:  "quux",
-						Cause: &jsonpath.UnknownKeyError{Key: "quux"},
+						Cause: &eval.UnknownKeyError{Key: "quux"},
 					},
 				},
 			},
 			ExpectedKeywordError: &fn.KeywordArgError{
 				Arg: "object",
-				Cause: &evaluate.PathEvaluationError{
+				Cause: &model.PathEvaluationError{
 					Path: "foo",
-					Cause: &evaluate.PathEvaluationError{
+					Cause: &model.PathEvaluationError{
 						Path:  "quux",
-						Cause: &jsonpath.UnknownKeyError{Key: "quux"},
+						Cause: &eval.UnknownKeyError{Key: "quux"},
 					},
 				},
 			},
@@ -110,14 +110,16 @@ func TestPath(t *testing.T) {
 			},
 			QArg: "foo.bar.grault.garply",
 			Opts: []evaluate.Option{
-				evaluate.WithSecretTypeResolver(resolve.NewMemorySecretTypeResolver(
-					map[string]string{"blort": `{
+				evaluate.WithSecretTypeResolver{
+					SecretTypeResolver: resolve.NewMemorySecretTypeResolver(
+						map[string]string{"blort": `{
 						"grault": {
 							"garply": "xyzzy"
 						}
 					}`,
-					},
-				)),
+						},
+					),
+				},
 			},
 			Expected: "xyzzy",
 		},
@@ -132,14 +134,16 @@ func TestPath(t *testing.T) {
 			},
 			QArg: "foo.baz.grault.garply",
 			Opts: []evaluate.Option{
-				evaluate.WithSecretTypeResolver(resolve.NewMemorySecretTypeResolver(
-					map[string]string{"blort": `{
+				evaluate.WithSecretTypeResolver{
+					SecretTypeResolver: resolve.NewMemorySecretTypeResolver(
+						map[string]string{"blort": `{
 						"grault": {
 							"garply": "xyzzy"
 						}
 					}`,
-					},
-				)),
+						},
+					),
+				},
 			},
 			DefaultArg: "xyzzy",
 			Expected:   "xyzzy",
@@ -165,14 +169,16 @@ func TestPath(t *testing.T) {
 			},
 			QArg: "foo.bar.grault",
 			Opts: []evaluate.Option{
-				evaluate.WithConnectionTypeResolver(resolve.NewMemoryConnectionTypeResolver(
-					map[resolve.MemoryConnectionKey]interface{}{
-						{Type: "blort", Name: "bar"}: map[string]interface{}{
-							"quuz":   "quux",
-							"grault": "garply",
+				evaluate.WithConnectionTypeResolver{
+					ConnectionTypeResolver: resolve.NewMemoryConnectionTypeResolver(
+						map[resolve.MemoryConnectionKey]interface{}{
+							{Type: "blort", Name: "bar"}: map[string]interface{}{
+								"quuz":   "quux",
+								"grault": "garply",
+							},
 						},
-					},
-				)),
+					),
+				},
 			},
 			Expected: "garply",
 		},
@@ -185,14 +191,16 @@ func TestPath(t *testing.T) {
 			},
 			QArg: "foo.bar.grault",
 			Opts: []evaluate.Option{
-				evaluate.WithConnectionTypeResolver(resolve.NewMemoryConnectionTypeResolver(
-					map[resolve.MemoryConnectionKey]interface{}{
-						{Type: "blort", Name: "bar"}: map[string]interface{}{
-							"quuz":   "quux",
-							"grault": "garply",
+				evaluate.WithConnectionTypeResolver{
+					ConnectionTypeResolver: resolve.NewMemoryConnectionTypeResolver(
+						map[resolve.MemoryConnectionKey]interface{}{
+							{Type: "blort", Name: "bar"}: map[string]interface{}{
+								"quuz":   "quux",
+								"grault": "garply",
+							},
 						},
-					},
-				)),
+					),
+				},
 			},
 			DefaultArg: "xyzzy",
 			Expected:   "xyzzy",
@@ -217,9 +225,11 @@ func TestPath(t *testing.T) {
 			},
 			QArg: "foo.bar",
 			Opts: []evaluate.Option{
-				evaluate.WithParameterTypeResolver(resolve.NewMemoryParameterTypeResolver(
-					map[string]interface{}{"quux": "baz"},
-				)),
+				evaluate.WithParameterTypeResolver{
+					ParameterTypeResolver: resolve.NewMemoryParameterTypeResolver(
+						map[string]interface{}{"quux": "baz"},
+					),
+				},
 			},
 			Expected: "baz",
 		},
@@ -232,9 +242,11 @@ func TestPath(t *testing.T) {
 			},
 			QArg: testutil.JSONParameter("quuz"),
 			Opts: []evaluate.Option{
-				evaluate.WithParameterTypeResolver(resolve.NewMemoryParameterTypeResolver(
-					map[string]interface{}{"quux": "baz", "quuz": "foo.bar"},
-				)),
+				evaluate.WithParameterTypeResolver{
+					ParameterTypeResolver: resolve.NewMemoryParameterTypeResolver(
+						map[string]interface{}{"quux": "baz", "quuz": "foo.bar"},
+					),
+				},
 			},
 			Expected: "baz",
 		},
@@ -247,9 +259,11 @@ func TestPath(t *testing.T) {
 			},
 			QArg: "foo.bar",
 			Opts: []evaluate.Option{
-				evaluate.WithParameterTypeResolver(resolve.NewMemoryParameterTypeResolver(
-					map[string]interface{}{"quux": "baz"},
-				)),
+				evaluate.WithParameterTypeResolver{
+					ParameterTypeResolver: resolve.NewMemoryParameterTypeResolver(
+						map[string]interface{}{"quux": "baz"},
+					),
+				},
 			},
 			DefaultArg: "grault",
 			Expected:   "grault",
@@ -263,9 +277,11 @@ func TestPath(t *testing.T) {
 			},
 			QArg: "foo.bar",
 			Opts: []evaluate.Option{
-				evaluate.WithParameterTypeResolver(resolve.NewMemoryParameterTypeResolver(
-					map[string]interface{}{"quux": "baz", "grault": "garply"},
-				)),
+				evaluate.WithParameterTypeResolver{
+					ParameterTypeResolver: resolve.NewMemoryParameterTypeResolver(
+						map[string]interface{}{"quux": "baz", "grault": "garply"},
+					),
+				},
 			},
 			DefaultArg: testutil.JSONParameter("grault"),
 			Expected:   "garply",
@@ -331,16 +347,16 @@ func TestPath(t *testing.T) {
 			DefaultArg: "bar",
 			ExpectedPositionalError: &fn.PositionalArgError{
 				Arg: 1,
-				Cause: &evaluate.PathEvaluationError{
+				Cause: &model.PathEvaluationError{
 					Path:  "foo",
-					Cause: &jsonpath.UnsupportedValueTypeError{Value: nil},
+					Cause: &eval.UnsupportedValueTypeError{Value: nil, Field: "foo"},
 				},
 			},
 			ExpectedKeywordError: &fn.KeywordArgError{
 				Arg: "object",
-				Cause: &evaluate.PathEvaluationError{
+				Cause: &model.PathEvaluationError{
 					Path:  "foo",
-					Cause: &jsonpath.UnsupportedValueTypeError{Value: nil},
+					Cause: &eval.UnsupportedValueTypeError{Value: nil, Field: "foo"},
 				},
 			},
 		},
@@ -355,11 +371,11 @@ func TestPath(t *testing.T) {
 			DefaultArg: "bar",
 			ExpectedPositionalError: &fn.PositionalArgError{
 				Arg: 1,
-				Cause: &evaluate.PathEvaluationError{
+				Cause: &model.PathEvaluationError{
 					Path: "foo",
-					Cause: &evaluate.PathEvaluationError{
+					Cause: &model.PathEvaluationError{
 						Path: "bar",
-						Cause: &evaluate.UnsupportedValueError{
+						Cause: &model.UnsupportedValueError{
 							Type: reflect.TypeOf(complex128(1)),
 						},
 					},
@@ -367,11 +383,11 @@ func TestPath(t *testing.T) {
 			},
 			ExpectedKeywordError: &fn.KeywordArgError{
 				Arg: "object",
-				Cause: &evaluate.PathEvaluationError{
+				Cause: &model.PathEvaluationError{
 					Path: "foo",
-					Cause: &evaluate.PathEvaluationError{
+					Cause: &model.PathEvaluationError{
 						Path: "bar",
-						Cause: &evaluate.UnsupportedValueError{
+						Cause: &model.UnsupportedValueError{
 							Type: reflect.TypeOf(complex128(1)),
 						},
 					},
@@ -387,16 +403,16 @@ func (tt test) Run(t *testing.T) {
 
 	t.Run(tt.Name, func(t *testing.T) {
 		ctx := context.Background()
+
+		ev := evaluate.NewEvaluator(tt.Opts...)
+
 		t.Run("positional", func(t *testing.T) {
-			args := []model.Evaluable{
-				evaluate.NewScopedEvaluator(tt.ObjectArg, tt.Opts...),
-				evaluate.NewScopedEvaluator(tt.QArg, tt.Opts...),
-			}
+			args := []interface{}{tt.ObjectArg, tt.QArg}
 			if tt.DefaultArg != nil {
-				args = append(args, evaluate.NewScopedEvaluator(tt.DefaultArg, tt.Opts...))
+				args = append(args, tt.DefaultArg)
 			}
 
-			invoker, err := desc.PositionalInvoker(args)
+			invoker, err := desc.PositionalInvoker(ev, args)
 			require.NoError(t, err)
 
 			r, err := invoker.Invoke(ctx)
@@ -410,7 +426,7 @@ func (tt test) Run(t *testing.T) {
 				} else {
 					expected := make([]interface{}, len(args))
 					for i, arg := range args {
-						r, err := arg.EvaluateAll(ctx)
+						r, err := model.EvaluateAll(ctx, ev, arg)
 						require.NoError(t, err)
 						expected[i] = r.Value
 					}
@@ -420,15 +436,15 @@ func (tt test) Run(t *testing.T) {
 		})
 
 		t.Run("keyword", func(t *testing.T) {
-			args := map[string]model.Evaluable{
-				"object": evaluate.NewScopedEvaluator(tt.ObjectArg, tt.Opts...),
-				"query":  evaluate.NewScopedEvaluator(tt.QArg, tt.Opts...),
+			args := map[string]interface{}{
+				"object": tt.ObjectArg,
+				"query":  tt.QArg,
 			}
 			if tt.DefaultArg != nil {
-				args["default"] = evaluate.NewScopedEvaluator(tt.DefaultArg, tt.Opts...)
+				args["default"] = tt.DefaultArg
 			}
 
-			invoker, err := desc.KeywordInvoker(args)
+			invoker, err := desc.KeywordInvoker(ev, args)
 			require.NoError(t, err)
 
 			r, err := invoker.Invoke(context.Background())
@@ -442,7 +458,7 @@ func (tt test) Run(t *testing.T) {
 				} else {
 					expected := make(map[string]interface{})
 					for k, arg := range args {
-						r, err := arg.EvaluateAll(ctx)
+						r, err := model.EvaluateAll(ctx, ev, arg)
 						require.NoError(t, err)
 						expected[k] = r.Value
 					}

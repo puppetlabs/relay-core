@@ -275,8 +275,6 @@ func (m *operatorStateManager) deploymentCommand() []string {
 		"relay-operator",
 		"-environment",
 		m.rc.Spec.Environment,
-		"-tool-injection-image",
-		m.rc.Spec.Operator.ToolInjection.Image,
 		"-num-workers",
 		strconv.Itoa(int(m.rc.Spec.Operator.Workers)),
 		"-jwt-signing-key-file",
@@ -428,7 +426,7 @@ func (m *operatorStateManager) clusterRole(clusterRole *rbacv1.ClusterRole) {
 	clusterRole.Rules = []rbacv1.PolicyRule{
 		{
 			APIGroups: []string{""},
-			Resources: []string{"namespaces", "persistentvolumes", "persistentvolumeclaims"},
+			Resources: []string{"namespaces"},
 			Verbs:     []string{"get", "list", "watch", "create", "update", "patch", "delete"},
 		},
 		{
@@ -440,11 +438,6 @@ func (m *operatorStateManager) clusterRole(clusterRole *rbacv1.ClusterRole) {
 			APIGroups: []string{"tekton.dev"},
 			Resources: []string{"pipelineruns", "taskruns", "pipelines", "tasks", "conditions"},
 			Verbs:     []string{"get", "list", "watch"},
-		},
-		{
-			APIGroups: []string{"batch", "extensions"},
-			Resources: []string{"jobs"},
-			Verbs:     []string{"get", "list", "watch", "create", "update", "patch", "delete"},
 		},
 		{
 			APIGroups: []string{"rbac.authorization.k8s.io"},
@@ -462,13 +455,18 @@ func (m *operatorStateManager) clusterRole(clusterRole *rbacv1.ClusterRole) {
 			Verbs:     []string{"get", "list", "watch", "update", "patch"},
 		},
 		{
+			APIGroups: []string{"pvpool.puppet.com"},
+			Resources: []string{"checkouts"},
+			Verbs:     []string{"get", "list", "watch"},
+		},
+		{
 			APIGroups: []string{"relay.sh"},
 			Resources: []string{"tenants", "tenants/status", "webhooktriggers", "webhooktriggers/status"},
 			Verbs:     []string{"get", "list", "watch", "update", "patch"},
 		},
 		{
 			APIGroups: []string{"serving.knative.dev"},
-			Resources: []string{"services"},
+			Resources: []string{"revisions", "services"},
 			Verbs:     []string{"get", "list", "watch"},
 		},
 	}
@@ -483,7 +481,7 @@ func (m *operatorStateManager) delegateClusterRole(clusterRole *rbacv1.ClusterRo
 		},
 		{
 			APIGroups: []string{""},
-			Resources: []string{"configmaps", "serviceaccounts", "secrets", "limitranges", "persistentvolumeclaims"},
+			Resources: []string{"configmaps", "serviceaccounts", "secrets", "limitranges"},
 			Verbs:     []string{"create", "update", "patch", "delete"},
 		},
 		{
@@ -503,7 +501,7 @@ func (m *operatorStateManager) delegateClusterRole(clusterRole *rbacv1.ClusterRo
 		},
 		{
 			APIGroups: []string{"serving.knative.dev"},
-			Resources: []string{"services"},
+			Resources: []string{"revisions", "services"},
 			Verbs:     []string{"create", "update", "patch", "delete"},
 		},
 	}
