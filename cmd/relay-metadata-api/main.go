@@ -125,6 +125,7 @@ func main() {
 			Handler: server.NewHandler(auth, serverOpts...),
 			Addr:    fmt.Sprintf("0.0.0.0:%d", cfg.ListenPort),
 		}
+		s.SetKeepAlivesEnabled(false)
 
 		var listenOpts []serving.ListenWaitHTTPOption
 		if cfg.TLSKeyFile != "" {
