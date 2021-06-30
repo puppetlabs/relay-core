@@ -28,16 +28,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
-        - k3s-image: rancher/k3s:v1.20.4-k3s1
+        - k3s-image: rancher/k3s:v1.21.1-k3s1
           k3s-containerd-config-version: v1.19
           gvisor-version: latest
-        - k3s-image: rancher/k3s:v1.19.8-k3s1
+        - k3s-image: rancher/k3s:v1.20.7-k3s1
+          k3s-containerd-config-version: v1.19
+          gvisor-version: latest
+        - k3s-image: rancher/k3s:v1.19.11-k3s1
           k3s-containerd-config-version: v1.19
           gvisor-version: '20210301.0'
-        - k3s-image: rancher/k3s:v1.18.16-k3s1
-          k3s-containerd-config-version: v1.16
-          gvisor-version: '20210301.0'
-        - k3s-image: rancher/k3s:v1.17.17-k3s1
+        - k3s-image: rancher/k3s:v1.18.19-k3s1
           k3s-containerd-config-version: v1.16
           gvisor-version: '20210301.0'
     env:
@@ -66,7 +66,8 @@ jobs:
           shasum -a 512 -c "${binary}.sha512"
           chmod +x "${binary}"
         done
-    - name: Install k3d
+    - id: install-k3d
+      name: Install k3d
       run: curl -s https://raw.githubusercontent.com/rancher/k3d/main/install.sh | bash
     - name: Set up Kubernetes cluster
       run: |
@@ -89,8 +90,10 @@ jobs:
         kubectl wait --for=condition=established --timeout=60s crd installations.operator.tigera.io
         kubectl apply -f ${{ github.workspace }}/hack/k3s/calico.yaml
     - name: Review Docker containers
+      if: always()
       run: docker ps -a
     - name: Review Docker logs for k3d
+      if: success() || steps.install-k3d.outcome == 'success'
       run: |
         k3d node list --no-headers | cut -d' ' -f1 | xargs -n1 docker logs
     - id: test
