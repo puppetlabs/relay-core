@@ -258,3 +258,76 @@ func TestExpressions(t *testing.T) {
 		})
 	}
 }
+
+func TestIdent(t *testing.T) {
+	input := map[string]interface{}{
+		"a-b": 42,
+		"x": map[string]interface{}{
+			"y-z": "foo",
+		},
+	}
+
+	tests := []struct {
+		Name          string
+		Expression    string
+		Expected      interface{}
+		ExpectedError string
+	}{
+		{
+			Name:       "dash at beginning",
+			Expression: "-a-b",
+			Expected:   float64(-42),
+		},
+		{
+			Name:       "dash in middle",
+			Expression: "a-b",
+			Expected:   42,
+		},
+		{
+			Name:       "dash in middle with subtraction",
+			Expression: "a-b - a-b",
+			Expected:   float64(0),
+		},
+		{
+			Name:       "dash in traversal",
+			Expression: "x.y-z",
+			Expected:   "foo",
+		},
+		{
+			Name:          "nonexistent",
+			Expression:    "x-y-z",
+			ExpectedError: `path "x-y-z": unknown key x-y-z`,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.Name, func(t *testing.T) {
+			t.Run("expression", func(t *testing.T) {
+				var u model.Unresolvable
+
+				r, err := pathlang.DefaultFactory.Expression(&u).Evaluate(test.Expression, input)
+				if test.ExpectedError != "" {
+					require.NotNil(t, err)
+					require.Contains(t, err.Error(), test.ExpectedError)
+				} else {
+					require.NoError(t, err)
+					require.NoError(t, u.AsError())
+					require.Equal(t, test.Expected, r)
+				}
+			})
+
+			t.Run("template", func(t *testing.T) {
+				var u model.Unresolvable
+
+				r, err := pathlang.DefaultFactory.Template(&u).Evaluate(`${`+test.Expression+`}`, input)
+				if test.ExpectedError != "" {
+					require.NotNil(t, err)
+					require.Contains(t, err.Error(), test.ExpectedError)
+				} else {
+					require.NoError(t, err)
+					require.NoError(t, u.AsError())
+					require.Equal(t, test.Expected, r)
+				}
+			})
+		})
+	}
+}
