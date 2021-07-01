@@ -134,6 +134,16 @@ func TestExpressions(t *testing.T) {
 			ExpectedError: "unexpected \"$\" while scanning",
 		},
 		{
+			Name:       "map path from root with dot syntax and constant string",
+			Expression: "$.c.'x y'.z",
+			Expected:   3,
+		},
+		{
+			Name:       "map path from root with bracket syntax",
+			Expression: "$['c'].x",
+			Expected:   1,
+		},
+		{
 			Name:          "invalid path",
 			Expression:    "$.",
 			ExpectedError: "unexpected",

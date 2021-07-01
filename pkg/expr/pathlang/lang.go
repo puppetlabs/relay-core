@@ -120,13 +120,7 @@ var base = gval.NewLanguage(
 	gvalstrings.SingleQuoted(),
 	gval.Constant("null", nil),
 	gval.PrefixExtension('$', func(ctx context.Context, p *gval.Parser) (gval.Evaluable, error) {
-		switch p.Scan() {
-		case '.':
-			return p.ParseSublanguage(ctx, gval.Ident())
-		default:
-			p.Camouflage("variable", '.')
-			return p.Var(), nil
-		}
+		return identVar(ctx, p, nil)
 	}),
 	gval.PostfixOperator("|>", func(c context.Context, p *gval.Parser, pre gval.Evaluable) (gval.Evaluable, error) {
 		post, err := p.ParseExpression(c)
