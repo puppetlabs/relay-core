@@ -2,6 +2,7 @@ package pathlang
 
 import (
 	"context"
+	"unicode"
 
 	"github.com/PaesslerAG/gval"
 	"github.com/generikvault/gvalstrings"
@@ -46,6 +47,19 @@ func (f *Factory) Expression(u *model.Unresolvable) gval.Language {
 		ident(f.opts),
 		gval.VariableSelector(model.VariableSelector(f.opts.Evaluator)),
 		gval.Init(func(ctx context.Context, p *gval.Parser) (gval.Evaluable, error) {
+			p.SetIsIdentRuneFunc(func(ch rune, i int) bool {
+				switch {
+				case ch == '_' || unicode.IsLetter(ch):
+					return true
+				case i == 0:
+					return false
+				case ch == '-' || unicode.IsDigit(ch):
+					return true
+				default:
+					return false
+				}
+			})
+
 			eval, err := p.ParseExpression(ctx)
 			if err != nil {
 				return nil, err
