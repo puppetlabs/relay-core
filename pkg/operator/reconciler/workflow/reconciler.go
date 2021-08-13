@@ -89,8 +89,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			r.Config.MetadataAPIURL,
 			app.WorkflowRunDepsWithStandaloneMode(r.Config.Standalone),
 			app.WorkflowRunDepsWithToolInjectionPool(pvpoolv1alpha1.PoolReference{
-				Namespace: r.Config.ToolInjectionPool.Namespace,
-				Name:      r.Config.ToolInjectionPool.Name,
+				Namespace: r.Config.WorkflowToolInjectionPool.Namespace,
+				Name:      r.Config.WorkflowToolInjectionPool.Name,
 			}),
 		)
 
