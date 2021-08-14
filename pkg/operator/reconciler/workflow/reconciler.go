@@ -130,15 +130,23 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return nil
 	})
 	if err != nil {
+		retryOnError := true
 		errmark.IfMarked(err, errmark.User, func(err error) {
 			klog.Error(err)
 
-			// Discard error and fail the workflow run instead as reprocessing
-			// will not be helpful.
 			err = wr.Fail(ctx, r.Client)
+			if err != nil {
+				return
+			}
+
+			retryOnError = false
 		})
 
-		return ctrl.Result{}, err
+		if retryOnError {
+			return ctrl.Result{}, err
+		}
+
+		return ctrl.Result{}, nil
 	}
 
 	err = r.metrics.trackDurationWithOutcome(metricWorkflowRunLogUploadDuration, func() error {
@@ -200,7 +208,7 @@ func (r *Reconciler) uploadLogs(ctx context.Context, wr *obj.WorkflowRun, plr *o
 	}
 }
 
-func (r *Reconciler) uploadLog(ctx context.Context, namespace string, podName string, containerName string) (string, error) {
+func (r *Reconciler) uploadLog(ctx context.Context, namespace, podName, containerName string) (string, error) {
 	key := fmt.Sprintf("%s/%s/%s", namespace, podName, containerName)
 
 	// XXX: We can't do this with the dynamic client yet.
