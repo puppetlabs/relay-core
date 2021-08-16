@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
@@ -59,7 +60,8 @@ func main() {
 	tenantSandboxRuntimeClassName := fs.String("tenant-sandbox-runtime-class-name", "runsc", "name of the runtime class providing the gVisor containerd runtime")
 	sentryDSN := fs.String("sentry-dsn", "", "the Sentry DSN to use for error reporting")
 	dynamicRBACBinding := fs.Bool("dynamic-rbac-binding", false, "enable if RBAC rules are set up dynamically for the operator to reduce unhelpful reported errors")
-	toolInjectionPool := fs.String("tool-injection-pool", "", "the name of a PVPool pool to use for injecting tools into containers")
+	triggerToolInjectionPool := fs.String("trigger-tool-injection-pool", "", "the name of a PVPool pool to use for injecting tools into trigger containers")
+	workflowToolInjectionPool := fs.String("workflow-tool-injection-pool", "", "the name of a PVPool pool to use for injecting tools into workflow containers")
 
 	fs.Parse(os.Args[1:])
 
@@ -166,15 +168,9 @@ func main() {
 		AlertsDelegate:          alertsDelegate,
 		DynamicRBACBinding:      *dynamicRBACBinding,
 	}
-	if pool := *toolInjectionPool; pool != "" {
-		parts := strings.Split(pool, string(types.Separator))
-		if len(parts) != 2 {
-			log.Fatal("Invalid namespaced name for tool injection pool", pool)
-		}
 
-		cfg.ToolInjectionPool.Namespace = parts[0]
-		cfg.ToolInjectionPool.Name = parts[1]
-	}
+	cfg.TriggerToolInjectionPool = splitNamespacedName(triggerToolInjectionPool)
+	cfg.WorkflowToolInjectionPool = splitNamespacedName(workflowToolInjectionPool)
 
 	dm, err := dependency.NewDependencyManager(cfg, kcc, vc, jwtSigner, blobStore, mets)
 	if err != nil {
@@ -212,4 +208,17 @@ func main() {
 	if err := dm.Manager.Start(signals.SetupSignalHandler()); err != nil {
 		log.Fatal("Manager exited non-zero", err)
 	}
+}
+
+func splitNamespacedName(name *string) client.ObjectKey {
+	if nn := *name; nn != "" {
+		parts := strings.Split(nn, string(types.Separator))
+		if len(parts) != 2 {
+			return client.ObjectKey{}
+		}
+
+		return client.ObjectKey{Namespace: parts[0], Name: parts[1]}
+	}
+
+	return client.ObjectKey{}
 }

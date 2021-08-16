@@ -74,8 +74,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		r.Config.MetadataAPIURL,
 		app.WebhookTriggerDepsWithStandaloneMode(r.Config.Standalone),
 		app.WebhookTriggerDepsWithToolInjectionPool(pvpoolv1alpha1.PoolReference{
-			Namespace: r.Config.ToolInjectionPool.Namespace,
-			Name:      r.Config.ToolInjectionPool.Name,
+			Namespace: r.Config.TriggerToolInjectionPool.Namespace,
+			Name:      r.Config.TriggerToolInjectionPool.Name,
 		}),
 	)
 	loaded, err := deps.Load(ctx, r.Client)
