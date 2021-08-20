@@ -322,7 +322,8 @@ func doConfigDependencyManager(ctx context.Context) doConfigFunc {
 			}
 			require.NoError(t, pool.Persist(ctx, cfg.Environment.ControllerClient))
 
-			wcc.ToolInjectionPool = pool.Key
+			wcc.TriggerToolInjectionPool = pool.Key
+			wcc.WorkflowToolInjectionPool = pool.Key
 		}
 
 		deps, err := dependency.NewDependencyManager(wcc, cfg.Environment.RESTConfig, cfg.Vault.Client, cfg.Vault.JWTSigner, cfg.blobStore, metrics)

@@ -14,10 +14,16 @@ curl -LJ -o .deploy/relay \
 chmod +x .deploy/relay
 
 mkdir -p ~/.config/relay
-mkdir -p ~/.cache/relay
-echo 'api_domain: https://api.stage.relay-infra.net' >> ~/.config/relay/config.yaml
-echo 'ui_domain: https://ui.stage.relay-infra.net' >> ~/.config/relay/config.yaml
-echo -n "${RELAY_OPERATIONS_JWT}" > ~/.cache/relay/auth-token
+
+cat << EOF > ~/.config/relay/config.yaml
+contexts:
+  staging:
+    apiDomain: https://api.stage.relay-infra.net
+    uiDomain: https://ui.stage.relay-infra.net
+EOF
+
+.deploy/relay context set staging
+echo -n "${RELAY_OPERATIONS_API_TOKEN}" | .deploy/relay auth login --stdin
 
 echo -n "${VERSION}" | .deploy/relay workflow secret set "${RELAY_WORKFLOW}" tasks.image.tag --value-stdin
 .deploy/relay workflow run "${RELAY_WORKFLOW}"

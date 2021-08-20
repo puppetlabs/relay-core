@@ -64,7 +64,6 @@
     "steps": {
       "type": "array",
       "description": "List of workflow steps",
-      "minItems": 1,
       "items": {
         "$ref": "#/definitions/Step"
       }
@@ -88,7 +87,9 @@
           "minLength": 1
         }
       },
-      "required": ["type"]
+      "required": [
+        "type"
+      ]
     },
     "Expression": {
       "description": "An expression evaluated by the backend"
@@ -137,8 +138,12 @@
         "name"
       ],
       "oneOf": [
-        { "$ref": "#/definitions/ContainerStep" },
-        { "$ref": "#/definitions/ApprovalStep" }
+        {
+          "$ref": "#/definitions/ContainerStep"
+        },
+        {
+          "$ref": "#/definitions/ApprovalStep"
+        }
       ]
     },
     "ContainerMixin": {
@@ -184,7 +189,9 @@
         }
       },
       "allOf": [
-        { "$ref": "#/definitions/ContainerMixin" }
+        {
+          "$ref": "#/definitions/ContainerMixin"
+        }
       ]
     },
     "ApprovalStep": {
@@ -193,7 +200,9 @@
           "const": "approval"
         }
       },
-      "required": ["type"]
+      "required": [
+        "type"
+      ]
     },
     "Trigger": {
       "type": "object",
@@ -223,9 +232,15 @@
       "type": "object",
       "description": "A workflow trigger source definition",
       "oneOf": [
-        { "$ref": "#/definitions/ScheduleTriggerSource" },
-        { "$ref": "#/definitions/PushTriggerSource" },
-        { "$ref": "#/definitions/WebhookTriggerSource" }
+        {
+          "$ref": "#/definitions/ScheduleTriggerSource"
+        },
+        {
+          "$ref": "#/definitions/PushTriggerSource"
+        },
+        {
+          "$ref": "#/definitions/WebhookTriggerSource"
+        }
       ]
     },
     "ScheduleTriggerSource": {
@@ -273,9 +288,13 @@
         }
       },
       "allOf": [
-        { "$ref": "#/definitions/ContainerMixin" }
+        {
+          "$ref": "#/definitions/ContainerMixin"
+        }
       ],
-      "required": ["type"]
+      "required": [
+        "type"
+      ]
     },
     "TriggerBinding": {
       "type": "object",
