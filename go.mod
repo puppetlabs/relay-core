@@ -48,12 +48,9 @@ require (
 	github.com/puppetlabs/leg/mainutil v0.1.2
 	github.com/puppetlabs/leg/scheduler v0.1.4
 	github.com/puppetlabs/leg/storage v0.1.1
-	github.com/puppetlabs/leg/stringutil v0.1.0
 	github.com/puppetlabs/leg/timeutil v0.3.0
 	github.com/puppetlabs/pvpool v0.3.0
 	github.com/puppetlabs/relay-pls v0.0.0-20201125074651-13575df50b51
-	github.com/robfig/cron/v3 v3.0.1
-	github.com/shurcooL/vfsgen v0.0.0-20181202132449-6a9ea43bcacd
 	github.com/spf13/cast v1.3.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/viper v1.7.1

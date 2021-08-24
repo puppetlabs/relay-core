@@ -1,5 +1,0 @@
-apiVersion: v1
-## This example has an invalid step type
-steps:
-  - name: test
-    type: i-made-this-up
