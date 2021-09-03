@@ -7,6 +7,7 @@ import (
 	"github.com/puppetlabs/leg/graph"
 	"github.com/puppetlabs/leg/graph/traverse"
 	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
+	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/manager/configmap"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
@@ -72,7 +73,7 @@ type workflowRunStatusSummariesByTaskName struct {
 	conditions map[string]nebulav1.WorkflowRunStatusSummary
 }
 
-func workflowRunStatusSummaries(wr *obj.WorkflowRun, pr *obj.PipelineRun) *workflowRunStatusSummariesByTaskName {
+func workflowRunStatusSummaries(ctx context.Context, deps *WorkflowRunDeps, pr *obj.PipelineRun) *workflowRunStatusSummariesByTaskName {
 	m := &workflowRunStatusSummariesByTaskName{
 		steps:      make(map[string]nebulav1.WorkflowRunStatusSummary),
 		conditions: make(map[string]nebulav1.WorkflowRunStatusSummary),
@@ -84,8 +85,20 @@ func workflowRunStatusSummaries(wr *obj.WorkflowRun, pr *obj.PipelineRun) *workf
 		}
 
 		if step, ok := taskRunStepStatusSummary(taskRun, name); ok {
-			if step.Status == string(obj.WorkflowRunStatusPending) && workflowRunSkipsPendingSteps(wr) {
+			if step.Status == string(obj.WorkflowRunStatusPending) && workflowRunSkipsPendingSteps(deps.WorkflowRun) {
 				step.Status = string(obj.WorkflowRunStatusSkipped)
+			}
+
+			configMap := configmap.NewLocalConfigMap(deps.MutableConfigMap.Object)
+			modelStep := ModelStep(deps.WorkflowRun, &nebulav1.WorkflowStep{Name: name})
+
+			if outputs, err := configmap.NewStepOutputManager(modelStep, configMap).List(ctx); err == nil {
+				if step.Outputs == nil {
+					step.Outputs = relayv1beta1.NewUnstructuredObject(nil)
+				}
+				for _, output := range outputs {
+					step.Outputs[output.Name] = relayv1beta1.AsUnstructured(output.Value)
+				}
 			}
 
 			m.steps[taskRun.PipelineTaskName] = step
@@ -122,7 +135,7 @@ func ConfigureWorkflowRun(ctx context.Context, deps *WorkflowRunDeps, pr *obj.Pi
 
 	// These are status information organized by task name since we don't yet
 	// have the step names.
-	summariesByTaskName := workflowRunStatusSummaries(wr, pr)
+	summariesByTaskName := workflowRunStatusSummaries(ctx, deps, pr)
 
 	// This lets us mark pending steps as skipped if they won't ever be run.
 	skipFinder := graph.NewSimpleDirectedGraphWithFeatures(graph.DeterministicIteration)
