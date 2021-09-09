@@ -12,6 +12,10 @@ func (*stepOutputManager) List(ctx context.Context) ([]*model.StepOutput, error)
 	return nil, model.ErrRejected
 }
 
+func (*stepOutputManager) ListByStep(ctx context.Context) ([]*model.StepOutput, error) {
+	return nil, model.ErrRejected
+}
+
 func (*stepOutputManager) Get(ctx context.Context, stepName, name string) (*model.StepOutput, error) {
 	return nil, model.ErrRejected
 }

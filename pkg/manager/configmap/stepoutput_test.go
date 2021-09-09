@@ -36,6 +36,17 @@ func TestStepOutputManager(t *testing.T) {
 	_, err = om1.Set(ctx, "key-b", "value-b-step-1")
 	require.NoError(t, err)
 
+	outs, err := om1.ListByStep(ctx)
+	require.NoError(t, err)
+	require.Len(t, outs, 2)
+	require.Contains(t, outs, &model.StepOutput{Step: step1, Name: "key-a", Value: "value-a-step-1"})
+	require.Contains(t, outs, &model.StepOutput{Step: step1, Name: "key-b", Value: "value-b-step-1"})
+
+	outs, err = om2.ListByStep(ctx)
+	require.NoError(t, err)
+	require.Len(t, outs, 1)
+	require.Contains(t, outs, &model.StepOutput{Step: step2, Name: "key-a", Value: "value-a-step-2"})
+
 	for i, om := range []model.StepOutputManager{om1, om2} {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			out, err := om.Get(ctx, step1.Name, "key-a")

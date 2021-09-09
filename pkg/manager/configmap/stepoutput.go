@@ -56,6 +56,25 @@ func (m *StepOutputManager) List(ctx context.Context) ([]*model.StepOutput, erro
 	return l, nil
 }
 
+func (m *StepOutputManager) ListByStep(ctx context.Context) ([]*model.StepOutput, error) {
+	som, err := m.kcm.List(ctx, fmt.Sprintf("%s.%s.output.", model.ActionTypeStep.Plural, m.me.Hash().HexEncoding()))
+	if err != nil {
+		return nil, err
+	}
+
+	var l []*model.StepOutput
+
+	for key, value := range som {
+		l = append(l, &model.StepOutput{
+			Step:  m.me,
+			Name:  key,
+			Value: value,
+		})
+	}
+
+	return l, nil
+}
+
 func (m *StepOutputManager) Get(ctx context.Context, stepName, name string) (*model.StepOutput, error) {
 	step := &model.Step{
 		Run:  m.me.Run,
