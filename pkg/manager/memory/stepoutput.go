@@ -79,7 +79,7 @@ func (m *StepOutputManager) List(ctx context.Context) ([]*model.StepOutput, erro
 	return l, nil
 }
 
-func (m *StepOutputManager) ListByStep(ctx context.Context) ([]*model.StepOutput, error) {
+func (m *StepOutputManager) ListSelf(ctx context.Context) ([]*model.StepOutput, error) {
 	var l []*model.StepOutput
 
 	for _, key := range m.m.Keys() {

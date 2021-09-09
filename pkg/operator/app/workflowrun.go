@@ -156,7 +156,7 @@ func ConfigureWorkflowRun(ctx context.Context, deps *WorkflowRunDeps, pr *obj.Pi
 		}
 
 		stepSummary.Outputs = relayv1beta1.NewUnstructuredObject(nil)
-		if outputs, err := configmap.NewStepOutputManager(action, configMap).ListByStep(ctx); err == nil {
+		if outputs, err := configmap.NewStepOutputManager(action, configMap).ListSelf(ctx); err == nil {
 			for _, output := range outputs {
 				stepSummary.Outputs[output.Name] = relayv1beta1.AsUnstructured(output.Value)
 			}

@@ -56,7 +56,7 @@ func (m *StepOutputManager) List(ctx context.Context) ([]*model.StepOutput, erro
 	return l, nil
 }
 
-func (m *StepOutputManager) ListByStep(ctx context.Context) ([]*model.StepOutput, error) {
+func (m *StepOutputManager) ListSelf(ctx context.Context) ([]*model.StepOutput, error) {
 	som, err := m.kcm.List(ctx, fmt.Sprintf("%s.%s.output.", model.ActionTypeStep.Plural, m.me.Hash().HexEncoding()))
 	if err != nil {
 		return nil, err
