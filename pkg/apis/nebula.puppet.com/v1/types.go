@@ -77,6 +77,9 @@ type WorkflowRunStatusSummary struct {
 	Status string `json:"status"`
 
 	// +optional
+	Outputs relayv1beta1.UnstructuredObject `json:"outputs,omitempty"`
+
+	// +optional
 	LogKey string `json:"logKey,omitempty"`
 
 	// +optional

@@ -7,6 +7,7 @@ import (
 	"github.com/puppetlabs/leg/graph"
 	"github.com/puppetlabs/leg/graph/traverse"
 	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
+	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/manager/configmap"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
@@ -72,7 +73,7 @@ type workflowRunStatusSummariesByTaskName struct {
 	conditions map[string]nebulav1.WorkflowRunStatusSummary
 }
 
-func workflowRunStatusSummaries(wr *obj.WorkflowRun, pr *obj.PipelineRun) *workflowRunStatusSummariesByTaskName {
+func workflowRunStatusSummaries(ctx context.Context, wr *obj.WorkflowRun, pr *obj.PipelineRun) *workflowRunStatusSummariesByTaskName {
 	m := &workflowRunStatusSummariesByTaskName{
 		steps:      make(map[string]nebulav1.WorkflowRunStatusSummary),
 		conditions: make(map[string]nebulav1.WorkflowRunStatusSummary),
@@ -122,13 +123,13 @@ func ConfigureWorkflowRun(ctx context.Context, deps *WorkflowRunDeps, pr *obj.Pi
 
 	// These are status information organized by task name since we don't yet
 	// have the step names.
-	summariesByTaskName := workflowRunStatusSummaries(wr, pr)
+	summariesByTaskName := workflowRunStatusSummaries(ctx, wr, pr)
 
 	// This lets us mark pending steps as skipped if they won't ever be run.
 	skipFinder := graph.NewSimpleDirectedGraphWithFeatures(graph.DeterministicIteration)
 
-	// This is the ConfigMap that holds timing information.
-	timingConfigMap := configmap.NewLocalConfigMap(deps.MutableConfigMap.Object)
+	// This is the ConfigMap that holds internal, mutable data (outputs, timing, etc.)
+	configMap := configmap.NewLocalConfigMap(deps.MutableConfigMap.Object)
 
 	for _, step := range wr.Object.Spec.Workflow.Steps {
 		skipFinder.AddVertex(step.Name)
@@ -145,13 +146,20 @@ func ConfigureWorkflowRun(ctx context.Context, deps *WorkflowRunDeps, pr *obj.Pi
 			stepSummary.Status = string(obj.WorkflowRunStatusPending)
 		}
 
-		if timer, err := configmap.NewTimerManager(action, timingConfigMap).Get(ctx, model.TimerStepInit); err == nil {
+		if timer, err := configmap.NewTimerManager(action, configMap).Get(ctx, model.TimerStepInit); err == nil {
 			stepSummary.InitTime = &metav1.Time{Time: timer.Time}
 		}
 
 		// Retain any existing log record.
 		if wr.Object.Status.Steps[step.Name].LogKey != "" {
 			stepSummary.LogKey = wr.Object.Status.Steps[step.Name].LogKey
+		}
+
+		stepSummary.Outputs = relayv1beta1.NewUnstructuredObject(nil)
+		if outputs, err := configmap.NewStepOutputManager(action, configMap).ListSelf(ctx); err == nil {
+			for _, output := range outputs {
+				stepSummary.Outputs[output.Name] = relayv1beta1.AsUnstructured(output.Value)
+			}
 		}
 
 		wr.Object.Status.Steps[step.Name] = stepSummary

@@ -79,6 +79,27 @@ func (m *StepOutputManager) List(ctx context.Context) ([]*model.StepOutput, erro
 	return l, nil
 }
 
+func (m *StepOutputManager) ListSelf(ctx context.Context) ([]*model.StepOutput, error) {
+	var l []*model.StepOutput
+
+	for _, key := range m.m.Keys() {
+		value, found := m.m.Get(key)
+		if !found {
+			continue
+		}
+
+		if key.StepName == m.me.Name {
+			l = append(l, &model.StepOutput{
+				Step:  m.me,
+				Name:  key.Name,
+				Value: value,
+			})
+		}
+	}
+
+	return l, nil
+}
+
 func (m *StepOutputManager) Get(ctx context.Context, stepName, name string) (*model.StepOutput, error) {
 	step := &model.Step{
 		Run:  m.me.Run,
