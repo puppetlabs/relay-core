@@ -14,6 +14,7 @@ var (
 		"0.0.0.0/8",       // "This host on this network"
 		"10.0.0.0/8",      // Private-Use
 		"100.64.0.0/10",   // Shared Address Space
+		"127.0.0.0/8",     // Loopback
 		"169.254.0.0/16",  // Link Local
 		"172.16.0.0/12",   // Private-Use
 		"192.0.0.0/24",    // IETF Protocol Assignments
