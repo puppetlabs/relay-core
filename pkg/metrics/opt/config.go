@@ -37,7 +37,7 @@ type Config struct {
 
 func (c *Config) Metrics() (*metric.Meter, error) {
 	if !c.MetricsEnabled {
-		exporter, err := stdout.InstallNewPipeline([]stdout.Option{stdout.WithWriter(ioutil.Discard)}, nil)
+		_, exporter, err := stdout.InstallNewPipeline([]stdout.Option{stdout.WithWriter(ioutil.Discard)}, nil)
 		if err != nil {
 			return nil, err
 		}
