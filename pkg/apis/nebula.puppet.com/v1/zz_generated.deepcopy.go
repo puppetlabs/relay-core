@@ -107,6 +107,7 @@ func (in *WorkflowRunList) DeepCopyObject() runtime.Object {
 func (in *WorkflowRunSpec) DeepCopyInto(out *WorkflowRunSpec) {
 	*out = *in
 	in.Workflow.DeepCopyInto(&out.Workflow)
+	out.WorkflowRef = in.WorkflowRef
 	if in.Parameters != nil {
 		in, out := &in.Parameters, &out.Parameters
 		*out = make(v1beta1.UnstructuredObject, len(*in))
