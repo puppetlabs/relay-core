@@ -30,6 +30,9 @@ type WorkflowRunSpec struct {
 	Workflow Workflow `json:"workflow"`
 
 	// +optional
+	WorkflowRef corev1.LocalObjectReference `json:"workflowRef,omitempty"`
+
+	// +optional
 	Parameters relayv1beta1.UnstructuredObject `json:"parameters,omitempty"`
 
 	// +optional
