@@ -22,6 +22,7 @@ var (
 
 	TenantKind         = SchemeGroupVersion.WithKind("Tenant")
 	WebhookTriggerKind = SchemeGroupVersion.WithKind("WebhookTrigger")
+	WorkflowKind       = SchemeGroupVersion.WithKind("Workflow")
 )
 
 func addKnownTypes(scheme *runtime.Scheme) error {
@@ -30,6 +31,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&TenantList{},
 		&WebhookTrigger{},
 		&WebhookTriggerList{},
+		&Workflow{},
+		&WorkflowList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

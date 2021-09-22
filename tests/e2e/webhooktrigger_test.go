@@ -102,10 +102,12 @@ func TestWebhookTriggerServesResponse(t *testing.T) {
 				Namespace: cfg.Namespace.GetName(),
 			},
 			Spec: relayv1beta1.WebhookTriggerSpec{
-				Image: "hashicorp/http-echo",
-				Args: []string{
-					"-listen", ":8080",
-					"-text", "Hello, Relay!",
+				Container: relayv1beta1.Container{
+					Image: "hashicorp/http-echo",
+					Args: []string{
+						"-listen", ":8080",
+						"-text", "Hello, Relay!",
+					},
 				},
 				TenantRef: corev1.LocalObjectReference{
 					Name: tn.GetName(),
@@ -147,10 +149,12 @@ func TestWebhookTriggerScript(t *testing.T) {
 				Namespace: cfg.Namespace.GetName(),
 			},
 			Spec: relayv1beta1.WebhookTriggerSpec{
-				Image: "alpine:latest",
-				Input: []string{
-					"apk --no-cache add socat",
-					`exec socat TCP-LISTEN:$PORT,crlf,reuseaddr,fork SYSTEM:'echo "HTTP/1.1 200 OK"; echo "Connection: close"; echo; echo "Hello, Relay!";'`,
+				Container: relayv1beta1.Container{
+					Image: "alpine:latest",
+					Input: []string{
+						"apk --no-cache add socat",
+						`exec socat TCP-LISTEN:$PORT,crlf,reuseaddr,fork SYSTEM:'echo "HTTP/1.1 200 OK"; echo "Connection: close"; echo; echo "Hello, Relay!";'`,
+					},
 				},
 				TenantRef: corev1.LocalObjectReference{
 					Name: tn.GetName(),
@@ -236,33 +240,35 @@ func TestWebhookTriggerHasAccessToMetadataAPI(t *testing.T) {
 				},
 			},
 			Spec: relayv1beta1.WebhookTriggerSpec{
-				Image: "hashicorp/http-echo",
-				Args: []string{
-					"-listen", ":8080",
-					"-text", "Hello, Relay!",
+				Container: relayv1beta1.Container{
+					Image: "hashicorp/http-echo",
+					Args: []string{
+						"-listen", ":8080",
+						"-text", "Hello, Relay!",
+					},
+					Spec: relayv1beta1.NewUnstructuredObject(map[string]interface{}{
+						"secret": map[string]interface{}{
+							"$type": "Secret",
+							"name":  "foo",
+						},
+						"connection": map[string]interface{}{
+							"$type": "Connection",
+							"type":  "aws",
+							"name":  "test",
+						},
+						"foo": "bar",
+					}),
+					Env: relayv1beta1.NewUnstructuredObject(map[string]interface{}{
+						"AWS_ACCESS_KEY_ID": map[string]interface{}{
+							"$type": "Secret",
+							"name":  "accessKeyId",
+						},
+						"AWS_SECRET_ACCESS_KEY": map[string]interface{}{
+							"$type": "Secret",
+							"name":  "secretAccessKey",
+						},
+					}),
 				},
-				Spec: relayv1beta1.NewUnstructuredObject(map[string]interface{}{
-					"secret": map[string]interface{}{
-						"$type": "Secret",
-						"name":  "foo",
-					},
-					"connection": map[string]interface{}{
-						"$type": "Connection",
-						"type":  "aws",
-						"name":  "test",
-					},
-					"foo": "bar",
-				}),
-				Env: relayv1beta1.NewUnstructuredObject(map[string]interface{}{
-					"AWS_ACCESS_KEY_ID": map[string]interface{}{
-						"$type": "Secret",
-						"name":  "accessKeyId",
-					},
-					"AWS_SECRET_ACCESS_KEY": map[string]interface{}{
-						"$type": "Secret",
-						"name":  "secretAccessKey",
-					},
-				}),
 				TenantRef: corev1.LocalObjectReference{
 					Name: tn.GetName(),
 				},
@@ -400,9 +406,11 @@ func TestWebhookTriggerTenantUpdatePropagation(t *testing.T) {
 				Namespace: cfg.Namespace.GetName(),
 			},
 			Spec: relayv1beta1.WebhookTriggerSpec{
-				Image: "alpine",
-				Input: []string{
-					"echo hi",
+				Container: relayv1beta1.Container{
+					Image: "alpine",
+					Input: []string{
+						"echo hi",
+					},
 				},
 				TenantRef: corev1.LocalObjectReference{
 					Name: tn.GetName(),
@@ -472,9 +480,11 @@ func TestWebhookTriggerDeletionAfterTenantDeletion(t *testing.T) {
 				Namespace: cfg.Namespace.GetName(),
 			},
 			Spec: relayv1beta1.WebhookTriggerSpec{
-				Image: "alpine",
-				Input: []string{
-					"echo hi",
+				Container: relayv1beta1.Container{
+					Image: "alpine",
+					Input: []string{
+						"echo hi",
+					},
 				},
 				TenantRef: corev1.LocalObjectReference{
 					Name: tn.GetName(),
@@ -523,9 +533,11 @@ func TestWebhookTriggerKnativeRevisions(t *testing.T) {
 				Namespace: cfg.Namespace.GetName(),
 			},
 			Spec: relayv1beta1.WebhookTriggerSpec{
-				Image: "alpine",
-				Input: []string{
-					"echo hi",
+				Container: relayv1beta1.Container{
+					Image: "alpine",
+					Input: []string{
+						"echo hi",
+					},
 				},
 				TenantRef: corev1.LocalObjectReference{
 					Name: tn.GetName(),
@@ -619,17 +631,19 @@ func TestWebhookTriggerKnativeRevisionsWithTenantToolInjectionUsingInput(t *test
 				},
 			},
 			Spec: relayv1beta1.WebhookTriggerSpec{
-				Image: "alpine:latest",
-				Input: []string{
-					"apk --no-cache add socat",
-					`exec socat TCP-LISTEN:$PORT,crlf,reuseaddr,fork SYSTEM:'echo "HTTP/1.1 200 OK"; echo "Connection: close"; echo; echo "Hello, $TEST_WHO!";'`,
-				},
-				Env: relayv1beta1.NewUnstructuredObject(map[string]interface{}{
-					"TEST_WHO": map[string]interface{}{
-						"$type": "Secret",
-						"name":  "foo",
+				Container: relayv1beta1.Container{
+					Image: "alpine:latest",
+					Input: []string{
+						"apk --no-cache add socat",
+						`exec socat TCP-LISTEN:$PORT,crlf,reuseaddr,fork SYSTEM:'echo "HTTP/1.1 200 OK"; echo "Connection: close"; echo; echo "Hello, $TEST_WHO!";'`,
 					},
-				}),
+					Env: relayv1beta1.NewUnstructuredObject(map[string]interface{}{
+						"TEST_WHO": map[string]interface{}{
+							"$type": "Secret",
+							"name":  "foo",
+						},
+					}),
+				},
 				TenantRef: corev1.LocalObjectReference{
 					Name: tn.GetName(),
 				},
@@ -703,10 +717,12 @@ func TestWebhookTriggerKnativeRevisionsWithTenantToolInjectionUsingCommand(t *te
 				},
 			},
 			Spec: relayv1beta1.WebhookTriggerSpec{
-				Image: "hashicorp/http-echo",
-				Args: []string{
-					"-listen", ":8080",
-					"-text", "Hello, Relay!",
+				Container: relayv1beta1.Container{
+					Image: "hashicorp/http-echo",
+					Args: []string{
+						"-listen", ":8080",
+						"-text", "Hello, Relay!",
+					},
 				},
 				TenantRef: corev1.LocalObjectReference{
 					Name: tn.GetName(),
@@ -766,10 +782,12 @@ func TestWebhookTriggerInGVisor(t *testing.T) {
 				Namespace: cfg.Namespace.GetName(),
 			},
 			Spec: relayv1beta1.WebhookTriggerSpec{
-				Image: "alpine:latest",
-				Input: []string{
-					"apk --no-cache add socat",
-					`exec socat TCP-LISTEN:$PORT,crlf,reuseaddr,fork SYSTEM:'echo "HTTP/1.1 200 OK"; echo "Connection: close"; echo; dmesg;'`,
+				Container: relayv1beta1.Container{
+					Image: "alpine:latest",
+					Input: []string{
+						"apk --no-cache add socat",
+						`exec socat TCP-LISTEN:$PORT,crlf,reuseaddr,fork SYSTEM:'echo "HTTP/1.1 200 OK"; echo "Connection: close"; echo; dmesg;'`,
+					},
 				},
 				TenantRef: corev1.LocalObjectReference{
 					Name: tn.GetName(),
@@ -811,10 +829,12 @@ func TestWebhookTriggerCheckoutGarbageCollection(t *testing.T) {
 				Namespace: cfg.Namespace.GetName(),
 			},
 			Spec: relayv1beta1.WebhookTriggerSpec{
-				Image: "hashicorp/http-echo",
-				Args: []string{
-					"-listen", ":8080",
-					"-text", "Hello, Relay!",
+				Container: relayv1beta1.Container{
+					Image: "hashicorp/http-echo",
+					Args: []string{
+						"-listen", ":8080",
+						"-text", "Hello, Relay!",
+					},
 				},
 				TenantRef: corev1.LocalObjectReference{
 					Name: tn.GetName(),

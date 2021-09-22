@@ -41,8 +41,10 @@ func TestWebhookTriggerDepsConfigureAnnotate(t *testing.T) {
 					TenantRef: corev1.LocalObjectReference{
 						Name: "my-test-tenant",
 					},
-					Name:  "hello-world",
-					Image: "alpine:latest",
+					Name: "hello-world",
+					Container: relayv1beta1.Container{
+						Image: "alpine:latest",
+					},
 				},
 			}))
 
