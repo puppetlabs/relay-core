@@ -61,7 +61,7 @@ type RelayCoreReconciler struct {
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=networkpolicies,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=nebula.puppet.com,resources=workflowruns;workflowruns/status,verbs=get;list;watch;patch;update
 // +kubebuilder:rbac:groups=pvpool.puppet.com,resources=checkouts;checkouts/status,verbs=get;list;watch
-// +kubebuilder:rbac:groups=relay.sh,resources=tenants;tenants/status;webhooktriggers;webhooktriggers/status,verbs=get;list;watch;patch;update
+// +kubebuilder:rbac:groups=relay.sh,resources=tenants;tenants/status;webhooktriggers;webhooktriggers/status;workflows;workflows/status,verbs=get;list;watch;patch;update
 // +kubebuilder:rbac:groups=serving.knative.dev,resources=revisions;services,verbs=get;list;watch;create;update;patch;delete
 
 func (r *RelayCoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
