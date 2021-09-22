@@ -138,6 +138,8 @@ rules:
   - tenants/status
   - webhooktriggers
   - webhooktriggers/status
+  - workflows
+  - workflows/status
   verbs:
   - get
   - list
