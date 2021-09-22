@@ -70,18 +70,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, nil
 	}
 
-	if len(wr.Object.Spec.Workflow.Steps) == 0 {
-		if err := wr.Complete(ctx, r.Client); err != nil {
-			return ctrl.Result{}, err
-		}
-
-		return ctrl.Result{}, nil
-	}
-
-	var deps *app.WorkflowRunDeps
+	var wrd *app.WorkflowRunDeps
 	var pr *obj.PipelineRun
 	err = r.metrics.trackDurationWithOutcome(metricWorkflowRunStartUpDuration, func() error {
-		deps, err = app.ApplyWorkflowRunDeps(
+		wrd, err = app.ApplyWorkflowRunDeps(
 			ctx,
 			r.Client,
 			wr,
@@ -100,6 +92,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			return errmap.Wrap(err, "failed to apply dependencies")
 		}
 
+		// FIXME Refactor...
+		if len(wrd.Workflow.Object.Spec.Steps) == 0 {
+			return nil
+		}
+
 		// We only need to build the pipeline when the workflow run is
 		// initializing or finalizing. While it's running, constantly persisting
 		// pipeline objects just puts strain on the Tekton webhook server.
@@ -116,7 +113,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			}
 			fallthrough
 		default:
-			pipeline, err := app.ApplyPipelineParts(ctx, r.Client, deps)
+			pipeline, err := app.ApplyPipelineParts(ctx, r.Client, wrd)
 			if err != nil {
 				return errmap.Wrap(err, "failed to apply Pipeline")
 			}
@@ -149,6 +146,15 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, nil
 	}
 
+	// FIXME Refactor...
+	if len(wrd.Workflow.Object.Spec.Steps) == 0 {
+		if err := wr.Complete(ctx, r.Client); err != nil {
+			return ctrl.Result{}, err
+		}
+
+		return ctrl.Result{}, nil
+	}
+
 	err = r.metrics.trackDurationWithOutcome(metricWorkflowRunLogUploadDuration, func() error {
 		r.uploadLogs(ctx, wr, pr)
 		return nil
@@ -157,7 +163,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		klog.Warning(err)
 	}
 
-	app.ConfigureWorkflowRun(ctx, deps, pr)
+	app.ConfigureWorkflowRun(ctx, wrd, pr)
 
 	if err := wr.PersistStatus(ctx, r.Client); err != nil {
 		return ctrl.Result{}, errmap.Wrap(err, "failed to persist WorkflowRun")

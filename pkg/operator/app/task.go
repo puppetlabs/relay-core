@@ -5,7 +5,7 @@ import (
 	"path"
 
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
-	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
+	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/entrypoint"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
@@ -16,7 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func ConfigureTask(ctx context.Context, t *obj.Task, wrd *WorkflowRunDeps, ws *nebulav1.WorkflowStep) error {
+func ConfigureTask(ctx context.Context, t *obj.Task, wrd *WorkflowRunDeps, ws *relayv1beta1.Step) error {
 	image := ws.Image
 	if image == "" {
 		image = model.DefaultImage
@@ -181,10 +181,10 @@ func (ts *TaskSet) Persist(ctx context.Context, cl client.Client) error {
 func NewTaskSet(wrd *WorkflowRunDeps) *TaskSet {
 	ts := &TaskSet{
 		Deps: wrd,
-		List: make([]*obj.Task, len(wrd.WorkflowRun.Object.Spec.Workflow.Steps)),
+		List: make([]*obj.Task, len(wrd.Workflow.Object.Spec.Steps)),
 	}
 
-	for i, ws := range wrd.WorkflowRun.Object.Spec.Workflow.Steps {
+	for i, ws := range wrd.Workflow.Object.Spec.Steps {
 		ts.List[i] = obj.NewTask(ModelStepObjectKey(wrd.WorkflowRun.Key, ModelStep(wrd.WorkflowRun, ws)))
 	}
 
@@ -196,7 +196,7 @@ func ConfigureTaskSet(ctx context.Context, ts *TaskSet) error {
 		return err
 	}
 
-	for i, ws := range ts.Deps.WorkflowRun.Object.Spec.Workflow.Steps {
+	for i, ws := range ts.Deps.Workflow.Object.Spec.Steps {
 		if err := ConfigureTask(ctx, ts.List[i], ts.Deps, ws); err != nil {
 			return err
 		}

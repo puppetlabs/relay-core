@@ -92,7 +92,7 @@ func ConfigurePipelineParts(ctx context.Context, p *PipelineParts) error {
 	p.Pipeline.Object.Spec.Tasks = make([]tektonv1beta1.PipelineTask, 0, len(p.Tasks.List))
 
 	for i, t := range p.Tasks.List {
-		ws := p.Deps.WorkflowRun.Object.Spec.Workflow.Steps[i]
+		ws := p.Deps.Workflow.Object.Spec.Steps[i]
 		ms := ModelStep(p.Deps.WorkflowRun, ws)
 
 		pt := tektonv1beta1.PipelineTask{

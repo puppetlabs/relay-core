@@ -14,7 +14,7 @@ import (
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	pvpoolv1alpha1 "github.com/puppetlabs/pvpool/pkg/apis/pvpool.puppet.com/v1alpha1"
 	pvpoolv1alpha1obj "github.com/puppetlabs/pvpool/pkg/apis/pvpool.puppet.com/v1alpha1/obj"
-	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
+	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
@@ -25,7 +25,9 @@ import (
 
 // WorkflowRunDeps represents the Kubernetes objects required to create a Pipeline.
 type WorkflowRunDeps struct {
-	WorkflowRun          *obj.WorkflowRun
+	WorkflowRun *obj.WorkflowRun
+	Workflow    *obj.Workflow
+
 	ToolInjectionPoolRef pvpoolv1alpha1.PoolReference
 	Issuer               authenticate.Issuer
 
@@ -56,6 +58,10 @@ var _ lifecycle.Loader = &WorkflowRunDeps{}
 var _ lifecycle.Persister = &WorkflowRunDeps{}
 
 func (wrd *WorkflowRunDeps) Load(ctx context.Context, cl client.Client) (bool, error) {
+	if _, err := wrd.Workflow.Load(ctx, cl); err != nil {
+		return false, err
+	}
+
 	return lifecycle.Loaders{
 		lifecycle.RequiredLoader{wrd.Namespace},
 		lifecycle.IgnoreNilLoader{wrd.LimitRange},
@@ -103,7 +109,7 @@ func (wrd *WorkflowRunDeps) Persist(ctx context.Context, cl client.Client) error
 	return nil
 }
 
-func (wrd *WorkflowRunDeps) AnnotateStepToken(ctx context.Context, target *metav1.ObjectMeta, ws *nebulav1.WorkflowStep) error {
+func (wrd *WorkflowRunDeps) AnnotateStepToken(ctx context.Context, target *metav1.ObjectMeta, ws *relayv1beta1.Step) error {
 	if _, found := target.Annotations[authenticate.KubernetesTokenAnnotation]; found {
 		// We only add this once and exactly once per run per target.
 		return nil
@@ -179,7 +185,9 @@ func NewWorkflowRunDeps(wr *obj.WorkflowRun, issuer authenticate.Issuer, metadat
 
 	wrd := &WorkflowRunDeps{
 		WorkflowRun: wr,
-		Issuer:      issuer,
+		Workflow:    obj.NewWorkflow(client.ObjectKey{Namespace: key.Namespace, Name: wr.Object.Spec.WorkflowRef.Name}),
+
+		Issuer: issuer,
 
 		Namespace: corev1obj.NewNamespace(key.Namespace),
 
@@ -263,7 +271,7 @@ func ConfigureWorkflowRunDeps(ctx context.Context, wrd *WorkflowRunDeps) error {
 
 	ConfigureToolInjectionCheckoutForWorkflowRun(wrd.ToolInjectionCheckout, wrd.WorkflowRun, wrd.ToolInjectionPoolRef)
 
-	if err := ConfigureImmutableConfigMapForWorkflowRun(ctx, wrd.ImmutableConfigMap, wrd.WorkflowRun); err != nil {
+	if err := ConfigureImmutableConfigMapForWorkflowRun(ctx, wrd.ImmutableConfigMap, wrd); err != nil {
 		return err
 	}
 	if err := ConfigureMutableConfigMapForWorkflowRun(ctx, wrd.MutableConfigMap, wrd.WorkflowRun); err != nil {

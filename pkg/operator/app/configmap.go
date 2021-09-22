@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
+	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/manager/configmap"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
@@ -48,14 +49,21 @@ func ConfigureImmutableConfigMapForWebhookTrigger(ctx context.Context, cm *corev
 	return nil
 }
 
-func ConfigureImmutableConfigMapForWorkflowRun(ctx context.Context, cm *corev1obj.ConfigMap, wr *obj.WorkflowRun) error {
+func ConfigureImmutableConfigMapForWorkflowRun(ctx context.Context, cm *corev1obj.ConfigMap, wrd *WorkflowRunDeps) error {
 	// This implementation manages the underlying object, so no need to retrieve
 	// it later.
 	lcm := configmap.NewLocalConfigMap(cm.Object)
 
-	params := wr.Object.Spec.Workflow.Parameters.Value()
-	for name, value := range wr.Object.Spec.Parameters {
-		params[name] = value.Value()
+	params := make(map[string]*relayv1beta1.Unstructured)
+
+	wp := wrd.Workflow.Object.Spec.Parameters
+	for _, value := range wp {
+		params[value.Name] = value.Value
+	}
+
+	wrp := wrd.WorkflowRun.Object.Spec.Parameters
+	for name, value := range wrp {
+		params[name] = &value
 	}
 
 	for name, value := range params {
@@ -66,8 +74,8 @@ func ConfigureImmutableConfigMapForWorkflowRun(ctx context.Context, cm *corev1ob
 
 	configMapData := make(map[string]string)
 
-	for _, step := range wr.Object.Spec.Workflow.Steps {
-		sm := ModelStep(wr, step)
+	for _, step := range wrd.Workflow.Object.Spec.Steps {
+		sm := ModelStep(wrd.WorkflowRun, step)
 
 		if len(step.Spec) > 0 {
 			if _, err := configmap.NewSpecManager(sm, lcm).Set(ctx, step.Spec.Value()); err != nil {
@@ -88,9 +96,11 @@ func ConfigureImmutableConfigMapForWorkflowRun(ctx context.Context, cm *corev1ob
 			}
 		}
 
-		if when := step.When.Value(); when != nil {
-			if _, err := configmap.NewConditionManager(sm, lcm).Set(ctx, when); err != nil {
-				return err
+		if step.When != nil {
+			if when := step.When.Value(); when != nil {
+				if _, err := configmap.NewConditionManager(sm, lcm).Set(ctx, when); err != nil {
+					return err
+				}
 			}
 		}
 
