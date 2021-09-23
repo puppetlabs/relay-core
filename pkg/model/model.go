@@ -38,6 +38,7 @@ type MetadataManagers interface {
 	Timers() TimerSetterManager
 	ActionMetadata() ActionMetadataManager
 	StepOutputs() StepOutputManager
+	WorkflowRuns() WorkflowRunManager
 }
 
 // RunReconcilerManagers are the managers used by the run reconciler when
