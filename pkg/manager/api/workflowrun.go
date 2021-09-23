@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/url"
 
 	utilapi "github.com/puppetlabs/leg/httputil/api"
@@ -28,7 +27,6 @@ func (w *WorkflowRunManager) Run(ctx context.Context, name string, parameters ma
 
 	ent, resp, err := req.Execute()
 	if err != nil {
-		fmt.Println(err)
 		return nil, err
 	}
 	defer resp.Body.Close()
