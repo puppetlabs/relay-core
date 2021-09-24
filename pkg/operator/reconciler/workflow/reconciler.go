@@ -92,7 +92,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			return errmap.Wrap(err, "failed to apply dependencies")
 		}
 
-		// FIXME Refactor...
 		if len(wrd.Workflow.Object.Spec.Steps) == 0 {
 			return nil
 		}
@@ -146,8 +145,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, nil
 	}
 
-	// FIXME Refactor...
-	if len(wrd.Workflow.Object.Spec.Steps) == 0 {
+	if pr == nil {
 		if err := wr.Complete(ctx, r.Client); err != nil {
 			return ctrl.Result{}, err
 		}

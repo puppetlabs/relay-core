@@ -58,14 +58,11 @@ var _ lifecycle.Loader = &WorkflowRunDeps{}
 var _ lifecycle.Persister = &WorkflowRunDeps{}
 
 func (wrd *WorkflowRunDeps) Load(ctx context.Context, cl client.Client) (bool, error) {
-	if _, err := wrd.Workflow.Load(ctx, cl); err != nil {
-		return false, err
-	}
-
 	return lifecycle.Loaders{
-		lifecycle.RequiredLoader{wrd.Namespace},
-		lifecycle.IgnoreNilLoader{wrd.LimitRange},
-		lifecycle.IgnoreNilLoader{wrd.NetworkPolicy},
+		lifecycle.RequiredLoader{Loader: wrd.Workflow},
+		lifecycle.RequiredLoader{Loader: wrd.Namespace},
+		lifecycle.IgnoreNilLoader{Loader: wrd.LimitRange},
+		lifecycle.IgnoreNilLoader{Loader: wrd.NetworkPolicy},
 		wrd.ToolInjectionCheckout,
 		wrd.ImmutableConfigMap,
 		wrd.MutableConfigMap,
@@ -83,8 +80,8 @@ func (wrd *WorkflowRunDeps) Load(ctx context.Context, cl client.Client) (bool, e
 
 func (wrd *WorkflowRunDeps) Persist(ctx context.Context, cl client.Client) error {
 	ps := []lifecycle.Persister{
-		lifecycle.IgnoreNilPersister{wrd.LimitRange},
-		lifecycle.IgnoreNilPersister{wrd.NetworkPolicy},
+		lifecycle.IgnoreNilPersister{Persister: wrd.LimitRange},
+		lifecycle.IgnoreNilPersister{Persister: wrd.NetworkPolicy},
 		wrd.ToolInjectionCheckout,
 		wrd.ImmutableConfigMap,
 		wrd.MutableConfigMap,
