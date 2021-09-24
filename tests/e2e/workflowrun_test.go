@@ -539,6 +539,95 @@ func TestWorkflowRun(t *testing.T) {
 	})
 }
 
+func TestWorkflowRunWithoutWorkflow(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	WithConfig(t, ctx, []ConfigOption{
+		ConfigWithWorkflowRunReconciler,
+	}, func(cfg *Config) {
+		wr := &nebulav1.WorkflowRun{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-test-run",
+				Namespace: cfg.Namespace.GetName(),
+				Annotations: map[string]string{
+					model.RelayVaultEngineMountAnnotation:    cfg.Vault.SecretsPath,
+					model.RelayVaultConnectionPathAnnotation: "connections/my-domain-id",
+					model.RelayVaultSecretPathAnnotation:     "workflows/my-tenant-id",
+					model.RelayDomainIDAnnotation:            "my-domain-id",
+					model.RelayTenantIDAnnotation:            "my-tenant-id",
+				},
+			},
+			Spec: nebulav1.WorkflowRunSpec{
+				Name: "my-workflow-run-1234",
+			},
+		}
+		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, wr))
+
+		require.Error(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
+			if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: wr.GetName(), Namespace: wr.GetNamespace()}, wr); err != nil {
+				if k8serrors.IsNotFound(err) {
+					return false, fmt.Errorf("waiting for initial workflow run")
+				}
+
+				return true, err
+			}
+
+			if wr.Status.Status == "" {
+				return false, fmt.Errorf("waiting for workflow run status")
+			}
+
+			return true, nil
+		}))
+	})
+}
+
+func TestWorkflowRunWithInvalidWorkflow(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	WithConfig(t, ctx, []ConfigOption{
+		ConfigWithWorkflowRunReconciler,
+	}, func(cfg *Config) {
+		wr := &nebulav1.WorkflowRun{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-test-run",
+				Namespace: cfg.Namespace.GetName(),
+				Annotations: map[string]string{
+					model.RelayVaultEngineMountAnnotation:    cfg.Vault.SecretsPath,
+					model.RelayVaultConnectionPathAnnotation: "connections/my-domain-id",
+					model.RelayVaultSecretPathAnnotation:     "workflows/my-tenant-id",
+					model.RelayDomainIDAnnotation:            "my-domain-id",
+					model.RelayTenantIDAnnotation:            "my-tenant-id",
+				},
+			},
+			Spec: nebulav1.WorkflowRunSpec{
+				Name: "my-workflow-run-1234",
+				WorkflowRef: corev1.LocalObjectReference{
+					Name: "my-workflow",
+				},
+			},
+		}
+		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, wr))
+
+		require.Error(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
+			if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: wr.GetName(), Namespace: wr.GetNamespace()}, wr); err != nil {
+				if k8serrors.IsNotFound(err) {
+					return false, fmt.Errorf("waiting for initial workflow run")
+				}
+
+				return true, err
+			}
+
+			if wr.Status.Status == "" {
+				return false, fmt.Errorf("waiting for workflow run status")
+			}
+
+			return true, nil
+		}))
+	})
+}
+
 func TestWorkflowRunWithoutSteps(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
