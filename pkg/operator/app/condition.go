@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
-	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
+	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	tektonv1alpha1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
@@ -41,7 +41,7 @@ exit 1
 `
 )
 
-func ConfigureCondition(ctx context.Context, c *obj.Condition, wrd *WorkflowRunDeps, ws *nebulav1.WorkflowStep) error {
+func ConfigureCondition(ctx context.Context, c *obj.Condition, wrd *WorkflowRunDeps, ws *relayv1beta1.Step) error {
 	if err := wrd.AnnotateStepToken(ctx, &c.Object.ObjectMeta, ws); err != nil {
 		return err
 	}
@@ -133,8 +133,8 @@ func NewConditionSet(wrd *WorkflowRunDeps) *ConditionSet {
 	}
 
 	var i int
-	for _, ws := range wrd.WorkflowRun.Object.Spec.Workflow.Steps {
-		if ws.When.Value() == nil {
+	for _, ws := range wrd.Workflow.Object.Spec.Steps {
+		if ws.When == nil || ws.When.Value() == nil {
 			continue
 		}
 
@@ -151,7 +151,7 @@ func ConfigureConditionSet(ctx context.Context, cs *ConditionSet) error {
 		return err
 	}
 
-	for _, ws := range cs.Deps.WorkflowRun.Object.Spec.Workflow.Steps {
+	for _, ws := range cs.Deps.Workflow.Object.Spec.Steps {
 		cond, found := cs.GetByStepName(ws.Name)
 		if !found {
 			continue

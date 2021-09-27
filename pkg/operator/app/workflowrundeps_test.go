@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
+	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	"github.com/puppetlabs/relay-core/pkg/operator/app"
@@ -27,20 +28,39 @@ func TestWorkflowRunDepsConfigureAnnotate(t *testing.T) {
 		e2e.WithTestNamespace(ctx, func(namespace *corev1.Namespace) {
 			cl := e2e.ControllerClient
 
+			require.NoError(t, cl.Create(ctx, &relayv1beta1.Tenant{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-test-tenant",
+					Namespace: namespace.Name,
+				},
+				Spec: relayv1beta1.TenantSpec{},
+			}))
+
+			require.NoError(t, cl.Create(ctx, &relayv1beta1.Workflow{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-test-workflow",
+					Namespace: namespace.Name,
+				},
+				Spec: relayv1beta1.WorkflowSpec{
+					TenantRef: corev1.LocalObjectReference{
+						Name: "my-test-tenant",
+					},
+					Steps: []*relayv1beta1.Step{
+						{
+							Name: "my-test-step",
+						},
+					},
+				},
+			}))
+
 			require.NoError(t, cl.Create(ctx, &nebulav1.WorkflowRun{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "my-test-run",
 					Namespace: namespace.Name,
 				},
 				Spec: nebulav1.WorkflowRunSpec{
-					Name: "my-workflow-run-1234",
-					Workflow: nebulav1.Workflow{
-						Name: "my-workflow",
-						Steps: []*nebulav1.WorkflowStep{
-							{
-								Name: "my-test-step",
-							},
-						},
+					WorkflowRef: corev1.LocalObjectReference{
+						Name: "my-test-workflow",
 					},
 				},
 			}))
@@ -57,7 +77,7 @@ func TestWorkflowRunDepsConfigureAnnotate(t *testing.T) {
 			deps, err := app.ApplyWorkflowRunDeps(ctx, cl, run, TestIssuer, TestMetadataAPIURL)
 			require.NoError(t, err)
 
-			ws := run.Object.Spec.Workflow.Steps[0]
+			ws := deps.Workflow.Object.Spec.Steps[0]
 
 			var md metav1.ObjectMeta
 			require.NoError(t, deps.AnnotateStepToken(ctx, &md, ws))

@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/puppetlabs/leg/k8sutil/pkg/norm"
-	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
+	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -24,7 +24,7 @@ func ModelStepFromName(wr *obj.WorkflowRun, stepName string) *model.Step {
 	}
 }
 
-func ModelStep(wr *obj.WorkflowRun, step *nebulav1.WorkflowStep) *model.Step {
+func ModelStep(wr *obj.WorkflowRun, step *relayv1beta1.Step) *model.Step {
 	return ModelStepFromName(wr, step.Name)
 }
 
