@@ -58,12 +58,17 @@ func ConfigureImmutableConfigMapForWorkflowRun(ctx context.Context, cm *corev1ob
 
 	wp := wrd.Workflow.Object.Spec.Parameters
 	for _, value := range wp {
-		params[value.Name] = value.Value
+		if value != nil {
+			params[value.Name] = nil
+			if value.Value != nil {
+				params[value.Name] = value.Value.DeepCopy()
+			}
+		}
 	}
 
 	wrp := wrd.WorkflowRun.Object.Spec.Parameters
 	for name, value := range wrp {
-		params[name] = &value
+		params[name] = value.DeepCopy()
 	}
 
 	for name, value := range params {
