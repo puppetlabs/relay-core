@@ -57,6 +57,9 @@ func (s *Server) Route(r *mux.Router) {
 
 	// Validation
 	r.HandleFunc("/validate", s.PostValidate).Methods(http.MethodPost)
+
+	// Workflows
+	r.HandleFunc("/workflows/{name}/run", s.PostWorkflowRun).Methods(http.MethodPost)
 }
 
 func NewServer(auth middleware.Authenticator, opts ...ServerOption) *Server {

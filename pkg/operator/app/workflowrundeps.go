@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/puppetlabs/leg/errmap/pkg/errmark"
+	"github.com/puppetlabs/leg/jsonutil/pkg/types"
 	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
 	networkingv1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/networkingv1"
 	rbacv1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/rbacv1"
@@ -23,10 +24,52 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+type APIWorkflowRunSink struct {
+	Sink        *relayv1beta1.APIWorkflowRunSink
+	TokenSecret *corev1obj.OpaqueSecret
+}
+
+// Load finds this entity in the cluster and populates any necessary fields.
+// If there was an error locating the entity, this function returns false.
+func (a *APIWorkflowRunSink) Load(ctx context.Context, cl client.Client) (bool, error) {
+	return lifecycle.IgnoreNilLoader{a.TokenSecret}.Load(ctx, cl)
+}
+
+func (a *APIWorkflowRunSink) URL() string {
+	return a.Sink.URL
+}
+
+func (a *APIWorkflowRunSink) Token() (string, bool) {
+	if a.Sink.Token != "" {
+		return a.Sink.Token, true
+	} else if a.TokenSecret != nil {
+		return a.TokenSecret.Data(a.Sink.TokenFrom.SecretKeyRef.Key)
+	}
+
+	return "", false
+}
+
+func NewAPIWorkflowRunSink(namespace string, sink *relayv1beta1.APIWorkflowRunSink) *APIWorkflowRunSink {
+	a := &APIWorkflowRunSink{
+		Sink: sink,
+	}
+
+	if sink.TokenFrom != nil && sink.TokenFrom.SecretKeyRef != nil {
+		a.TokenSecret = corev1obj.NewOpaqueSecret(client.ObjectKey{
+			Namespace: namespace,
+			Name:      sink.TokenFrom.SecretKeyRef.Name,
+		})
+	}
+
+	return a
+}
+
 // WorkflowRunDeps represents the Kubernetes objects required to create a Pipeline.
 type WorkflowRunDeps struct {
 	WorkflowRun *obj.WorkflowRun
 	Workflow    *obj.Workflow
+
+	APIWorkflowRunSink *APIWorkflowRunSink
 
 	ToolInjectionPoolRef pvpoolv1alpha1.PoolReference
 	Issuer               authenticate.Issuer
@@ -61,6 +104,7 @@ func (wrd *WorkflowRunDeps) Load(ctx context.Context, cl client.Client) (bool, e
 	return lifecycle.Loaders{
 		lifecycle.RequiredLoader{Loader: wrd.Workflow},
 		lifecycle.RequiredLoader{Loader: wrd.Namespace},
+		lifecycle.IgnoreNilLoader{Loader: wrd.APIWorkflowRunSink},
 		lifecycle.IgnoreNilLoader{Loader: wrd.LimitRange},
 		lifecycle.IgnoreNilLoader{Loader: wrd.NetworkPolicy},
 		wrd.ToolInjectionCheckout,
@@ -149,6 +193,14 @@ func (wrd *WorkflowRunDeps) AnnotateStepToken(ctx context.Context, target *metav
 		RelayVaultConnectionPath: annotations[model.RelayVaultConnectionPathAnnotation],
 	}
 
+	if sink := wrd.APIWorkflowRunSink; sink != nil {
+		if u, _ := url.Parse(sink.URL()); u != nil {
+			claims.RelayWorkflowRunAPIURL = &types.URL{URL: u}
+			claims.RelayWorkflowRunAPIToken, _ = sink.Token()
+
+		}
+	}
+
 	tok, err := wrd.Issuer.Issue(ctx, claims)
 	if err != nil {
 		return err
@@ -208,6 +260,10 @@ func NewWorkflowRunDeps(wr *obj.WorkflowRun, issuer authenticate.Issuer, metadat
 		UntrustedServiceAccount: corev1obj.NewServiceAccount(SuffixObjectKey(key, "untrusted")),
 	}
 	wrd.MetadataAPIServiceAccountTokenSecrets = corev1obj.NewServiceAccountTokenSecrets(wrd.MetadataAPIServiceAccount)
+
+	if sink := wr.Object.Spec.WorkflowRunSink.API; sink != nil {
+		wrd.APIWorkflowRunSink = NewAPIWorkflowRunSink(key.Namespace, sink)
+	}
 
 	for _, opt := range opts {
 		opt(wrd)
