@@ -11,4 +11,6 @@ GO="${GO:-go}"
 #
 #
 
+export GOLANG_PROTOBUF_REGISTRATION_CONFLICT=warn
+
 $GO run gotest.tools/gotestsum -f testname --no-summary output --rerun-fails --packages ./... -- -race -timeout 15m
