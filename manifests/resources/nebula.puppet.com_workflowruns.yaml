@@ -60,6 +60,8 @@ spec:
                     type: string
                 type: object
               workflowExecutionSink:
+                default:
+                  api: null
                 description: WorkflowExecutionSink represents the destrination for
                   workflow run requests. If not specified, the metadata-api workflow
                   run endpoint will reject a request to run a workflow.

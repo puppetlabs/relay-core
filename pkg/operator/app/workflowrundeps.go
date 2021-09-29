@@ -29,6 +29,8 @@ type APIWorkflowExecutionSink struct {
 	TokenSecret *corev1obj.OpaqueSecret
 }
 
+var _ lifecycle.Loader = &APIWorkflowExecutionSink{}
+
 // Load finds this entity in the cluster and populates any necessary fields.
 // If there was an error locating the entity, this function returns false.
 func (a *APIWorkflowExecutionSink) Load(ctx context.Context, cl client.Client) (bool, error) {

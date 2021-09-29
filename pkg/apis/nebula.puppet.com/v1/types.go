@@ -40,6 +40,7 @@ type WorkflowRunSpec struct {
 	// If not specified, the metadata-api workflow run endpoint will reject a
 	// request to run a workflow.
 	//
+	// +kubebuilder:default={api: {}}
 	// +optional
 	WorkflowExecutionSink relayv1beta1.WorkflowExecutionSink `json:"workflowExecutionSink,omitempty"`
 }
