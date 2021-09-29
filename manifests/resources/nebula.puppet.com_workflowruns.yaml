@@ -59,19 +59,10 @@ spec:
                       TODO: Add other useful fields. apiVersion, kind, uid?'
                     type: string
                 type: object
-              workflowRef:
-                description: LocalObjectReference contains enough information to let
-                  you locate the referenced object inside the same namespace.
-                properties:
-                  name:
-                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                      TODO: Add other useful fields. apiVersion, kind, uid?'
-                    type: string
-                type: object
-              workflowRunSink:
-                description: WorkflowRunSink represents the destrination for workflow
-                  run requests. If not specified, the metadata-api workflow run endpoint
-                  will reject a request to run a workflow.
+              workflowExecutionSink:
+                description: WorkflowExecutionSink represents the destrination for
+                  workflow run requests. If not specified, the metadata-api workflow
+                  run endpoint will reject a request to run a workflow.
                 properties:
                   api:
                     description: API is a workflow run sink for the propretiary Relay
@@ -105,6 +96,15 @@ spec:
                     required:
                     - url
                     type: object
+                type: object
+              workflowRef:
+                description: LocalObjectReference contains enough information to let
+                  you locate the referenced object inside the same namespace.
+                properties:
+                  name:
+                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                      TODO: Add other useful fields. apiVersion, kind, uid?'
+                    type: string
                 type: object
             required:
             - name

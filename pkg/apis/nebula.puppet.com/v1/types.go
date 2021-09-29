@@ -36,12 +36,12 @@ type WorkflowRunSpec struct {
 	// +optional
 	TenantRef *corev1.LocalObjectReference `json:"tenantRef,omitempty"`
 
-	// WorkflowRunSink represents the destrination for workflow run requests.
+	// WorkflowExecutionSink represents the destrination for workflow run requests.
 	// If not specified, the metadata-api workflow run endpoint will reject a
 	// request to run a workflow.
 	//
 	// +optional
-	WorkflowRunSink *relayv1beta1.WorkflowRunSink `json:"workflowRunSink,omitempty"`
+	WorkflowExecutionSink *relayv1beta1.WorkflowExecutionSink `json:"workflowExecutionSink,omitempty"`
 }
 
 type WorkflowRunStatusSummary struct {

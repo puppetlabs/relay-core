@@ -86,9 +86,9 @@ func (in *WorkflowRunSpec) DeepCopyInto(out *WorkflowRunSpec) {
 		*out = new(corev1.LocalObjectReference)
 		**out = **in
 	}
-	if in.WorkflowRunSink != nil {
-		in, out := &in.WorkflowRunSink, &out.WorkflowRunSink
-		*out = new(v1beta1.WorkflowRunSink)
+	if in.WorkflowExecutionSink != nil {
+		in, out := &in.WorkflowExecutionSink, &out.WorkflowExecutionSink
+		*out = new(v1beta1.WorkflowExecutionSink)
 		(*in).DeepCopyInto(*out)
 	}
 }

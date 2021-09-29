@@ -163,7 +163,12 @@ func (ka *KubernetesAuthenticator) injector(mgrs *builder.MetadataBuilder, tags 
 		}
 
 		if claims.RelayWorkflowRunAPIURL != nil {
-			mgrs.SetWorkflowRuns(api.NewWorkflowRunManager(claims.RelayWorkflowRunAPIURL.URL.String(), claims.RelayWorkflowRunAPIToken))
+			wrm, err := api.NewWorkflowRunManager(claims.RelayWorkflowRunAPIURL.URL.String(), claims.RelayWorkflowRunAPIToken)
+			if err != nil {
+				return err
+			}
+
+			mgrs.SetWorkflowRuns(wrm)
 		}
 
 		mgrs.SetConditions(configmap.NewConditionManager(action, immutableMap))

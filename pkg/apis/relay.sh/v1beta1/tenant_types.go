@@ -86,17 +86,17 @@ type APITriggerEventSink struct {
 	TokenFrom *APITokenSource `json:"tokenFrom,omitempty"`
 }
 
-// WorkflowRunSink represents the destination for workflow run requests. At
+// WorkflowExecutionSink represents the destination for workflow run requests. At
 // most one of the fields may be specified at any one given time. If more than
 // one is specified, the behavior is undefined.
-type WorkflowRunSink struct {
+type WorkflowExecutionSink struct {
 	// API is a workflow run sink for the propretiary Relay API.
 	//
 	// +optional
-	API *APIWorkflowRunSink `json:"api,emitempty"`
+	API *APIWorkflowExecutionSink `json:"api,emitempty"`
 }
 
-type APIWorkflowRunSink struct {
+type APIWorkflowExecutionSink struct {
 	URL string `json:"url"`
 
 	// Token is the API token to use.
