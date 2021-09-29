@@ -41,7 +41,7 @@ type WorkflowRunSpec struct {
 	// request to run a workflow.
 	//
 	// +optional
-	WorkflowExecutionSink *relayv1beta1.WorkflowExecutionSink `json:"workflowExecutionSink,omitempty"`
+	WorkflowExecutionSink relayv1beta1.WorkflowExecutionSink `json:"workflowExecutionSink,omitempty"`
 }
 
 type WorkflowRunStatusSummary struct {
