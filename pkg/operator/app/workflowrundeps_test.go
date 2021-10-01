@@ -6,6 +6,8 @@ import (
 	"path"
 	"testing"
 
+	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
+	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
@@ -28,13 +30,22 @@ func TestWorkflowRunDepsConfigureAnnotate(t *testing.T) {
 		e2e.WithTestNamespace(ctx, func(namespace *corev1.Namespace) {
 			cl := e2e.ControllerClient
 
-			require.NoError(t, cl.Create(ctx, &relayv1beta1.Tenant{
+			tenant := &relayv1beta1.Tenant{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "my-test-tenant",
 					Namespace: namespace.Name,
 				},
 				Spec: relayv1beta1.TenantSpec{},
-			}))
+			}
+
+			require.NoError(t, cl.Create(ctx, tenant))
+
+			require.NoError(t, app.DependencyManager.SetDependencyOf(
+				&namespace.ObjectMeta,
+				lifecycle.TypedObject{Object: tenant, GVK: relayv1beta1.TenantKind},
+			))
+
+			require.NoError(t, cl.Update(ctx, namespace))
 
 			require.NoError(t, cl.Create(ctx, &relayv1beta1.Workflow{
 				ObjectMeta: metav1.ObjectMeta{
@@ -74,7 +85,8 @@ func TestWorkflowRunDepsConfigureAnnotate(t *testing.T) {
 			require.NoError(t, err)
 			require.True(t, ok)
 
-			deps, err := app.ApplyWorkflowRunDeps(ctx, cl, run, TestIssuer, TestMetadataAPIURL)
+			deps, err := app.ApplyWorkflowRunDeps(ctx, cl, run, TestIssuer, TestMetadataAPIURL,
+				app.WorkflowRunDepsWithNamespace(corev1obj.NewNamespaceFromObject(namespace)))
 			require.NoError(t, err)
 
 			ws := deps.Workflow.Object.Spec.Steps[0]

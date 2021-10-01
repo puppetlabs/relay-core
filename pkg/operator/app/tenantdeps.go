@@ -12,46 +12,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type APITriggerEventSink struct {
-	Sink        *relayv1beta1.APITriggerEventSink
-	TokenSecret *corev1obj.OpaqueSecret
-}
-
-var _ lifecycle.Loader = &APITriggerEventSink{}
-
-func (tes *APITriggerEventSink) Load(ctx context.Context, cl client.Client) (bool, error) {
-	return lifecycle.IgnoreNilLoader{tes.TokenSecret}.Load(ctx, cl)
-}
-
-func (tes *APITriggerEventSink) URL() string {
-	return tes.Sink.URL
-}
-
-func (tes *APITriggerEventSink) Token() (string, bool) {
-	if tes.Sink.Token != "" {
-		return tes.Sink.Token, true
-	} else if tes.TokenSecret != nil {
-		return tes.TokenSecret.Data(tes.Sink.TokenFrom.SecretKeyRef.Key)
-	}
-
-	return "", false
-}
-
-func NewAPITriggerEventSink(namespace string, sink *relayv1beta1.APITriggerEventSink) *APITriggerEventSink {
-	tes := &APITriggerEventSink{
-		Sink: sink,
-	}
-
-	if sink.TokenFrom != nil && sink.TokenFrom.SecretKeyRef != nil {
-		tes.TokenSecret = corev1obj.NewOpaqueSecret(client.ObjectKey{
-			Namespace: namespace,
-			Name:      sink.TokenFrom.SecretKeyRef.Name,
-		})
-	}
-
-	return tes
-}
-
 type TenantDeps struct {
 	Tenant     *obj.Tenant
 	Standalone bool
@@ -64,7 +24,8 @@ type TenantDeps struct {
 	NetworkPolicy *networkingv1obj.NetworkPolicy
 	LimitRange    *corev1obj.LimitRange
 
-	APITriggerEventSink *APITriggerEventSink
+	APITriggerEventSink      *APITriggerEventSink
+	APIWorkflowExecutionSink *APIWorkflowExecutionSink
 }
 
 var _ lifecycle.Deleter = &TenantDeps{}
@@ -95,7 +56,8 @@ func (td *TenantDeps) Delete(ctx context.Context, cl client.Client, opts ...life
 
 func (td *TenantDeps) Load(ctx context.Context, cl client.Client) (bool, error) {
 	loaders := lifecycle.Loaders{
-		lifecycle.IgnoreNilLoader{td.APITriggerEventSink},
+		lifecycle.IgnoreNilLoader{Loader: td.APITriggerEventSink},
+		lifecycle.IgnoreNilLoader{Loader: td.APIWorkflowExecutionSink},
 	}
 
 	if !td.Tenant.Managed() {
@@ -169,6 +131,10 @@ func NewTenantDeps(t *obj.Tenant, opts ...TenantDepsOption) *TenantDeps {
 
 	if sink := t.Object.Spec.TriggerEventSink.API; sink != nil {
 		td.APITriggerEventSink = NewAPITriggerEventSink(td.Tenant.Key.Namespace, sink)
+	}
+
+	if sink := t.Object.Spec.WorkflowExecutionSink.API; sink != nil {
+		td.APIWorkflowExecutionSink = NewAPIWorkflowExecutionSink(td.Tenant.Key.Namespace, sink)
 	}
 
 	for _, opt := range opts {

@@ -24,54 +24,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type APIWorkflowExecutionSink struct {
-	Sink        *relayv1beta1.APIWorkflowExecutionSink
-	TokenSecret *corev1obj.OpaqueSecret
-}
-
-var _ lifecycle.Loader = &APIWorkflowExecutionSink{}
-
-// Load finds this entity in the cluster and populates any necessary fields.
-// If there was an error locating the entity, this function returns false.
-func (a *APIWorkflowExecutionSink) Load(ctx context.Context, cl client.Client) (bool, error) {
-	return lifecycle.IgnoreNilLoader{a.TokenSecret}.Load(ctx, cl)
-}
-
-func (a *APIWorkflowExecutionSink) URL() string {
-	return a.Sink.URL
-}
-
-func (a *APIWorkflowExecutionSink) Token() (string, bool) {
-	if a.Sink.Token != "" {
-		return a.Sink.Token, true
-	} else if a.TokenSecret != nil {
-		return a.TokenSecret.Data(a.Sink.TokenFrom.SecretKeyRef.Key)
-	}
-
-	return "", false
-}
-
-func NewAPIWorkflowExecutionSink(namespace string, sink *relayv1beta1.APIWorkflowExecutionSink) *APIWorkflowExecutionSink {
-	a := &APIWorkflowExecutionSink{
-		Sink: sink,
-	}
-
-	if sink.TokenFrom != nil && sink.TokenFrom.SecretKeyRef != nil {
-		a.TokenSecret = corev1obj.NewOpaqueSecret(client.ObjectKey{
-			Namespace: namespace,
-			Name:      sink.TokenFrom.SecretKeyRef.Name,
-		})
-	}
-
-	return a
-}
-
 // WorkflowRunDeps represents the Kubernetes objects required to create a Pipeline.
 type WorkflowRunDeps struct {
 	WorkflowRun *obj.WorkflowRun
 	Workflow    *obj.Workflow
-
-	APIWorkflowExecutionSink *APIWorkflowExecutionSink
+	Tenant      *obj.Tenant
+	TenantDeps  *TenantDeps
 
 	ToolInjectionPoolRef pvpoolv1alpha1.PoolReference
 	Issuer               authenticate.Issuer
@@ -103,12 +61,15 @@ var _ lifecycle.Loader = &WorkflowRunDeps{}
 var _ lifecycle.Persister = &WorkflowRunDeps{}
 
 func (wrd *WorkflowRunDeps) Load(ctx context.Context, cl client.Client) (bool, error) {
+	wrd.TenantDeps = NewTenantDeps(wrd.Tenant)
+
 	return lifecycle.Loaders{
 		lifecycle.RequiredLoader{Loader: wrd.Workflow},
 		lifecycle.RequiredLoader{Loader: wrd.Namespace},
-		lifecycle.IgnoreNilLoader{Loader: wrd.APIWorkflowExecutionSink},
+		lifecycle.IgnoreNilLoader{Loader: wrd.Tenant},
 		lifecycle.IgnoreNilLoader{Loader: wrd.LimitRange},
 		lifecycle.IgnoreNilLoader{Loader: wrd.NetworkPolicy},
+		wrd.TenantDeps,
 		wrd.ToolInjectionCheckout,
 		wrd.ImmutableConfigMap,
 		wrd.MutableConfigMap,
@@ -195,11 +156,13 @@ func (wrd *WorkflowRunDeps) AnnotateStepToken(ctx context.Context, target *metav
 		RelayVaultConnectionPath: annotations[model.RelayVaultConnectionPathAnnotation],
 	}
 
-	if sink := wrd.APIWorkflowExecutionSink; sink != nil {
-		if u, _ := url.Parse(sink.URL()); u != nil {
-			claims.RelayWorkflowRunAPIURL = &types.URL{URL: u}
-			claims.RelayWorkflowRunAPIToken, _ = sink.Token()
-
+	if wrd.TenantDeps != nil {
+		td := wrd.TenantDeps
+		if sink := td.APIWorkflowExecutionSink; sink != nil {
+			if u, _ := url.Parse(sink.URL()); u != nil {
+				claims.RelayWorkflowExecutionAPIURL = &types.URL{URL: u}
+				claims.RelayWorkflowExecutionAPIToken, _ = sink.Token()
+			}
 		}
 	}
 
@@ -231,12 +194,21 @@ func WorkflowRunDepsWithToolInjectionPool(pr pvpoolv1alpha1.PoolReference) Workf
 	}
 }
 
+func WorkflowRunDepsWithNamespace(ns *corev1obj.Namespace) WorkflowRunDepsOption {
+	return func(wrd *WorkflowRunDeps) {
+		wrd.Namespace = ns
+	}
+}
+
 func NewWorkflowRunDeps(wr *obj.WorkflowRun, issuer authenticate.Issuer, metadataAPIURL *url.URL, opts ...WorkflowRunDepsOption) *WorkflowRunDeps {
 	key := wr.Key
 
 	wrd := &WorkflowRunDeps{
 		WorkflowRun: wr,
-		Workflow:    obj.NewWorkflow(client.ObjectKey{Namespace: key.Namespace, Name: wr.Object.Spec.WorkflowRef.Name}),
+		Workflow: obj.NewWorkflow(client.ObjectKey{
+			Namespace: key.Namespace,
+			Name:      wr.Object.Spec.WorkflowRef.Name,
+		}),
 
 		Issuer: issuer,
 
@@ -263,12 +235,16 @@ func NewWorkflowRunDeps(wr *obj.WorkflowRun, issuer authenticate.Issuer, metadat
 	}
 	wrd.MetadataAPIServiceAccountTokenSecrets = corev1obj.NewServiceAccountTokenSecrets(wrd.MetadataAPIServiceAccount)
 
-	if sink := wr.Object.Spec.WorkflowExecutionSink.API; sink != nil {
-		wrd.APIWorkflowExecutionSink = NewAPIWorkflowExecutionSink(key.Namespace, sink)
-	}
-
 	for _, opt := range opts {
 		opt(wrd)
+	}
+
+	dep, found, _ := DependencyManager.GetDependencyOf(&wrd.Namespace.Object.ObjectMeta)
+	if found && dep.Kind == "Tenant" {
+		wrd.Tenant = obj.NewTenant(client.ObjectKey{
+			Namespace: dep.Namespace,
+			Name:      dep.Name,
+		})
 	}
 
 	return wrd

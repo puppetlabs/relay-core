@@ -8,6 +8,7 @@ import (
 	"github.com/puppetlabs/leg/errmap/pkg/errmap"
 	"github.com/puppetlabs/leg/errmap/pkg/errmark"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/errhandler"
+	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
 	"github.com/puppetlabs/leg/storage"
 	pvpoolv1alpha1 "github.com/puppetlabs/pvpool/pkg/apis/pvpool.puppet.com/v1alpha1"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
@@ -70,6 +71,12 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, nil
 	}
 
+	var ns *corev1.Namespace
+	if err := r.Client.Get(ctx, req.NamespacedName, ns); err != nil {
+		return ctrl.Result{}, errmap.Wrap(err, "failed to load namespace")
+	}
+	nso := corev1obj.NewNamespaceFromObject(ns)
+
 	var wrd *app.WorkflowRunDeps
 	var pr *obj.PipelineRun
 	err = r.metrics.trackDurationWithOutcome(metricWorkflowRunStartUpDuration, func() error {
@@ -84,6 +91,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 				Namespace: r.Config.WorkflowToolInjectionPool.Namespace,
 				Name:      r.Config.WorkflowToolInjectionPool.Name,
 			}),
+			app.WorkflowRunDepsWithNamespace(nso),
 		)
 
 		if err != nil {

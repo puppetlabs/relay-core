@@ -162,8 +162,8 @@ func (ka *KubernetesAuthenticator) injector(mgrs *builder.MetadataBuilder, tags 
 			mgrs.SetEvents(api.NewEventManager(action, claims.RelayEventAPIURL.URL.String(), claims.RelayEventAPIToken))
 		}
 
-		if claims.RelayWorkflowRunAPIURL != nil {
-			wrm, err := api.NewWorkflowRunManager(claims.RelayWorkflowRunAPIURL.URL.String(), claims.RelayWorkflowRunAPIToken)
+		if claims.RelayWorkflowExecutionAPIURL != nil {
+			wrm, err := api.NewWorkflowRunManager(claims.RelayWorkflowExecutionAPIURL.URL.String(), claims.RelayWorkflowExecutionAPIToken)
 			if err != nil {
 				return err
 			}

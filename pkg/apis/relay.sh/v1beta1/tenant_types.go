@@ -39,6 +39,13 @@ type TenantSpec struct {
 	//
 	// +optional
 	TriggerEventSink TriggerEventSink `json:"triggerEventSink,omitempty"`
+
+	// WorkflowExecutionSink represents the destrination for workflow run requests.
+	// If not specified, the metadata-api workflow run endpoint will reject a
+	// request to run a workflow.
+	//
+	// +optional
+	WorkflowExecutionSink WorkflowExecutionSink `json:"workflowExecutionSink,omitempty"`
 }
 
 type NamespaceTemplate struct {
@@ -68,6 +75,7 @@ type ToolInjection struct {
 type TriggerEventSink struct {
 	// API is an event sink for the propretiary Relay API.
 	//
+	// +nullable
 	// +optional
 	API *APITriggerEventSink `json:"api,omitempty"`
 }

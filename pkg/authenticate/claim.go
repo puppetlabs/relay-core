@@ -37,8 +37,8 @@ type Claims struct {
 	RelayEventAPIURL   *types.URL `json:"relay.sh/event/api/url,omitempty"`
 	RelayEventAPIToken string     `json:"relay.sh/event/api/token,omitempty"`
 
-	RelayWorkflowRunAPIURL   *types.URL `json:"relay.sh/workflow-run/api/url,omitempty"`
-	RelayWorkflowRunAPIToken string     `json:"relay.sh/workflow-run/api/token,omitempty"`
+	RelayWorkflowExecutionAPIURL   *types.URL `json:"relay.sh/workflow-execution/api/url,omitempty"`
+	RelayWorkflowExecutionAPIToken string     `json:"relay.sh/workflow-execution/api/token,omitempty"`
 }
 
 func (c *Claims) Action() model.Action {
