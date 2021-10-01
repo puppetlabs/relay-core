@@ -120,3 +120,115 @@ func TestWorkflowRunDepsConfigureAnnotate(t *testing.T) {
 		})
 	})
 }
+
+// TODO: merge this test with the above using a case table.
+func TestWorkflowRunDepsConfigureWorkflowExecutionSink(t *testing.T) {
+	ctx := context.Background()
+
+	testutil.WithEndToEndEnvironment(t, ctx, []testutil.EndToEndEnvironmentInstaller{testutil.EndToEndEnvironmentWithPVPool}, func(e2e *testutil.EndToEndEnvironment) {
+		e2e.WithTestNamespace(ctx, func(namespace *corev1.Namespace) {
+			cl := e2e.ControllerClient
+
+			token := "test-token"
+
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: namespace.Name,
+					Name:      "my-test-tenant",
+				},
+				StringData: map[string]string{
+					"token": token,
+				},
+			}
+
+			require.NoError(t, cl.Create(ctx, secret))
+
+			tenant := &relayv1beta1.Tenant{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-test-tenant",
+					Namespace: namespace.Name,
+				},
+				Spec: relayv1beta1.TenantSpec{
+					WorkflowExecutionSink: relayv1beta1.WorkflowExecutionSink{
+						API: &relayv1beta1.APIWorkflowExecutionSink{
+							URL: "https://unit-testing.relay.sh/workflow-run",
+							TokenFrom: &relayv1beta1.APITokenSource{
+								SecretKeyRef: &relayv1beta1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: secret.GetName(),
+									},
+									Key: "token",
+								},
+							},
+						},
+					},
+				},
+			}
+
+			require.NoError(t, cl.Create(ctx, tenant))
+
+			require.NoError(t, app.DependencyManager.SetDependencyOf(
+				&namespace.ObjectMeta,
+				lifecycle.TypedObject{Object: tenant, GVK: relayv1beta1.TenantKind},
+			))
+
+			require.NoError(t, cl.Update(ctx, namespace))
+
+			require.NoError(t, cl.Create(ctx, &relayv1beta1.Workflow{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-test-workflow",
+					Namespace: namespace.Name,
+				},
+				Spec: relayv1beta1.WorkflowSpec{
+					TenantRef: corev1.LocalObjectReference{
+						Name: "my-test-tenant",
+					},
+					Steps: []*relayv1beta1.Step{
+						{
+							Name: "my-test-step",
+						},
+					},
+				},
+			}))
+
+			require.NoError(t, cl.Create(ctx, &nebulav1.WorkflowRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-test-run",
+					Namespace: namespace.Name,
+				},
+				Spec: nebulav1.WorkflowRunSpec{
+					WorkflowRef: corev1.LocalObjectReference{
+						Name: "my-test-workflow",
+					},
+				},
+			}))
+
+			run := obj.NewWorkflowRun(client.ObjectKey{
+				Namespace: namespace.Name,
+				Name:      "my-test-run",
+			})
+
+			ok, err := run.Load(ctx, cl)
+			require.NoError(t, err)
+			require.True(t, ok)
+
+			deps, err := app.ApplyWorkflowRunDeps(ctx, cl, run, TestIssuer, TestMetadataAPIURL,
+				app.WorkflowRunDepsWithNamespace(corev1obj.NewNamespaceFromObject(namespace)))
+			require.NoError(t, err)
+
+			ws := deps.Workflow.Object.Spec.Steps[0]
+
+			var md metav1.ObjectMeta
+			require.NoError(t, deps.AnnotateStepToken(ctx, &md, ws))
+
+			tok := md.GetAnnotations()[authenticate.KubernetesTokenAnnotation]
+			require.NotEmpty(t, tok)
+
+			var claims authenticate.Claims
+			require.NoError(t, json.Unmarshal([]byte(tok), &claims))
+
+			assert.Equal(t, token, claims.RelayWorkflowExecutionAPIToken)
+			assert.Equal(t, tenant.Spec.WorkflowExecutionSink.API.URL, claims.RelayWorkflowExecutionAPIURL.URL.String())
+		})
+	})
+}

@@ -71,11 +71,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, nil
 	}
 
-	var ns *corev1.Namespace
-	if err := r.Client.Get(ctx, req.NamespacedName, ns); err != nil {
+	nso := corev1obj.NewNamespace(req.Namespace)
+	if _, err := nso.Load(ctx, r.Client); err != nil {
 		return ctrl.Result{}, errmap.Wrap(err, "failed to load namespace")
 	}
-	nso := corev1obj.NewNamespaceFromObject(ns)
 
 	var wrd *app.WorkflowRunDeps
 	var pr *obj.PipelineRun
