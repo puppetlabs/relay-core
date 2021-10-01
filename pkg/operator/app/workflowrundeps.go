@@ -61,6 +61,19 @@ var _ lifecycle.Loader = &WorkflowRunDeps{}
 var _ lifecycle.Persister = &WorkflowRunDeps{}
 
 func (wrd *WorkflowRunDeps) Load(ctx context.Context, cl client.Client) (bool, error) {
+	nsl := lifecycle.RequiredLoader{Loader: wrd.Namespace}
+	if ok, err := nsl.Load(ctx, cl); err != nil {
+		return false, err
+	} else if ok {
+		dep, ok, _ := DependencyManager.GetDependencyOf(&wrd.Namespace.Object.ObjectMeta)
+		if ok && dep.Kind == "Tenant" {
+			wrd.Tenant = obj.NewTenant(client.ObjectKey{
+				Namespace: dep.Namespace,
+				Name:      dep.Name,
+			})
+		}
+	}
+
 	// If our tenant is nil, then we want to leave the TenantDeps loader
 	// nil. This way we can just let IgnoreNilLoader do its thing.
 	if wrd.Tenant != nil {
@@ -73,7 +86,6 @@ func (wrd *WorkflowRunDeps) Load(ctx context.Context, cl client.Client) (bool, e
 
 	return lifecycle.Loaders{
 		lifecycle.RequiredLoader{Loader: wrd.Workflow},
-		lifecycle.RequiredLoader{Loader: wrd.Namespace},
 		lifecycle.IgnoreNilLoader{Loader: wrd.LimitRange},
 		lifecycle.IgnoreNilLoader{Loader: wrd.NetworkPolicy},
 		lifecycle.IgnoreNilLoader{Loader: wrd.TenantDeps},
@@ -204,12 +216,6 @@ func WorkflowRunDepsWithToolInjectionPool(pr pvpoolv1alpha1.PoolReference) Workf
 	}
 }
 
-func WorkflowRunDepsWithNamespace(ns *corev1obj.Namespace) WorkflowRunDepsOption {
-	return func(wrd *WorkflowRunDeps) {
-		wrd.Namespace = ns
-	}
-}
-
 func NewWorkflowRunDeps(wr *obj.WorkflowRun, issuer authenticate.Issuer, metadataAPIURL *url.URL, opts ...WorkflowRunDepsOption) *WorkflowRunDeps {
 	key := wr.Key
 
@@ -247,14 +253,6 @@ func NewWorkflowRunDeps(wr *obj.WorkflowRun, issuer authenticate.Issuer, metadat
 
 	for _, opt := range opts {
 		opt(wrd)
-	}
-
-	dep, ok, _ := DependencyManager.GetDependencyOf(&wrd.Namespace.Object.ObjectMeta)
-	if ok && dep.Kind == "Tenant" {
-		wrd.Tenant = obj.NewTenant(client.ObjectKey{
-			Namespace: dep.Namespace,
-			Name:      dep.Name,
-		})
 	}
 
 	return wrd

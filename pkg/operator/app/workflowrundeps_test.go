@@ -6,7 +6,6 @@ import (
 	"path"
 	"testing"
 
-	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
@@ -85,8 +84,7 @@ func TestWorkflowRunDepsConfigureAnnotate(t *testing.T) {
 			require.NoError(t, err)
 			require.True(t, ok)
 
-			deps, err := app.ApplyWorkflowRunDeps(ctx, cl, run, TestIssuer, TestMetadataAPIURL,
-				app.WorkflowRunDepsWithNamespace(corev1obj.NewNamespaceFromObject(namespace)))
+			deps, err := app.ApplyWorkflowRunDeps(ctx, cl, run, TestIssuer, TestMetadataAPIURL)
 			require.NoError(t, err)
 
 			ws := deps.Workflow.Object.Spec.Steps[0]
@@ -212,8 +210,7 @@ func TestWorkflowRunDepsConfigureWorkflowExecutionSink(t *testing.T) {
 			require.NoError(t, err)
 			require.True(t, ok)
 
-			deps, err := app.ApplyWorkflowRunDeps(ctx, cl, run, TestIssuer, TestMetadataAPIURL,
-				app.WorkflowRunDepsWithNamespace(corev1obj.NewNamespaceFromObject(namespace)))
+			deps, err := app.ApplyWorkflowRunDeps(ctx, cl, run, TestIssuer, TestMetadataAPIURL)
 			require.NoError(t, err)
 
 			ws := deps.Workflow.Object.Spec.Steps[0]
