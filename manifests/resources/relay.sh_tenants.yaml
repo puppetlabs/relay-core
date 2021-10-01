@@ -275,7 +275,6 @@ spec:
                 properties:
                   api:
                     description: API is an event sink for the propretiary Relay API.
-                    nullable: true
                     properties:
                       token:
                         description: Token is the API token to use.
@@ -314,7 +313,6 @@ spec:
                   api:
                     description: API is a workflow run sink for the propretiary Relay
                       API.
-                    nullable: true
                     properties:
                       token:
                         description: Token is the API token to use.

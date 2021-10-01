@@ -75,7 +75,6 @@ type ToolInjection struct {
 type TriggerEventSink struct {
 	// API is an event sink for the propretiary Relay API.
 	//
-	// +nullable
 	// +optional
 	API *APITriggerEventSink `json:"api,omitempty"`
 }
@@ -100,9 +99,8 @@ type APITriggerEventSink struct {
 type WorkflowExecutionSink struct {
 	// API is a workflow run sink for the propretiary Relay API.
 	//
-	// +nullable
 	// +optional
-	API *APIWorkflowExecutionSink `json:"api,emitempty"`
+	API *APIWorkflowExecutionSink `json:"api,omitempty"`
 }
 
 type APIWorkflowExecutionSink struct {
