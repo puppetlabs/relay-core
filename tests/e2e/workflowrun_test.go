@@ -834,10 +834,12 @@ func TestWorkflowRunInGVisor(t *testing.T) {
 		}
 		for _, test := range tests {
 			t.Run(test.Name, func(t *testing.T) {
+				workflowName := fmt.Sprintf("my-test-workflow-%s", test.Name)
+
 				value := relayv1beta1.AsUnstructured("World!")
 				w := &relayv1beta1.Workflow{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "my-workflow",
+						Name:      workflowName,
 						Namespace: cfg.Namespace.GetName(),
 					},
 					Spec: relayv1beta1.WorkflowSpec{
@@ -860,7 +862,7 @@ func TestWorkflowRunInGVisor(t *testing.T) {
 					Spec: nebulav1.WorkflowRunSpec{
 						Name: "my-workflow-run-1234",
 						WorkflowRef: corev1.LocalObjectReference{
-							Name: "my-workflow",
+							Name: workflowName,
 						},
 					},
 				}
