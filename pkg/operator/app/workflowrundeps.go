@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/puppetlabs/leg/errmap/pkg/errmark"
+	"github.com/puppetlabs/leg/jsonutil/pkg/types"
 	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
 	networkingv1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/networkingv1"
 	rbacv1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/rbacv1"
@@ -27,6 +28,8 @@ import (
 type WorkflowRunDeps struct {
 	WorkflowRun *obj.WorkflowRun
 	Workflow    *obj.Workflow
+	Tenant      *obj.Tenant
+	TenantDeps  *TenantDeps
 
 	ToolInjectionPoolRef pvpoolv1alpha1.PoolReference
 	Issuer               authenticate.Issuer
@@ -58,11 +61,34 @@ var _ lifecycle.Loader = &WorkflowRunDeps{}
 var _ lifecycle.Persister = &WorkflowRunDeps{}
 
 func (wrd *WorkflowRunDeps) Load(ctx context.Context, cl client.Client) (bool, error) {
+	nsl := lifecycle.RequiredLoader{Loader: wrd.Namespace}
+	if ok, err := nsl.Load(ctx, cl); err != nil {
+		return false, err
+	} else if ok {
+		dep, ok, _ := DependencyManager.GetDependencyOf(&wrd.Namespace.Object.ObjectMeta)
+		if ok && dep.Kind == "Tenant" {
+			wrd.Tenant = obj.NewTenant(client.ObjectKey{
+				Namespace: dep.Namespace,
+				Name:      dep.Name,
+			})
+		}
+	}
+
+	// If our tenant is nil, then we want to leave the TenantDeps loader
+	// nil. This way we can just let IgnoreNilLoader do its thing.
+	if wrd.Tenant != nil {
+		if ok, err := wrd.Tenant.Load(ctx, cl); err != nil {
+			return false, err
+		} else if ok {
+			wrd.TenantDeps = NewTenantDeps(wrd.Tenant)
+		}
+	}
+
 	return lifecycle.Loaders{
 		lifecycle.RequiredLoader{Loader: wrd.Workflow},
-		lifecycle.RequiredLoader{Loader: wrd.Namespace},
 		lifecycle.IgnoreNilLoader{Loader: wrd.LimitRange},
 		lifecycle.IgnoreNilLoader{Loader: wrd.NetworkPolicy},
+		lifecycle.IgnoreNilLoader{Loader: wrd.TenantDeps},
 		wrd.ToolInjectionCheckout,
 		wrd.ImmutableConfigMap,
 		wrd.MutableConfigMap,
@@ -149,6 +175,19 @@ func (wrd *WorkflowRunDeps) AnnotateStepToken(ctx context.Context, target *metav
 		RelayVaultConnectionPath: annotations[model.RelayVaultConnectionPathAnnotation],
 	}
 
+	// TenantDeps will almost always exist in a production context (not always
+	// true with current tests). If it does, we might have some API sinks to
+	// configure.
+	if wrd.TenantDeps != nil {
+		td := wrd.TenantDeps
+		if sink := td.APIWorkflowExecutionSink; sink != nil {
+			if u, _ := url.Parse(sink.URL()); u != nil {
+				claims.RelayWorkflowExecutionAPIURL = &types.URL{URL: u}
+				claims.RelayWorkflowExecutionAPIToken, _ = sink.Token()
+			}
+		}
+	}
+
 	tok, err := wrd.Issuer.Issue(ctx, claims)
 	if err != nil {
 		return err
@@ -182,7 +221,10 @@ func NewWorkflowRunDeps(wr *obj.WorkflowRun, issuer authenticate.Issuer, metadat
 
 	wrd := &WorkflowRunDeps{
 		WorkflowRun: wr,
-		Workflow:    obj.NewWorkflow(client.ObjectKey{Namespace: key.Namespace, Name: wr.Object.Spec.WorkflowRef.Name}),
+		Workflow: obj.NewWorkflow(client.ObjectKey{
+			Namespace: key.Namespace,
+			Name:      wr.Object.Spec.WorkflowRef.Name,
+		}),
 
 		Issuer: issuer,
 
