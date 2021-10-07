@@ -39,6 +39,13 @@ type TenantSpec struct {
 	//
 	// +optional
 	TriggerEventSink TriggerEventSink `json:"triggerEventSink,omitempty"`
+
+	// WorkflowExecutionSink represents the destrination for workflow run requests.
+	// If not specified, the metadata-api workflow run endpoint will reject a
+	// request to run a workflow.
+	//
+	// +optional
+	WorkflowExecutionSink WorkflowExecutionSink `json:"workflowExecutionSink,omitempty"`
 }
 
 type NamespaceTemplate struct {
@@ -73,6 +80,30 @@ type TriggerEventSink struct {
 }
 
 type APITriggerEventSink struct {
+	URL string `json:"url"`
+
+	// Token is the API token to use.
+	//
+	// +optional
+	Token string `json:"token,omitempty"`
+
+	// TokenFrom allows the API token to be provided by another resource.
+	//
+	// +optional
+	TokenFrom *APITokenSource `json:"tokenFrom,omitempty"`
+}
+
+// WorkflowExecutionSink represents the destination for workflow run requests. At
+// most one of the fields may be specified at any one given time. If more than
+// one is specified, the behavior is undefined.
+type WorkflowExecutionSink struct {
+	// API is a workflow run sink for the propretiary Relay API.
+	//
+	// +optional
+	API *APIWorkflowExecutionSink `json:"api,omitempty"`
+}
+
+type APIWorkflowExecutionSink struct {
 	URL string `json:"url"`
 
 	// Token is the API token to use.

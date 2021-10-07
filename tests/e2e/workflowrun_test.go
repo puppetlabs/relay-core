@@ -158,6 +158,34 @@ func TestWorkflowRunWithTenantToolInjectionUsingInput(t *testing.T) {
 		require.Equal(t, cfg.Namespace.GetName(), tenant.Status.Namespace)
 		require.NoError(t, cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: tenant.Status.Namespace}, &ns))
 
+		value := relayv1beta1.AsUnstructured("World!")
+		w := &relayv1beta1.Workflow{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-workflow",
+				Namespace: ns.GetName(),
+			},
+			Spec: relayv1beta1.WorkflowSpec{
+				Parameters: []*relayv1beta1.Parameter{
+					{
+						Name:  "Hello",
+						Value: &value,
+					},
+				},
+				Steps: []*relayv1beta1.Step{
+					{
+						Name: "my-test-step",
+						Container: relayv1beta1.Container{
+							Image: "alpine:latest",
+							Input: []string{
+								"ls -la " + model.ToolsMountPath,
+							},
+						},
+					},
+				},
+			},
+		}
+		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, w))
+
 		wr := &nebulav1.WorkflowRun{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: tenant.Status.Namespace,
@@ -175,20 +203,8 @@ func TestWorkflowRunWithTenantToolInjectionUsingInput(t *testing.T) {
 				TenantRef: &corev1.LocalObjectReference{
 					Name: tenant.GetName(),
 				},
-				Workflow: nebulav1.Workflow{
-					Parameters: relayv1beta1.NewUnstructuredObject(map[string]interface{}{
-						"Hello": "World!",
-					}),
+				WorkflowRef: corev1.LocalObjectReference{
 					Name: "my-workflow",
-					Steps: []*nebulav1.WorkflowStep{
-						{
-							Name:  "my-test-step",
-							Image: "alpine:latest",
-							Input: []string{
-								"ls -la " + model.ToolsMountPath,
-							},
-						},
-					},
 				},
 			},
 		}
@@ -250,6 +266,33 @@ func TestWorkflowRunWithTenantToolInjectionUsingCommand(t *testing.T) {
 		require.Equal(t, cfg.Namespace.GetName(), tenant.Status.Namespace)
 		require.NoError(t, cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: tenant.Status.Namespace}, &ns))
 
+		value := relayv1beta1.AsUnstructured("World!")
+		w := &relayv1beta1.Workflow{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-workflow",
+				Namespace: ns.GetName(),
+			},
+			Spec: relayv1beta1.WorkflowSpec{
+				Parameters: []*relayv1beta1.Parameter{
+					{
+						Name:  "Hello",
+						Value: &value,
+					},
+				},
+				Steps: []*relayv1beta1.Step{
+					{
+						Name: "my-test-step",
+						Container: relayv1beta1.Container{
+							Image:   "alpine:latest",
+							Command: "ls",
+							Args:    []string{"-la", model.ToolsMountPath},
+						},
+					},
+				},
+			},
+		}
+		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, w))
+
 		wr := &nebulav1.WorkflowRun{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: tenant.Status.Namespace,
@@ -267,19 +310,8 @@ func TestWorkflowRunWithTenantToolInjectionUsingCommand(t *testing.T) {
 				TenantRef: &corev1.LocalObjectReference{
 					Name: tenant.GetName(),
 				},
-				Workflow: nebulav1.Workflow{
-					Parameters: relayv1beta1.NewUnstructuredObject(map[string]interface{}{
-						"Hello": "World!",
-					}),
+				WorkflowRef: corev1.LocalObjectReference{
 					Name: "my-workflow",
-					Steps: []*nebulav1.WorkflowStep{
-						{
-							Name:    "my-test-step",
-							Image:   "alpine:latest",
-							Command: "ls",
-							Args:    []string{"-la", model.ToolsMountPath},
-						},
-					},
 				},
 			},
 		}
@@ -314,41 +346,78 @@ func TestWorkflowRun(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
+	data := struct {
+		accessKeyID     string
+		secretAccessKey string
+
+		repository string
+		tag        string
+		version    int
+
+		dryrun      bool
+		backoff     int
+		environment string
+	}{
+		accessKeyID:     uuid.NewString(),
+		secretAccessKey: uuid.NewString(),
+		repository:      uuid.NewString(),
+		tag:             uuid.NewString(),
+		version:         2,
+		dryrun:          true,
+		backoff:         300,
+		environment:     uuid.NewString(),
+	}
+
 	WithConfig(t, ctx, []ConfigOption{
 		ConfigWithMetadataAPI,
 		ConfigWithWorkflowRunReconciler,
 	}, func(cfg *Config) {
 		// Set a secret and connection for this workflow to look up.
 		cfg.Vault.SetSecret(t, "my-tenant-id", "foo", "Hello")
-		cfg.Vault.SetSecret(t, "my-tenant-id", "accessKeyId", "AKIA123456789")
-		cfg.Vault.SetSecret(t, "my-tenant-id", "secretAccessKey", "that's-a-very-nice-key-you-have-there")
+		cfg.Vault.SetSecret(t, "my-tenant-id", "accessKeyId", data.accessKeyID)
+		cfg.Vault.SetSecret(t, "my-tenant-id", "secretAccessKey", data.secretAccessKey)
 		cfg.Vault.SetConnection(t, "my-domain-id", "aws", "test", map[string]string{
-			"accessKeyID":     "AKIA123456789",
-			"secretAccessKey": "that's-a-very-nice-key-you-have-there",
+			"accessKeyID":     data.accessKeyID,
+			"secretAccessKey": data.secretAccessKey,
 		})
 
-		wr := &nebulav1.WorkflowRun{
+		value1 := relayv1beta1.AsUnstructured(data.repository)
+		value2 := relayv1beta1.AsUnstructured("latest")
+		value3 := relayv1beta1.AsUnstructured(1)
+		value4 := relayv1beta1.AsUnstructured(data.dryrun)
+
+		w := &relayv1beta1.Workflow{
 			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-workflow",
 				Namespace: cfg.Namespace.GetName(),
-				Name:      "my-test-run",
-				Annotations: map[string]string{
-					model.RelayVaultEngineMountAnnotation:    cfg.Vault.SecretsPath,
-					model.RelayVaultConnectionPathAnnotation: "connections/my-domain-id",
-					model.RelayVaultSecretPathAnnotation:     "workflows/my-tenant-id",
-					model.RelayDomainIDAnnotation:            "my-domain-id",
-					model.RelayTenantIDAnnotation:            "my-tenant-id",
-				},
 			},
-			Spec: nebulav1.WorkflowRunSpec{
-				Name: "my-workflow-run-1234",
-				Workflow: nebulav1.Workflow{
-					Parameters: relayv1beta1.NewUnstructuredObject(map[string]interface{}{
-						"Hello": "World!",
-					}),
-					Name: "my-workflow",
-					Steps: []*nebulav1.WorkflowStep{
-						{
-							Name:  "my-test-step",
+			Spec: relayv1beta1.WorkflowSpec{
+				Parameters: []*relayv1beta1.Parameter{
+					{
+						Name:  "repository",
+						Value: &value1,
+					},
+					{
+						Name:  "tag",
+						Value: &value2,
+					},
+					{
+						Name:  "version",
+						Value: &value3,
+					},
+					{
+						Name:  "dryrun",
+						Value: &value4,
+					},
+					{
+						Name:  "payload",
+						Value: nil,
+					},
+				},
+				Steps: []*relayv1beta1.Step{
+					{
+						Name: "my-test-step",
+						Container: relayv1beta1.Container{
 							Image: "alpine:latest",
 							Spec: relayv1beta1.NewUnstructuredObject(map[string]interface{}{
 								"secret": map[string]interface{}{
@@ -360,9 +429,25 @@ func TestWorkflowRun(t *testing.T) {
 									"type":  "aws",
 									"name":  "test",
 								},
-								"param": map[string]interface{}{
+								"parameter1": map[string]interface{}{
 									"$type": "Parameter",
-									"name":  "Hello",
+									"name":  "repository",
+								},
+								"parameter2": map[string]interface{}{
+									"$type": "Parameter",
+									"name":  "tag",
+								},
+								"parameter3": map[string]interface{}{
+									"$type": "Parameter",
+									"name":  "version",
+								},
+								"parameter4": map[string]interface{}{
+									"$type": "Parameter",
+									"name":  "dryrun",
+								},
+								"parameter5": map[string]interface{}{
+									"$type": "Parameter",
+									"name":  "payload",
 								},
 							}),
 							Env: relayv1beta1.NewUnstructuredObject(map[string]interface{}{
@@ -374,9 +459,9 @@ func TestWorkflowRun(t *testing.T) {
 									"$type": "Secret",
 									"name":  "secretAccessKey",
 								},
-								"ENVIRONMENT": "test",
-								"DRYRUN":      true,
-								"BACKOFF":     300,
+								"ENVIRONMENT": data.environment,
+								"DRYRUN":      data.dryrun,
+								"BACKOFF":     data.backoff,
 							}),
 							Input: []string{
 								"trap : TERM INT",
@@ -387,121 +472,12 @@ func TestWorkflowRun(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, wr))
+		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, w))
 
-		pod := waitForStepPodIP(t, ctx, cfg, wr, "my-test-step")
-
-		req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/spec", cfg.MetadataAPIURL), nil)
-		require.NoError(t, err)
-		req.Header.Set("X-Forwarded-For", pod.Status.PodIP)
-
-		resp, err := http.DefaultClient.Do(req)
-		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, resp.StatusCode)
-
-		var result exprmodel.JSONResultEnvelope
-		require.NoError(t, json.NewDecoder(resp.Body).Decode(&result))
-		assert.True(t, result.Complete)
-		assert.Equal(t, map[string]interface{}{
-			"secret": "Hello",
-			"connection": map[string]interface{}{
-				"accessKeyID":     "AKIA123456789",
-				"secretAccessKey": "that's-a-very-nice-key-you-have-there",
-			},
-			"param": "World!",
-		}, result.Value.Data)
-
-		req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("%s/environment", cfg.MetadataAPIURL), nil)
-		require.NoError(t, err)
-		req.Header.Set("X-Forwarded-For", pod.Status.PodIP)
-
-		resp, err = http.DefaultClient.Do(req)
-		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, resp.StatusCode)
-
-		require.NoError(t, json.NewDecoder(resp.Body).Decode(&result))
-		assert.True(t, result.Complete)
-		assert.Equal(t, map[string]interface{}{
-			"AWS_ACCESS_KEY_ID":     "AKIA123456789",
-			"AWS_SECRET_ACCESS_KEY": "that's-a-very-nice-key-you-have-there",
-			"ENVIRONMENT":           "test",
-			"DRYRUN":                true,
-			"BACKOFF":               float64(300),
-		}, result.Value.Data)
-
-		req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("%s/environment/AWS_ACCESS_KEY_ID", cfg.MetadataAPIURL), nil)
-		require.NoError(t, err)
-		req.Header.Set("X-Forwarded-For", pod.Status.PodIP)
-
-		resp, err = http.DefaultClient.Do(req)
-		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, resp.StatusCode)
-
-		require.NoError(t, json.NewDecoder(resp.Body).Decode(&result))
-		assert.True(t, result.Complete)
-		assert.Equal(t, "AKIA123456789", result.Value.Data)
-
-		req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("%s/environment/AWS_SECRET_ACCESS_KEY", cfg.MetadataAPIURL), nil)
-		require.NoError(t, err)
-		req.Header.Set("X-Forwarded-For", pod.Status.PodIP)
-
-		resp, err = http.DefaultClient.Do(req)
-		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, resp.StatusCode)
-
-		require.NoError(t, json.NewDecoder(resp.Body).Decode(&result))
-		assert.True(t, result.Complete)
-		assert.Equal(t, "that's-a-very-nice-key-you-have-there", result.Value.Data)
-
-		req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("%s/environment/ENVIRONMENT", cfg.MetadataAPIURL), nil)
-		require.NoError(t, err)
-		req.Header.Set("X-Forwarded-For", pod.Status.PodIP)
-
-		resp, err = http.DefaultClient.Do(req)
-		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, resp.StatusCode)
-
-		require.NoError(t, json.NewDecoder(resp.Body).Decode(&result))
-		assert.True(t, result.Complete)
-		assert.Equal(t, "test", result.Value.Data)
-
-		req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("%s/environment/DRYRUN", cfg.MetadataAPIURL), nil)
-		require.NoError(t, err)
-		req.Header.Set("X-Forwarded-For", pod.Status.PodIP)
-
-		resp, err = http.DefaultClient.Do(req)
-		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, resp.StatusCode)
-
-		require.NoError(t, json.NewDecoder(resp.Body).Decode(&result))
-		assert.True(t, result.Complete)
-		assert.Equal(t, true, result.Value.Data)
-
-		req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("%s/environment/BACKOFF", cfg.MetadataAPIURL), nil)
-		require.NoError(t, err)
-		req.Header.Set("X-Forwarded-For", pod.Status.PodIP)
-
-		resp, err = http.DefaultClient.Do(req)
-		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, resp.StatusCode)
-
-		require.NoError(t, json.NewDecoder(resp.Body).Decode(&result))
-		assert.True(t, result.Complete)
-		assert.Equal(t, float64(300), result.Value.Data)
-	})
-}
-
-func TestWorkflowRunWithoutSteps(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	WithConfig(t, ctx, []ConfigOption{
-		ConfigWithWorkflowRunReconciler,
-	}, func(cfg *Config) {
 		wr := &nebulav1.WorkflowRun{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: cfg.Namespace.GetName(),
 				Name:      "my-test-run",
+				Namespace: cfg.Namespace.GetName(),
 				Annotations: map[string]string{
 					model.RelayVaultEngineMountAnnotation:    cfg.Vault.SecretsPath,
 					model.RelayVaultConnectionPathAnnotation: "connections/my-domain-id",
@@ -512,9 +488,210 @@ func TestWorkflowRunWithoutSteps(t *testing.T) {
 			},
 			Spec: nebulav1.WorkflowRunSpec{
 				Name: "my-workflow-run-1234",
-				Workflow: nebulav1.Workflow{
-					Name:  "my-workflow",
-					Steps: []*nebulav1.WorkflowStep{},
+				Parameters: relayv1beta1.UnstructuredObject{
+					"tag":     relayv1beta1.AsUnstructured(data.tag),
+					"version": relayv1beta1.AsUnstructured(data.version),
+				},
+				WorkflowRef: corev1.LocalObjectReference{
+					Name: "my-workflow",
+				},
+			},
+		}
+		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, wr))
+
+		pod := waitForStepPodIP(t, ctx, cfg, wr, "my-test-step")
+
+		var result exprmodel.JSONResultEnvelope
+		evaluateRequest := func(url string) exprmodel.JSONResultEnvelope {
+			req, err := http.NewRequest(http.MethodGet, url, nil)
+			require.NoError(t, err)
+			req.Header.Set("X-Forwarded-For", pod.Status.PodIP)
+
+			resp, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+
+			require.NoError(t, json.NewDecoder(resp.Body).Decode(&result))
+			assert.True(t, result.Complete)
+
+			return result
+		}
+
+		specUrl := func() string {
+			return fmt.Sprintf("%s/spec", cfg.MetadataAPIURL)
+		}
+
+		envUrl := func() string {
+			return fmt.Sprintf("%s/environment", cfg.MetadataAPIURL)
+		}
+
+		envNameUrl := func(environmentName string) string {
+			return fmt.Sprintf("%s/environment/%s", cfg.MetadataAPIURL, environmentName)
+		}
+
+		result = evaluateRequest(specUrl())
+		assert.Equal(t, map[string]interface{}{
+			"secret": "Hello",
+			"connection": map[string]interface{}{
+				"accessKeyID":     data.accessKeyID,
+				"secretAccessKey": data.secretAccessKey,
+			},
+			"parameter1": data.repository,
+			"parameter2": data.tag,
+			"parameter3": float64(data.version),
+			"parameter4": data.dryrun,
+			"parameter5": nil,
+		}, result.Value.Data)
+
+		result = evaluateRequest(envUrl())
+		assert.Equal(t, map[string]interface{}{
+			"AWS_ACCESS_KEY_ID":     data.accessKeyID,
+			"AWS_SECRET_ACCESS_KEY": data.secretAccessKey,
+			"ENVIRONMENT":           data.environment,
+			"DRYRUN":                data.dryrun,
+			"BACKOFF":               float64(data.backoff),
+		}, result.Value.Data)
+
+		result = evaluateRequest(envNameUrl("AWS_ACCESS_KEY_ID"))
+		assert.Equal(t, data.accessKeyID, result.Value.Data)
+
+		result = evaluateRequest(envNameUrl("AWS_SECRET_ACCESS_KEY"))
+		assert.Equal(t, data.secretAccessKey, result.Value.Data)
+
+		result = evaluateRequest(envNameUrl("ENVIRONMENT"))
+		assert.Equal(t, data.environment, result.Value.Data)
+
+		result = evaluateRequest(envNameUrl("DRYRUN"))
+		assert.Equal(t, data.dryrun, result.Value.Data)
+
+		result = evaluateRequest(envNameUrl("BACKOFF"))
+		assert.Equal(t, float64(data.backoff), result.Value.Data)
+	})
+}
+
+func TestWorkflowRunWithoutWorkflow(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	WithConfig(t, ctx, []ConfigOption{
+		ConfigWithWorkflowRunReconciler,
+	}, func(cfg *Config) {
+		wr := &nebulav1.WorkflowRun{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-test-run",
+				Namespace: cfg.Namespace.GetName(),
+				Annotations: map[string]string{
+					model.RelayVaultEngineMountAnnotation:    cfg.Vault.SecretsPath,
+					model.RelayVaultConnectionPathAnnotation: "connections/my-domain-id",
+					model.RelayVaultSecretPathAnnotation:     "workflows/my-tenant-id",
+					model.RelayDomainIDAnnotation:            "my-domain-id",
+					model.RelayTenantIDAnnotation:            "my-tenant-id",
+				},
+			},
+			Spec: nebulav1.WorkflowRunSpec{
+				Name: "my-workflow-run-1234",
+			},
+		}
+		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, wr))
+
+		require.Error(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
+			if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: wr.GetName(), Namespace: wr.GetNamespace()}, wr); err != nil {
+				if k8serrors.IsNotFound(err) {
+					return false, fmt.Errorf("waiting for initial workflow run")
+				}
+
+				return true, err
+			}
+
+			if wr.Status.Status == "" {
+				return false, fmt.Errorf("waiting for workflow run status")
+			}
+
+			return true, nil
+		}))
+	})
+}
+
+func TestWorkflowRunWithInvalidWorkflow(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	WithConfig(t, ctx, []ConfigOption{
+		ConfigWithWorkflowRunReconciler,
+	}, func(cfg *Config) {
+		wr := &nebulav1.WorkflowRun{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-test-run",
+				Namespace: cfg.Namespace.GetName(),
+				Annotations: map[string]string{
+					model.RelayVaultEngineMountAnnotation:    cfg.Vault.SecretsPath,
+					model.RelayVaultConnectionPathAnnotation: "connections/my-domain-id",
+					model.RelayVaultSecretPathAnnotation:     "workflows/my-tenant-id",
+					model.RelayDomainIDAnnotation:            "my-domain-id",
+					model.RelayTenantIDAnnotation:            "my-tenant-id",
+				},
+			},
+			Spec: nebulav1.WorkflowRunSpec{
+				Name: "my-workflow-run-1234",
+				WorkflowRef: corev1.LocalObjectReference{
+					Name: "my-workflow",
+				},
+			},
+		}
+		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, wr))
+
+		require.Error(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
+			if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: wr.GetName(), Namespace: wr.GetNamespace()}, wr); err != nil {
+				if k8serrors.IsNotFound(err) {
+					return false, fmt.Errorf("waiting for initial workflow run")
+				}
+
+				return true, err
+			}
+
+			if wr.Status.Status == "" {
+				return false, fmt.Errorf("waiting for workflow run status")
+			}
+
+			return true, nil
+		}))
+	})
+}
+
+func TestWorkflowRunWithoutSteps(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	WithConfig(t, ctx, []ConfigOption{
+		ConfigWithWorkflowRunReconciler,
+	}, func(cfg *Config) {
+		w := &relayv1beta1.Workflow{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-workflow",
+				Namespace: cfg.Namespace.GetName(),
+			},
+			Spec: relayv1beta1.WorkflowSpec{
+				Steps: []*relayv1beta1.Step{},
+			},
+		}
+		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, w))
+
+		wr := &nebulav1.WorkflowRun{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-test-run",
+				Namespace: cfg.Namespace.GetName(),
+				Annotations: map[string]string{
+					model.RelayVaultEngineMountAnnotation:    cfg.Vault.SecretsPath,
+					model.RelayVaultConnectionPathAnnotation: "connections/my-domain-id",
+					model.RelayVaultSecretPathAnnotation:     "workflows/my-tenant-id",
+					model.RelayDomainIDAnnotation:            "my-domain-id",
+					model.RelayTenantIDAnnotation:            "my-tenant-id",
+				},
+			},
+			Spec: nebulav1.WorkflowRunSpec{
+				Name: "my-workflow-run-1234",
+				WorkflowRef: corev1.LocalObjectReference{
+					Name: "my-workflow",
 				},
 			},
 		}
@@ -550,6 +727,30 @@ func TestWorkflowRunStepInitTime(t *testing.T) {
 		ConfigWithMetadataAPIBoundInCluster,
 		ConfigWithWorkflowRunReconciler,
 	}, func(cfg *Config) {
+		w := &relayv1beta1.Workflow{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-workflow",
+				Namespace: cfg.Namespace.GetName(),
+			},
+			Spec: relayv1beta1.WorkflowSpec{
+				Steps: []*relayv1beta1.Step{
+					{
+						// TODO: Once we have the entrypointer image in
+						// test, we could just end-to-end test it here.
+						Name: "my-test-step",
+						Container: relayv1beta1.Container{
+							Image: "alpine:latest",
+							Input: []string{
+								"apk --no-cache add curl",
+								fmt.Sprintf(`curl -XPUT "${METADATA_API_URL}/timers/%s"`, model.TimerStepInit),
+							},
+						},
+					},
+				},
+			},
+		}
+		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, w))
+
 		wr := &nebulav1.WorkflowRun{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: cfg.Namespace.GetName(),
@@ -564,20 +765,8 @@ func TestWorkflowRunStepInitTime(t *testing.T) {
 			},
 			Spec: nebulav1.WorkflowRunSpec{
 				Name: "my-workflow-run-1234",
-				Workflow: nebulav1.Workflow{
+				WorkflowRef: corev1.LocalObjectReference{
 					Name: "my-workflow",
-					Steps: []*nebulav1.WorkflowStep{
-						{
-							// TODO: Once we have the entrypointer image in
-							// test, we could just end-to-end test it here.
-							Name:  "my-test-step",
-							Image: "alpine:latest",
-							Input: []string{
-								"apk --no-cache add curl",
-								fmt.Sprintf(`curl -XPUT "${METADATA_API_URL}/timers/%s"`, model.TimerStepInit),
-							},
-						},
-					},
 				},
 			},
 		}
@@ -601,43 +790,70 @@ func TestWorkflowRunInGVisor(t *testing.T) {
 			t.Skip("gVisor is not available on this platform")
 		}
 
+		when := relayv1beta1.AsUnstructured(
+			testutil.JSONInvocation("equals", []interface{}{
+				testutil.JSONParameter("Hello"),
+				"World!",
+			}))
+
 		tests := []struct {
 			Name           string
-			StepDefinition *nebulav1.WorkflowStep
+			StepDefinition *relayv1beta1.Step
 		}{
 			{
 				Name: "command",
-				StepDefinition: &nebulav1.WorkflowStep{
-					Name:    "my-test-step",
-					Image:   "alpine:latest",
-					Command: "dmesg",
+				StepDefinition: &relayv1beta1.Step{
+					Name: "my-test-step",
+					Container: relayv1beta1.Container{
+						Image:   "alpine:latest",
+						Command: "dmesg",
+					},
 				},
 			},
 			{
 				Name: "input",
-				StepDefinition: &nebulav1.WorkflowStep{
-					Name:  "my-test-step",
-					Image: "alpine:latest",
-					Input: []string{"dmesg"},
+				StepDefinition: &relayv1beta1.Step{
+					Name: "my-test-step",
+					Container: relayv1beta1.Container{
+						Image: "alpine:latest",
+						Input: []string{"dmesg"},
+					},
 				},
 			},
 			{
 				Name: "command-with-condition",
-				StepDefinition: &nebulav1.WorkflowStep{
-					Name:  "my-test-step",
-					Image: "alpine:latest",
-					When: relayv1beta1.AsUnstructured(
-						testutil.JSONInvocation("equals", []interface{}{
-							testutil.JSONParameter("Hello"),
-							"World!",
-						}),
-					),
-					Command: "dmesg",
+				StepDefinition: &relayv1beta1.Step{
+					Name: "my-test-step",
+					Container: relayv1beta1.Container{
+						Image:   "alpine:latest",
+						Command: "dmesg",
+					},
+					When: &when,
 				},
 			},
 		}
 		for _, test := range tests {
 			t.Run(test.Name, func(t *testing.T) {
+				workflowName := fmt.Sprintf("my-test-workflow-%s", test.Name)
+
+				value := relayv1beta1.AsUnstructured("World!")
+				w := &relayv1beta1.Workflow{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      workflowName,
+						Namespace: cfg.Namespace.GetName(),
+					},
+					Spec: relayv1beta1.WorkflowSpec{
+						Parameters: []*relayv1beta1.Parameter{
+							{
+								Name:  "Hello",
+								Value: &value,
+							},
+						},
+						Steps: []*relayv1beta1.Step{test.StepDefinition},
+					},
+				}
+				require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, w))
+
 				wr := &nebulav1.WorkflowRun{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: cfg.Namespace.GetName(),
@@ -645,14 +861,8 @@ func TestWorkflowRunInGVisor(t *testing.T) {
 					},
 					Spec: nebulav1.WorkflowRunSpec{
 						Name: "my-workflow-run-1234",
-						Workflow: nebulav1.Workflow{
-							Name: "my-workflow",
-							Parameters: relayv1beta1.NewUnstructuredObject(map[string]interface{}{
-								"Hello": "World!",
-							}),
-							Steps: []*nebulav1.WorkflowStep{
-								test.StepDefinition,
-							},
+						WorkflowRef: corev1.LocalObjectReference{
+							Name: workflowName,
 						},
 					},
 				}

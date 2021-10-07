@@ -26,53 +26,15 @@ type WorkflowRun struct {
 }
 
 type WorkflowRunSpec struct {
-	Name     string   `json:"name"`
-	Workflow Workflow `json:"workflow"`
+	Name string `json:"name"`
 
-	// +optional
-	WorkflowRef corev1.LocalObjectReference `json:"workflowRef,omitempty"`
+	WorkflowRef corev1.LocalObjectReference `json:"workflowRef"`
 
 	// +optional
 	Parameters relayv1beta1.UnstructuredObject `json:"parameters,omitempty"`
 
 	// +optional
 	TenantRef *corev1.LocalObjectReference `json:"tenantRef,omitempty"`
-}
-
-type Workflow struct {
-	Name  string          `json:"name"`
-	Steps []*WorkflowStep `json:"steps"`
-
-	// +optional
-	Parameters relayv1beta1.UnstructuredObject `json:"parameters,omitempty"`
-}
-
-type WorkflowStep struct {
-	Name string `json:"name"`
-
-	// +optional
-	Image string `json:"image,omitempty"`
-
-	// +optional
-	Spec relayv1beta1.UnstructuredObject `json:"spec,omitempty"`
-
-	// +optional
-	Input []string `json:"input,omitempty"`
-
-	// +optional
-	Command string `json:"command,omitempty"`
-
-	// +optional
-	Args []string `json:"args,omitempty"`
-
-	// +optional
-	Env relayv1beta1.UnstructuredObject `json:"env,omitempty"`
-
-	// +optional
-	When relayv1beta1.Unstructured `json:"when,omitempty"`
-
-	// +optional
-	DependsOn []string `json:"depends_on,omitempty"`
 }
 
 type WorkflowRunStatusSummary struct {

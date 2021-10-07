@@ -96,8 +96,8 @@ func workflowRunStatusSummaries(ctx context.Context, wr *obj.WorkflowRun, pr *ob
 	return m
 }
 
-func ConfigureWorkflowRun(ctx context.Context, deps *WorkflowRunDeps, pr *obj.PipelineRun) {
-	wr := deps.WorkflowRun
+func ConfigureWorkflowRun(ctx context.Context, wrd *WorkflowRunDeps, pr *obj.PipelineRun) {
+	wr := wrd.WorkflowRun
 
 	if wr.IsCancelled() {
 		wr.Object.Status.Status = string(obj.WorkflowRunStatusCancelled)
@@ -129,9 +129,9 @@ func ConfigureWorkflowRun(ctx context.Context, deps *WorkflowRunDeps, pr *obj.Pi
 	skipFinder := graph.NewSimpleDirectedGraphWithFeatures(graph.DeterministicIteration)
 
 	// This is the ConfigMap that holds internal, mutable data (outputs, timing, etc.)
-	configMap := configmap.NewLocalConfigMap(deps.MutableConfigMap.Object)
+	configMap := configmap.NewLocalConfigMap(wrd.MutableConfigMap.Object)
 
-	for _, step := range wr.Object.Spec.Workflow.Steps {
+	for _, step := range wrd.Workflow.Object.Spec.Steps {
 		skipFinder.AddVertex(step.Name)
 		for _, dep := range step.DependsOn {
 			skipFinder.AddVertex(dep)

@@ -17,6 +17,7 @@ type metadataManagers struct {
 	spec           model.SpecGetterManager
 	state          model.StateGetterManager
 	stepOutputs    model.StepOutputManager
+	workflowRuns   model.WorkflowRunManager
 	timers         model.TimerSetterManager
 }
 
@@ -66,6 +67,10 @@ func (mm *metadataManagers) StepOutputs() model.StepOutputManager {
 	return mm.stepOutputs
 }
 
+func (mm *metadataManagers) WorkflowRuns() model.WorkflowRunManager {
+	return mm.workflowRuns
+}
+
 func (mm *metadataManagers) Timers() model.TimerSetterManager {
 	return mm.timers
 }
@@ -82,6 +87,7 @@ type MetadataBuilder struct {
 	spec           model.SpecGetterManager
 	state          model.StateGetterManager
 	stepOutputs    model.StepOutputManager
+	workflowRuns   model.WorkflowRunManager
 	timers         model.TimerSetterManager
 }
 
@@ -140,6 +146,11 @@ func (mb *MetadataBuilder) SetStepOutputs(m model.StepOutputManager) *MetadataBu
 	return mb
 }
 
+func (mb *MetadataBuilder) SetWorkflowRuns(m model.WorkflowRunManager) *MetadataBuilder {
+	mb.workflowRuns = m
+	return mb
+}
+
 func (mb *MetadataBuilder) SetTimers(m model.TimerSetterManager) *MetadataBuilder {
 	mb.timers = m
 	return mb
@@ -158,6 +169,7 @@ func (mb *MetadataBuilder) Build() model.MetadataManagers {
 		spec:           mb.spec,
 		state:          mb.state,
 		stepOutputs:    mb.stepOutputs,
+		workflowRuns:   mb.workflowRuns,
 		timers:         mb.timers,
 	}
 }
@@ -175,6 +187,7 @@ func NewMetadataBuilder() *MetadataBuilder {
 		spec:           reject.SpecManager,
 		state:          reject.StateManager,
 		stepOutputs:    reject.StepOutputManager,
+		workflowRuns:   reject.WorkflowRunManager,
 		timers:         reject.TimerManager,
 	}
 }
