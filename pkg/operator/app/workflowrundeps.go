@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"path"
 	"time"
@@ -24,21 +25,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// WorkflowRunDeps represents the Kubernetes objects required to create a Pipeline.
+type WorkflowRunDepsLoadResult struct {
+	Upstream bool
+	All      bool
+}
+
+// WorkflowRunDeps represents the dependencies of a WorkflowRun.
 type WorkflowRunDeps struct {
-	WorkflowRun *obj.WorkflowRun
-	Workflow    *obj.Workflow
-	Tenant      *obj.Tenant
-	TenantDeps  *TenantDeps
+	WorkflowRun  *obj.WorkflowRun
+	Workflow     *obj.Workflow
+	WorkflowDeps *WorkflowDeps
 
 	ToolInjectionPoolRef pvpoolv1alpha1.PoolReference
 	Issuer               authenticate.Issuer
 
 	Namespace *corev1obj.Namespace
-
-	// TODO: This belongs at the Tenant as it should apply to the whole
-	// namespace.
-	LimitRange *corev1obj.LimitRange
 
 	NetworkPolicy *networkingv1obj.NetworkPolicy
 
@@ -57,38 +58,26 @@ type WorkflowRunDeps struct {
 	UntrustedServiceAccount *corev1obj.ServiceAccount
 }
 
-var _ lifecycle.Loader = &WorkflowRunDeps{}
 var _ lifecycle.Persister = &WorkflowRunDeps{}
 
-func (wrd *WorkflowRunDeps) Load(ctx context.Context, cl client.Client) (bool, error) {
-	nsl := lifecycle.RequiredLoader{Loader: wrd.Namespace}
-	if ok, err := nsl.Load(ctx, cl); err != nil {
-		return false, err
-	} else if ok {
-		dep, ok, _ := DependencyManager.GetDependencyOf(&wrd.Namespace.Object.ObjectMeta)
-		if ok && dep.Kind == "Tenant" {
-			wrd.Tenant = obj.NewTenant(client.ObjectKey{
-				Namespace: dep.Namespace,
-				Name:      dep.Name,
-			})
-		}
+func (wrd *WorkflowRunDeps) Load(ctx context.Context, cl client.Client) (*WorkflowRunDepsLoadResult, error) {
+	if ok, err := wrd.Workflow.Load(ctx, cl); err != nil {
+		return nil, err
+	} else if !ok {
+		return &WorkflowRunDepsLoadResult{}, nil
 	}
 
-	// If our tenant is nil, then we want to leave the TenantDeps loader
-	// nil. This way we can just let IgnoreNilLoader do its thing.
-	if wrd.Tenant != nil {
-		if ok, err := wrd.Tenant.Load(ctx, cl); err != nil {
-			return false, err
-		} else if ok {
-			wrd.TenantDeps = NewTenantDeps(wrd.Tenant)
-		}
+	wrd.WorkflowDeps = NewWorkflowDeps(wrd.Workflow)
+
+	if lr, err := wrd.WorkflowDeps.Load(ctx, cl); err != nil {
+		return nil, err
+	} else if !lr.All {
+		return &WorkflowRunDepsLoadResult{}, nil
 	}
 
-	return lifecycle.Loaders{
-		lifecycle.RequiredLoader{Loader: wrd.Workflow},
-		lifecycle.IgnoreNilLoader{Loader: wrd.LimitRange},
+	ok, err := lifecycle.Loaders{
+		lifecycle.RequiredLoader{Loader: wrd.Namespace},
 		lifecycle.IgnoreNilLoader{Loader: wrd.NetworkPolicy},
-		lifecycle.IgnoreNilLoader{Loader: wrd.TenantDeps},
 		wrd.ToolInjectionCheckout,
 		wrd.ImmutableConfigMap,
 		wrd.MutableConfigMap,
@@ -102,11 +91,18 @@ func (wrd *WorkflowRunDeps) Load(ctx context.Context, cl client.Client) (bool, e
 		wrd.PipelineServiceAccount,
 		wrd.UntrustedServiceAccount,
 	}.Load(ctx, cl)
+	if err != nil {
+		return nil, err
+	}
+
+	return &WorkflowRunDepsLoadResult{
+		Upstream: true,
+		All:      ok,
+	}, nil
 }
 
 func (wrd *WorkflowRunDeps) Persist(ctx context.Context, cl client.Client) error {
 	ps := []lifecycle.Persister{
-		lifecycle.IgnoreNilPersister{Persister: wrd.LimitRange},
 		lifecycle.IgnoreNilPersister{Persister: wrd.NetworkPolicy},
 		wrd.ToolInjectionCheckout,
 		wrd.ImmutableConfigMap,
@@ -175,16 +171,11 @@ func (wrd *WorkflowRunDeps) AnnotateStepToken(ctx context.Context, target *metav
 		RelayVaultConnectionPath: annotations[model.RelayVaultConnectionPathAnnotation],
 	}
 
-	// TenantDeps will almost always exist in a production context (not always
-	// true with current tests). If it does, we might have some API sinks to
-	// configure.
-	if wrd.TenantDeps != nil {
-		td := wrd.TenantDeps
-		if sink := td.APIWorkflowExecutionSink; sink != nil {
-			if u, _ := url.Parse(sink.URL()); u != nil {
-				claims.RelayWorkflowExecutionAPIURL = &types.URL{URL: u}
-				claims.RelayWorkflowExecutionAPIToken, _ = sink.Token()
-			}
+	td := wrd.WorkflowDeps.TenantDeps
+	if sink := td.APIWorkflowExecutionSink; sink != nil {
+		if u, _ := url.Parse(sink.URL()); u != nil {
+			claims.RelayWorkflowExecutionAPIURL = &types.URL{URL: u}
+			claims.RelayWorkflowExecutionAPIToken, _ = sink.Token()
 		}
 	}
 
@@ -205,7 +196,6 @@ func WorkflowRunDepsWithStandaloneMode(standalone bool) WorkflowRunDepsOption {
 	return func(wrd *WorkflowRunDeps) {
 		if standalone {
 			wrd.NetworkPolicy = nil
-			wrd.LimitRange = nil
 		}
 	}
 }
@@ -229,8 +219,6 @@ func NewWorkflowRunDeps(wr *obj.WorkflowRun, issuer authenticate.Issuer, metadat
 		Issuer: issuer,
 
 		Namespace: corev1obj.NewNamespace(key.Namespace),
-
-		LimitRange: corev1obj.NewLimitRange(key),
 
 		NetworkPolicy: networkingv1obj.NewNetworkPolicy(key),
 
@@ -275,12 +263,6 @@ func ConfigureWorkflowRunDeps(ctx context.Context, wrd *WorkflowRunDeps) error {
 		}
 	}
 
-	if wrd.LimitRange != nil {
-		if err := wrd.WorkflowRun.Own(ctx, wrd.LimitRange); err != nil {
-			return err
-		}
-	}
-
 	if wrd.NetworkPolicy != nil {
 		if err := wrd.WorkflowRun.Own(ctx, wrd.NetworkPolicy); err != nil {
 			return err
@@ -300,15 +282,12 @@ func ConfigureWorkflowRunDeps(ctx context.Context, wrd *WorkflowRunDeps) error {
 		laf.LabelAnnotateFrom(ctx, wrd.WorkflowRun.Object)
 	}
 
-	if wrd.LimitRange != nil {
-		ConfigureLimitRange(wrd.LimitRange)
-	}
-
 	if wrd.NetworkPolicy != nil {
 		ConfigureNetworkPolicyForWorkflowRun(wrd.NetworkPolicy, wrd.WorkflowRun)
 	}
 
-	ConfigureToolInjectionCheckoutForWorkflowRun(wrd.ToolInjectionCheckout, wrd.WorkflowRun, wrd.ToolInjectionPoolRef)
+	ConfigureToolInjectionCheckoutForWorkflowRun(wrd.ToolInjectionCheckout,
+		wrd.WorkflowRun, wrd.WorkflowDeps.TenantDeps.Tenant, wrd.ToolInjectionPoolRef)
 
 	if err := ConfigureImmutableConfigMapForWorkflowRun(ctx, wrd.ImmutableConfigMap, wrd); err != nil {
 		return err
@@ -329,8 +308,10 @@ func ConfigureWorkflowRunDeps(ctx context.Context, wrd *WorkflowRunDeps) error {
 func ApplyWorkflowRunDeps(ctx context.Context, cl client.Client, wr *obj.WorkflowRun, issuer authenticate.Issuer, metadataAPIURL *url.URL, opts ...WorkflowRunDepsOption) (*WorkflowRunDeps, error) {
 	deps := NewWorkflowRunDeps(wr, issuer, metadataAPIURL, opts...)
 
-	if _, err := deps.Load(ctx, cl); err != nil {
+	if lr, err := deps.Load(ctx, cl); err != nil {
 		return nil, err
+	} else if !lr.Upstream {
+		return nil, fmt.Errorf("waiting on WorkflowRun upstream dependencies")
 	}
 
 	if err := ConfigureWorkflowRunDeps(ctx, deps); err != nil {

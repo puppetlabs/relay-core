@@ -182,6 +182,9 @@ func TestWorkflowRunWithTenantToolInjectionUsingInput(t *testing.T) {
 						},
 					},
 				},
+				TenantRef: corev1.LocalObjectReference{
+					Name: tenant.GetName(),
+				},
 			},
 		}
 		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, w))
@@ -200,9 +203,6 @@ func TestWorkflowRunWithTenantToolInjectionUsingInput(t *testing.T) {
 			},
 			Spec: nebulav1.WorkflowRunSpec{
 				Name: "my-workflow-run-1234",
-				TenantRef: &corev1.LocalObjectReference{
-					Name: tenant.GetName(),
-				},
 				WorkflowRef: corev1.LocalObjectReference{
 					Name: "my-workflow",
 				},
@@ -289,6 +289,9 @@ func TestWorkflowRunWithTenantToolInjectionUsingCommand(t *testing.T) {
 						},
 					},
 				},
+				TenantRef: corev1.LocalObjectReference{
+					Name: tenant.GetName(),
+				},
 			},
 		}
 		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, w))
@@ -307,9 +310,6 @@ func TestWorkflowRunWithTenantToolInjectionUsingCommand(t *testing.T) {
 			},
 			Spec: nebulav1.WorkflowRunSpec{
 				Name: "my-workflow-run-1234",
-				TenantRef: &corev1.LocalObjectReference{
-					Name: tenant.GetName(),
-				},
 				WorkflowRef: corev1.LocalObjectReference{
 					Name: "my-workflow",
 				},
@@ -370,6 +370,7 @@ func TestWorkflowRun(t *testing.T) {
 
 	WithConfig(t, ctx, []ConfigOption{
 		ConfigWithMetadataAPI,
+		ConfigWithTenantReconciler,
 		ConfigWithWorkflowRunReconciler,
 	}, func(cfg *Config) {
 		// Set a secret and connection for this workflow to look up.
@@ -380,6 +381,18 @@ func TestWorkflowRun(t *testing.T) {
 			"accessKeyID":     data.accessKeyID,
 			"secretAccessKey": data.secretAccessKey,
 		})
+
+		tenant := &relayv1beta1.Tenant{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: cfg.Namespace.GetName(),
+				Name:      "tenant-" + uuid.New().String(),
+			},
+			Spec: relayv1beta1.TenantSpec{
+				ToolInjection: relayv1beta1.ToolInjection{},
+			},
+		}
+
+		CreateAndWaitForTenant(t, ctx, cfg, tenant)
 
 		value1 := relayv1beta1.AsUnstructured(data.repository)
 		value2 := relayv1beta1.AsUnstructured("latest")
@@ -469,6 +482,9 @@ func TestWorkflowRun(t *testing.T) {
 							},
 						},
 					},
+				},
+				TenantRef: corev1.LocalObjectReference{
+					Name: tenant.GetName(),
 				},
 			},
 		}
@@ -570,7 +586,7 @@ func TestWorkflowRun(t *testing.T) {
 }
 
 func TestWorkflowRunWithoutWorkflow(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
 	WithConfig(t, ctx, []ConfigOption{
@@ -597,14 +613,14 @@ func TestWorkflowRunWithoutWorkflow(t *testing.T) {
 		require.Error(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
 			if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: wr.GetName(), Namespace: wr.GetNamespace()}, wr); err != nil {
 				if k8serrors.IsNotFound(err) {
-					return false, fmt.Errorf("waiting for initial workflow run")
+					return retry.Repeat(fmt.Errorf("waiting for initial workflow run"))
 				}
 
 				return true, err
 			}
 
 			if wr.Status.Status == "" {
-				return false, fmt.Errorf("waiting for workflow run status")
+				return retry.Repeat(fmt.Errorf("waiting for workflow run status"))
 			}
 
 			return true, nil
@@ -613,7 +629,7 @@ func TestWorkflowRunWithoutWorkflow(t *testing.T) {
 }
 
 func TestWorkflowRunWithInvalidWorkflow(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
 	WithConfig(t, ctx, []ConfigOption{
@@ -643,14 +659,14 @@ func TestWorkflowRunWithInvalidWorkflow(t *testing.T) {
 		require.Error(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
 			if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: wr.GetName(), Namespace: wr.GetNamespace()}, wr); err != nil {
 				if k8serrors.IsNotFound(err) {
-					return false, fmt.Errorf("waiting for initial workflow run")
+					return retry.Repeat(fmt.Errorf("waiting for initial workflow run"))
 				}
 
 				return true, err
 			}
 
 			if wr.Status.Status == "" {
-				return false, fmt.Errorf("waiting for workflow run status")
+				return retry.Repeat(fmt.Errorf("waiting for workflow run status"))
 			}
 
 			return true, nil
@@ -663,8 +679,21 @@ func TestWorkflowRunWithoutSteps(t *testing.T) {
 	defer cancel()
 
 	WithConfig(t, ctx, []ConfigOption{
+		ConfigWithTenantReconciler,
 		ConfigWithWorkflowRunReconciler,
 	}, func(cfg *Config) {
+		tenant := &relayv1beta1.Tenant{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: cfg.Namespace.GetName(),
+				Name:      "tenant-" + uuid.New().String(),
+			},
+			Spec: relayv1beta1.TenantSpec{
+				ToolInjection: relayv1beta1.ToolInjection{},
+			},
+		}
+
+		CreateAndWaitForTenant(t, ctx, cfg, tenant)
+
 		w := &relayv1beta1.Workflow{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "my-workflow",
@@ -672,6 +701,9 @@ func TestWorkflowRunWithoutSteps(t *testing.T) {
 			},
 			Spec: relayv1beta1.WorkflowSpec{
 				Steps: []*relayv1beta1.Step{},
+				TenantRef: corev1.LocalObjectReference{
+					Name: tenant.GetName(),
+				},
 			},
 		}
 		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, w))
@@ -725,8 +757,21 @@ func TestWorkflowRunStepInitTime(t *testing.T) {
 
 	WithConfig(t, ctx, []ConfigOption{
 		ConfigWithMetadataAPIBoundInCluster,
+		ConfigWithTenantReconciler,
 		ConfigWithWorkflowRunReconciler,
 	}, func(cfg *Config) {
+		tenant := &relayv1beta1.Tenant{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: cfg.Namespace.GetName(),
+				Name:      "tenant-" + uuid.New().String(),
+			},
+			Spec: relayv1beta1.TenantSpec{
+				ToolInjection: relayv1beta1.ToolInjection{},
+			},
+		}
+
+		CreateAndWaitForTenant(t, ctx, cfg, tenant)
+
 		w := &relayv1beta1.Workflow{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "my-workflow",
@@ -746,6 +791,9 @@ func TestWorkflowRunStepInitTime(t *testing.T) {
 							},
 						},
 					},
+				},
+				TenantRef: corev1.LocalObjectReference{
+					Name: tenant.GetName(),
 				},
 			},
 		}
@@ -783,12 +831,25 @@ func TestWorkflowRunInGVisor(t *testing.T) {
 
 	WithConfig(t, ctx, []ConfigOption{
 		ConfigWithMetadataAPIBoundInCluster,
+		ConfigWithTenantReconciler,
 		ConfigWithWorkflowRunReconciler,
 		ConfigWithPodEnforcementAdmission,
 	}, func(cfg *Config) {
 		if cfg.Environment.GVisorRuntimeClassName == "" {
 			t.Skip("gVisor is not available on this platform")
 		}
+
+		tenant := &relayv1beta1.Tenant{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: cfg.Namespace.GetName(),
+				Name:      "tenant-" + uuid.New().String(),
+			},
+			Spec: relayv1beta1.TenantSpec{
+				ToolInjection: relayv1beta1.ToolInjection{},
+			},
+		}
+
+		CreateAndWaitForTenant(t, ctx, cfg, tenant)
 
 		when := relayv1beta1.AsUnstructured(
 			testutil.JSONInvocation("equals", []interface{}{
@@ -850,6 +911,9 @@ func TestWorkflowRunInGVisor(t *testing.T) {
 							},
 						},
 						Steps: []*relayv1beta1.Step{test.StepDefinition},
+						TenantRef: corev1.LocalObjectReference{
+							Name: tenant.GetName(),
+						},
 					},
 				}
 				require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, w))

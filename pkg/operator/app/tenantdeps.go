@@ -61,7 +61,7 @@ func (td *TenantDeps) Load(ctx context.Context, cl client.Client) (bool, error) 
 	}
 
 	if !td.Tenant.Managed() {
-		loaders = append(loaders, lifecycle.RequiredLoader{td.Namespace})
+		loaders = append(loaders, lifecycle.RequiredLoader{Loader: td.Namespace})
 	} else {
 		loaders = append(loaders, td.Namespace, td.NetworkPolicy, td.LimitRange)
 	}
@@ -144,12 +144,15 @@ func NewTenantDeps(t *obj.Tenant, opts ...TenantDepsOption) *TenantDeps {
 	return td
 }
 
-func ConfigureTenantDeps(ctx context.Context, td *TenantDeps) {
+func ConfigureTenantDeps(ctx context.Context, td *TenantDeps) error {
 	if !td.Tenant.Managed() {
-		return
+		return nil
 	}
 
-	DependencyManager.SetDependencyOf(&td.Namespace.Object.ObjectMeta, lifecycle.TypedObject{Object: td.Tenant.Object, GVK: relayv1beta1.TenantKind})
+	err := DependencyManager.SetDependencyOf(&td.Namespace.Object.ObjectMeta, lifecycle.TypedObject{Object: td.Tenant.Object, GVK: relayv1beta1.TenantKind})
+	if err != nil {
+		return err
+	}
 
 	lifecycle.Label(ctx, td.Namespace, model.RelayControllerTenantWorkloadLabel, "true")
 	td.Namespace.LabelAnnotateFrom(ctx, &td.Tenant.Object.Spec.NamespaceTemplate.Metadata)
@@ -160,6 +163,8 @@ func ConfigureTenantDeps(ctx context.Context, td *TenantDeps) {
 		ConfigureNetworkPolicyForTenant(td.NetworkPolicy)
 	}
 	ConfigureLimitRange(td.LimitRange)
+
+	return nil
 }
 
 func ApplyTenantDeps(ctx context.Context, cl client.Client, t *obj.Tenant, opts ...TenantDepsOption) (*TenantDeps, error) {

@@ -159,7 +159,7 @@ func (wtd *WebhookTriggerDeps) Load(ctx context.Context, cl client.Client) (*Web
 	wtd.KnativeServiceAccount = corev1obj.NewServiceAccount(SuffixObjectKey(key, "knative"))
 
 	ok, err := lifecycle.Loaders{
-		lifecycle.IgnoreNilLoader{wtd.StaleOwnerConfigMap},
+		lifecycle.IgnoreNilLoader{Loader: wtd.StaleOwnerConfigMap},
 		wtd.OwnerConfigMap,
 		wtd.NetworkPolicy,
 		wtd.ToolInjectionCheckout,
