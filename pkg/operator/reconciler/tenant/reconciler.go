@@ -20,9 +20,9 @@ type Reconciler struct {
 	Config *config.WorkflowControllerConfig
 }
 
-func NewReconciler(client client.Client, cfg *config.WorkflowControllerConfig) *Reconciler {
+func NewReconciler(cl client.Client, cfg *config.WorkflowControllerConfig) *Reconciler {
 	return &Reconciler{
-		Client: client,
+		Client: cl,
 		Config: cfg,
 	}
 }
@@ -53,7 +53,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, errmap.Wrap(err, "failed to delete stale dependencies")
 	}
 
-	app.ConfigureTenantDeps(ctx, deps)
+	err = app.ConfigureTenantDeps(ctx, deps)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 
 	tdr := app.AsTenantDepsResult(deps, deps.Persist(ctx, r.Client))
 

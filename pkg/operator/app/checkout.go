@@ -7,7 +7,6 @@ import (
 	pvpoolv1alpha1 "github.com/puppetlabs/pvpool/pkg/apis/pvpool.puppet.com/v1alpha1"
 	pvpoolv1alpha1obj "github.com/puppetlabs/pvpool/pkg/apis/pvpool.puppet.com/v1alpha1/obj"
 	"github.com/puppetlabs/relay-core/pkg/obj"
-	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -55,7 +54,7 @@ func ConfigureToolInjectionCheckout(co *PoolRefPredicatedCheckout, t *obj.Tenant
 
 // TODO: This method should be able to go away or be merged with
 // ConfigureToolInjectionCheckout once we can read the tenant from a Run.
-func ConfigureToolInjectionCheckoutForWorkflowRun(co *PoolRefPredicatedCheckout, wr *obj.WorkflowRun, pr pvpoolv1alpha1.PoolReference) {
+func ConfigureToolInjectionCheckoutForWorkflowRun(co *PoolRefPredicatedCheckout, wr *obj.WorkflowRun, t *obj.Tenant, pr pvpoolv1alpha1.PoolReference) {
 	// If we already have a volume, this checkout is completely configured.
 	if co.Object.Status.VolumeName != "" {
 		return
@@ -66,17 +65,16 @@ func ConfigureToolInjectionCheckoutForWorkflowRun(co *PoolRefPredicatedCheckout,
 		return
 	}
 
-	// TODO Reference the tool injection from the tenant (once this is available)
-	// For now, we'll assume an explicit tenant reference implies the use of the entrypoint handling
-	if wr.Object.Spec.TenantRef == nil {
+	// No volume claim template means we don't want tool injection.
+	vct := t.Object.Spec.ToolInjection.VolumeClaimTemplate
+	if vct == nil {
 		return
 	}
 
 	co.Object.Spec = pvpoolv1alpha1.CheckoutSpec{
-		PoolRef:   pr,
-		ClaimName: co.Key.Name,
-		// XXX: TODO: This should come from the tenant!
-		AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadOnlyMany},
+		PoolRef:     pr,
+		ClaimName:   co.Key.Name,
+		AccessModes: vct.Spec.AccessModes,
 	}
 }
 

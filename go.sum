@@ -1680,8 +1680,9 @@ github.com/puppetlabs/leg/scheduler v0.1.4/go.mod h1:kC6I8SA/nRt4VOu18qJ+HwBW+Ix
 github.com/puppetlabs/leg/storage v0.1.1 h1:nxGgxE5nD+sIk3kE5lK0dCkA8yKjPxGPrCI7UXGB7kM=
 github.com/puppetlabs/leg/storage v0.1.1/go.mod h1:7CJaMZY4GOSsFMbQlYxwQ1osNzKxLvCEwT7EL8jE49Q=
 github.com/puppetlabs/leg/stringutil v0.1.0/go.mod h1:xIQbHjzTxuqVz/GpY5ReCqxGWptIceNV1vfvAPFDtog=
-github.com/puppetlabs/leg/timeutil v0.3.0 h1:7JUYWWW8bvSRU7EcEBVmkDv2gTb1uLE/F7hnEWljfQc=
 github.com/puppetlabs/leg/timeutil v0.3.0/go.mod h1:FHkZ9rYegF0STjS4az6hsjdvcBHcG+FB4CsY5mx1DfI=
+github.com/puppetlabs/leg/timeutil v0.4.2 h1:bxbqoo9NmM8ypftLA2jB/qxfpQnCiAoMEiUGVfNMlAU=
+github.com/puppetlabs/leg/timeutil v0.4.2/go.mod h1:NFYu1scx8y6qIzMWVzlUAxQ7Hp+2mqIeRm0QO8X29jk=
 github.com/puppetlabs/leg/workdir v0.1.0 h1:ErFrZiEK7eYufupQ34ytM4AFIVxZryuOktMGoSd3Y0c=
 github.com/puppetlabs/leg/workdir v0.1.0/go.mod h1:wqtQ5F1GvWJ2OH0OaDYkZnF4Iq+yV9uojU6kBub6jcA=
 github.com/puppetlabs/pvpool v0.3.0 h1:skgMzLeiUy4f8LnyBgR+8At7OSWov6QUXQ7VfDR+jZY=

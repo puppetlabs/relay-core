@@ -45,7 +45,7 @@ func ConfigureTask(ctx context.Context, t *obj.Task, wrd *WorkflowRunDeps, ws *r
 		},
 	}
 
-	if wrd.LimitRange != nil {
+	if wrd.WorkflowDeps.TenantDeps.LimitRange != nil {
 		container.Resources = corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceEphemeralStorage: resource.MustParse("20Gi"),

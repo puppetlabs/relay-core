@@ -102,7 +102,7 @@ func ApplyWebhookTriggerDeps(ctx context.Context, cl client.Client, wt *obj.Webh
 	if loaded, err := deps.Load(ctx, cl); err != nil {
 		return nil, err
 	} else if !loaded.Upstream {
-		return nil, fmt.Errorf("waiting for upstream dependencies")
+		return nil, fmt.Errorf("waiting on WebhookTrigger upstream dependencies")
 	}
 
 	if err := app.ConfigureWebhookTriggerDeps(ctx, deps); err != nil {
