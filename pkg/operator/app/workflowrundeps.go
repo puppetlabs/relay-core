@@ -286,8 +286,7 @@ func ConfigureWorkflowRunDeps(ctx context.Context, wrd *WorkflowRunDeps) error {
 		ConfigureNetworkPolicyForWorkflowRun(wrd.NetworkPolicy, wrd.WorkflowRun)
 	}
 
-	ConfigureToolInjectionCheckoutForWorkflowRun(wrd.ToolInjectionCheckout,
-		wrd.WorkflowRun, wrd.WorkflowDeps.TenantDeps.Tenant, wrd.ToolInjectionPoolRef)
+	ConfigureToolInjectionCheckout(wrd.ToolInjectionCheckout, wrd.WorkflowDeps.TenantDeps.Tenant, wrd.ToolInjectionPoolRef)
 
 	if err := ConfigureImmutableConfigMapForWorkflowRun(ctx, wrd.ImmutableConfigMap, wrd); err != nil {
 		return err
