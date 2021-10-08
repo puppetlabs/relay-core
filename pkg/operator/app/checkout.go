@@ -52,32 +52,6 @@ func ConfigureToolInjectionCheckout(co *PoolRefPredicatedCheckout, t *obj.Tenant
 	}
 }
 
-// TODO: This method should be able to go away or be merged with
-// ConfigureToolInjectionCheckout once we can read the tenant from a Run.
-func ConfigureToolInjectionCheckoutForWorkflowRun(co *PoolRefPredicatedCheckout, wr *obj.WorkflowRun, t *obj.Tenant, pr pvpoolv1alpha1.PoolReference) {
-	// If we already have a volume, this checkout is completely configured.
-	if co.Object.Status.VolumeName != "" {
-		return
-	}
-
-	// No pool reference means this controller isn't set up to do tool injection.
-	if pr.Name == "" {
-		return
-	}
-
-	// No volume claim template means we don't want tool injection.
-	vct := t.Object.Spec.ToolInjection.VolumeClaimTemplate
-	if vct == nil {
-		return
-	}
-
-	co.Object.Spec = pvpoolv1alpha1.CheckoutSpec{
-		PoolRef:     pr,
-		ClaimName:   co.Key.Name,
-		AccessModes: vct.Spec.AccessModes,
-	}
-}
-
 // CheckoutSet is a collection of checkouts identified by common list options.
 type CheckoutSet struct {
 	ListOptions *client.ListOptions
