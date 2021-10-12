@@ -124,7 +124,7 @@ func waitForStepPodIP(t *testing.T, ctx context.Context, cfg *Config, wr *nebula
 	return pod
 }
 
-func TestWorkflowRunWithTenantToolInjectionUsingInput(t *testing.T) {
+func TestWorkflowRunWithTenantToolInjection(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
@@ -134,208 +134,126 @@ func TestWorkflowRunWithTenantToolInjectionUsingInput(t *testing.T) {
 		ConfigWithWorkflowRunReconciler,
 		ConfigWithVolumeClaimAdmission,
 	}, func(cfg *Config) {
-		tenant := &relayv1beta1.Tenant{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: cfg.Namespace.GetName(),
-				Name:      "tenant-" + uuid.NewString(),
+
+		tests := []struct {
+			Name           string
+			StepDefinition *relayv1beta1.Step
+		}{
+			{
+				Name: "input",
+				StepDefinition: &relayv1beta1.Step{
+					Name: "my-test-step",
+					Container: relayv1beta1.Container{
+						Image: "alpine:latest",
+						Input: []string{
+							"ls -la " + model.ToolsMountPath,
+						},
+					},
+				},
 			},
-			Spec: relayv1beta1.TenantSpec{
-				ToolInjection: relayv1beta1.ToolInjection{
-					VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
-						Spec: corev1.PersistentVolumeClaimSpec{
-							AccessModes: []corev1.PersistentVolumeAccessMode{
-								corev1.ReadOnlyMany,
+			{
+				Name: "command",
+				StepDefinition: &relayv1beta1.Step{
+					Name: "my-test-step",
+					Container: relayv1beta1.Container{
+						Image:   "alpine:latest",
+						Command: "ls",
+						Args:    []string{"-la", model.ToolsMountPath},
+					},
+				},
+			},
+		}
+
+		for _, test := range tests {
+			t.Run(test.Name, func(t *testing.T) {
+
+				tenant := &relayv1beta1.Tenant{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: cfg.Namespace.GetName(),
+						Name:      "tenant-" + uuid.NewString(),
+					},
+					Spec: relayv1beta1.TenantSpec{
+						ToolInjection: relayv1beta1.ToolInjection{
+							VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
+								Spec: corev1.PersistentVolumeClaimSpec{
+									AccessModes: []corev1.PersistentVolumeAccessMode{
+										corev1.ReadOnlyMany,
+									},
+								},
 							},
 						},
 					},
-				},
-			},
-		}
+				}
 
-		CreateAndWaitForTenant(t, ctx, cfg, tenant)
+				CreateAndWaitForTenant(t, ctx, cfg, tenant)
 
-		var ns corev1.Namespace
-		require.Equal(t, cfg.Namespace.GetName(), tenant.Status.Namespace)
-		require.NoError(t, cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: tenant.Status.Namespace}, &ns))
+				var ns corev1.Namespace
+				require.Equal(t, cfg.Namespace.GetName(), tenant.Status.Namespace)
+				require.NoError(t, cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: tenant.Status.Namespace}, &ns))
 
-		value := relayv1beta1.AsUnstructured("World!")
-		w := &relayv1beta1.Workflow{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      uuid.NewString(),
-				Namespace: ns.GetName(),
-			},
-			Spec: relayv1beta1.WorkflowSpec{
-				Parameters: []*relayv1beta1.Parameter{
-					{
-						Name:  "Hello",
-						Value: &value,
+				value := relayv1beta1.AsUnstructured("World!")
+				w := &relayv1beta1.Workflow{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      uuid.NewString(),
+						Namespace: ns.GetName(),
 					},
-				},
-				Steps: []*relayv1beta1.Step{
-					{
-						Name: "my-test-step",
-						Container: relayv1beta1.Container{
-							Image: "alpine:latest",
-							Input: []string{
-								"ls -la " + model.ToolsMountPath,
+					Spec: relayv1beta1.WorkflowSpec{
+						Parameters: []*relayv1beta1.Parameter{
+							{
+								Name:  "Hello",
+								Value: &value,
 							},
 						},
-					},
-				},
-				TenantRef: corev1.LocalObjectReference{
-					Name: tenant.GetName(),
-				},
-			},
-		}
-		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, w))
-
-		wr := &nebulav1.WorkflowRun{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: tenant.Status.Namespace,
-				Name:      uuid.NewString(),
-				Annotations: map[string]string{
-					model.RelayVaultEngineMountAnnotation:    cfg.Vault.SecretsPath,
-					model.RelayVaultConnectionPathAnnotation: "connections/my-domain-id",
-					model.RelayVaultSecretPathAnnotation:     "workflows/" + tenant.GetName(),
-					model.RelayDomainIDAnnotation:            "my-domain-id",
-					model.RelayTenantIDAnnotation:            tenant.GetName(),
-				},
-			},
-			Spec: nebulav1.WorkflowRunSpec{
-				Name: "my-workflow-run-1234",
-				WorkflowRef: corev1.LocalObjectReference{
-					Name: w.GetName(),
-				},
-			},
-		}
-		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, wr))
-
-		pod := waitForStepPodToComplete(t, ctx, cfg, wr, "my-test-step")
-		require.Equal(t, corev1.PodSucceeded, pod.Status.Phase)
-
-		podLogOptions := &corev1.PodLogOptions{
-			Container: "step-step",
-		}
-
-		logs := cfg.Environment.StaticClient.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, podLogOptions)
-		podLogs, err := logs.Stream(ctx)
-		require.NoError(t, err)
-		defer podLogs.Close()
-
-		buf := new(bytes.Buffer)
-		_, err = io.Copy(buf, podLogs)
-		require.NoError(t, err)
-
-		str := buf.String()
-
-		require.Contains(t, str, model.EntrypointCommand)
-	})
-}
-
-func TestWorkflowRunWithTenantToolInjectionUsingCommand(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
-
-	WithConfig(t, ctx, []ConfigOption{
-		ConfigWithMetadataAPI,
-		ConfigWithTenantReconciler,
-		ConfigWithWorkflowRunReconciler,
-		ConfigWithVolumeClaimAdmission,
-	}, func(cfg *Config) {
-		tenant := &relayv1beta1.Tenant{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: cfg.Namespace.GetName(),
-				Name:      "tenant-" + uuid.NewString(),
-			},
-			Spec: relayv1beta1.TenantSpec{
-				ToolInjection: relayv1beta1.ToolInjection{
-					VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
-						Spec: corev1.PersistentVolumeClaimSpec{
-							AccessModes: []corev1.PersistentVolumeAccessMode{
-								corev1.ReadOnlyMany,
-							},
+						Steps: []*relayv1beta1.Step{test.StepDefinition},
+						TenantRef: corev1.LocalObjectReference{
+							Name: tenant.GetName(),
 						},
 					},
-				},
-			},
-		}
+				}
+				require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, w))
 
-		CreateAndWaitForTenant(t, ctx, cfg, tenant)
-
-		var ns corev1.Namespace
-		require.Equal(t, cfg.Namespace.GetName(), tenant.Status.Namespace)
-		require.NoError(t, cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: tenant.Status.Namespace}, &ns))
-
-		value := relayv1beta1.AsUnstructured("World!")
-		w := &relayv1beta1.Workflow{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      uuid.NewString(),
-				Namespace: ns.GetName(),
-			},
-			Spec: relayv1beta1.WorkflowSpec{
-				Parameters: []*relayv1beta1.Parameter{
-					{
-						Name:  "Hello",
-						Value: &value,
-					},
-				},
-				Steps: []*relayv1beta1.Step{
-					{
-						Name: "my-test-step",
-						Container: relayv1beta1.Container{
-							Image:   "alpine:latest",
-							Command: "ls",
-							Args:    []string{"-la", model.ToolsMountPath},
+				wr := &nebulav1.WorkflowRun{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: tenant.Status.Namespace,
+						Name:      uuid.NewString(),
+						Annotations: map[string]string{
+							model.RelayVaultEngineMountAnnotation:    cfg.Vault.SecretsPath,
+							model.RelayVaultConnectionPathAnnotation: "connections/my-domain-id",
+							model.RelayVaultSecretPathAnnotation:     "workflows/" + tenant.GetName(),
+							model.RelayDomainIDAnnotation:            "my-domain-id",
+							model.RelayTenantIDAnnotation:            tenant.GetName(),
 						},
 					},
-				},
-				TenantRef: corev1.LocalObjectReference{
-					Name: tenant.GetName(),
-				},
-			},
+					Spec: nebulav1.WorkflowRunSpec{
+						Name: "my-workflow-run-1234",
+						WorkflowRef: corev1.LocalObjectReference{
+							Name: w.GetName(),
+						},
+					},
+				}
+				require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, wr))
+
+				pod := waitForStepPodToComplete(t, ctx, cfg, wr, "my-test-step")
+				require.Equal(t, corev1.PodSucceeded, pod.Status.Phase)
+
+				podLogOptions := &corev1.PodLogOptions{
+					Container: "step-step",
+				}
+
+				logs := cfg.Environment.StaticClient.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, podLogOptions)
+				podLogs, err := logs.Stream(ctx)
+				require.NoError(t, err)
+				defer podLogs.Close()
+
+				buf := new(bytes.Buffer)
+				_, err = io.Copy(buf, podLogs)
+				require.NoError(t, err)
+
+				str := buf.String()
+
+				require.Contains(t, str, model.EntrypointCommand)
+			})
 		}
-		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, w))
-
-		wr := &nebulav1.WorkflowRun{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: tenant.Status.Namespace,
-				Name:      uuid.NewString(),
-				Annotations: map[string]string{
-					model.RelayVaultEngineMountAnnotation:    cfg.Vault.SecretsPath,
-					model.RelayVaultConnectionPathAnnotation: "connections/my-domain-id",
-					model.RelayVaultSecretPathAnnotation:     "workflows/" + tenant.GetName(),
-					model.RelayDomainIDAnnotation:            "my-domain-id",
-					model.RelayTenantIDAnnotation:            tenant.GetName(),
-				},
-			},
-			Spec: nebulav1.WorkflowRunSpec{
-				Name: "my-workflow-run-1234",
-				WorkflowRef: corev1.LocalObjectReference{
-					Name: w.GetName(),
-				},
-			},
-		}
-		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, wr))
-
-		pod := waitForStepPodToComplete(t, ctx, cfg, wr, "my-test-step")
-		require.Equal(t, corev1.PodSucceeded, pod.Status.Phase)
-
-		podLogOptions := &corev1.PodLogOptions{
-			Container: "step-step",
-		}
-
-		logs := cfg.Environment.StaticClient.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, podLogOptions)
-		podLogs, err := logs.Stream(ctx)
-		require.NoError(t, err)
-		defer podLogs.Close()
-
-		buf := new(bytes.Buffer)
-		_, err = io.Copy(buf, podLogs)
-		require.NoError(t, err)
-
-		str := buf.String()
-
-		require.Contains(t, str, model.EntrypointCommand)
 	})
 }
 
@@ -585,92 +503,81 @@ func TestWorkflowRun(t *testing.T) {
 	})
 }
 
-func TestWorkflowRunWithoutWorkflow(t *testing.T) {
+func TestInvalidWorkflowRuns(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
 	WithConfig(t, ctx, []ConfigOption{
 		ConfigWithWorkflowRunReconciler,
 	}, func(cfg *Config) {
-		wr := &nebulav1.WorkflowRun{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      uuid.NewString(),
-				Namespace: cfg.Namespace.GetName(),
-				Annotations: map[string]string{
-					model.RelayVaultEngineMountAnnotation:    cfg.Vault.SecretsPath,
-					model.RelayVaultConnectionPathAnnotation: "connections/my-domain-id",
-					model.RelayVaultSecretPathAnnotation:     "workflows/my-tenant-id",
-					model.RelayDomainIDAnnotation:            "my-domain-id",
-					model.RelayTenantIDAnnotation:            "my-tenant-id",
+		tests := []struct {
+			Name        string
+			WorkflowRun *nebulav1.WorkflowRun
+		}{
+			{
+				Name: "missing-workflow-reference",
+				WorkflowRun: &nebulav1.WorkflowRun{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      uuid.NewString(),
+						Namespace: cfg.Namespace.GetName(),
+						Annotations: map[string]string{
+							model.RelayVaultEngineMountAnnotation:    cfg.Vault.SecretsPath,
+							model.RelayVaultConnectionPathAnnotation: "connections/my-domain-id",
+							model.RelayVaultSecretPathAnnotation:     "workflows/my-tenant-id",
+							model.RelayDomainIDAnnotation:            "my-domain-id",
+							model.RelayTenantIDAnnotation:            "my-tenant-id",
+						},
+					},
+					Spec: nebulav1.WorkflowRunSpec{
+						Name: "my-workflow-run-1234",
+					},
 				},
 			},
-			Spec: nebulav1.WorkflowRunSpec{
-				Name: "my-workflow-run-1234",
-			},
-		}
-		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, wr))
-
-		require.Error(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
-			if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: wr.GetName(), Namespace: wr.GetNamespace()}, wr); err != nil {
-				if k8serrors.IsNotFound(err) {
-					return retry.Repeat(fmt.Errorf("waiting for initial workflow run"))
-				}
-
-				return true, err
-			}
-
-			if wr.Status.Status == "" {
-				return retry.Repeat(fmt.Errorf("waiting for workflow run status"))
-			}
-
-			return true, nil
-		}))
-	})
-}
-
-func TestWorkflowRunWithInvalidWorkflow(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-
-	WithConfig(t, ctx, []ConfigOption{
-		ConfigWithWorkflowRunReconciler,
-	}, func(cfg *Config) {
-		wr := &nebulav1.WorkflowRun{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      uuid.NewString(),
-				Namespace: cfg.Namespace.GetName(),
-				Annotations: map[string]string{
-					model.RelayVaultEngineMountAnnotation:    cfg.Vault.SecretsPath,
-					model.RelayVaultConnectionPathAnnotation: "connections/my-domain-id",
-					model.RelayVaultSecretPathAnnotation:     "workflows/my-tenant-id",
-					model.RelayDomainIDAnnotation:            "my-domain-id",
-					model.RelayTenantIDAnnotation:            "my-tenant-id",
-				},
-			},
-			Spec: nebulav1.WorkflowRunSpec{
-				Name: "my-workflow-run-1234",
-				WorkflowRef: corev1.LocalObjectReference{
-					Name: uuid.NewString(),
+			{
+				Name: "invalid-workflow-reference",
+				WorkflowRun: &nebulav1.WorkflowRun{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      uuid.NewString(),
+						Namespace: cfg.Namespace.GetName(),
+						Annotations: map[string]string{
+							model.RelayVaultEngineMountAnnotation:    cfg.Vault.SecretsPath,
+							model.RelayVaultConnectionPathAnnotation: "connections/my-domain-id",
+							model.RelayVaultSecretPathAnnotation:     "workflows/my-tenant-id",
+							model.RelayDomainIDAnnotation:            "my-domain-id",
+							model.RelayTenantIDAnnotation:            "my-tenant-id",
+						},
+					},
+					Spec: nebulav1.WorkflowRunSpec{
+						Name: "my-workflow-run-1234",
+						WorkflowRef: corev1.LocalObjectReference{
+							Name: uuid.NewString(),
+						},
+					},
 				},
 			},
 		}
-		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, wr))
+		for _, test := range tests {
+			t.Run(test.Name, func(t *testing.T) {
+				wr := test.WorkflowRun
+				require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, wr))
 
-		require.Error(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
-			if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: wr.GetName(), Namespace: wr.GetNamespace()}, wr); err != nil {
-				if k8serrors.IsNotFound(err) {
-					return retry.Repeat(fmt.Errorf("waiting for initial workflow run"))
-				}
+				require.Error(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
+					if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: wr.GetName(), Namespace: wr.GetNamespace()}, wr); err != nil {
+						if k8serrors.IsNotFound(err) {
+							return retry.Repeat(fmt.Errorf("waiting for initial workflow run"))
+						}
 
-				return true, err
-			}
+						return true, err
+					}
 
-			if wr.Status.Status == "" {
-				return retry.Repeat(fmt.Errorf("waiting for workflow run status"))
-			}
+					if wr.Status.Status == "" {
+						return retry.Repeat(fmt.Errorf("waiting for workflow run status"))
+					}
 
-			return true, nil
-		}))
+					return true, nil
+				}))
+			})
+		}
 	})
 }
 
