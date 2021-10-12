@@ -430,17 +430,6 @@ func doConfigCleanup(t *testing.T, cfg *Config, next func()) {
 
 	var del []client.Object
 
-	tl := &relayv1beta1.TenantList{}
-	require.NoError(t, cfg.Environment.ControllerClient.List(ctx, tl, client.InNamespace(cfg.Namespace.GetName())))
-	if len(tl.Items) > 0 {
-		log.Printf("removing %d stale tenant(s)", len(tl.Items))
-		for _, t := range tl.Items {
-			func(t relayv1beta1.Tenant) {
-				del = append(del, &t)
-			}(t)
-		}
-	}
-
 	wtl := &relayv1beta1.WebhookTriggerList{}
 	require.NoError(t, cfg.Environment.ControllerClient.List(ctx, wtl, client.InNamespace(cfg.Namespace.GetName())))
 	if len(wtl.Items) > 0 {
@@ -460,6 +449,28 @@ func doConfigCleanup(t *testing.T, cfg *Config, next func()) {
 			func(wr nebulav1.WorkflowRun) {
 				del = append(del, &wr)
 			}(wr)
+		}
+	}
+
+	wl := &relayv1beta1.WorkflowList{}
+	require.NoError(t, cfg.Environment.ControllerClient.List(ctx, wrl, client.InNamespace(cfg.Namespace.GetName())))
+	if len(wrl.Items) > 0 {
+		log.Printf("removing %d stale workflow(s)", len(wrl.Items))
+		for _, w := range wl.Items {
+			func(w relayv1beta1.Workflow) {
+				del = append(del, &w)
+			}(w)
+		}
+	}
+
+	tl := &relayv1beta1.TenantList{}
+	require.NoError(t, cfg.Environment.ControllerClient.List(ctx, tl, client.InNamespace(cfg.Namespace.GetName())))
+	if len(tl.Items) > 0 {
+		log.Printf("removing %d stale tenant(s)", len(tl.Items))
+		for _, t := range tl.Items {
+			func(t relayv1beta1.Tenant) {
+				del = append(del, &t)
+			}(t)
 		}
 	}
 
@@ -487,12 +498,12 @@ func WithConfig(t *testing.T, ctx context.Context, opts []ConfigOption, fn func(
 		installers = append(installers, testutil.EndToEndEnvironmentWithTekton)
 	}
 	if cfg.withWebhookTriggerReconciler {
-		installers = append(installers, testutil.EndToEndEnvironmentWithAmbassador)
-		installers = append(installers, testutil.EndToEndEnvironmentWithKnative)
+		installers = append(installers,
+			testutil.EndToEndEnvironmentWithAmbassador, testutil.EndToEndEnvironmentWithKnative)
 	}
 	if cfg.withTenantReconciler || cfg.withVolumeClaimAdmission {
-		installers = append(installers, testutil.EndToEndEnvironmentWithHostpathProvisioner)
-		installers = append(installers, testutil.EndToEndEnvironmentWithPVPool)
+		installers = append(installers,
+			testutil.EndToEndEnvironmentWithHostpathProvisioner, testutil.EndToEndEnvironmentWithPVPool)
 	}
 
 	testutil.WithEndToEndEnvironment(

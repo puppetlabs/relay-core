@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
+	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -66,12 +67,28 @@ func NewPipelineParts(deps *WorkflowRunDeps) *PipelineParts {
 
 		Tasks:      NewTaskSet(deps),
 		Conditions: NewConditionSet(deps),
-		Pipeline:   obj.NewPipeline(deps.WorkflowRun.Key),
+		Pipeline: obj.NewPipeline(
+			client.ObjectKey{
+				Namespace: deps.WorkflowDeps.TenantDeps.Namespace.Name,
+				Name:      deps.WorkflowRun.Key.Name,
+			},
+		),
 	}
 }
 
 func ConfigurePipelineParts(ctx context.Context, p *PipelineParts) error {
-	if err := p.Deps.WorkflowRun.Own(ctx, p); err != nil {
+	p.Pipeline.LabelAnnotateFrom(ctx, p.Deps.WorkflowRun.Object)
+
+	if err := p.Deps.OwnerConfigMap.Own(ctx, p); err != nil {
+		return err
+	}
+
+	if err := DependencyManager.SetDependencyOf(
+		&p.Pipeline.Object.ObjectMeta,
+		lifecycle.TypedObject{
+			Object: p.Deps.WorkflowRun.Object,
+			GVK:    nebulav1.WorkflowRunKind,
+		}); err != nil {
 		return err
 	}
 

@@ -138,7 +138,15 @@ func NewConditionSet(wrd *WorkflowRunDeps) *ConditionSet {
 			continue
 		}
 
-		cs.List = append(cs.List, obj.NewCondition(ModelStepObjectKey(wrd.WorkflowRun.Key, ModelStep(wrd.WorkflowRun, ws))))
+		cs.List = append(cs.List, obj.NewCondition(
+			ModelStepObjectKey(
+				client.ObjectKey{
+					Namespace: wrd.WorkflowDeps.TenantDeps.Namespace.Name,
+					Name:      wrd.WorkflowRun.Key.Name,
+				},
+				ModelStep(wrd.WorkflowRun, ws),
+			),
+		))
 		cs.idx[ws.Name] = i
 		i++
 	}
@@ -147,10 +155,6 @@ func NewConditionSet(wrd *WorkflowRunDeps) *ConditionSet {
 }
 
 func ConfigureConditionSet(ctx context.Context, cs *ConditionSet) error {
-	if err := cs.Deps.WorkflowRun.Own(ctx, cs); err != nil {
-		return err
-	}
-
 	for _, ws := range cs.Deps.Workflow.Object.Spec.Steps {
 		cond, found := cs.GetByStepName(ws.Name)
 		if !found {

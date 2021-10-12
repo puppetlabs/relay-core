@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
+	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
@@ -12,12 +13,22 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func ConfigurePipelineRun(ctx context.Context, pr *obj.PipelineRun, pp *PipelineParts) error {
-	if err := pp.Deps.WorkflowRun.Own(ctx, pr); err != nil {
+func ConfigurePipelineRun(ctx context.Context, pr *obj.PipelineRun, pp *PipelineParts, wrd *WorkflowRunDeps) error {
+	lifecycle.Label(ctx, pr, model.RelayControllerWorkflowRunIDLabel, pp.Deps.WorkflowRun.Key.Name)
+	pr.LabelAnnotateFrom(ctx, wrd.WorkflowRun.Object)
+
+	if err := wrd.OwnerConfigMap.Own(ctx, pr); err != nil {
 		return err
 	}
 
-	lifecycle.Label(ctx, pr, model.RelayControllerWorkflowRunIDLabel, pp.Deps.WorkflowRun.Key.Name)
+	if err := DependencyManager.SetDependencyOf(
+		&pr.Object.ObjectMeta,
+		lifecycle.TypedObject{
+			Object: wrd.WorkflowRun.Object,
+			GVK:    nebulav1.WorkflowRunKind,
+		}); err != nil {
+		return err
+	}
 
 	sans := make([]tektonv1beta1.PipelineRunSpecServiceAccountName, len(pp.Pipeline.Object.Spec.Tasks))
 	for i, pt := range pp.Pipeline.Object.Spec.Tasks {
@@ -55,7 +66,7 @@ func ConfigurePipelineRun(ctx context.Context, pr *obj.PipelineRun, pp *Pipeline
 	return nil
 }
 
-func ApplyPipelineRun(ctx context.Context, cl client.Client, pp *PipelineParts) (*obj.PipelineRun, error) {
+func ApplyPipelineRun(ctx context.Context, cl client.Client, pp *PipelineParts, wrd *WorkflowRunDeps) (*obj.PipelineRun, error) {
 	pr := obj.NewPipelineRun(pp.Pipeline.Key)
 
 	if _, err := pr.Load(ctx, cl); err != nil {
@@ -64,7 +75,7 @@ func ApplyPipelineRun(ctx context.Context, cl client.Client, pp *PipelineParts) 
 
 	pr.LabelAnnotateFrom(ctx, pp.Pipeline.Object)
 
-	if err := ConfigurePipelineRun(ctx, pr, pp); err != nil {
+	if err := ConfigurePipelineRun(ctx, pr, pp, wrd); err != nil {
 		return nil, err
 	}
 

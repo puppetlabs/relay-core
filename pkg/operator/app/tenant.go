@@ -9,9 +9,9 @@ import (
 func ConfigureTenant(t *obj.Tenant, td *TenantDepsResult) {
 	// Set up our initial map from the existing data.
 	conds := map[relayv1beta1.TenantConditionType]*relayv1beta1.Condition{
-		relayv1beta1.TenantNamespaceReady: &relayv1beta1.Condition{},
-		relayv1beta1.TenantEventSinkReady: &relayv1beta1.Condition{},
-		relayv1beta1.TenantReady:          &relayv1beta1.Condition{},
+		relayv1beta1.TenantNamespaceReady: {},
+		relayv1beta1.TenantEventSinkReady: {},
+		relayv1beta1.TenantReady:          {},
 	}
 
 	for _, cond := range t.Object.Status.Conditions {

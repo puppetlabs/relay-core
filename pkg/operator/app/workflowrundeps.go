@@ -16,6 +16,7 @@ import (
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	pvpoolv1alpha1 "github.com/puppetlabs/pvpool/pkg/apis/pvpool.puppet.com/v1alpha1"
 	pvpoolv1alpha1obj "github.com/puppetlabs/pvpool/pkg/apis/pvpool.puppet.com/v1alpha1/obj"
+	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
 	"github.com/puppetlabs/relay-core/pkg/model"
@@ -36,10 +37,13 @@ type WorkflowRunDeps struct {
 	Workflow     *obj.Workflow
 	WorkflowDeps *WorkflowDeps
 
-	ToolInjectionPoolRef pvpoolv1alpha1.PoolReference
-	Issuer               authenticate.Issuer
+	Standalone bool
 
-	Namespace *corev1obj.Namespace
+	Issuer authenticate.Issuer
+
+	ToolInjectionPoolRef pvpoolv1alpha1.PoolReference
+
+	OwnerConfigMap *corev1obj.ConfigMap
 
 	NetworkPolicy *networkingv1obj.NetworkPolicy
 
@@ -58,7 +62,27 @@ type WorkflowRunDeps struct {
 	UntrustedServiceAccount *corev1obj.ServiceAccount
 }
 
-var _ lifecycle.Persister = &WorkflowRunDeps{}
+var _ lifecycle.Deleter = &WebhookTriggerDeps{}
+var _ lifecycle.Persister = &WebhookTriggerDeps{}
+
+func (wrd *WorkflowRunDeps) Delete(ctx context.Context, cl client.Client, opts ...lifecycle.DeleteOption) (bool, error) {
+	if wrd.OwnerConfigMap == nil || wrd.OwnerConfigMap.Object.GetUID() == "" {
+		return true, nil
+	}
+
+	if ok, err := DependencyManager.IsDependencyOf(
+		wrd.OwnerConfigMap.Object,
+		lifecycle.TypedObject{
+			Object: wrd.WorkflowRun.Object,
+			GVK:    nebulav1.WorkflowRunKind,
+		}); err != nil {
+		return false, err
+	} else if ok {
+		return wrd.OwnerConfigMap.Delete(ctx, cl, opts...)
+	}
+
+	return true, nil
+}
 
 func (wrd *WorkflowRunDeps) Load(ctx context.Context, cl client.Client) (*WorkflowRunDepsLoadResult, error) {
 	if ok, err := wrd.Workflow.Load(ctx, cl); err != nil {
@@ -75,8 +99,40 @@ func (wrd *WorkflowRunDeps) Load(ctx context.Context, cl client.Client) (*Workfl
 		return &WorkflowRunDepsLoadResult{}, nil
 	}
 
+	key := client.ObjectKey{
+		Namespace: wrd.WorkflowDeps.TenantDeps.Namespace.Name,
+		Name:      wrd.WorkflowRun.Key.Name,
+	}
+
+	wrd.OwnerConfigMap = corev1obj.NewConfigMap(SuffixObjectKey(key, "owner"))
+
+	wrd.NetworkPolicy = networkingv1obj.NewNetworkPolicy(key)
+
+	wrd.ToolInjectionCheckout = &PoolRefPredicatedCheckout{
+		Checkout: pvpoolv1alpha1obj.NewCheckout(
+			SuffixObjectKeyWithHashOfObjectKey(SuffixObjectKey(key, "tools"),
+				client.ObjectKey{
+					Namespace: wrd.ToolInjectionPoolRef.Namespace,
+					Name:      wrd.ToolInjectionPoolRef.Name,
+				},
+			),
+		),
+	}
+
+	wrd.ImmutableConfigMap = corev1obj.NewConfigMap(SuffixObjectKey(key, "immutable"))
+	wrd.MutableConfigMap = corev1obj.NewConfigMap(SuffixObjectKey(key, "mutable"))
+
+	wrd.MetadataAPIServiceAccount = corev1obj.NewServiceAccount(SuffixObjectKey(key, "metadata-api"))
+	wrd.MetadataAPIRole = rbacv1obj.NewRole(SuffixObjectKey(key, "metadata-api"))
+	wrd.MetadataAPIRoleBinding = rbacv1obj.NewRoleBinding(SuffixObjectKey(key, "metadata-api"))
+
+	wrd.PipelineServiceAccount = corev1obj.NewServiceAccount(SuffixObjectKey(key, "pipeline"))
+	wrd.UntrustedServiceAccount = corev1obj.NewServiceAccount(SuffixObjectKey(key, "untrusted"))
+
+	wrd.MetadataAPIServiceAccountTokenSecrets = corev1obj.NewServiceAccountTokenSecrets(wrd.MetadataAPIServiceAccount)
+
 	ok, err := lifecycle.Loaders{
-		lifecycle.RequiredLoader{Loader: wrd.Namespace},
+		wrd.OwnerConfigMap,
 		lifecycle.IgnoreNilLoader{Loader: wrd.NetworkPolicy},
 		wrd.ToolInjectionCheckout,
 		wrd.ImmutableConfigMap,
@@ -102,6 +158,32 @@ func (wrd *WorkflowRunDeps) Load(ctx context.Context, cl client.Client) (*Workfl
 }
 
 func (wrd *WorkflowRunDeps) Persist(ctx context.Context, cl client.Client) error {
+	if err := wrd.OwnerConfigMap.Persist(ctx, cl); err != nil {
+		return err
+	}
+
+	os := []lifecycle.Ownable{
+		wrd.ToolInjectionCheckout,
+		wrd.ImmutableConfigMap,
+		wrd.MutableConfigMap,
+		wrd.MetadataAPIServiceAccount,
+		wrd.MetadataAPIRole,
+		wrd.MetadataAPIRoleBinding,
+		wrd.PipelineServiceAccount,
+		wrd.UntrustedServiceAccount,
+	}
+	for _, o := range os {
+		if err := wrd.OwnerConfigMap.Own(ctx, o); err != nil {
+			return err
+		}
+	}
+
+	if wrd.NetworkPolicy != nil {
+		if err := wrd.OwnerConfigMap.Own(ctx, wrd.NetworkPolicy); err != nil {
+			return err
+		}
+	}
+
 	ps := []lifecycle.Persister{
 		lifecycle.IgnoreNilPersister{Persister: wrd.NetworkPolicy},
 		wrd.ToolInjectionCheckout,
@@ -154,8 +236,8 @@ func (wrd *WorkflowRunDeps) AnnotateStepToken(ctx context.Context, target *metav
 			IssuedAt:  jwt.NewNumericDate(now),
 		},
 
-		KubernetesNamespaceName:       wrd.Namespace.Name,
-		KubernetesNamespaceUID:        string(wrd.Namespace.Object.GetUID()),
+		KubernetesNamespaceName:       wrd.WorkflowDeps.TenantDeps.Namespace.Name,
+		KubernetesNamespaceUID:        string(wrd.WorkflowDeps.TenantDeps.Namespace.Object.GetUID()),
 		KubernetesServiceAccountToken: sat,
 
 		RelayDomainID: annotations[model.RelayDomainIDAnnotation],
@@ -195,7 +277,7 @@ type WorkflowRunDepsOption func(wrd *WorkflowRunDeps)
 func WorkflowRunDepsWithStandaloneMode(standalone bool) WorkflowRunDepsOption {
 	return func(wrd *WorkflowRunDeps) {
 		if standalone {
-			wrd.NetworkPolicy = nil
+			wrd.Standalone = true
 		}
 	}
 }
@@ -207,37 +289,17 @@ func WorkflowRunDepsWithToolInjectionPool(pr pvpoolv1alpha1.PoolReference) Workf
 }
 
 func NewWorkflowRunDeps(wr *obj.WorkflowRun, issuer authenticate.Issuer, metadataAPIURL *url.URL, opts ...WorkflowRunDepsOption) *WorkflowRunDeps {
-	key := wr.Key
-
 	wrd := &WorkflowRunDeps{
 		WorkflowRun: wr,
 		Workflow: obj.NewWorkflow(client.ObjectKey{
-			Namespace: key.Namespace,
+			Namespace: wr.Key.Namespace,
 			Name:      wr.Object.Spec.WorkflowRef.Name,
 		}),
 
 		Issuer: issuer,
 
-		Namespace: corev1obj.NewNamespace(key.Namespace),
-
-		NetworkPolicy: networkingv1obj.NewNetworkPolicy(key),
-
-		ToolInjectionCheckout: &PoolRefPredicatedCheckout{
-			Checkout: pvpoolv1alpha1obj.NewCheckout(SuffixObjectKey(key, "tools")),
-		},
-
-		ImmutableConfigMap: corev1obj.NewConfigMap(SuffixObjectKey(key, "immutable")),
-		MutableConfigMap:   corev1obj.NewConfigMap(SuffixObjectKey(key, "mutable")),
-
-		MetadataAPIURL:            metadataAPIURL,
-		MetadataAPIServiceAccount: corev1obj.NewServiceAccount(SuffixObjectKey(key, "metadata-api")),
-		MetadataAPIRole:           rbacv1obj.NewRole(SuffixObjectKey(key, "metadata-api")),
-		MetadataAPIRoleBinding:    rbacv1obj.NewRoleBinding(SuffixObjectKey(key, "metadata-api")),
-
-		PipelineServiceAccount:  corev1obj.NewServiceAccount(SuffixObjectKey(key, "pipeline")),
-		UntrustedServiceAccount: corev1obj.NewServiceAccount(SuffixObjectKey(key, "untrusted")),
+		MetadataAPIURL: metadataAPIURL,
 	}
-	wrd.MetadataAPIServiceAccountTokenSecrets = corev1obj.NewServiceAccountTokenSecrets(wrd.MetadataAPIServiceAccount)
 
 	for _, opt := range opts {
 		opt(wrd)
@@ -247,26 +309,13 @@ func NewWorkflowRunDeps(wr *obj.WorkflowRun, issuer authenticate.Issuer, metadat
 }
 
 func ConfigureWorkflowRunDeps(ctx context.Context, wrd *WorkflowRunDeps) error {
-	os := []lifecycle.Ownable{
-		wrd.ToolInjectionCheckout,
-		wrd.ImmutableConfigMap,
-		wrd.MutableConfigMap,
-		wrd.MetadataAPIServiceAccount,
-		wrd.MetadataAPIRole,
-		wrd.MetadataAPIRoleBinding,
-		wrd.PipelineServiceAccount,
-		wrd.UntrustedServiceAccount,
-	}
-	for _, o := range os {
-		if err := wrd.WorkflowRun.Own(ctx, o); err != nil {
-			return err
-		}
-	}
-
-	if wrd.NetworkPolicy != nil {
-		if err := wrd.WorkflowRun.Own(ctx, wrd.NetworkPolicy); err != nil {
-			return err
-		}
+	if err := DependencyManager.SetDependencyOf(
+		wrd.OwnerConfigMap.Object,
+		lifecycle.TypedObject{
+			Object: wrd.WorkflowRun.Object,
+			GVK:    nebulav1.WorkflowRunKind,
+		}); err != nil {
+		return err
 	}
 
 	lafs := []lifecycle.LabelAnnotatableFrom{
@@ -280,9 +329,12 @@ func ConfigureWorkflowRunDeps(ctx context.Context, wrd *WorkflowRunDeps) error {
 	}
 	for _, laf := range lafs {
 		laf.LabelAnnotateFrom(ctx, wrd.WorkflowRun.Object)
+		lifecycle.Label(ctx, laf, model.RelayControllerWorkflowRunIDLabel, wrd.WorkflowRun.Key.Name)
 	}
 
-	if wrd.NetworkPolicy != nil {
+	if wrd.Standalone {
+		wrd.NetworkPolicy.AllowAll()
+	} else {
 		ConfigureNetworkPolicyForWorkflowRun(wrd.NetworkPolicy, wrd.WorkflowRun)
 	}
 

@@ -11,10 +11,12 @@ linters-settings:
     # Using `switch` would change the target of a `break` and unless a developer
     # is responsible they'll end up breaking out of the wrong control structure.
     - ifElseChain
+    - octalLiteral
     # This test is disabled because it's an edge case that we have not
     # encountered anyone accidentally using (i.e., if you put in a pointer to an
     # interface, you actually do need it for some reason).
     - ptrToRefParam
+    - rangeValCopy
     # This test is also disabled because it's frequently used with loop control
     # flow.
     - typeAssertChain

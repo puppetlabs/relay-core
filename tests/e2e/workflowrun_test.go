@@ -137,7 +137,7 @@ func TestWorkflowRunWithTenantToolInjectionUsingInput(t *testing.T) {
 		tenant := &relayv1beta1.Tenant{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: cfg.Namespace.GetName(),
-				Name:      "tenant-" + uuid.New().String(),
+				Name:      "tenant-" + uuid.NewString(),
 			},
 			Spec: relayv1beta1.TenantSpec{
 				ToolInjection: relayv1beta1.ToolInjection{
@@ -161,7 +161,7 @@ func TestWorkflowRunWithTenantToolInjectionUsingInput(t *testing.T) {
 		value := relayv1beta1.AsUnstructured("World!")
 		w := &relayv1beta1.Workflow{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "my-workflow",
+				Name:      uuid.NewString(),
 				Namespace: ns.GetName(),
 			},
 			Spec: relayv1beta1.WorkflowSpec{
@@ -192,7 +192,7 @@ func TestWorkflowRunWithTenantToolInjectionUsingInput(t *testing.T) {
 		wr := &nebulav1.WorkflowRun{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: tenant.Status.Namespace,
-				Name:      "my-test-run",
+				Name:      uuid.NewString(),
 				Annotations: map[string]string{
 					model.RelayVaultEngineMountAnnotation:    cfg.Vault.SecretsPath,
 					model.RelayVaultConnectionPathAnnotation: "connections/my-domain-id",
@@ -204,7 +204,7 @@ func TestWorkflowRunWithTenantToolInjectionUsingInput(t *testing.T) {
 			Spec: nebulav1.WorkflowRunSpec{
 				Name: "my-workflow-run-1234",
 				WorkflowRef: corev1.LocalObjectReference{
-					Name: "my-workflow",
+					Name: w.GetName(),
 				},
 			},
 		}
@@ -245,7 +245,7 @@ func TestWorkflowRunWithTenantToolInjectionUsingCommand(t *testing.T) {
 		tenant := &relayv1beta1.Tenant{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: cfg.Namespace.GetName(),
-				Name:      "tenant-" + uuid.New().String(),
+				Name:      "tenant-" + uuid.NewString(),
 			},
 			Spec: relayv1beta1.TenantSpec{
 				ToolInjection: relayv1beta1.ToolInjection{
@@ -269,7 +269,7 @@ func TestWorkflowRunWithTenantToolInjectionUsingCommand(t *testing.T) {
 		value := relayv1beta1.AsUnstructured("World!")
 		w := &relayv1beta1.Workflow{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "my-workflow",
+				Name:      uuid.NewString(),
 				Namespace: ns.GetName(),
 			},
 			Spec: relayv1beta1.WorkflowSpec{
@@ -299,7 +299,7 @@ func TestWorkflowRunWithTenantToolInjectionUsingCommand(t *testing.T) {
 		wr := &nebulav1.WorkflowRun{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: tenant.Status.Namespace,
-				Name:      "my-test-run",
+				Name:      uuid.NewString(),
 				Annotations: map[string]string{
 					model.RelayVaultEngineMountAnnotation:    cfg.Vault.SecretsPath,
 					model.RelayVaultConnectionPathAnnotation: "connections/my-domain-id",
@@ -311,7 +311,7 @@ func TestWorkflowRunWithTenantToolInjectionUsingCommand(t *testing.T) {
 			Spec: nebulav1.WorkflowRunSpec{
 				Name: "my-workflow-run-1234",
 				WorkflowRef: corev1.LocalObjectReference{
-					Name: "my-workflow",
+					Name: w.GetName(),
 				},
 			},
 		}
@@ -385,7 +385,7 @@ func TestWorkflowRun(t *testing.T) {
 		tenant := &relayv1beta1.Tenant{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: cfg.Namespace.GetName(),
-				Name:      "tenant-" + uuid.New().String(),
+				Name:      "tenant-" + uuid.NewString(),
 			},
 			Spec: relayv1beta1.TenantSpec{
 				ToolInjection: relayv1beta1.ToolInjection{},
@@ -401,7 +401,7 @@ func TestWorkflowRun(t *testing.T) {
 
 		w := &relayv1beta1.Workflow{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "my-workflow",
+				Name:      uuid.NewString(),
 				Namespace: cfg.Namespace.GetName(),
 			},
 			Spec: relayv1beta1.WorkflowSpec{
@@ -492,7 +492,7 @@ func TestWorkflowRun(t *testing.T) {
 
 		wr := &nebulav1.WorkflowRun{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "my-test-run",
+				Name:      uuid.NewString(),
 				Namespace: cfg.Namespace.GetName(),
 				Annotations: map[string]string{
 					model.RelayVaultEngineMountAnnotation:    cfg.Vault.SecretsPath,
@@ -509,7 +509,7 @@ func TestWorkflowRun(t *testing.T) {
 					"version": relayv1beta1.AsUnstructured(data.version),
 				},
 				WorkflowRef: corev1.LocalObjectReference{
-					Name: "my-workflow",
+					Name: w.GetName(),
 				},
 			},
 		}
@@ -594,7 +594,7 @@ func TestWorkflowRunWithoutWorkflow(t *testing.T) {
 	}, func(cfg *Config) {
 		wr := &nebulav1.WorkflowRun{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "my-test-run",
+				Name:      uuid.NewString(),
 				Namespace: cfg.Namespace.GetName(),
 				Annotations: map[string]string{
 					model.RelayVaultEngineMountAnnotation:    cfg.Vault.SecretsPath,
@@ -637,7 +637,7 @@ func TestWorkflowRunWithInvalidWorkflow(t *testing.T) {
 	}, func(cfg *Config) {
 		wr := &nebulav1.WorkflowRun{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "my-test-run",
+				Name:      uuid.NewString(),
 				Namespace: cfg.Namespace.GetName(),
 				Annotations: map[string]string{
 					model.RelayVaultEngineMountAnnotation:    cfg.Vault.SecretsPath,
@@ -650,7 +650,7 @@ func TestWorkflowRunWithInvalidWorkflow(t *testing.T) {
 			Spec: nebulav1.WorkflowRunSpec{
 				Name: "my-workflow-run-1234",
 				WorkflowRef: corev1.LocalObjectReference{
-					Name: "my-workflow",
+					Name: uuid.NewString(),
 				},
 			},
 		}
@@ -685,7 +685,7 @@ func TestWorkflowRunWithoutSteps(t *testing.T) {
 		tenant := &relayv1beta1.Tenant{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: cfg.Namespace.GetName(),
-				Name:      "tenant-" + uuid.New().String(),
+				Name:      "tenant-" + uuid.NewString(),
 			},
 			Spec: relayv1beta1.TenantSpec{
 				ToolInjection: relayv1beta1.ToolInjection{},
@@ -696,7 +696,7 @@ func TestWorkflowRunWithoutSteps(t *testing.T) {
 
 		w := &relayv1beta1.Workflow{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "my-workflow",
+				Name:      uuid.NewString(),
 				Namespace: cfg.Namespace.GetName(),
 			},
 			Spec: relayv1beta1.WorkflowSpec{
@@ -710,7 +710,7 @@ func TestWorkflowRunWithoutSteps(t *testing.T) {
 
 		wr := &nebulav1.WorkflowRun{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "my-test-run",
+				Name:      uuid.NewString(),
 				Namespace: cfg.Namespace.GetName(),
 				Annotations: map[string]string{
 					model.RelayVaultEngineMountAnnotation:    cfg.Vault.SecretsPath,
@@ -723,7 +723,7 @@ func TestWorkflowRunWithoutSteps(t *testing.T) {
 			Spec: nebulav1.WorkflowRunSpec{
 				Name: "my-workflow-run-1234",
 				WorkflowRef: corev1.LocalObjectReference{
-					Name: "my-workflow",
+					Name: w.GetName(),
 				},
 			},
 		}
@@ -763,7 +763,7 @@ func TestWorkflowRunStepInitTime(t *testing.T) {
 		tenant := &relayv1beta1.Tenant{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: cfg.Namespace.GetName(),
-				Name:      "tenant-" + uuid.New().String(),
+				Name:      "tenant-" + uuid.NewString(),
 			},
 			Spec: relayv1beta1.TenantSpec{
 				ToolInjection: relayv1beta1.ToolInjection{},
@@ -774,7 +774,7 @@ func TestWorkflowRunStepInitTime(t *testing.T) {
 
 		w := &relayv1beta1.Workflow{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "my-workflow",
+				Name:      uuid.NewString(),
 				Namespace: cfg.Namespace.GetName(),
 			},
 			Spec: relayv1beta1.WorkflowSpec{
@@ -787,7 +787,7 @@ func TestWorkflowRunStepInitTime(t *testing.T) {
 							Image: "alpine:latest",
 							Input: []string{
 								"apk --no-cache add curl",
-								fmt.Sprintf(`curl -XPUT "${METADATA_API_URL}/timers/%s"`, model.TimerStepInit),
+								fmt.Sprintf(`curl -X PUT "${METADATA_API_URL}/timers/%s"`, model.TimerStepInit),
 							},
 						},
 					},
@@ -802,7 +802,7 @@ func TestWorkflowRunStepInitTime(t *testing.T) {
 		wr := &nebulav1.WorkflowRun{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: cfg.Namespace.GetName(),
-				Name:      "my-test-run",
+				Name:      uuid.NewString(),
 				Annotations: map[string]string{
 					model.RelayVaultEngineMountAnnotation:    cfg.Vault.SecretsPath,
 					model.RelayVaultConnectionPathAnnotation: "connections/my-domain-id",
@@ -814,7 +814,7 @@ func TestWorkflowRunStepInitTime(t *testing.T) {
 			Spec: nebulav1.WorkflowRunSpec{
 				Name: "my-workflow-run-1234",
 				WorkflowRef: corev1.LocalObjectReference{
-					Name: "my-workflow",
+					Name: w.GetName(),
 				},
 			},
 		}
@@ -838,18 +838,6 @@ func TestWorkflowRunInGVisor(t *testing.T) {
 		if cfg.Environment.GVisorRuntimeClassName == "" {
 			t.Skip("gVisor is not available on this platform")
 		}
-
-		tenant := &relayv1beta1.Tenant{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: cfg.Namespace.GetName(),
-				Name:      "tenant-" + uuid.New().String(),
-			},
-			Spec: relayv1beta1.TenantSpec{
-				ToolInjection: relayv1beta1.ToolInjection{},
-			},
-		}
-
-		CreateAndWaitForTenant(t, ctx, cfg, tenant)
 
 		when := relayv1beta1.AsUnstructured(
 			testutil.JSONInvocation("equals", []interface{}{
@@ -895,12 +883,22 @@ func TestWorkflowRunInGVisor(t *testing.T) {
 		}
 		for _, test := range tests {
 			t.Run(test.Name, func(t *testing.T) {
-				workflowName := fmt.Sprintf("my-test-workflow-%s", test.Name)
+				tenant := &relayv1beta1.Tenant{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: cfg.Namespace.GetName(),
+						Name:      "tenant-" + uuid.NewString(),
+					},
+					Spec: relayv1beta1.TenantSpec{
+						ToolInjection: relayv1beta1.ToolInjection{},
+					},
+				}
+
+				CreateAndWaitForTenant(t, ctx, cfg, tenant)
 
 				value := relayv1beta1.AsUnstructured("World!")
 				w := &relayv1beta1.Workflow{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      workflowName,
+						Name:      uuid.NewString(),
 						Namespace: cfg.Namespace.GetName(),
 					},
 					Spec: relayv1beta1.WorkflowSpec{
@@ -926,7 +924,7 @@ func TestWorkflowRunInGVisor(t *testing.T) {
 					Spec: nebulav1.WorkflowRunSpec{
 						Name: "my-workflow-run-1234",
 						WorkflowRef: corev1.LocalObjectReference{
-							Name: workflowName,
+							Name: w.GetName(),
 						},
 					},
 				}
