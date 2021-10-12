@@ -13,18 +13,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func ConfigurePipelineRun(ctx context.Context, pr *obj.PipelineRun, pp *PipelineParts, wrd *WorkflowRunDeps) error {
+func ConfigurePipelineRun(ctx context.Context, pr *obj.PipelineRun, pp *PipelineParts) error {
 	lifecycle.Label(ctx, pr, model.RelayControllerWorkflowRunIDLabel, pp.Deps.WorkflowRun.Key.Name)
-	pr.LabelAnnotateFrom(ctx, wrd.WorkflowRun.Object)
+	pr.LabelAnnotateFrom(ctx, pp.Deps.WorkflowRun.Object)
 
-	if err := wrd.OwnerConfigMap.Own(ctx, pr); err != nil {
+	if err := pp.Deps.OwnerConfigMap.Own(ctx, pr); err != nil {
 		return err
 	}
 
 	if err := DependencyManager.SetDependencyOf(
 		&pr.Object.ObjectMeta,
 		lifecycle.TypedObject{
-			Object: wrd.WorkflowRun.Object,
+			Object: pp.Deps.WorkflowRun.Object,
 			GVK:    nebulav1.WorkflowRunKind,
 		}); err != nil {
 		return err
@@ -66,7 +66,7 @@ func ConfigurePipelineRun(ctx context.Context, pr *obj.PipelineRun, pp *Pipeline
 	return nil
 }
 
-func ApplyPipelineRun(ctx context.Context, cl client.Client, pp *PipelineParts, wrd *WorkflowRunDeps) (*obj.PipelineRun, error) {
+func ApplyPipelineRun(ctx context.Context, cl client.Client, pp *PipelineParts) (*obj.PipelineRun, error) {
 	pr := obj.NewPipelineRun(pp.Pipeline.Key)
 
 	if _, err := pr.Load(ctx, cl); err != nil {
@@ -75,7 +75,7 @@ func ApplyPipelineRun(ctx context.Context, cl client.Client, pp *PipelineParts, 
 
 	pr.LabelAnnotateFrom(ctx, pp.Pipeline.Object)
 
-	if err := ConfigurePipelineRun(ctx, pr, pp, wrd); err != nil {
+	if err := ConfigurePipelineRun(ctx, pr, pp); err != nil {
 		return nil, err
 	}
 

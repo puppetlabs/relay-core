@@ -121,7 +121,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 				return errmap.Wrap(err, "failed to apply Pipeline")
 			}
 
-			pr, err = app.ApplyPipelineRun(ctx, r.Client, pipeline, wrd)
+			pr, err = app.ApplyPipelineRun(ctx, r.Client, pipeline)
 			if err != nil {
 				return errmap.Wrap(err, "failed to apply PipelineRun")
 			}

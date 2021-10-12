@@ -476,9 +476,6 @@ func doConfigCleanup(t *testing.T, cfg *Config, next func()) {
 
 	for _, obj := range del {
 		assert.NoError(t, cfg.Environment.ControllerClient.Delete(ctx, obj))
-	}
-
-	for _, obj := range del {
 		assert.NoError(t, testutil.WaitForObjectDeletion(ctx, cfg.Environment.ControllerClient, obj))
 	}
 }
