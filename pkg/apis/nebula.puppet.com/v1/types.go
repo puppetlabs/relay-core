@@ -45,6 +45,11 @@ type WorkflowRunStatusSummary struct {
 	Outputs relayv1beta1.UnstructuredObject `json:"outputs,omitempty"`
 
 	// +optional
+	// +listType=map
+	// +listMapKey=name
+	Decorators []relayv1beta1.Decorator `json:"decorators,omitempty"`
+
+	// +optional
 	LogKey string `json:"logKey,omitempty"`
 
 	// +optional
