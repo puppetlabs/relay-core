@@ -185,17 +185,21 @@ func NewTaskSet(wrd *WorkflowRunDeps) *TaskSet {
 	}
 
 	for i, ws := range wrd.Workflow.Object.Spec.Steps {
-		ts.List[i] = obj.NewTask(ModelStepObjectKey(wrd.WorkflowRun.Key, ModelStep(wrd.WorkflowRun, ws)))
+		ts.List[i] = obj.NewTask(
+			ModelStepObjectKey(
+				client.ObjectKey{
+					Namespace: wrd.WorkflowDeps.TenantDeps.Namespace.Name,
+					Name:      wrd.WorkflowRun.Key.Name,
+				},
+				ModelStep(wrd.WorkflowRun, ws),
+			),
+		)
 	}
 
 	return ts
 }
 
 func ConfigureTaskSet(ctx context.Context, ts *TaskSet) error {
-	if err := ts.Deps.WorkflowRun.Own(ctx, ts); err != nil {
-		return err
-	}
-
 	for i, ws := range ts.Deps.Workflow.Object.Spec.Steps {
 		if err := ConfigureTask(ctx, ts.List[i], ts.Deps, ws); err != nil {
 			return err

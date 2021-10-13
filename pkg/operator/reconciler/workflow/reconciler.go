@@ -8,6 +8,7 @@ import (
 	"github.com/puppetlabs/leg/errmap/pkg/errmap"
 	"github.com/puppetlabs/leg/errmap/pkg/errmark"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/errhandler"
+	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	"github.com/puppetlabs/leg/storage"
 	pvpoolv1alpha1 "github.com/puppetlabs/pvpool/pkg/apis/pvpool.puppet.com/v1alpha1"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
@@ -22,6 +23,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+const FinalizerName = "workflowrun.finalizers.controller.relay.sh"
 
 type Reconciler struct {
 	*dependency.DependencyManager
@@ -66,10 +69,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, nil
 	}
 
-	if ts := wr.Object.GetDeletionTimestamp(); ts != nil && !ts.IsZero() {
-		return ctrl.Result{}, nil
-	}
-
 	var wrd *app.WorkflowRunDeps
 	var pr *obj.PipelineRun
 	err = r.metrics.trackDurationWithOutcome(metricWorkflowRunStartUpDuration, func() error {
@@ -104,7 +103,12 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		// PipelineRun can't load (e.g. someone deletes it from under us).
 		switch {
 		case wr.Object.Status.Status == string(obj.WorkflowRunStatusInProgress) && !wr.IsCancelled():
-			pr = obj.NewPipelineRun(wr.Key)
+			pr = obj.NewPipelineRun(
+				client.ObjectKey{
+					Namespace: wrd.WorkflowDeps.TenantDeps.Namespace.Name,
+					Name:      wr.Key.Name,
+				},
+			)
 			if ok, err := pr.Load(ctx, r.Client); err != nil {
 				return errmap.Wrap(err, "failed to load PipelineRun")
 			} else if ok {
@@ -126,12 +130,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return nil
 	})
 	if err != nil {
+		klog.Error(err)
 		retryOnError := true
 		errmark.IfMarked(err, errmark.User, func(err error) {
-			klog.Error(err)
-
-			err = wr.Fail(ctx, r.Client)
-			if err != nil {
+			ferr := wr.Fail(ctx, r.Client)
+			if ferr != nil {
 				return
 			}
 
@@ -143,6 +146,14 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		}
 
 		return ctrl.Result{}, nil
+	}
+
+	finalized, err := lifecycle.Finalize(ctx, r.Client, FinalizerName, wr, func() error {
+		_, err := wrd.Delete(ctx, r.Client)
+		return err
+	})
+	if err != nil || finalized {
+		return ctrl.Result{}, err
 	}
 
 	if pr == nil {
