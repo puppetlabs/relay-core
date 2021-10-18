@@ -39,8 +39,6 @@ func TestStepDecoratorManager(t *testing.T) {
 	require.Equal(t, "test-decorator", dec.Name)
 	require.Equal(t, step, dec.Step)
 
-	t.Logf("%#v", dec)
-
 	decObj, ok := dec.Value.(v1beta1.Decorator)
 	require.True(t, ok)
 

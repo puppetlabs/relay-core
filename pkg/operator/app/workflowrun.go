@@ -162,6 +162,17 @@ func ConfigureWorkflowRun(ctx context.Context, wrd *WorkflowRunDeps, pr *obj.Pip
 			}
 		}
 
+		decs := []relayv1beta1.Decorator{}
+		if sdecs, err := configmap.NewStepDecoratorManager(action, configMap).List(ctx); err == nil {
+			for _, sdec := range sdecs {
+				if dec, ok := sdec.Value.(relayv1beta1.Decorator); ok {
+					decs = append(decs, dec)
+				}
+			}
+		}
+
+		stepSummary.Decorators = decs
+
 		wr.Object.Status.Steps[step.Name] = stepSummary
 
 		if conditionSummary, found := summariesByTaskName.conditions[taskName]; found {
