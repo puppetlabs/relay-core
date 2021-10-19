@@ -126,11 +126,6 @@ spec:
                           name:
                             description: Name is a way to identify the decorator
                             type: string
-                          type:
-                            description: Type determines how the decorator's data
-                              field is parsed. This might mean validating the data's
-                              structure against a schema.
-                            type: string
                         required:
                         - name
                         type: object
@@ -197,11 +192,6 @@ spec:
                             type: object
                           name:
                             description: Name is a way to identify the decorator
-                            type: string
-                          type:
-                            description: Type determines how the decorator's data
-                              field is parsed. This might mean validating the data's
-                              structure against a schema.
                             type: string
                         required:
                         - name

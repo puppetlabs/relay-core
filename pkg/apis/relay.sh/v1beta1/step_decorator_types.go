@@ -1,23 +1,11 @@
 package v1beta1
 
-type DecoratorType string
-
-const (
-	// DecoratorTypeLink is a reference to a URI. This informs a UI to display
-	// the decorator as a link.
-	DecoratorTypeLink DecoratorType = "relay.sh/decorator-link"
-)
-
 // Decorator describes a result for a concluded step. These can be added to
 // steps to represent hints to UI's (web, cli, etc.) about data generated as a
 // result of a step's run.
 type Decorator struct {
 	// Name is a way to identify the decorator
 	Name string `json:"name"`
-
-	// Type determines how the decorator's data field is parsed. This might
-	// mean validating the data's structure against a schema.
-	Type DecoratorType `json:"type,omitempty"`
 
 	// Link is a link-type decorator.
 	// +optional

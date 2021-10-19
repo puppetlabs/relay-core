@@ -61,8 +61,8 @@ func (m *StepDecoratorManager) Set(ctx context.Context, value map[string]interfa
 		Name: name,
 	}
 
-	switch v1beta1.DecoratorType(typ) {
-	case v1beta1.DecoratorTypeLink:
+	switch model.DecoratorType(typ) {
+	case model.DecoratorTypeLink:
 		dl := v1beta1.DecoratorLink{}
 		if err := mapstructure.Decode(value, &dl); err != nil {
 			return fmt.Errorf("decorator manager: failed to map expected values to decorator: %w", err)
@@ -72,7 +72,6 @@ func (m *StepDecoratorManager) Set(ctx context.Context, value map[string]interfa
 			return fmt.Errorf("decorator manager: failed to parse uri value: %w", err)
 		}
 
-		dec.Type = v1beta1.DecoratorTypeLink
 		dec.Link = &dl
 	default:
 		return fmt.Errorf("decorator manager: no such decorator type: %s", typ)

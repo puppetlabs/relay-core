@@ -43,7 +43,6 @@ func TestStepDecoratorManager(t *testing.T) {
 	require.True(t, ok)
 
 	require.Equal(t, "test-decorator", decObj.Name)
-	require.Equal(t, v1beta1.DecoratorTypeLink, decObj.Type)
 	require.NotNil(t, decObj.Link)
 	require.Equal(t, &v1beta1.DecoratorLink{
 		URI:         "https://unit-testing.relay.sh/decorator-location",
