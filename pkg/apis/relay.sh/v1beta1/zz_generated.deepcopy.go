@@ -478,6 +478,17 @@ func (in *StepStatus) DeepCopyInto(out *StepStatus) {
 			}
 		}
 	}
+	if in.Decorators != nil {
+		in, out := &in.Decorators, &out.Decorators
+		*out = make([]*Decorator, len(*in))
+		for i := range *in {
+			if (*in)[i] != nil {
+				in, out := &(*in)[i], &(*out)[i]
+				*out = new(Decorator)
+				(*in).DeepCopyInto(*out)
+			}
+		}
+	}
 	if in.StartTime != nil {
 		in, out := &in.StartTime, &out.StartTime
 		*out = (*in).DeepCopy()
