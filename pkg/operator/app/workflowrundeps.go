@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"path"
@@ -218,6 +219,13 @@ func (wrd *WorkflowRunDeps) AnnotateStepToken(ctx context.Context, target *metav
 
 	ms := ModelStep(wrd.WorkflowRun, ws)
 	now := time.Now()
+
+	// FIXME Temporarily avoid unknown transient issue
+	if wrd.MetadataAPIServiceAccountTokenSecrets == nil ||
+		wrd.MetadataAPIServiceAccountTokenSecrets.DefaultTokenSecret == nil ||
+		wrd.MetadataAPIServiceAccountTokenSecrets.DefaultTokenSecret.Object == nil {
+		return errors.New("no default token secret for workflow run")
+	}
 
 	sat, err := wrd.MetadataAPIServiceAccountTokenSecrets.DefaultTokenSecret.Token()
 	if err != nil {

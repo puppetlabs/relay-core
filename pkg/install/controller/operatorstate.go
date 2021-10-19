@@ -461,7 +461,7 @@ func (m *operatorStateManager) clusterRole(clusterRole *rbacv1.ClusterRole) {
 		},
 		{
 			APIGroups: []string{"relay.sh"},
-			Resources: []string{"tenants", "tenants/status", "webhooktriggers", "webhooktriggers/status", "workflows", "workflows/status"},
+			Resources: []string{"runs", "runs/status", "tenants", "tenants/status", "webhooktriggers", "webhooktriggers/status", "workflows", "workflows/status"},
 			Verbs:     []string{"get", "list", "watch", "update", "patch"},
 		},
 		{

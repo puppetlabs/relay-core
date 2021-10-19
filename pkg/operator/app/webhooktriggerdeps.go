@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"math"
 	"net/url"
 	"path"
@@ -282,6 +283,13 @@ func (wtd *WebhookTriggerDeps) AnnotateTriggerToken(ctx context.Context, target 
 		},
 	}
 	idh.Set("subject", claims.Subject)
+
+	// FIXME Temporarily avoid unknown transient issue
+	if wtd.MetadataAPIServiceAccountTokenSecrets == nil ||
+		wtd.MetadataAPIServiceAccountTokenSecrets.DefaultTokenSecret == nil ||
+		wtd.MetadataAPIServiceAccountTokenSecrets.DefaultTokenSecret.Object == nil {
+		return errors.New("no default token secret set for webhook trigger")
+	}
 
 	sat, err := wtd.MetadataAPIServiceAccountTokenSecrets.DefaultTokenSecret.Token()
 	if err != nil {
