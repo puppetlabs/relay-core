@@ -12,7 +12,7 @@ func (s *stepDecoratorManager) List(ctx context.Context) ([]*model.StepDecorator
 	return nil, model.ErrRejected
 }
 
-func (s *stepDecoratorManager) Set(ctx context.Context, value map[string]interface{}) error {
+func (s *stepDecoratorManager) Set(ctx context.Context, typ, name string, values map[string]interface{}) error {
 	return model.ErrRejected
 }
 

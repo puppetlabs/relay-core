@@ -2,12 +2,11 @@ package configmap
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"net/url"
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
+	"github.com/puppetlabs/relay-core/pkg/manager/decorator"
 	"github.com/puppetlabs/relay-core/pkg/model"
 )
 
@@ -42,39 +41,15 @@ func (m *StepDecoratorManager) List(ctx context.Context) ([]*model.StepDecorator
 	return l, nil
 }
 
-func (m *StepDecoratorManager) Set(ctx context.Context, value map[string]interface{}) error {
+func (m *StepDecoratorManager) Set(ctx context.Context, typ, name string, values map[string]interface{}) error {
 	if err := m.kcm.Set(ctx, stepNameKey(m.me), m.me.Name); err != nil {
 		return err
 	}
 
-	typ, ok := value["type"].(string)
-	if !ok {
-		return errors.New("decorator manager: missing type field")
-	}
+	dec := v1beta1.Decorator{}
 
-	name, ok := value["name"].(string)
-	if !ok {
-		return errors.New("decorator manager: missing name field")
-	}
-
-	dec := v1beta1.Decorator{
-		Name: name,
-	}
-
-	switch model.DecoratorType(typ) {
-	case model.DecoratorTypeLink:
-		dl := v1beta1.DecoratorLink{}
-		if err := mapstructure.Decode(value, &dl); err != nil {
-			return fmt.Errorf("decorator manager: failed to map expected values to decorator: %w", err)
-		}
-
-		if _, err := url.Parse(dl.URI); err != nil {
-			return fmt.Errorf("decorator manager: failed to parse uri value: %w", err)
-		}
-
-		dec.Link = &dl
-	default:
-		return fmt.Errorf("decorator manager: no such decorator type: %s", typ)
+	if err := decorator.DecodeInto(model.DecoratorType(typ), name, values, &dec); err != nil {
+		return fmt.Errorf("decorator manager: error decoding values: %w", err)
 	}
 
 	if err := m.kcm.Set(ctx, stepDecoratorKey(m.me, dec.Name), dec); err != nil {

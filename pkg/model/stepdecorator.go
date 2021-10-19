@@ -1,6 +1,10 @@
 package model
 
-import "context"
+import (
+	"context"
+
+	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
+)
 
 type DecoratorType string
 
@@ -13,10 +17,10 @@ const (
 type StepDecorator struct {
 	Step  *Step
 	Name  string
-	Value interface{}
+	Value relayv1beta1.Decorator
 }
 
 type StepDecoratorManager interface {
 	List(ctx context.Context) ([]*StepDecorator, error)
-	Set(ctx context.Context, value map[string]interface{}) error
+	Set(ctx context.Context, typ, name string, value map[string]interface{}) error
 }

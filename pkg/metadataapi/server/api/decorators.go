@@ -17,17 +17,22 @@ func (s *Server) PostDecorator(w http.ResponseWriter, r *http.Request) {
 
 	name, _ := middleware.Var(r, "name")
 
-	var value = make(map[string]interface{})
+	var values = make(map[string]interface{})
 
-	if err := json.NewDecoder(r.Body).Decode(&value); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&values); err != nil {
 		utilapi.WriteError(ctx, w, errors.NewAPIMalformedRequestError().WithCause(err))
 
 		return
 	}
 
-	value["name"] = name
+	typ, ok := values["type"].(string)
+	if !ok {
+		utilapi.WriteError(ctx, w, errors.NewAPIMalformedRequestError())
 
-	if err := dm.Set(ctx, value); err != nil {
+		return
+	}
+
+	if err := dm.Set(ctx, typ, name, values); err != nil {
 		utilapi.WriteError(ctx, w, ModelWriteError(err))
 
 		return

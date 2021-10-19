@@ -8,10 +8,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/opt"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/sample"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/api"
+	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/stretchr/testify/require"
 )
 
@@ -40,7 +40,7 @@ func TestPostDecorator(t *testing.T) {
 	h := api.NewHandler(a)
 
 	values := map[string]interface{}{
-		"type":        string(v1beta1.DecoratorTypeLink),
+		"type":        string(model.DecoratorTypeLink),
 		"description": "a test description",
 		"uri":         "https://unit-testing.relay.sh/decorator-location",
 	}
@@ -66,9 +66,10 @@ func TestPostDecorator(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, decs, 1)
 
-	decObj, ok := decs[0].Value.(map[string]interface{})
-	require.True(t, ok)
+	sd := decs[0]
 
-	require.Equal(t, "test-decorator", decObj["name"].(string))
-	require.Equal(t, string(v1beta1.DecoratorTypeLink), decObj["type"].(string))
+	require.Equal(t, "test-decorator", sd.Value.Name)
+	require.NotNil(t, sd.Value.Link)
+	require.Equal(t, "a test description", sd.Value.Link.Description)
+	require.Equal(t, "https://unit-testing.relay.sh/decorator-location", sd.Value.Link.URI)
 }
