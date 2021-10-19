@@ -16,6 +16,7 @@ type metadataManagers struct {
 	secrets        model.SecretManager
 	spec           model.SpecGetterManager
 	state          model.StateGetterManager
+	stepDecorators model.StepDecoratorManager
 	stepOutputs    model.StepOutputManager
 	workflowRuns   model.WorkflowRunManager
 	timers         model.TimerSetterManager
@@ -63,6 +64,10 @@ func (mm *metadataManagers) State() model.StateGetterManager {
 	return mm.state
 }
 
+func (mm *metadataManagers) StepDecorators() model.StepDecoratorManager {
+	return mm.stepDecorators
+}
+
 func (mm *metadataManagers) StepOutputs() model.StepOutputManager {
 	return mm.stepOutputs
 }
@@ -86,6 +91,7 @@ type MetadataBuilder struct {
 	secrets        model.SecretManager
 	spec           model.SpecGetterManager
 	state          model.StateGetterManager
+	stepDecorators model.StepDecoratorManager
 	stepOutputs    model.StepOutputManager
 	workflowRuns   model.WorkflowRunManager
 	timers         model.TimerSetterManager
@@ -141,6 +147,11 @@ func (mb *MetadataBuilder) SetState(m model.StateGetterManager) *MetadataBuilder
 	return mb
 }
 
+func (mb *MetadataBuilder) SetStepDecorators(m model.StepDecoratorManager) *MetadataBuilder {
+	mb.stepDecorators = m
+	return mb
+}
+
 func (mb *MetadataBuilder) SetStepOutputs(m model.StepOutputManager) *MetadataBuilder {
 	mb.stepOutputs = m
 	return mb
@@ -168,6 +179,7 @@ func (mb *MetadataBuilder) Build() model.MetadataManagers {
 		secrets:        mb.secrets,
 		spec:           mb.spec,
 		state:          mb.state,
+		stepDecorators: mb.stepDecorators,
 		stepOutputs:    mb.stepOutputs,
 		workflowRuns:   mb.workflowRuns,
 		timers:         mb.timers,
@@ -186,6 +198,7 @@ func NewMetadataBuilder() *MetadataBuilder {
 		secrets:        reject.SecretManager,
 		spec:           reject.SpecManager,
 		state:          reject.StateManager,
+		stepDecorators: reject.StepDecoratorManager,
 		stepOutputs:    reject.StepOutputManager,
 		workflowRuns:   reject.WorkflowRunManager,
 		timers:         reject.TimerManager,

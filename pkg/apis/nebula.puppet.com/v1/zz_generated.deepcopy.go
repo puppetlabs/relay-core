@@ -184,6 +184,13 @@ func (in *WorkflowRunStatusSummary) DeepCopyInto(out *WorkflowRunStatusSummary) 
 			(*out)[key] = *val.DeepCopy()
 		}
 	}
+	if in.Decorators != nil {
+		in, out := &in.Decorators, &out.Decorators
+		*out = make([]v1beta1.Decorator, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	if in.StartTime != nil {
 		in, out := &in.StartTime, &out.StartTime
 		*out = (*in).DeepCopy()
