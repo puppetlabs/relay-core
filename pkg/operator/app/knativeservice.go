@@ -45,7 +45,12 @@ func ConfigureKnativeService(ctx context.Context, s *obj.KnativeService, wtd *We
 
 	// We also set this as a dependency of the webhook trigger so that changes
 	// to the service will propagate back using our event handler.
-	if err := DependencyManager.SetDependencyOf(&s.Object.ObjectMeta, lifecycle.TypedObject{Object: wtd.WebhookTrigger.Object, GVK: relayv1beta1.WebhookTriggerKind}); err != nil {
+	if err := DependencyManager.SetDependencyOf(
+		&s.Object.ObjectMeta,
+		lifecycle.TypedObject{
+			Object: wtd.WebhookTrigger.Object,
+			GVK:    relayv1beta1.WebhookTriggerKind,
+		}); err != nil {
 		return err
 	}
 
@@ -81,7 +86,12 @@ func ConfigureKnativeService(ctx context.Context, s *obj.KnativeService, wtd *We
 
 	// The revisions will be marked with a dependency reference as well as we
 	// need to track them to clean up stale checkouts.
-	if err := DependencyManager.SetDependencyOf(&template.ObjectMeta, lifecycle.TypedObject{Object: wtd.WebhookTrigger.Object, GVK: relayv1beta1.WebhookTriggerKind}); err != nil {
+	if err := DependencyManager.SetDependencyOf(
+		&template.ObjectMeta,
+		lifecycle.TypedObject{
+			Object: wtd.WebhookTrigger.Object,
+			GVK:    relayv1beta1.WebhookTriggerKind,
+		}); err != nil {
 		return err
 	}
 

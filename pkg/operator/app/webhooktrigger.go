@@ -9,8 +9,8 @@ import (
 func ConfigureWebhookTrigger(wt *obj.WebhookTrigger, ksr *KnativeServiceResult) {
 	// Set up our initial map from the existing data.
 	conds := map[relayv1beta1.WebhookTriggerConditionType]*relayv1beta1.Condition{
-		relayv1beta1.WebhookTriggerServiceReady: &relayv1beta1.Condition{},
-		relayv1beta1.WebhookTriggerReady:        &relayv1beta1.Condition{},
+		relayv1beta1.WebhookTriggerServiceReady: {},
+		relayv1beta1.WebhookTriggerReady:        {},
 	}
 
 	for _, cond := range wt.Object.Status.Conditions {

@@ -21,6 +21,7 @@ var (
 	AddToScheme   = SchemeBuilder.AddToScheme
 
 	TenantKind         = SchemeGroupVersion.WithKind("Tenant")
+	RunKind            = SchemeGroupVersion.WithKind("Run")
 	WebhookTriggerKind = SchemeGroupVersion.WithKind("WebhookTrigger")
 	WorkflowKind       = SchemeGroupVersion.WithKind("Workflow")
 )
@@ -29,6 +30,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&Tenant{},
 		&TenantList{},
+		&Run{},
+		&RunList{},
 		&WebhookTrigger{},
 		&WebhookTriggerList{},
 		&Workflow{},

@@ -18,7 +18,7 @@ import (
 func TestWorkflowRunManager(t *testing.T) {
 	ctx := context.Background()
 
-	workflowName := "test-wokrflow"
+	workflowName := "test-workflow"
 	token := "some-token"
 	params := map[string]openapi.WorkflowRunParameter{
 		"param-1": openapi.WorkflowRunParameter{

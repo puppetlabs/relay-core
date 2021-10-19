@@ -95,7 +95,7 @@ func ApplyWebhookTriggerCleanup(ctx context.Context, cl client.Client, deps *Web
 	}
 
 	wtc := NewWebhookTriggerCleanup(deps, ksr.KnativeService)
-	if _, err := (lifecycle.RequiredLoader{wtc}).Load(ctx, cl); err != nil {
+	if _, err := (lifecycle.RequiredLoader{Loader: wtc}).Load(ctx, cl); err != nil {
 		return err
 	}
 

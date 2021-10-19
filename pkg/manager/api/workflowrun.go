@@ -20,6 +20,16 @@ type WorkflowRunManager struct {
 func (w *WorkflowRunManager) Run(ctx context.Context, name string, parameters map[string]openapi.WorkflowRunParameter) (*model.WorkflowRun, error) {
 	ctx = context.WithValue(ctx, openapi.ContextAccessToken, w.token)
 
+	// The openapi client uses a pointer on the parameter map field, so if our
+	// parameters are nil, we will want to set it to an empty map because this
+	// field will not be included in the encoded json payload due to an
+	// omitempty tag. Currently the relay-api decoder expects a parameters
+	// field on the request payload, which is omitted by the openapi encoder if
+	// it is nil.
+	if parameters == nil {
+		parameters = make(map[string]openapi.WorkflowRunParameter)
+	}
+
 	wrc := w.client.WorkflowRunsApi
 	req := wrc.RunWorkflow(ctx, name).CreateWorkflowRun(openapi.CreateWorkflowRun{
 		Parameters: &parameters,

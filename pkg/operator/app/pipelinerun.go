@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
+	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
@@ -13,11 +14,21 @@ import (
 )
 
 func ConfigurePipelineRun(ctx context.Context, pr *obj.PipelineRun, pp *PipelineParts) error {
-	if err := pp.Deps.WorkflowRun.Own(ctx, pr); err != nil {
+	lifecycle.Label(ctx, pr, model.RelayControllerWorkflowRunIDLabel, pp.Deps.WorkflowRun.Key.Name)
+	pr.LabelAnnotateFrom(ctx, pp.Deps.WorkflowRun.Object)
+
+	if err := pp.Deps.OwnerConfigMap.Own(ctx, pr); err != nil {
 		return err
 	}
 
-	lifecycle.Label(ctx, pr, model.RelayControllerWorkflowRunIDLabel, pp.Deps.WorkflowRun.Key.Name)
+	if err := DependencyManager.SetDependencyOf(
+		&pr.Object.ObjectMeta,
+		lifecycle.TypedObject{
+			Object: pp.Deps.WorkflowRun.Object,
+			GVK:    nebulav1.WorkflowRunKind,
+		}); err != nil {
+		return err
+	}
 
 	sans := make([]tektonv1beta1.PipelineRunSpecServiceAccountName, len(pp.Pipeline.Object.Spec.Tasks))
 	for i, pt := range pp.Pipeline.Object.Spec.Tasks {

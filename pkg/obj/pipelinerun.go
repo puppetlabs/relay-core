@@ -28,24 +28,6 @@ func (pr *PipelineRun) Copy() *PipelineRun {
 	return makePipelineRun(pr.Key, pr.Object.DeepCopy())
 }
 
-func (pr *PipelineRun) Complete() bool {
-	if !pr.Object.IsDone() && !pr.Object.IsCancelled() && !pr.Object.IsTimedOut() {
-		return false
-	}
-
-	for _, tr := range pr.Object.Status.TaskRuns {
-		if tr.Status == nil {
-			continue
-		}
-
-		if WorkflowRunStatusFromCondition(tr.Status.Status) == WorkflowRunStatusInProgress {
-			return false
-		}
-	}
-
-	return true
-}
-
 func NewPipelineRun(key client.ObjectKey) *PipelineRun {
 	return makePipelineRun(key, &tektonv1beta1.PipelineRun{})
 }

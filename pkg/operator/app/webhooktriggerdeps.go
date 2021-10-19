@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"math"
 	"net/url"
 	"path"
@@ -45,8 +46,9 @@ type WebhookTriggerDeps struct {
 	Tenant         *obj.Tenant
 	TenantDeps     *TenantDeps
 
+	Standalone bool
+
 	ToolInjectionPoolRef pvpoolv1alpha1.PoolReference
-	Standalone           bool
 
 	// StaleOwnerConfigMap is a reference to a now-outdated stub object that
 	// needs to be cleaned up. It is set if the tenant is deleted or if the
@@ -85,7 +87,12 @@ func (wtd *WebhookTriggerDeps) Delete(ctx context.Context, cl client.Client, opt
 		return true, nil
 	}
 
-	if ok, err := DependencyManager.IsDependencyOf(wtd.OwnerConfigMap.Object, lifecycle.TypedObject{Object: wtd.WebhookTrigger.Object, GVK: relayv1beta1.WebhookTriggerKind}); err != nil {
+	if ok, err := DependencyManager.IsDependencyOf(
+		wtd.OwnerConfigMap.Object,
+		lifecycle.TypedObject{
+			Object: wtd.WebhookTrigger.Object,
+			GVK:    relayv1beta1.WebhookTriggerKind,
+		}); err != nil {
 		return false, err
 	} else if ok {
 		return wtd.OwnerConfigMap.Delete(ctx, cl, opts...)
@@ -126,10 +133,13 @@ func (wtd *WebhookTriggerDeps) Load(ctx context.Context, cl client.Client) (*Web
 		return &WebhookTriggerDepsLoadResult{}, nil
 	}
 
-	// Key will be our webhook trigger name *in* the tenant namespace.
-	key := client.ObjectKey{Namespace: wtd.TenantDeps.Namespace.Name, Name: wtd.WebhookTrigger.Key.Name}
+	key := client.ObjectKey{
+		Namespace: wtd.TenantDeps.Namespace.Name,
+		Name:      wtd.WebhookTrigger.Key.Name,
+	}
 
 	wtd.OwnerConfigMap = corev1obj.NewConfigMap(SuffixObjectKey(key, "owner"))
+
 	if wtd.WebhookTrigger.Object.Status.Namespace != "" && wtd.OwnerConfigMap.Key.Namespace != wtd.WebhookTrigger.Object.Status.Namespace {
 		// In this case, the configuration of the tenant has changed. We'll
 		// delete the current owner map and replace it with the new one.
@@ -142,10 +152,14 @@ func (wtd *WebhookTriggerDeps) Load(ctx context.Context, cl client.Client) (*Web
 	wtd.NetworkPolicy = networkingv1obj.NewNetworkPolicy(key)
 
 	wtd.ToolInjectionCheckout = &PoolRefPredicatedCheckout{
-		Checkout: pvpoolv1alpha1obj.NewCheckout(SuffixObjectKeyWithHashOfObjectKey(SuffixObjectKey(key, "tools"), client.ObjectKey{
-			Namespace: wtd.ToolInjectionPoolRef.Namespace,
-			Name:      wtd.ToolInjectionPoolRef.Name,
-		})),
+		Checkout: pvpoolv1alpha1obj.NewCheckout(
+			SuffixObjectKeyWithHashOfObjectKey(SuffixObjectKey(key, "tools"),
+				client.ObjectKey{
+					Namespace: wtd.ToolInjectionPoolRef.Namespace,
+					Name:      wtd.ToolInjectionPoolRef.Name,
+				},
+			),
+		),
 	}
 
 	wtd.ImmutableConfigMap = corev1obj.NewConfigMap(SuffixObjectKey(key, "immutable"))
@@ -159,7 +173,7 @@ func (wtd *WebhookTriggerDeps) Load(ctx context.Context, cl client.Client) (*Web
 	wtd.KnativeServiceAccount = corev1obj.NewServiceAccount(SuffixObjectKey(key, "knative"))
 
 	ok, err := lifecycle.Loaders{
-		lifecycle.IgnoreNilLoader{wtd.StaleOwnerConfigMap},
+		lifecycle.IgnoreNilLoader{Loader: wtd.StaleOwnerConfigMap},
 		wtd.OwnerConfigMap,
 		wtd.NetworkPolicy,
 		wtd.ToolInjectionCheckout,
@@ -270,6 +284,13 @@ func (wtd *WebhookTriggerDeps) AnnotateTriggerToken(ctx context.Context, target 
 	}
 	idh.Set("subject", claims.Subject)
 
+	// FIXME Temporarily avoid unknown transient issue
+	if wtd.MetadataAPIServiceAccountTokenSecrets == nil ||
+		wtd.MetadataAPIServiceAccountTokenSecrets.DefaultTokenSecret == nil ||
+		wtd.MetadataAPIServiceAccountTokenSecrets.DefaultTokenSecret.Object == nil {
+		return errors.New("no default token secret set for webhook trigger")
+	}
+
 	sat, err := wtd.MetadataAPIServiceAccountTokenSecrets.DefaultTokenSecret.Token()
 	if err != nil {
 		return errmark.MarkTransientIf(err, errmark.RuleIs(corev1obj.ErrServiceAccountTokenMissingData))
@@ -355,7 +376,12 @@ func NewWebhookTriggerDeps(wt *obj.WebhookTrigger, issuer authenticate.Issuer, m
 
 func ConfigureWebhookTriggerDeps(ctx context.Context, wtd *WebhookTriggerDeps) error {
 	// Set up the owner config map as the target for the finalizer.
-	if err := DependencyManager.SetDependencyOf(wtd.OwnerConfigMap.Object, lifecycle.TypedObject{Object: wtd.WebhookTrigger.Object, GVK: relayv1beta1.WebhookTriggerKind}); err != nil {
+	if err := DependencyManager.SetDependencyOf(
+		wtd.OwnerConfigMap.Object,
+		lifecycle.TypedObject{
+			Object: wtd.WebhookTrigger.Object,
+			GVK:    relayv1beta1.WebhookTriggerKind,
+		}); err != nil {
 		return err
 	}
 
