@@ -134,6 +134,8 @@ rules:
 - apiGroups:
   - relay.sh
   resources:
+  - runs
+  - runs/status
   - tenants
   - tenants/status
   - webhooktriggers
