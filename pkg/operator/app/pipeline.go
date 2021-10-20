@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
-	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
+	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -87,7 +87,7 @@ func ConfigurePipelineParts(ctx context.Context, p *PipelineParts) error {
 		&p.Pipeline.Object.ObjectMeta,
 		lifecycle.TypedObject{
 			Object: p.Deps.WorkflowRun.Object,
-			GVK:    nebulav1.WorkflowRunKind,
+			GVK:    relayv1beta1.RunKind,
 		}); err != nil {
 		return err
 	}

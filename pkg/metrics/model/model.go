@@ -30,3 +30,17 @@ type EventFilter struct {
 	Metric  string
 	Filters []string
 }
+
+// FIXME Remove after refactoring metrics
+type WorkflowRunStatus string
+
+const (
+	WorkflowRunStatusQueued     WorkflowRunStatus = "queued"
+	WorkflowRunStatusPending    WorkflowRunStatus = "pending"
+	WorkflowRunStatusInProgress WorkflowRunStatus = "in-progress"
+	WorkflowRunStatusSuccess    WorkflowRunStatus = "success"
+	WorkflowRunStatusFailure    WorkflowRunStatus = "failure"
+	WorkflowRunStatusCancelled  WorkflowRunStatus = "cancelled"
+	WorkflowRunStatusSkipped    WorkflowRunStatus = "skipped"
+	WorkflowRunStatusTimedOut   WorkflowRunStatus = "timed-out"
+)

@@ -6,7 +6,6 @@ import (
 	"path"
 	"testing"
 
-	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
 	"github.com/puppetlabs/relay-core/pkg/obj"
@@ -57,12 +56,12 @@ func TestWorkflowRunDepsConfigureAnnotate(t *testing.T) {
 				},
 			}))
 
-			require.NoError(t, cl.Create(ctx, &nebulav1.WorkflowRun{
+			require.NoError(t, cl.Create(ctx, &relayv1beta1.Run{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "my-test-run",
 					Namespace: namespace.Name,
 				},
-				Spec: nebulav1.WorkflowRunSpec{
+				Spec: relayv1beta1.RunSpec{
 					WorkflowRef: corev1.LocalObjectReference{
 						Name: "my-test-workflow",
 					},
@@ -105,7 +104,7 @@ func TestWorkflowRunDepsConfigureAnnotate(t *testing.T) {
 			assert.Equal(t, namespace.Name, claims.KubernetesNamespaceName)
 			assert.Equal(t, string(namespace.GetUID()), claims.KubernetesNamespaceUID)
 			assert.Equal(t, sat, claims.KubernetesServiceAccountToken)
-			assert.Equal(t, run.Object.Spec.Name, claims.RelayRunID)
+			assert.Equal(t, run.Object.GetName(), claims.RelayRunID)
 			assert.Equal(t, ws.Name, claims.RelayName)
 			assert.Equal(t, deps.ImmutableConfigMap.Key.Name, claims.RelayKubernetesImmutableConfigMapName)
 			assert.Equal(t, deps.MutableConfigMap.Key.Name, claims.RelayKubernetesMutableConfigMapName)
@@ -178,12 +177,12 @@ func TestWorkflowRunDepsConfigureWorkflowExecutionSink(t *testing.T) {
 				},
 			}))
 
-			require.NoError(t, cl.Create(ctx, &nebulav1.WorkflowRun{
+			require.NoError(t, cl.Create(ctx, &relayv1beta1.Run{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "my-test-run",
 					Namespace: namespace.Name,
 				},
-				Spec: nebulav1.WorkflowRunSpec{
+				Spec: relayv1beta1.RunSpec{
 					WorkflowRef: corev1.LocalObjectReference{
 						Name: "my-test-workflow",
 					},

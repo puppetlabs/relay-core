@@ -2,109 +2,25 @@ package app
 
 import (
 	"context"
+	"time"
 
-	"github.com/puppetlabs/leg/datastructure"
-	"github.com/puppetlabs/leg/graph"
-	"github.com/puppetlabs/leg/graph/traverse"
-	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/manager/configmap"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	"github.com/tektoncd/pipeline/pkg/reconciler/pipelinerun/resources"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/apis"
 )
 
-func taskRunConditionStatusSummary(status *tektonv1beta1.PipelineRunTaskRunStatus, name string) (sum nebulav1.WorkflowRunStatusSummary, ok bool) {
-	for _, cond := range status.ConditionChecks {
-		if cond.Status == nil {
-			continue
-		}
-
-		sum.Name = name
-		sum.Status = string(obj.WorkflowRunStatusFromCondition(cond.Status.Status))
-
-		if cond.Status.StartTime != nil {
-			sum.StartTime = cond.Status.StartTime
-		}
-
-		if cond.Status.CompletionTime != nil {
-			sum.CompletionTime = cond.Status.CompletionTime
-		}
-
-		ok = true
-		return
-	}
-
-	return
-}
-
-func taskRunStepStatusSummary(status *tektonv1beta1.PipelineRunTaskRunStatus, name string) (sum nebulav1.WorkflowRunStatusSummary, ok bool) {
-	if status.Status == nil {
-		return
-	}
-
-	sum.Name = name
-	sum.Status = string(obj.WorkflowRunStatusFromCondition(status.Status.Status))
-
-	if status.Status.StartTime != nil {
-		sum.StartTime = status.Status.StartTime
-	}
-
-	if status.Status.CompletionTime != nil {
-		sum.CompletionTime = status.Status.CompletionTime
-	}
-
-	ok = true
-	return
-}
-
-func workflowRunSkipsPendingSteps(wr *obj.WorkflowRun) bool {
-	switch wr.Object.Status.Status {
-	case string(obj.WorkflowRunStatusCancelled), string(obj.WorkflowRunStatusFailure), string(obj.WorkflowRunStatusTimedOut):
-		return true
-	}
-
-	return false
-}
-
-type workflowRunStatusSummariesByTaskName struct {
-	steps      map[string]nebulav1.WorkflowRunStatusSummary
-	conditions map[string]nebulav1.WorkflowRunStatusSummary
-}
-
-func workflowRunStatusSummaries(ctx context.Context, wr *obj.WorkflowRun, pr *obj.PipelineRun) *workflowRunStatusSummariesByTaskName {
-	m := &workflowRunStatusSummariesByTaskName{
-		steps:      make(map[string]nebulav1.WorkflowRunStatusSummary),
-		conditions: make(map[string]nebulav1.WorkflowRunStatusSummary),
-	}
-
-	for name, taskRun := range pr.Object.Status.TaskRuns {
-		if cond, ok := taskRunConditionStatusSummary(taskRun, name); ok {
-			m.conditions[taskRun.PipelineTaskName] = cond
-		}
-
-		if step, ok := taskRunStepStatusSummary(taskRun, name); ok {
-			if step.Status == string(obj.WorkflowRunStatusPending) && workflowRunSkipsPendingSteps(wr) {
-				step.Status = string(obj.WorkflowRunStatusSkipped)
-			}
-
-			m.steps[taskRun.PipelineTaskName] = step
-		}
-	}
-
-	return m
-}
-
 func ConfigureWorkflowRun(ctx context.Context, wrd *WorkflowRunDeps, pr *obj.PipelineRun) {
-	wr := wrd.WorkflowRun
+	ConfigureWorkflowRunStatus(wrd.WorkflowRun, pr)
+	ConfigureWorkflowRunStepStatus(ctx, wrd, pr)
+}
 
-	if wr.IsCancelled() {
-		wr.Object.Status.Status = string(obj.WorkflowRunStatusCancelled)
-	} else {
-		wr.Object.Status.Status = string(obj.WorkflowRunStatusFromCondition(pr.Object.Status.Status))
-	}
-
+func ConfigureWorkflowRunStatus(wr *obj.WorkflowRun, pr *obj.PipelineRun) {
 	if then := pr.Object.Status.StartTime; then != nil {
 		wr.Object.Status.StartTime = then
 	}
@@ -113,94 +29,309 @@ func ConfigureWorkflowRun(ctx context.Context, wrd *WorkflowRunDeps, pr *obj.Pip
 		wr.Object.Status.CompletionTime = then
 	}
 
-	if wr.Object.Status.Steps == nil {
-		wr.Object.Status.Steps = make(map[string]nebulav1.WorkflowRunStatusSummary)
+	conds := map[relayv1beta1.RunConditionType]*relayv1beta1.Condition{
+		relayv1beta1.RunCancelled: {},
+		relayv1beta1.RunCompleted: {},
+		relayv1beta1.RunSucceeded: {},
+		relayv1beta1.RunTimedOut:  {},
 	}
 
-	if wr.Object.Status.Conditions == nil {
-		wr.Object.Status.Conditions = make(map[string]nebulav1.WorkflowRunStatusSummary)
+	for _, cond := range wr.Object.Status.Conditions {
+		if target, ok := conds[cond.Type]; ok {
+			*target = cond.Condition
+		}
 	}
 
-	// These are status information organized by task name since we don't yet
-	// have the step names.
-	summariesByTaskName := workflowRunStatusSummaries(ctx, wr, pr)
+	cs := pr.Object.Status.Status.GetCondition(apis.ConditionSucceeded)
 
-	// This lets us mark pending steps as skipped if they won't ever be run.
-	skipFinder := graph.NewSimpleDirectedGraphWithFeatures(graph.DeterministicIteration)
-
-	// This is the ConfigMap that holds internal, mutable data (outputs, timing, etc.)
-	configMap := configmap.NewLocalConfigMap(wrd.MutableConfigMap.Object)
-
-	for _, step := range wrd.Workflow.Object.Spec.Steps {
-		skipFinder.AddVertex(step.Name)
-		for _, dep := range step.DependsOn {
-			skipFinder.AddVertex(dep)
-			skipFinder.Connect(dep, step.Name)
+	UpdateStatusConditionIfTransitioned(conds[relayv1beta1.RunCancelled], func() relayv1beta1.Condition {
+		if wr.IsCancelled() {
+			return relayv1beta1.Condition{
+				Status: corev1.ConditionTrue,
+			}
 		}
 
+		return relayv1beta1.Condition{
+			Status: corev1.ConditionUnknown,
+		}
+	})
+
+	UpdateStatusConditionIfTransitioned(conds[relayv1beta1.RunCompleted], func() relayv1beta1.Condition {
+		if cs != nil {
+			switch cs.Status {
+			case corev1.ConditionTrue, corev1.ConditionFalse:
+				return relayv1beta1.Condition{
+					Status: corev1.ConditionTrue,
+				}
+			}
+
+			return relayv1beta1.Condition{
+				Status: corev1.ConditionFalse,
+			}
+		}
+
+		return relayv1beta1.Condition{
+			Status: corev1.ConditionUnknown,
+		}
+	})
+
+	UpdateStatusConditionIfTransitioned(conds[relayv1beta1.RunSucceeded], func() relayv1beta1.Condition {
+		if cs != nil {
+			switch cs.Status {
+			case corev1.ConditionTrue, corev1.ConditionFalse:
+				return relayv1beta1.Condition{
+					Status: cs.Status,
+				}
+			}
+		}
+
+		return relayv1beta1.Condition{
+			Status: corev1.ConditionUnknown,
+		}
+	})
+
+	UpdateStatusConditionIfTransitioned(conds[relayv1beta1.RunTimedOut], func() relayv1beta1.Condition {
+		if cs != nil {
+			switch cs.Status {
+			case corev1.ConditionFalse:
+				if cs.Reason == tektonv1beta1.PipelineRunReasonTimedOut.String() {
+					return relayv1beta1.Condition{
+						Status: corev1.ConditionTrue,
+					}
+				}
+			}
+		}
+
+		return relayv1beta1.Condition{
+			Status: corev1.ConditionUnknown,
+		}
+	})
+
+	wr.Object.Status.ObservedGeneration = wr.Object.GetGeneration()
+	wr.Object.Status.Conditions = []relayv1beta1.RunCondition{
+		{
+			Condition: *conds[relayv1beta1.RunCancelled],
+			Type:      relayv1beta1.RunCancelled,
+		},
+		{
+			Condition: *conds[relayv1beta1.RunCompleted],
+			Type:      relayv1beta1.RunCompleted,
+		},
+		{
+			Condition: *conds[relayv1beta1.RunSucceeded],
+			Type:      relayv1beta1.RunSucceeded,
+		},
+		{
+			Condition: *conds[relayv1beta1.RunTimedOut],
+			Type:      relayv1beta1.RunTimedOut,
+		},
+	}
+}
+
+func ConfigureWorkflowRunStepStatus(ctx context.Context, wrd *WorkflowRunDeps, pr *obj.PipelineRun) {
+	wr := wrd.WorkflowRun
+	wf := wrd.Workflow
+
+	configMap := configmap.NewLocalConfigMap(wrd.MutableConfigMap.Object)
+
+	currentStepStatus := make(map[string]*relayv1beta1.StepStatus)
+
+	for _, ss := range wr.Object.Status.Steps {
+		currentStepStatus[ss.Name] = ss
+	}
+
+	statusByTaskName := make(map[string]*tektonv1beta1.PipelineRunTaskRunStatus)
+
+	for _, tr := range pr.Object.Status.TaskRuns {
+		statusByTaskName[tr.PipelineTaskName] = tr
+	}
+
+	steps := make([]*relayv1beta1.StepStatus, 0)
+
+	for _, step := range wf.Object.Spec.Steps {
 		action := ModelStep(wr, step)
 		taskName := action.Hash().HexEncoding()
 
-		stepSummary, found := summariesByTaskName.steps[taskName]
-		if !found {
-			stepSummary.Status = string(obj.WorkflowRunStatusPending)
+		status, ok := statusByTaskName[taskName]
+		if !ok || status == nil || status.Status == nil {
+			continue
 		}
+
+		step := relayv1beta1.StepStatus{
+			Name:           step.Name,
+			StartTime:      status.Status.StartTime,
+			CompletionTime: status.Status.CompletionTime,
+
+			// FIXME Temporary handling for legacy logs
+			Logs: []*relayv1beta1.Log{
+				{
+					Name: status.Status.PodName,
+				},
+			},
+		}
+
+		cc := []relayv1beta1.StepCondition{}
+
+		if currentStepStatus != nil && currentStepStatus[step.Name] != nil {
+			// FIXME Temporary handling for legacy logs
+			if len(currentStepStatus[step.Name].Logs) > 0 {
+				step.Logs = currentStepStatus[step.Name].Logs
+			}
+
+			cc = currentStepStatus[step.Name].Conditions
+		}
+
+		cs := status.Status.GetCondition(apis.ConditionSucceeded)
+
+		step.Conditions = ConfigureWorkflowRunStepStatusConditions(ctx, cs, cc)
 
 		if timer, err := configmap.NewTimerManager(action, configMap).Get(ctx, model.TimerStepInit); err == nil {
-			stepSummary.InitTime = &metav1.Time{Time: timer.Time}
+			step.InitializationTime = &metav1.Time{Time: timer.Time}
 		}
 
-		// Retain any existing log record.
-		if wr.Object.Status.Steps[step.Name].LogKey != "" {
-			stepSummary.LogKey = wr.Object.Status.Steps[step.Name].LogKey
-		}
-
-		stepSummary.Outputs = relayv1beta1.NewUnstructuredObject(nil)
+		step.Outputs = make([]*relayv1beta1.StepOutput, 0)
 		if outputs, err := configmap.NewStepOutputManager(action, configMap).ListSelf(ctx); err == nil {
 			for _, output := range outputs {
-				stepSummary.Outputs[output.Name] = relayv1beta1.AsUnstructured(output.Value)
+				value := relayv1beta1.AsUnstructured(output.Value)
+				step.Outputs = append(step.Outputs,
+					&relayv1beta1.StepOutput{
+						Name:      output.Name,
+						Value:     &value,
+						Sensitive: false,
+					})
 			}
 		}
 
-		decs := []relayv1beta1.Decorator{}
+		decs := []*relayv1beta1.Decorator{}
 		if sdecs, err := configmap.NewStepDecoratorManager(action, configMap).List(ctx); err == nil {
 			for _, sdec := range sdecs {
-				decs = append(decs, sdec.Value)
+				decs = append(decs, &sdec.Value)
 			}
 		}
 
-		stepSummary.Decorators = decs
+		step.Decorators = decs
 
-		wr.Object.Status.Steps[step.Name] = stepSummary
+		steps = append(steps, &step)
+	}
 
-		if conditionSummary, found := summariesByTaskName.conditions[taskName]; found {
-			wr.Object.Status.Conditions[step.Name] = conditionSummary
+	wr.Object.Status.Steps = steps
+}
+
+func ConfigureWorkflowRunStepStatusConditions(ctx context.Context, condition *apis.Condition, currentConditions []relayv1beta1.StepCondition) []relayv1beta1.StepCondition {
+	conds := map[relayv1beta1.StepConditionType]*relayv1beta1.Condition{
+		relayv1beta1.StepCompleted: {},
+		relayv1beta1.StepSkipped:   {},
+		relayv1beta1.StepSucceeded: {},
+	}
+
+	for _, cond := range currentConditions {
+		if target, ok := conds[cond.Type]; ok {
+			*target = cond.Condition
 		}
 	}
 
-	// Mark skipped in order.
-	traverse.NewTopologicalOrderTraverser(skipFinder).ForEach(func(next graph.Vertex) error {
-		self := wr.Object.Status.Steps[next.(string)]
-		if self.Status != string(obj.WorkflowRunStatusPending) {
-			return nil
+	UpdateStatusConditionIfTransitioned(conds[relayv1beta1.StepCompleted], func() relayv1beta1.Condition {
+		if condition != nil {
+			switch condition.Status {
+			case corev1.ConditionTrue, corev1.ConditionFalse:
+				return relayv1beta1.Condition{
+					Status: corev1.ConditionTrue,
+				}
+			case corev1.ConditionUnknown:
+				return relayv1beta1.Condition{
+					Status: corev1.ConditionFalse,
+				}
+			}
 		}
 
-		incoming, _ := skipFinder.IncomingEdgesOf(next)
-		incoming.ForEach(func(edge graph.Edge) error {
-			prev, _ := graph.OppositeVertexOf(skipFinder, edge, next)
-			dependent := wr.Object.Status.Steps[prev.(string)]
-
-			switch dependent.Status {
-			case string(obj.WorkflowRunStatusSkipped), string(obj.WorkflowRunStatusFailure):
-				self.Status = string(obj.WorkflowRunStatusSkipped)
-				wr.Object.Status.Steps[next.(string)] = self
-
-				return datastructure.ErrStopIteration
-			}
-
-			return nil
-		})
-
-		return nil
+		return relayv1beta1.Condition{
+			Status: corev1.ConditionUnknown,
+		}
 	})
+
+	UpdateStatusConditionIfTransitioned(conds[relayv1beta1.StepSkipped], func() relayv1beta1.Condition {
+		if condition != nil {
+			switch condition.Status {
+			case corev1.ConditionFalse:
+				if condition.Reason == resources.ReasonConditionCheckFailed {
+					return relayv1beta1.Condition{
+						Status: corev1.ConditionTrue,
+					}
+				}
+			}
+		}
+
+		return relayv1beta1.Condition{
+			Status: corev1.ConditionUnknown,
+		}
+	})
+
+	UpdateStatusConditionIfTransitioned(conds[relayv1beta1.StepSucceeded], func() relayv1beta1.Condition {
+		if condition != nil {
+			switch condition.Status {
+			case corev1.ConditionTrue, corev1.ConditionFalse:
+				return relayv1beta1.Condition{
+					Status: condition.Status,
+				}
+			}
+		}
+
+		return relayv1beta1.Condition{
+			Status: corev1.ConditionUnknown,
+		}
+	})
+
+	stepConditions := []relayv1beta1.StepCondition{
+		{
+			Condition: *conds[relayv1beta1.StepCompleted],
+			Type:      relayv1beta1.StepCompleted,
+		},
+		{
+			Condition: *conds[relayv1beta1.StepSkipped],
+			Type:      relayv1beta1.StepSkipped,
+		},
+		{
+			Condition: *conds[relayv1beta1.StepSucceeded],
+			Type:      relayv1beta1.StepSucceeded,
+		},
+	}
+
+	return stepConditions
+}
+
+func ConfigureWorkflowRunWithSpecificStatus(wr *obj.WorkflowRun, rc relayv1beta1.RunConditionType, status corev1.ConditionStatus) {
+	if wr.Object.Status.StartTime == nil {
+		wr.Object.Status.StartTime = &metav1.Time{Time: time.Now()}
+	}
+
+	if wr.Object.Status.CompletionTime == nil {
+		wr.Object.Status.CompletionTime = &metav1.Time{Time: time.Now()}
+	}
+
+	conds := map[relayv1beta1.RunConditionType]*relayv1beta1.Condition{
+		relayv1beta1.RunCancelled: {},
+		relayv1beta1.RunCompleted: {},
+		relayv1beta1.RunSucceeded: {},
+		relayv1beta1.RunTimedOut:  {},
+	}
+
+	for _, cond := range wr.Object.Status.Conditions {
+		if target, ok := conds[cond.Type]; ok {
+			*target = cond.Condition
+		}
+	}
+
+	UpdateStatusConditionIfTransitioned(conds[rc], func() relayv1beta1.Condition {
+		return relayv1beta1.Condition{
+			Status: status,
+		}
+	})
+
+	wr.Object.Status.ObservedGeneration = wr.Object.GetGeneration()
+	wr.Object.Status.Conditions = []relayv1beta1.RunCondition{
+		{
+			Condition: *conds[rc],
+			Type:      rc,
+		},
+	}
 }

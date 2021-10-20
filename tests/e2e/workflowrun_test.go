@@ -11,13 +11,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/puppetlabs/leg/timeutil/pkg/backoff"
 	"github.com/puppetlabs/leg/timeutil/pkg/retry"
-	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	exprmodel "github.com/puppetlabs/relay-core/pkg/expr/model"
 	"github.com/puppetlabs/relay-core/pkg/expr/testutil"
 	"github.com/puppetlabs/relay-core/pkg/model"
-	"github.com/puppetlabs/relay-core/pkg/obj"
 	"github.com/puppetlabs/relay-core/pkg/operator/app"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -27,11 +26,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func stepTaskLabelValue(wr *nebulav1.WorkflowRun, stepName string) string {
-	return app.ModelStepObjectKey(client.ObjectKeyFromObject(wr), &model.Step{Run: model.Run{ID: wr.Spec.Name}, Name: stepName}).Name
+func stepTaskLabelValue(wr *relayv1beta1.Run, stepName string) string {
+	return app.ModelStepObjectKey(client.ObjectKeyFromObject(wr), &model.Step{Run: model.Run{ID: wr.GetName()}, Name: stepName}).Name
 }
 
-func waitForStepToStart(t *testing.T, ctx context.Context, cfg *Config, wr *nebulav1.WorkflowRun, stepName string) {
+func waitForStepToStart(t *testing.T, ctx context.Context, cfg *Config, wr *relayv1beta1.Run, stepName string) {
 	require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
 		if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{
 			Namespace: wr.GetNamespace(),
@@ -40,15 +39,22 @@ func waitForStepToStart(t *testing.T, ctx context.Context, cfg *Config, wr *nebu
 			return true, err
 		}
 
-		if wr.Status.Steps[stepName].Status == string(obj.WorkflowRunStatusInProgress) {
-			return true, nil
+		for _, step := range wr.Status.Steps {
+			if step.Name == stepName {
+				for _, cond := range step.Conditions {
+					if cond.Type == relayv1beta1.StepCompleted &&
+						cond.Status != corev1.ConditionUnknown {
+						return true, nil
+					}
+				}
+			}
 		}
 
 		return false, fmt.Errorf("waiting for step %q to start", stepName)
 	}))
 }
 
-func waitForStepToSucceed(t *testing.T, ctx context.Context, cfg *Config, wr *nebulav1.WorkflowRun, stepName string) {
+func waitForStepToSucceed(t *testing.T, ctx context.Context, cfg *Config, wr *relayv1beta1.Run, stepName string) {
 	require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
 		if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{
 			Namespace: wr.GetNamespace(),
@@ -57,18 +63,26 @@ func waitForStepToSucceed(t *testing.T, ctx context.Context, cfg *Config, wr *ne
 			return true, err
 		}
 
-		switch obj.WorkflowRunStatus(wr.Status.Steps[stepName].Status) {
-		case obj.WorkflowRunStatusSuccess:
-			return true, nil
-		case obj.WorkflowRunStatusFailure:
-			return true, fmt.Errorf("step failed")
-		default:
-			return false, fmt.Errorf("waiting for step to succeed")
+		for _, step := range wr.Status.Steps {
+			if step.Name == stepName {
+				for _, cond := range step.Conditions {
+					if cond.Type == relayv1beta1.StepSucceeded {
+						switch cond.Status {
+						case corev1.ConditionTrue:
+							return true, nil
+						case corev1.ConditionFalse:
+							return true, fmt.Errorf("step failed")
+						}
+					}
+				}
+			}
 		}
+
+		return false, fmt.Errorf("waiting for step to succeed")
 	}))
 }
 
-func waitForStepPodToComplete(t *testing.T, ctx context.Context, cfg *Config, wr *nebulav1.WorkflowRun, stepName string) *corev1.Pod {
+func waitForStepPodToComplete(t *testing.T, ctx context.Context, cfg *Config, wr *relayv1beta1.Run, stepName string) *corev1.Pod {
 	waitForStepToStart(t, ctx, cfg, wr, stepName)
 
 	pod := &corev1.Pod{}
@@ -95,7 +109,7 @@ func waitForStepPodToComplete(t *testing.T, ctx context.Context, cfg *Config, wr
 	return pod
 }
 
-func waitForStepPodIP(t *testing.T, ctx context.Context, cfg *Config, wr *nebulav1.WorkflowRun, stepName string) *corev1.Pod {
+func waitForStepPodIP(t *testing.T, ctx context.Context, cfg *Config, wr *relayv1beta1.Run, stepName string) *corev1.Pod {
 	waitForStepToStart(t, ctx, cfg, wr, stepName)
 
 	pod := &corev1.Pod{}
@@ -212,7 +226,7 @@ func TestWorkflowRunWithTenantToolInjection(t *testing.T) {
 				}
 				require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, w))
 
-				wr := &nebulav1.WorkflowRun{
+				wr := &relayv1beta1.Run{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: tenant.Status.Namespace,
 						Name:      uuid.NewString(),
@@ -224,8 +238,7 @@ func TestWorkflowRunWithTenantToolInjection(t *testing.T) {
 							model.RelayTenantIDAnnotation:            tenant.GetName(),
 						},
 					},
-					Spec: nebulav1.WorkflowRunSpec{
-						Name: "my-workflow-run-1234",
+					Spec: relayv1beta1.RunSpec{
 						WorkflowRef: corev1.LocalObjectReference{
 							Name: w.GetName(),
 						},
@@ -317,6 +330,8 @@ func TestWorkflowRun(t *testing.T) {
 		value3 := relayv1beta1.AsUnstructured(1)
 		value4 := relayv1beta1.AsUnstructured(data.dryrun)
 
+		stepName := uuid.NewString()
+
 		w := &relayv1beta1.Workflow{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      uuid.NewString(),
@@ -347,7 +362,7 @@ func TestWorkflowRun(t *testing.T) {
 				},
 				Steps: []*relayv1beta1.Step{
 					{
-						Name: "my-test-step",
+						Name: stepName,
 						Container: relayv1beta1.Container{
 							Image: "alpine:latest",
 							Spec: relayv1beta1.NewUnstructuredObject(map[string]interface{}{
@@ -408,7 +423,7 @@ func TestWorkflowRun(t *testing.T) {
 		}
 		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, w))
 
-		wr := &nebulav1.WorkflowRun{
+		wr := &relayv1beta1.Run{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      uuid.NewString(),
 				Namespace: cfg.Namespace.GetName(),
@@ -420,8 +435,7 @@ func TestWorkflowRun(t *testing.T) {
 					model.RelayTenantIDAnnotation:            "my-tenant-id",
 				},
 			},
-			Spec: nebulav1.WorkflowRunSpec{
-				Name: "my-workflow-run-1234",
+			Spec: relayv1beta1.RunSpec{
 				Parameters: relayv1beta1.UnstructuredObject{
 					"tag":     relayv1beta1.AsUnstructured(data.tag),
 					"version": relayv1beta1.AsUnstructured(data.version),
@@ -433,7 +447,7 @@ func TestWorkflowRun(t *testing.T) {
 		}
 		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, wr))
 
-		pod := waitForStepPodIP(t, ctx, cfg, wr, "my-test-step")
+		pod := waitForStepPodIP(t, ctx, cfg, wr, stepName)
 
 		var result exprmodel.JSONResultEnvelope
 		evaluateRequest := func(url string) exprmodel.JSONResultEnvelope {
@@ -504,7 +518,7 @@ func TestWorkflowRun(t *testing.T) {
 }
 
 func TestInvalidWorkflowRuns(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	WithConfig(t, ctx, []ConfigOption{
@@ -512,11 +526,11 @@ func TestInvalidWorkflowRuns(t *testing.T) {
 	}, func(cfg *Config) {
 		tests := []struct {
 			Name        string
-			WorkflowRun *nebulav1.WorkflowRun
+			WorkflowRun *relayv1beta1.Run
 		}{
 			{
 				Name: "missing-workflow-reference",
-				WorkflowRun: &nebulav1.WorkflowRun{
+				WorkflowRun: &relayv1beta1.Run{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      uuid.NewString(),
 						Namespace: cfg.Namespace.GetName(),
@@ -528,14 +542,12 @@ func TestInvalidWorkflowRuns(t *testing.T) {
 							model.RelayTenantIDAnnotation:            "my-tenant-id",
 						},
 					},
-					Spec: nebulav1.WorkflowRunSpec{
-						Name: "my-workflow-run-1234",
-					},
+					Spec: relayv1beta1.RunSpec{},
 				},
 			},
 			{
 				Name: "invalid-workflow-reference",
-				WorkflowRun: &nebulav1.WorkflowRun{
+				WorkflowRun: &relayv1beta1.Run{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      uuid.NewString(),
 						Namespace: cfg.Namespace.GetName(),
@@ -547,8 +559,7 @@ func TestInvalidWorkflowRuns(t *testing.T) {
 							model.RelayTenantIDAnnotation:            "my-tenant-id",
 						},
 					},
-					Spec: nebulav1.WorkflowRunSpec{
-						Name: "my-workflow-run-1234",
+					Spec: relayv1beta1.RunSpec{
 						WorkflowRef: corev1.LocalObjectReference{
 							Name: uuid.NewString(),
 						},
@@ -567,15 +578,20 @@ func TestInvalidWorkflowRuns(t *testing.T) {
 							return retry.Repeat(fmt.Errorf("waiting for initial workflow run"))
 						}
 
-						return true, err
+						return retry.Done(err)
 					}
 
-					if wr.Status.Status == "" {
-						return retry.Repeat(fmt.Errorf("waiting for workflow run status"))
+					if len(wr.Status.Conditions) > 0 {
+						return retry.Done(nil)
 					}
 
-					return true, nil
-				}))
+					return retry.Repeat(fmt.Errorf("waiting for workflow run status"))
+				}, retry.WithBackoffFactory(
+					backoff.Build(
+						backoff.Linear(100*time.Millisecond),
+						backoff.MaxRetries(5),
+					),
+				)))
 			})
 		}
 	})
@@ -615,7 +631,7 @@ func TestWorkflowRunWithoutSteps(t *testing.T) {
 		}
 		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, w))
 
-		wr := &nebulav1.WorkflowRun{
+		wr := &relayv1beta1.Run{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      uuid.NewString(),
 				Namespace: cfg.Namespace.GetName(),
@@ -627,8 +643,7 @@ func TestWorkflowRunWithoutSteps(t *testing.T) {
 					model.RelayTenantIDAnnotation:            "my-tenant-id",
 				},
 			},
-			Spec: nebulav1.WorkflowRunSpec{
-				Name: "my-workflow-run-1234",
+			Spec: relayv1beta1.RunSpec{
 				WorkflowRef: corev1.LocalObjectReference{
 					Name: w.GetName(),
 				},
@@ -639,20 +654,32 @@ func TestWorkflowRunWithoutSteps(t *testing.T) {
 		require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
 			if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: wr.GetName(), Namespace: wr.GetNamespace()}, wr); err != nil {
 				if k8serrors.IsNotFound(err) {
-					return false, fmt.Errorf("waiting for initial workflow run")
+					return retry.Repeat(fmt.Errorf("waiting for initial workflow run"))
 				}
 
-				return true, err
+				return retry.Done(err)
 			}
 
-			if wr.Status.Status == "" {
-				return false, fmt.Errorf("waiting for workflow run status")
+			for _, cond := range wr.Status.Conditions {
+				if cond.Type == relayv1beta1.RunSucceeded {
+					switch cond.Status {
+					case corev1.ConditionTrue, corev1.ConditionFalse:
+						return retry.Done(nil)
+					}
+				}
 			}
 
-			return true, nil
+			return retry.Repeat(fmt.Errorf("waiting for workflow run status"))
 		}))
 
-		require.Equal(t, string(obj.WorkflowRunStatusSuccess), wr.Status.Status)
+		status := corev1.ConditionUnknown
+		for _, cond := range wr.Status.Conditions {
+			if cond.Type == relayv1beta1.RunSucceeded {
+				status = cond.Status
+			}
+		}
+
+		require.Equal(t, corev1.ConditionTrue, status)
 		require.NotNil(t, wr.Status.StartTime)
 		require.NotNil(t, wr.Status.CompletionTime)
 	})
@@ -679,6 +706,7 @@ func TestWorkflowRunStepInitTime(t *testing.T) {
 
 		CreateAndWaitForTenant(t, ctx, cfg, tenant)
 
+		stepName := uuid.NewString()
 		w := &relayv1beta1.Workflow{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      uuid.NewString(),
@@ -689,7 +717,7 @@ func TestWorkflowRunStepInitTime(t *testing.T) {
 					{
 						// TODO: Once we have the entrypointer image in
 						// test, we could just end-to-end test it here.
-						Name: "my-test-step",
+						Name: stepName,
 						Container: relayv1beta1.Container{
 							Image: "alpine:latest",
 							Input: []string{
@@ -706,7 +734,7 @@ func TestWorkflowRunStepInitTime(t *testing.T) {
 		}
 		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, w))
 
-		wr := &nebulav1.WorkflowRun{
+		wr := &relayv1beta1.Run{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: cfg.Namespace.GetName(),
 				Name:      uuid.NewString(),
@@ -718,8 +746,7 @@ func TestWorkflowRunStepInitTime(t *testing.T) {
 					model.RelayTenantIDAnnotation:            "my-tenant-id",
 				},
 			},
-			Spec: nebulav1.WorkflowRunSpec{
-				Name: "my-workflow-run-1234",
+			Spec: relayv1beta1.RunSpec{
 				WorkflowRef: corev1.LocalObjectReference{
 					Name: w.GetName(),
 				},
@@ -727,8 +754,13 @@ func TestWorkflowRunStepInitTime(t *testing.T) {
 		}
 		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, wr))
 
-		waitForStepToSucceed(t, ctx, cfg, wr, "my-test-step")
-		require.NotEmpty(t, wr.Status.Steps["my-test-step"].InitTime)
+		waitForStepToSucceed(t, ctx, cfg, wr, stepName)
+
+		for _, step := range wr.Status.Steps {
+			if step.Name == stepName {
+				require.NotEmpty(t, step.InitializationTime)
+			}
+		}
 	})
 }
 
@@ -823,13 +855,12 @@ func TestWorkflowRunInGVisor(t *testing.T) {
 				}
 				require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, w))
 
-				wr := &nebulav1.WorkflowRun{
+				wr := &relayv1beta1.Run{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: cfg.Namespace.GetName(),
 						Name:      fmt.Sprintf("my-test-run-%s", test.Name),
 					},
-					Spec: nebulav1.WorkflowRunSpec{
-						Name: "my-workflow-run-1234",
+					Spec: relayv1beta1.RunSpec{
 						WorkflowRef: corev1.LocalObjectReference{
 							Name: w.GetName(),
 						},

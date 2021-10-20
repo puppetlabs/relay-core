@@ -4,12 +4,11 @@ import (
 	"context"
 	"time"
 
-	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
+	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/metrics/model"
 	"github.com/puppetlabs/relay-core/pkg/metrics/opt"
 	"github.com/puppetlabs/relay-core/pkg/metrics/reconciler/event"
 	"github.com/puppetlabs/relay-core/pkg/metrics/reconciler/workflow"
-	"github.com/puppetlabs/relay-core/pkg/obj"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	corev1 "k8s.io/api/core/v1"
@@ -30,7 +29,7 @@ var (
 	SchemeBuilder = runtime.NewSchemeBuilder(
 		scheme.AddToScheme,
 		corev1.AddToScheme,
-		nebulav1.AddToScheme,
+		relayv1beta1.AddToScheme,
 	)
 
 	Scheme = runtime.NewScheme()
@@ -43,27 +42,46 @@ func init() {
 }
 
 func processStatuses(ctx context.Context, c client.Client, meter *metric.Meter) error {
-	wrs := &nebulav1.WorkflowRunList{}
+	wrs := &relayv1beta1.RunList{}
 	err := c.List(ctx, wrs)
 	if err != nil {
 		return err
 	}
 
 	counter := metric.Must(*meter).NewInt64Counter(model.MetricWorkflowRunCount)
-	counter.Add(context.Background(), int64(len(wrs.Items)))
+	counter.Add(ctx, int64(len(wrs.Items)))
 
 	for _, wr := range wrs.Items {
-		status := wr.Status.Status
-		if len(status) == 0 {
-			status = string(obj.WorkflowRunStatusQueued)
+		if len(wr.Status.Conditions) == 0 {
+			counter.Add(ctx, 1,
+				attribute.String(model.MetricAttributeStatus, string(model.WorkflowRunStatusQueued)),
+			)
+
+			continue
 		}
 
-		switch status {
-		case string(obj.WorkflowRunStatusQueued), string(obj.WorkflowRunStatusPending), string(obj.WorkflowRunStatusInProgress):
-			counter := metric.Must(*meter).NewInt64Counter(model.MetricWorkflowRunStatus)
-			counter.Add(context.Background(), 1,
-				attribute.String(model.MetricAttributeStatus, status),
-			)
+		for _, cond := range wr.Status.Conditions {
+			attrs := []attribute.KeyValue{}
+
+			switch cond.Type {
+			case relayv1beta1.RunCancelled, relayv1beta1.RunSucceeded, relayv1beta1.RunTimedOut:
+			case relayv1beta1.RunCompleted:
+				switch cond.Status {
+				case corev1.ConditionFalse:
+					attrs = []attribute.KeyValue{
+						attribute.String(model.MetricAttributeStatus, string(model.WorkflowRunStatusInProgress)),
+					}
+				case corev1.ConditionUnknown:
+					attrs = []attribute.KeyValue{
+						attribute.String(model.MetricAttributeStatus, string(model.WorkflowRunStatusPending)),
+					}
+				}
+			}
+
+			if len(attrs) > 0 {
+				counter := metric.Must(*meter).NewInt64Counter(model.MetricWorkflowRunStatus)
+				counter.Add(ctx, 1, attrs...)
+			}
 		}
 	}
 

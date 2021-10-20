@@ -17,7 +17,6 @@ import (
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	pvpoolv1alpha1 "github.com/puppetlabs/pvpool/pkg/apis/pvpool.puppet.com/v1alpha1"
 	pvpoolv1alpha1obj "github.com/puppetlabs/pvpool/pkg/apis/pvpool.puppet.com/v1alpha1/obj"
-	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
 	"github.com/puppetlabs/relay-core/pkg/model"
@@ -75,7 +74,7 @@ func (wrd *WorkflowRunDeps) Delete(ctx context.Context, cl client.Client, opts .
 		wrd.OwnerConfigMap.Object,
 		lifecycle.TypedObject{
 			Object: wrd.WorkflowRun.Object,
-			GVK:    nebulav1.WorkflowRunKind,
+			GVK:    relayv1beta1.RunKind,
 		}); err != nil {
 		return false, err
 	} else if ok {
@@ -321,7 +320,7 @@ func ConfigureWorkflowRunDeps(ctx context.Context, wrd *WorkflowRunDeps) error {
 		wrd.OwnerConfigMap.Object,
 		lifecycle.TypedObject{
 			Object: wrd.WorkflowRun.Object,
-			GVK:    nebulav1.WorkflowRunKind,
+			GVK:    relayv1beta1.RunKind,
 		}); err != nil {
 		return err
 	}

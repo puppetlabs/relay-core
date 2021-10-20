@@ -11,6 +11,7 @@ import (
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	"github.com/puppetlabs/leg/storage"
 	pvpoolv1alpha1 "github.com/puppetlabs/pvpool/pkg/apis/pvpool.puppet.com/v1alpha1"
+	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	"github.com/puppetlabs/relay-core/pkg/operator/app"
@@ -102,7 +103,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		// An exception is made of we get out of sync somehow such that the
 		// PipelineRun can't load (e.g. someone deletes it from under us).
 		switch {
-		case wr.Object.Status.Status == string(obj.WorkflowRunStatusInProgress) && !wr.IsCancelled():
+		case IsCondition(wr, relayv1beta1.RunCompleted, corev1.ConditionFalse) && !wr.IsCancelled():
 			pr = obj.NewPipelineRun(
 				client.ObjectKey{
 					Namespace: wrd.WorkflowDeps.TenantDeps.Namespace.Name,
@@ -133,8 +134,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		klog.Error(err)
 		retryOnError := true
 		errmark.IfMarked(err, errmark.User, func(err error) {
-			ferr := wr.Fail(ctx, r.Client)
-			if ferr != nil {
+			app.ConfigureWorkflowRunWithSpecificStatus(wrd.WorkflowRun, relayv1beta1.RunSucceeded, corev1.ConditionFalse)
+
+			if ferr := wr.PersistStatus(ctx, r.Client); ferr != nil {
 				return
 			}
 
@@ -157,8 +159,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	}
 
 	if pr == nil {
-		if err := wr.Complete(ctx, r.Client); err != nil {
-			return ctrl.Result{}, err
+		app.ConfigureWorkflowRunWithSpecificStatus(wrd.WorkflowRun, relayv1beta1.RunSucceeded, corev1.ConditionTrue)
+
+		if err := wr.PersistStatus(ctx, r.Client); err != nil {
+			return ctrl.Result{}, errmap.Wrap(err, "failed to persist WorkflowRun")
 		}
 
 		return ctrl.Result{}, nil
@@ -199,7 +203,9 @@ func (r *Reconciler) uploadLogs(ctx context.Context, wr *obj.WorkflowRun, plr *o
 	}
 
 	for name, step := range wr.Object.Status.Steps {
-		if step.LogKey != "" {
+		// FIXME Temporary handling for legacy logs
+		if len(step.Logs) > 0 &&
+			step.Logs[0] != nil && step.Logs[0].Context != "" {
 			// Already uploaded.
 			continue
 		}
@@ -218,7 +224,14 @@ func (r *Reconciler) uploadLogs(ctx context.Context, wr *obj.WorkflowRun, plr *o
 			klog.Warningf("failed to upload log for WorkflowRun %s step %q: %+v", wr.Key, name, err)
 		}
 
-		step.LogKey = logKey
+		// FIXME Temporary handling for legacy logs
+		step.Logs = []*relayv1beta1.Log{
+			{
+				Name:    podName,
+				Context: logKey,
+			},
+		}
+
 		wr.Object.Status.Steps[name] = step
 	}
 }
@@ -250,4 +263,15 @@ func (r *Reconciler) uploadLog(ctx context.Context, namespace, podName, containe
 	}
 
 	return key, nil
+}
+
+// TODO: Where does this method really belong?
+func IsCondition(wr *obj.WorkflowRun, rc relayv1beta1.RunConditionType, status corev1.ConditionStatus) bool {
+	for _, c := range wr.Object.Status.Conditions {
+		if c.Type == rc && c.Status == status {
+			return true
+		}
+	}
+
+	return false
 }
