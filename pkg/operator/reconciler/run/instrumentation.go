@@ -1,4 +1,4 @@
-package workflow
+package run
 
 import (
 	"github.com/puppetlabs/leg/instrumentation/metrics"

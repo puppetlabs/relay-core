@@ -22,9 +22,9 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/middleware"
 	"github.com/puppetlabs/relay-core/pkg/operator/admission"
 	"github.com/puppetlabs/relay-core/pkg/operator/config"
+	"github.com/puppetlabs/relay-core/pkg/operator/controller/run"
 	"github.com/puppetlabs/relay-core/pkg/operator/controller/tenant"
 	"github.com/puppetlabs/relay-core/pkg/operator/controller/trigger"
-	"github.com/puppetlabs/relay-core/pkg/operator/controller/workflow"
 	"github.com/puppetlabs/relay-core/pkg/operator/dependency"
 	"github.com/puppetlabs/relay-core/pkg/util/testutil"
 	"github.com/stretchr/testify/assert"
@@ -358,7 +358,7 @@ func doConfigReconcilers(t *testing.T, cfg *Config, next func()) {
 
 		require.NotNil(t, cfg.dependencyManager)
 
-		require.NoError(t, workflow.Add(cfg.dependencyManager))
+		require.NoError(t, run.Add(cfg.dependencyManager))
 	}
 
 	next()
