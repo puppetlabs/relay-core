@@ -181,6 +181,16 @@ func ConfigureWorkflowRunStepStatus(ctx context.Context, wrd *WorkflowRunDeps, p
 			cc = currentStepStatus[step.Name].Conditions
 		}
 
+		// FIXME Temporary handling for legacy logs
+		if len(step.Logs) > 0 {
+			// This should never toggle from a valid name to a blank one, but just in case...
+			if status.Status.PodName != "" {
+				// The log name is always the pod name currently for legacy logs
+				// Always update as the pod name may be blank when first initialized
+				step.Logs[0].Name = status.Status.PodName
+			}
+		}
+
 		cs := status.Status.GetCondition(apis.ConditionSucceeded)
 
 		step.Conditions = ConfigureWorkflowRunStepStatusConditions(ctx, cs, cc)
