@@ -16,7 +16,6 @@ import (
 	"github.com/puppetlabs/leg/storage"
 	pvpoolv1alpha1 "github.com/puppetlabs/pvpool/pkg/apis/pvpool.puppet.com/v1alpha1"
 	pvpoolv1alpha1obj "github.com/puppetlabs/pvpool/pkg/apis/pvpool.puppet.com/v1alpha1/obj"
-	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server"
@@ -441,12 +440,12 @@ func doConfigCleanup(t *testing.T, cfg *Config, next func()) {
 		}
 	}
 
-	wrl := &nebulav1.WorkflowRunList{}
+	wrl := &relayv1beta1.RunList{}
 	require.NoError(t, cfg.Environment.ControllerClient.List(ctx, wrl, client.InNamespace(cfg.Namespace.GetName())))
 	if len(wrl.Items) > 0 {
 		log.Printf("removing %d stale workflow run(s)", len(wrl.Items))
 		for _, wr := range wrl.Items {
-			func(wr nebulav1.WorkflowRun) {
+			func(wr relayv1beta1.Run) {
 				del = append(del, &wr)
 			}(wr)
 		}

@@ -36,9 +36,10 @@ The entry point for the operator is in
 
 | API Version | Kind | Description |
 |-------------|------|-------------|
+| `relay.sh/v1beta1` | `Run` | Runs the defined workflow using a Tekton pipeline |
 | `relay.sh/v1beta1` | `Tenant` | Defines event emission and namespace configuration for objects attached to it |
 | `relay.sh/v1beta1` | `WebhookTrigger` | Creates Knative services with a given container configuration and tenant to handle webhook requests and emit events |
-| `nebula.puppet.com/v1` | `WorkflowRun` | Creates and runs a Tekton pipeline with given container configurations and dependencies |
+| `relay.sh/v1beta1` | `Workflow` | Defines a workflow using the given container configurations and dependencies |
 
 ### Metadata API
 

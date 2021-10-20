@@ -130,7 +130,7 @@ func ConfigureImmutableConfigMapForWorkflowRun(ctx context.Context, cm *corev1ob
 func ConfigureMutableConfigMapForWorkflowRun(ctx context.Context, cm *corev1obj.ConfigMap, wr *obj.WorkflowRun) error {
 	lcm := configmap.NewLocalConfigMap(cm.Object)
 
-	for stepName, state := range wr.Object.State.Steps {
+	for stepName, state := range wr.Object.Spec.State.Steps {
 		sm := configmap.NewStateManager(ModelStepFromName(wr, stepName), lcm)
 
 		for name, value := range state {

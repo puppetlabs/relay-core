@@ -19,7 +19,7 @@ const (
 
 func ModelStepFromName(wr *obj.WorkflowRun, stepName string) *model.Step {
 	return &model.Step{
-		Run:  model.Run{ID: wr.Object.Spec.Name},
+		Run:  model.Run{ID: wr.Object.GetName()},
 		Name: stepName,
 	}
 }

@@ -4,11 +4,11 @@ import (
 	"context"
 	"time"
 
-	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
+	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/metrics/model"
-	"github.com/puppetlabs/relay-core/pkg/obj"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -25,7 +25,7 @@ type WorkflowRunReconciler struct {
 var _ reconcile.Reconciler = &WorkflowRunReconciler{}
 
 func (r *WorkflowRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	wr := &nebulav1.WorkflowRun{}
+	wr := &relayv1beta1.Run{}
 
 	if err := r.client.Get(ctx, req.NamespacedName, wr); errors.IsNotFound(err) {
 		return ctrl.Result{}, nil
@@ -37,38 +37,63 @@ func (r *WorkflowRunReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
-	status := wr.Status.Status
-	switch status {
-	case string(obj.WorkflowRunStatusSuccess), string(obj.WorkflowRunStatusFailure),
-		string(obj.WorkflowRunStatusCancelled), string(obj.WorkflowRunStatusTimedOut), string(obj.WorkflowRunStatusSkipped):
-		attrs := []attribute.KeyValue{
-			attribute.String(model.MetricAttributeOutcome, status),
-		}
+	for _, cond := range wr.Status.Conditions {
+		attrs := []attribute.KeyValue{}
 
-		counter := metric.Must(*r.meter).NewInt64Counter(model.MetricWorkflowRunOutcome)
-		counter.Add(ctx, 1, attrs...)
-
-		if wr.Status.CompletionTime != nil {
-			totalTimeRecorder := metric.Must(*r.meter).NewInt64ValueRecorder(model.MetricWorkflowRunTotalTimeSeconds)
-			totalTimeRecorder.Record(ctx, int64(wr.Status.CompletionTime.Sub(wr.CreationTimestamp.Time)/time.Second), attrs...)
-
-			if wr.Status.StartTime != nil {
-				execTimeRecorder := metric.Must(*r.meter).NewInt64ValueRecorder(model.MetricWorkflowRunExecutionTimeSeconds)
-				execTimeRecorder.Record(ctx, int64(wr.Status.CompletionTime.Sub(wr.Status.StartTime.Time)/time.Second), attrs...)
+		switch cond.Type {
+		case relayv1beta1.RunCancelled:
+			if cond.Status == corev1.ConditionTrue {
+				attrs = []attribute.KeyValue{
+					attribute.String(model.MetricAttributeOutcome, string(model.WorkflowRunStatusCancelled)),
+				}
+			}
+		case relayv1beta1.RunSucceeded:
+			switch cond.Status {
+			case corev1.ConditionTrue:
+				attrs = []attribute.KeyValue{
+					attribute.String(model.MetricAttributeOutcome, string(model.WorkflowRunStatusSuccess)),
+				}
+			case corev1.ConditionFalse:
+				attrs = []attribute.KeyValue{
+					attribute.String(model.MetricAttributeOutcome, string(model.WorkflowRunStatusFailure)),
+				}
+			}
+		case relayv1beta1.RunTimedOut:
+			if cond.Status == corev1.ConditionTrue {
+				attrs = []attribute.KeyValue{
+					attribute.String(model.MetricAttributeOutcome, string(model.WorkflowRunStatusTimedOut)),
+				}
 			}
 		}
 
-		var initTime time.Time
-		for _, step := range wr.Status.Steps {
-			if step.InitTime != nil && (initTime.IsZero() || step.InitTime.Time.Before(initTime)) {
-				initTime = step.InitTime.Time
-			}
+		if len(attrs) > 0 {
+			counter := metric.Must(*r.meter).NewInt64Counter(model.MetricWorkflowRunOutcome)
+			counter.Add(ctx, 1, attrs...)
 		}
+	}
 
-		if !initTime.IsZero() {
-			initTimeRecorder := metric.Must(*r.meter).NewInt64ValueRecorder(model.MetricWorkflowRunInitTimeSeconds)
-			initTimeRecorder.Record(ctx, int64(initTime.Sub(wr.CreationTimestamp.Time)/time.Second), attrs...)
+	attrs := []attribute.KeyValue{}
+
+	if wr.Status.CompletionTime != nil {
+		totalTimeRecorder := metric.Must(*r.meter).NewInt64ValueRecorder(model.MetricWorkflowRunTotalTimeSeconds)
+		totalTimeRecorder.Record(ctx, int64(wr.Status.CompletionTime.Sub(wr.CreationTimestamp.Time)/time.Second), attrs...)
+
+		if wr.Status.StartTime != nil {
+			execTimeRecorder := metric.Must(*r.meter).NewInt64ValueRecorder(model.MetricWorkflowRunExecutionTimeSeconds)
+			execTimeRecorder.Record(ctx, int64(wr.Status.CompletionTime.Sub(wr.Status.StartTime.Time)/time.Second), attrs...)
 		}
+	}
+
+	var initTime time.Time
+	for _, step := range wr.Status.Steps {
+		if step.InitializationTime != nil && (initTime.IsZero() || step.InitializationTime.Time.Before(initTime)) {
+			initTime = step.InitializationTime.Time
+		}
+	}
+
+	if !initTime.IsZero() {
+		initTimeRecorder := metric.Must(*r.meter).NewInt64ValueRecorder(model.MetricWorkflowRunInitTimeSeconds)
+		initTimeRecorder.Record(ctx, int64(initTime.Sub(wr.CreationTimestamp.Time)/time.Second), attrs...)
 	}
 
 	return ctrl.Result{}, nil
@@ -76,7 +101,7 @@ func (r *WorkflowRunReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 func Add(mgr manager.Manager, meter *metric.Meter) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&nebulav1.WorkflowRun{}).
+		For(&relayv1beta1.Run{}).
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: 16,
 		}).
