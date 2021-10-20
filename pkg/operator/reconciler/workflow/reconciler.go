@@ -168,6 +168,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, nil
 	}
 
+	app.ConfigureWorkflowRun(ctx, wrd, pr)
+
 	err = r.metrics.trackDurationWithOutcome(metricWorkflowRunLogUploadDuration, func() error {
 		r.uploadLogs(ctx, wr, pr)
 		return nil
@@ -175,8 +177,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	if err != nil {
 		klog.Warning(err)
 	}
-
-	app.ConfigureWorkflowRun(ctx, wrd, pr)
 
 	if err := wr.PersistStatus(ctx, r.Client); err != nil {
 		return ctrl.Result{}, errmap.Wrap(err, "failed to persist WorkflowRun")
