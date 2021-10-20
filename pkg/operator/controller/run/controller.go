@@ -1,4 +1,4 @@
-package workflow
+package run
 
 import (
 	"github.com/puppetlabs/leg/errmap/pkg/errmark"
@@ -10,7 +10,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/operator/config"
 	"github.com/puppetlabs/relay-core/pkg/operator/controller/handler"
 	"github.com/puppetlabs/relay-core/pkg/operator/dependency"
-	"github.com/puppetlabs/relay-core/pkg/operator/reconciler/workflow"
+	"github.com/puppetlabs/relay-core/pkg/operator/reconciler/run"
 	"github.com/puppetlabs/relay-core/pkg/util/capturer"
 	tekv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -53,5 +53,5 @@ func add(mgr manager.Manager, r reconcile.Reconciler, cfg *config.WorkflowContro
 }
 
 func Add(dm *dependency.DependencyManager) error {
-	return add(dm.Manager, workflow.NewReconciler(dm), dm.Config)
+	return add(dm.Manager, run.NewReconciler(dm), dm.Config)
 }
