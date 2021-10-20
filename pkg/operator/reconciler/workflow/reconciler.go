@@ -185,10 +185,12 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	return ctrl.Result{}, nil
 }
 
+// FIXME Temporary handling for legacy logs
 func (r *Reconciler) uploadLogs(ctx context.Context, wr *obj.WorkflowRun, plr *obj.PipelineRun) {
-	podNames := make(map[string]string)
+	completed := make(map[string]bool)
 
-	for name, tr := range plr.Object.Status.TaskRuns {
+	// FIXME Theoretically this can be removed in favor of checking the step status directly
+	for _, tr := range plr.Object.Status.TaskRuns {
 		if tr.Status == nil {
 			continue
 		}
@@ -199,40 +201,41 @@ func (r *Reconciler) uploadLogs(ctx context.Context, wr *obj.WorkflowRun, plr *o
 			continue
 		}
 
-		podNames[name] = tr.Status.PodName
+		completed[tr.Status.PodName] = true
 	}
 
-	for name, step := range wr.Object.Status.Steps {
-		// FIXME Temporary handling for legacy logs
-		if len(step.Logs) > 0 &&
-			step.Logs[0] != nil && step.Logs[0].Context != "" {
+	for i, step := range wr.Object.Status.Steps {
+		if len(step.Logs) == 0 || step.Logs[0] == nil {
+			continue
+		}
+
+		if step.Logs[0].Context != "" {
 			// Already uploaded.
 			continue
 		}
 
-		podName, found := podNames[step.Name]
-		if !found {
+		podName := step.Logs[0].Name
+
+		done, found := completed[podName]
+		if !done || !found {
 			// Not done yet.
-			klog.Infof("WorkflowRun %s step %q is still progressing, waiting to upload logs", wr.Key, name)
+			klog.Infof("WorkflowRun %s step %q is still progressing, waiting to upload logs", wr.Key, step.Name)
 			continue
 		}
 
-		klog.Infof("WorkflowRun %s step %q is complete, uploading logs for pod %s", wr.Key, name, podName)
+		klog.Infof("WorkflowRun %s step %q is complete, uploading logs for pod %s", wr.Key, step.Name, podName)
 
 		logKey, err := r.uploadLog(ctx, plr.Key.Namespace, podName, "step-step")
 		if err != nil {
-			klog.Warningf("failed to upload log for WorkflowRun %s step %q: %+v", wr.Key, name, err)
+			klog.Warningf("failed to upload log for WorkflowRun %s step %q: %+v", wr.Key, step.Name, err)
 		}
 
-		// FIXME Temporary handling for legacy logs
-		step.Logs = []*relayv1beta1.Log{
+		wr.Object.Status.Steps[i].Logs = []*relayv1beta1.Log{
 			{
 				Name:    podName,
 				Context: logKey,
 			},
 		}
-
-		wr.Object.Status.Steps[name] = step
 	}
 }
 
