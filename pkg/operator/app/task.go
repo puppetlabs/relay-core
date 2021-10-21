@@ -16,7 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func ConfigureTask(ctx context.Context, t *obj.Task, wrd *WorkflowRunDeps, ws *relayv1beta1.Step) error {
+func ConfigureTask(ctx context.Context, t *obj.Task, rd *RunDeps, ws *relayv1beta1.Step) error {
 	image := ws.Image
 	if image == "" {
 		image = model.DefaultImage
@@ -37,7 +37,7 @@ func ConfigureTask(ctx context.Context, t *obj.Task, wrd *WorkflowRunDeps, ws *r
 			},
 			{
 				Name:  "METADATA_API_URL",
-				Value: wrd.MetadataAPIURL.String(),
+				Value: rd.MetadataAPIURL.String(),
 			},
 		},
 		SecurityContext: &corev1.SecurityContext{
@@ -45,7 +45,7 @@ func ConfigureTask(ctx context.Context, t *obj.Task, wrd *WorkflowRunDeps, ws *r
 		},
 	}
 
-	if wrd.WorkflowDeps.TenantDeps.LimitRange != nil {
+	if rd.WorkflowDeps.TenantDeps.LimitRange != nil {
 		container.Resources = corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceEphemeralStorage: resource.MustParse("20Gi"),
@@ -60,14 +60,14 @@ func ConfigureTask(ctx context.Context, t *obj.Task, wrd *WorkflowRunDeps, ws *r
 	args := ws.Args
 
 	if len(ws.Input) > 0 {
-		sm := ModelStep(wrd.WorkflowRun, ws)
+		sm := ModelStep(rd.WorkflowRun, ws)
 
 		vol := corev1.Volume{
 			Name: configVolumeKey(sm),
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: wrd.ImmutableConfigMap.Key.Name,
+						Name: rd.ImmutableConfigMap.Key.Name,
 					},
 					Items: []corev1.KeyToPath{
 						{
@@ -91,7 +91,7 @@ func ConfigureTask(ctx context.Context, t *obj.Task, wrd *WorkflowRunDeps, ws *r
 		args = []string{}
 	}
 
-	if wrd.ToolInjectionCheckout.Satisfied() {
+	if rd.ToolInjectionCheckout.Satisfied() {
 		ep, err := entrypoint.ImageEntrypoint(image, []string{command}, args)
 		if err != nil {
 			return err
@@ -114,7 +114,7 @@ func ConfigureTask(ctx context.Context, t *obj.Task, wrd *WorkflowRunDeps, ws *r
 		}
 	}
 
-	if err := wrd.AnnotateStepToken(ctx, &t.Object.ObjectMeta, ws); err != nil {
+	if err := rd.AnnotateStepToken(ctx, &t.Object.ObjectMeta, ws); err != nil {
 		return err
 	}
 
@@ -128,7 +128,7 @@ func ConfigureTask(ctx context.Context, t *obj.Task, wrd *WorkflowRunDeps, ws *r
 }
 
 type TaskSet struct {
-	Deps *WorkflowRunDeps
+	Deps *RunDeps
 	List []*obj.Task
 }
 
@@ -178,20 +178,20 @@ func (ts *TaskSet) Persist(ctx context.Context, cl client.Client) error {
 	return nil
 }
 
-func NewTaskSet(wrd *WorkflowRunDeps) *TaskSet {
+func NewTaskSet(rd *RunDeps) *TaskSet {
 	ts := &TaskSet{
-		Deps: wrd,
-		List: make([]*obj.Task, len(wrd.Workflow.Object.Spec.Steps)),
+		Deps: rd,
+		List: make([]*obj.Task, len(rd.Workflow.Object.Spec.Steps)),
 	}
 
-	for i, ws := range wrd.Workflow.Object.Spec.Steps {
+	for i, ws := range rd.Workflow.Object.Spec.Steps {
 		ts.List[i] = obj.NewTask(
 			ModelStepObjectKey(
 				client.ObjectKey{
-					Namespace: wrd.WorkflowDeps.TenantDeps.Namespace.Name,
-					Name:      wrd.WorkflowRun.Key.Name,
+					Namespace: rd.WorkflowDeps.TenantDeps.Namespace.Name,
+					Name:      rd.WorkflowRun.Key.Name,
 				},
-				ModelStep(wrd.WorkflowRun, ws),
+				ModelStep(rd.WorkflowRun, ws),
 			),
 		)
 	}

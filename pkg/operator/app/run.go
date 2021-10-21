@@ -15,9 +15,9 @@ import (
 	"knative.dev/pkg/apis"
 )
 
-func ConfigureWorkflowRun(ctx context.Context, wrd *WorkflowRunDeps, pr *obj.PipelineRun) {
-	ConfigureWorkflowRunStatus(wrd.WorkflowRun, pr)
-	ConfigureWorkflowRunStepStatus(ctx, wrd, pr)
+func ConfigureWorkflowRun(ctx context.Context, rd *RunDeps, pr *obj.PipelineRun) {
+	ConfigureWorkflowRunStatus(rd.WorkflowRun, pr)
+	ConfigureWorkflowRunStepStatus(ctx, rd, pr)
 }
 
 func ConfigureWorkflowRunStatus(wr *obj.WorkflowRun, pr *obj.PipelineRun) {
@@ -128,11 +128,11 @@ func ConfigureWorkflowRunStatus(wr *obj.WorkflowRun, pr *obj.PipelineRun) {
 	}
 }
 
-func ConfigureWorkflowRunStepStatus(ctx context.Context, wrd *WorkflowRunDeps, pr *obj.PipelineRun) {
-	wr := wrd.WorkflowRun
-	wf := wrd.Workflow
+func ConfigureWorkflowRunStepStatus(ctx context.Context, rd *RunDeps, pr *obj.PipelineRun) {
+	wr := rd.WorkflowRun
+	wf := rd.Workflow
 
-	configMap := configmap.NewLocalConfigMap(wrd.MutableConfigMap.Object)
+	configMap := configmap.NewLocalConfigMap(rd.MutableConfigMap.Object)
 
 	currentStepStatus := make(map[string]*relayv1beta1.StepStatus)
 

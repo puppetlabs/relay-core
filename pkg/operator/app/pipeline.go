@@ -14,7 +14,7 @@ import (
 const ToolsWorkspaceName = "tools"
 
 type PipelineParts struct {
-	Deps *WorkflowRunDeps
+	Deps *RunDeps
 
 	Tasks      *TaskSet
 	Conditions *ConditionSet
@@ -61,7 +61,7 @@ func (pp *PipelineParts) Persist(ctx context.Context, cl client.Client) error {
 	}.Persist(ctx, cl)
 }
 
-func NewPipelineParts(deps *WorkflowRunDeps) *PipelineParts {
+func NewPipelineParts(deps *RunDeps) *PipelineParts {
 	return &PipelineParts{
 		Deps: deps,
 
@@ -145,7 +145,7 @@ func ConfigurePipelineParts(ctx context.Context, p *PipelineParts) error {
 	return nil
 }
 
-func ApplyPipelineParts(ctx context.Context, cl client.Client, deps *WorkflowRunDeps) (*PipelineParts, error) {
+func ApplyPipelineParts(ctx context.Context, cl client.Client, deps *RunDeps) (*PipelineParts, error) {
 	p := NewPipelineParts(deps)
 
 	if _, err := p.Load(ctx, cl); err != nil {

@@ -49,14 +49,14 @@ func ConfigureImmutableConfigMapForWebhookTrigger(ctx context.Context, cm *corev
 	return nil
 }
 
-func ConfigureImmutableConfigMapForWorkflowRun(ctx context.Context, cm *corev1obj.ConfigMap, wrd *WorkflowRunDeps) error {
+func ConfigureImmutableConfigMapForWorkflowRun(ctx context.Context, cm *corev1obj.ConfigMap, rd *RunDeps) error {
 	// This implementation manages the underlying object, so no need to retrieve
 	// it later.
 	lcm := configmap.NewLocalConfigMap(cm.Object)
 
 	params := make(map[string]*relayv1beta1.Unstructured)
 
-	wp := wrd.Workflow.Object.Spec.Parameters
+	wp := rd.Workflow.Object.Spec.Parameters
 	for _, value := range wp {
 		if value != nil {
 			params[value.Name] = nil
@@ -66,7 +66,7 @@ func ConfigureImmutableConfigMapForWorkflowRun(ctx context.Context, cm *corev1ob
 		}
 	}
 
-	wrp := wrd.WorkflowRun.Object.Spec.Parameters
+	wrp := rd.WorkflowRun.Object.Spec.Parameters
 	for name, value := range wrp {
 		params[name] = value.DeepCopy()
 	}
@@ -79,8 +79,8 @@ func ConfigureImmutableConfigMapForWorkflowRun(ctx context.Context, cm *corev1ob
 
 	configMapData := make(map[string]string)
 
-	for _, step := range wrd.Workflow.Object.Spec.Steps {
-		sm := ModelStep(wrd.WorkflowRun, step)
+	for _, step := range rd.Workflow.Object.Spec.Steps {
+		sm := ModelStep(rd.WorkflowRun, step)
 
 		if len(step.Spec) > 0 {
 			if _, err := configmap.NewSpecManager(sm, lcm).Set(ctx, step.Spec.Value()); err != nil {
