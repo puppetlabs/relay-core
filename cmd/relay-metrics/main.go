@@ -8,7 +8,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/metrics/model"
 	"github.com/puppetlabs/relay-core/pkg/metrics/opt"
 	"github.com/puppetlabs/relay-core/pkg/metrics/reconciler/event"
-	"github.com/puppetlabs/relay-core/pkg/metrics/reconciler/workflow"
+	"github.com/puppetlabs/relay-core/pkg/metrics/reconciler/run"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	corev1 "k8s.io/api/core/v1"
@@ -118,7 +118,7 @@ func main() {
 		klog.Fatal(err.Error())
 	}
 
-	err = workflow.Add(mgr, meter)
+	err = run.Add(mgr, meter)
 	if err != nil {
 		klog.Fatal(err.Error())
 	}
