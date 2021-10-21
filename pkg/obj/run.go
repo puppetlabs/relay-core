@@ -12,40 +12,47 @@ import (
 )
 
 const (
-	WorkflowRunStateCancel = "cancel"
+	RunStateCancel = "cancel"
 )
 
-type WorkflowRun struct {
+type Run struct {
 	*helper.NamespaceScopedAPIObject
 
 	Key    client.ObjectKey
 	Object *relayv1beta1.Run
 }
 
-func makeWorkflowRun(key client.ObjectKey, obj *relayv1beta1.Run) *WorkflowRun {
-	wr := &WorkflowRun{Key: key, Object: obj}
-	wr.NamespaceScopedAPIObject = helper.ForNamespaceScopedAPIObject(&wr.Key, lifecycle.TypedObject{GVK: relayv1beta1.RunKind, Object: wr.Object})
-	return wr
+func makeRun(key client.ObjectKey, obj *relayv1beta1.Run) *Run {
+	r := &Run{Key: key, Object: obj}
+	r.NamespaceScopedAPIObject =
+		helper.ForNamespaceScopedAPIObject(
+			&r.Key,
+			lifecycle.TypedObject{
+				GVK:    relayv1beta1.RunKind,
+				Object: r.Object,
+			},
+		)
+	return r
 }
 
-func (wr *WorkflowRun) Copy() *WorkflowRun {
-	return makeWorkflowRun(wr.Key, wr.Object.DeepCopy())
+func (r *Run) Copy() *Run {
+	return makeRun(r.Key, r.Object.DeepCopy())
 }
 
-func (wr *WorkflowRun) PersistStatus(ctx context.Context, cl client.Client) error {
-	return cl.Status().Update(ctx, wr.Object)
+func (r *Run) PersistStatus(ctx context.Context, cl client.Client) error {
+	return cl.Status().Update(ctx, r.Object)
 }
 
-func (wr *WorkflowRun) PodSelector() metav1.LabelSelector {
+func (r *Run) PodSelector() metav1.LabelSelector {
 	return metav1.LabelSelector{
 		MatchLabels: map[string]string{
-			model.RelayControllerWorkflowRunIDLabel: wr.Key.Name,
+			model.RelayControllerWorkflowRunIDLabel: r.Key.Name,
 		},
 	}
 }
 
-func (wr *WorkflowRun) IsCancelled() bool {
-	state, found := wr.Object.Spec.State.Workflow[WorkflowRunStateCancel]
+func (r *Run) IsCancelled() bool {
+	state, found := r.Object.Spec.State.Workflow[RunStateCancel]
 	if !found {
 		return false
 	}
@@ -53,14 +60,14 @@ func (wr *WorkflowRun) IsCancelled() bool {
 	return state.Value() == true
 }
 
-func NewWorkflowRun(key client.ObjectKey) *WorkflowRun {
-	return makeWorkflowRun(key, &relayv1beta1.Run{})
+func NewRun(key client.ObjectKey) *Run {
+	return makeRun(key, &relayv1beta1.Run{})
 }
 
-func NewWorkflowRunFromObject(obj *relayv1beta1.Run) *WorkflowRun {
-	return makeWorkflowRun(client.ObjectKeyFromObject(obj), obj)
+func NewRunFromObject(obj *relayv1beta1.Run) *Run {
+	return makeRun(client.ObjectKeyFromObject(obj), obj)
 }
 
-func NewWorkflowRunPatcher(upd, orig *WorkflowRun) lifecycle.Persister {
+func NewRunPatcher(upd, orig *Run) lifecycle.Persister {
 	return helper.NewPatcher(upd.Object, orig.Object, helper.WithObjectKey(upd.Key))
 }

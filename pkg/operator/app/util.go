@@ -17,15 +17,15 @@ const (
 	ManagedByLabelValue = "relay.sh"
 )
 
-func ModelStepFromName(wr *obj.WorkflowRun, stepName string) *model.Step {
+func ModelStepFromName(r *obj.Run, stepName string) *model.Step {
 	return &model.Step{
-		Run:  model.Run{ID: wr.Object.GetName()},
+		Run:  model.Run{ID: r.Object.GetName()},
 		Name: stepName,
 	}
 }
 
-func ModelStep(wr *obj.WorkflowRun, step *relayv1beta1.Step) *model.Step {
-	return ModelStepFromName(wr, step.Name)
+func ModelStep(r *obj.Run, step *relayv1beta1.Step) *model.Step {
+	return ModelStepFromName(r, step.Name)
 }
 
 func ModelWebhookTrigger(wt *obj.WebhookTrigger) *model.Trigger {

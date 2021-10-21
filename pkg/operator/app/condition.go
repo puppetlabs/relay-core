@@ -142,9 +142,9 @@ func NewConditionSet(rd *RunDeps) *ConditionSet {
 			ModelStepObjectKey(
 				client.ObjectKey{
 					Namespace: rd.WorkflowDeps.TenantDeps.Namespace.Name,
-					Name:      rd.WorkflowRun.Key.Name,
+					Name:      rd.Run.Key.Name,
 				},
-				ModelStep(rd.WorkflowRun, ws),
+				ModelStep(rd.Run, ws),
 			),
 		))
 		cs.idx[ws.Name] = i

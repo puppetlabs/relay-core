@@ -60,7 +60,7 @@ func ConfigureTask(ctx context.Context, t *obj.Task, rd *RunDeps, ws *relayv1bet
 	args := ws.Args
 
 	if len(ws.Input) > 0 {
-		sm := ModelStep(rd.WorkflowRun, ws)
+		sm := ModelStep(rd.Run, ws)
 
 		vol := corev1.Volume{
 			Name: configVolumeKey(sm),
@@ -189,9 +189,9 @@ func NewTaskSet(rd *RunDeps) *TaskSet {
 			ModelStepObjectKey(
 				client.ObjectKey{
 					Namespace: rd.WorkflowDeps.TenantDeps.Namespace.Name,
-					Name:      rd.WorkflowRun.Key.Name,
+					Name:      rd.Run.Key.Name,
 				},
-				ModelStep(rd.WorkflowRun, ws),
+				ModelStep(rd.Run, ws),
 			),
 		)
 	}

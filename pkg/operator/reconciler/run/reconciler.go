@@ -62,8 +62,8 @@ func NewReconciler(dm *dependency.DependencyManager) *Reconciler {
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, err error) {
-	wr := obj.NewWorkflowRun(req.NamespacedName)
-	if ok, err := wr.Load(ctx, r.Client); err != nil {
+	run := obj.NewRun(req.NamespacedName)
+	if ok, err := run.Load(ctx, r.Client); err != nil {
 		return ctrl.Result{}, errmap.Wrap(err, "failed to load dependencies")
 	} else if !ok {
 		// CRD deleted from under us?
@@ -76,7 +76,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		rd, err = app.ApplyRunDeps(
 			ctx,
 			r.Client,
-			wr,
+			run,
 			r.issuer,
 			r.Config.MetadataAPIURL,
 			app.RunDepsWithStandaloneMode(r.Config.Standalone),
@@ -96,18 +96,18 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			return nil
 		}
 
-		// We only need to build the pipeline when the workflow run is
+		// We only need to build the pipeline when the run is
 		// initializing or finalizing. While it's running, constantly persisting
 		// pipeline objects just puts strain on the Tekton webhook server.
 		//
 		// An exception is made of we get out of sync somehow such that the
 		// PipelineRun can't load (e.g. someone deletes it from under us).
 		switch {
-		case IsCondition(wr, relayv1beta1.RunCompleted, corev1.ConditionFalse) && !wr.IsCancelled():
+		case IsCondition(run, relayv1beta1.RunCompleted, corev1.ConditionFalse) && !run.IsCancelled():
 			pr = obj.NewPipelineRun(
 				client.ObjectKey{
 					Namespace: rd.WorkflowDeps.TenantDeps.Namespace.Name,
-					Name:      wr.Key.Name,
+					Name:      run.Key.Name,
 				},
 			)
 			if ok, err := pr.Load(ctx, r.Client); err != nil {
@@ -134,9 +134,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		klog.Error(err)
 		retryOnError := true
 		errmark.IfMarked(err, errmark.User, func(err error) {
-			app.ConfigureWorkflowRunWithSpecificStatus(rd.WorkflowRun, relayv1beta1.RunSucceeded, corev1.ConditionFalse)
+			app.ConfigureRunWithSpecificStatus(rd.Run, relayv1beta1.RunSucceeded, corev1.ConditionFalse)
 
-			if ferr := wr.PersistStatus(ctx, r.Client); ferr != nil {
+			if ferr := run.PersistStatus(ctx, r.Client); ferr != nil {
 				return
 			}
 
@@ -150,7 +150,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, nil
 	}
 
-	finalized, err := lifecycle.Finalize(ctx, r.Client, FinalizerName, wr, func() error {
+	finalized, err := lifecycle.Finalize(ctx, r.Client, FinalizerName, run, func() error {
 		_, err := rd.Delete(ctx, r.Client)
 		return err
 	})
@@ -159,34 +159,34 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	}
 
 	if pr == nil {
-		app.ConfigureWorkflowRunWithSpecificStatus(rd.WorkflowRun, relayv1beta1.RunSucceeded, corev1.ConditionTrue)
+		app.ConfigureRunWithSpecificStatus(rd.Run, relayv1beta1.RunSucceeded, corev1.ConditionTrue)
 
-		if err := wr.PersistStatus(ctx, r.Client); err != nil {
-			return ctrl.Result{}, errmap.Wrap(err, "failed to persist WorkflowRun")
+		if err := run.PersistStatus(ctx, r.Client); err != nil {
+			return ctrl.Result{}, errmap.Wrap(err, "failed to persist Run")
 		}
 
 		return ctrl.Result{}, nil
 	}
 
-	app.ConfigureWorkflowRun(ctx, rd, pr)
+	app.ConfigureRun(ctx, rd, pr)
 
 	err = r.metrics.trackDurationWithOutcome(metricWorkflowRunLogUploadDuration, func() error {
-		r.uploadLogs(ctx, wr, pr)
+		r.uploadLogs(ctx, run, pr)
 		return nil
 	})
 	if err != nil {
 		klog.Warning(err)
 	}
 
-	if err := wr.PersistStatus(ctx, r.Client); err != nil {
-		return ctrl.Result{}, errmap.Wrap(err, "failed to persist WorkflowRun")
+	if err := run.PersistStatus(ctx, r.Client); err != nil {
+		return ctrl.Result{}, errmap.Wrap(err, "failed to persist Run")
 	}
 
 	return ctrl.Result{}, nil
 }
 
 // FIXME Temporary handling for legacy logs
-func (r *Reconciler) uploadLogs(ctx context.Context, wr *obj.WorkflowRun, plr *obj.PipelineRun) {
+func (r *Reconciler) uploadLogs(ctx context.Context, run *obj.Run, plr *obj.PipelineRun) {
 	completed := make(map[string]bool)
 
 	// FIXME Theoretically this can be removed in favor of checking the step status directly
@@ -204,7 +204,7 @@ func (r *Reconciler) uploadLogs(ctx context.Context, wr *obj.WorkflowRun, plr *o
 		completed[tr.Status.PodName] = true
 	}
 
-	for i, step := range wr.Object.Status.Steps {
+	for i, step := range run.Object.Status.Steps {
 		if len(step.Logs) == 0 || step.Logs[0] == nil {
 			continue
 		}
@@ -219,18 +219,18 @@ func (r *Reconciler) uploadLogs(ctx context.Context, wr *obj.WorkflowRun, plr *o
 		done, found := completed[podName]
 		if !done || !found {
 			// Not done yet.
-			klog.Infof("WorkflowRun %s step %q is still progressing, waiting to upload logs", wr.Key, step.Name)
+			klog.Infof("Run %s step %q is still progressing, waiting to upload logs", run.Key, step.Name)
 			continue
 		}
 
-		klog.Infof("WorkflowRun %s step %q is complete, uploading logs for pod %s", wr.Key, step.Name, podName)
+		klog.Infof("Run %s step %q is complete, uploading logs for pod %s", run.Key, step.Name, podName)
 
 		logKey, err := r.uploadLog(ctx, plr.Key.Namespace, podName, "step-step")
 		if err != nil {
-			klog.Warningf("failed to upload log for WorkflowRun %s step %q: %+v", wr.Key, step.Name, err)
+			klog.Warningf("failed to upload log for Run %s step %q: %+v", run.Key, step.Name, err)
 		}
 
-		wr.Object.Status.Steps[i].Logs = []*relayv1beta1.Log{
+		run.Object.Status.Steps[i].Logs = []*relayv1beta1.Log{
 			{
 				Name:    podName,
 				Context: logKey,
@@ -269,8 +269,8 @@ func (r *Reconciler) uploadLog(ctx context.Context, namespace, podName, containe
 }
 
 // TODO: Where does this method really belong?
-func IsCondition(wr *obj.WorkflowRun, rc relayv1beta1.RunConditionType, status corev1.ConditionStatus) bool {
-	for _, c := range wr.Object.Status.Conditions {
+func IsCondition(r *obj.Run, rc relayv1beta1.RunConditionType, status corev1.ConditionStatus) bool {
+	for _, c := range r.Object.Status.Conditions {
 		if c.Type == rc && c.Status == status {
 			return true
 		}
