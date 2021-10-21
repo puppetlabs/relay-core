@@ -70,17 +70,17 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, nil
 	}
 
-	var wrd *app.WorkflowRunDeps
+	var rd *app.RunDeps
 	var pr *obj.PipelineRun
 	err = r.metrics.trackDurationWithOutcome(metricWorkflowRunStartUpDuration, func() error {
-		wrd, err = app.ApplyWorkflowRunDeps(
+		rd, err = app.ApplyRunDeps(
 			ctx,
 			r.Client,
 			wr,
 			r.issuer,
 			r.Config.MetadataAPIURL,
-			app.WorkflowRunDepsWithStandaloneMode(r.Config.Standalone),
-			app.WorkflowRunDepsWithToolInjectionPool(pvpoolv1alpha1.PoolReference{
+			app.RunDepsWithStandaloneMode(r.Config.Standalone),
+			app.RunDepsWithToolInjectionPool(pvpoolv1alpha1.PoolReference{
 				Namespace: r.Config.WorkflowToolInjectionPool.Namespace,
 				Name:      r.Config.WorkflowToolInjectionPool.Name,
 			}),
@@ -92,7 +92,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			return errmap.Wrap(err, "failed to apply dependencies")
 		}
 
-		if len(wrd.Workflow.Object.Spec.Steps) == 0 {
+		if len(rd.Workflow.Object.Spec.Steps) == 0 {
 			return nil
 		}
 
@@ -106,7 +106,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		case IsCondition(wr, relayv1beta1.RunCompleted, corev1.ConditionFalse) && !wr.IsCancelled():
 			pr = obj.NewPipelineRun(
 				client.ObjectKey{
-					Namespace: wrd.WorkflowDeps.TenantDeps.Namespace.Name,
+					Namespace: rd.WorkflowDeps.TenantDeps.Namespace.Name,
 					Name:      wr.Key.Name,
 				},
 			)
@@ -117,7 +117,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			}
 			fallthrough
 		default:
-			pipeline, err := app.ApplyPipelineParts(ctx, r.Client, wrd)
+			pipeline, err := app.ApplyPipelineParts(ctx, r.Client, rd)
 			if err != nil {
 				return errmap.Wrap(err, "failed to apply Pipeline")
 			}
@@ -134,7 +134,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		klog.Error(err)
 		retryOnError := true
 		errmark.IfMarked(err, errmark.User, func(err error) {
-			app.ConfigureWorkflowRunWithSpecificStatus(wrd.WorkflowRun, relayv1beta1.RunSucceeded, corev1.ConditionFalse)
+			app.ConfigureWorkflowRunWithSpecificStatus(rd.WorkflowRun, relayv1beta1.RunSucceeded, corev1.ConditionFalse)
 
 			if ferr := wr.PersistStatus(ctx, r.Client); ferr != nil {
 				return
@@ -151,7 +151,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	}
 
 	finalized, err := lifecycle.Finalize(ctx, r.Client, FinalizerName, wr, func() error {
-		_, err := wrd.Delete(ctx, r.Client)
+		_, err := rd.Delete(ctx, r.Client)
 		return err
 	})
 	if err != nil || finalized {
@@ -159,7 +159,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	}
 
 	if pr == nil {
-		app.ConfigureWorkflowRunWithSpecificStatus(wrd.WorkflowRun, relayv1beta1.RunSucceeded, corev1.ConditionTrue)
+		app.ConfigureWorkflowRunWithSpecificStatus(rd.WorkflowRun, relayv1beta1.RunSucceeded, corev1.ConditionTrue)
 
 		if err := wr.PersistStatus(ctx, r.Client); err != nil {
 			return ctrl.Result{}, errmap.Wrap(err, "failed to persist WorkflowRun")
@@ -168,7 +168,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, nil
 	}
 
-	app.ConfigureWorkflowRun(ctx, wrd, pr)
+	app.ConfigureWorkflowRun(ctx, rd, pr)
 
 	err = r.metrics.trackDurationWithOutcome(metricWorkflowRunLogUploadDuration, func() error {
 		r.uploadLogs(ctx, wr, pr)

@@ -41,8 +41,8 @@ exit 1
 `
 )
 
-func ConfigureCondition(ctx context.Context, c *obj.Condition, wrd *WorkflowRunDeps, ws *relayv1beta1.Step) error {
-	if err := wrd.AnnotateStepToken(ctx, &c.Object.ObjectMeta, ws); err != nil {
+func ConfigureCondition(ctx context.Context, c *obj.Condition, rd *RunDeps, ws *relayv1beta1.Step) error {
+	if err := rd.AnnotateStepToken(ctx, &c.Object.ObjectMeta, ws); err != nil {
 		return err
 	}
 
@@ -54,7 +54,7 @@ func ConfigureCondition(ctx context.Context, c *obj.Condition, wrd *WorkflowRunD
 				Env: []corev1.EnvVar{
 					{
 						Name:  "METADATA_API_URL",
-						Value: wrd.MetadataAPIURL.String(),
+						Value: rd.MetadataAPIURL.String(),
 					},
 				},
 			},
@@ -66,7 +66,7 @@ func ConfigureCondition(ctx context.Context, c *obj.Condition, wrd *WorkflowRunD
 }
 
 type ConditionSet struct {
-	Deps *WorkflowRunDeps
+	Deps *RunDeps
 	List []*obj.Condition
 	idx  map[string]int
 }
@@ -126,14 +126,14 @@ func (cs *ConditionSet) GetByStepName(stepName string) (*obj.Condition, bool) {
 	return cs.List[idx], true
 }
 
-func NewConditionSet(wrd *WorkflowRunDeps) *ConditionSet {
+func NewConditionSet(rd *RunDeps) *ConditionSet {
 	cs := &ConditionSet{
-		Deps: wrd,
+		Deps: rd,
 		idx:  make(map[string]int),
 	}
 
 	var i int
-	for _, ws := range wrd.Workflow.Object.Spec.Steps {
+	for _, ws := range rd.Workflow.Object.Spec.Steps {
 		if ws.When == nil || ws.When.Value() == nil {
 			continue
 		}
@@ -141,10 +141,10 @@ func NewConditionSet(wrd *WorkflowRunDeps) *ConditionSet {
 		cs.List = append(cs.List, obj.NewCondition(
 			ModelStepObjectKey(
 				client.ObjectKey{
-					Namespace: wrd.WorkflowDeps.TenantDeps.Namespace.Name,
-					Name:      wrd.WorkflowRun.Key.Name,
+					Namespace: rd.WorkflowDeps.TenantDeps.Namespace.Name,
+					Name:      rd.WorkflowRun.Key.Name,
 				},
-				ModelStep(wrd.WorkflowRun, ws),
+				ModelStep(rd.WorkflowRun, ws),
 			),
 		))
 		cs.idx[ws.Name] = i

@@ -20,7 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func TestWorkflowRunDepsConfigureAnnotate(t *testing.T) {
+func TestRunDepsConfigureAnnotate(t *testing.T) {
 	ctx := context.Background()
 
 	testutil.WithEndToEndEnvironment(t, ctx, []testutil.EndToEndEnvironmentInstaller{testutil.EndToEndEnvironmentWithPVPool}, func(e2e *testutil.EndToEndEnvironment) {
@@ -77,7 +77,7 @@ func TestWorkflowRunDepsConfigureAnnotate(t *testing.T) {
 			require.NoError(t, err)
 			require.True(t, ok)
 
-			deps, err := app.ApplyWorkflowRunDeps(ctx, cl, run, TestIssuer, TestMetadataAPIURL)
+			deps, err := app.ApplyRunDeps(ctx, cl, run, TestIssuer, TestMetadataAPIURL)
 			require.NoError(t, err)
 
 			ws := deps.Workflow.Object.Spec.Steps[0]
@@ -113,7 +113,7 @@ func TestWorkflowRunDepsConfigureAnnotate(t *testing.T) {
 }
 
 // TODO: merge this test with the above using a case table.
-func TestWorkflowRunDepsConfigureWorkflowExecutionSink(t *testing.T) {
+func TestRunDepsConfigureWorkflowExecutionSink(t *testing.T) {
 	ctx := context.Background()
 
 	testutil.WithEndToEndEnvironment(t, ctx, []testutil.EndToEndEnvironmentInstaller{testutil.EndToEndEnvironmentWithPVPool}, func(e2e *testutil.EndToEndEnvironment) {
@@ -198,7 +198,7 @@ func TestWorkflowRunDepsConfigureWorkflowExecutionSink(t *testing.T) {
 			require.NoError(t, err)
 			require.True(t, ok)
 
-			deps, err := app.ApplyWorkflowRunDeps(ctx, cl, run, TestIssuer, TestMetadataAPIURL)
+			deps, err := app.ApplyRunDeps(ctx, cl, run, TestIssuer, TestMetadataAPIURL)
 			require.NoError(t, err)
 
 			ws := deps.Workflow.Object.Spec.Steps[0]

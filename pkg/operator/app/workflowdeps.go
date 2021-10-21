@@ -43,7 +43,7 @@ func (wd *WorkflowDeps) Load(ctx context.Context, cl client.Client) (*WorkflowDe
 func NewWorkflowDeps(w *obj.Workflow) *WorkflowDeps {
 	key := w.Key
 
-	wrd := &WorkflowDeps{
+	wd := &WorkflowDeps{
 		Workflow: w,
 
 		Tenant: obj.NewTenant(client.ObjectKey{
@@ -52,5 +52,5 @@ func NewWorkflowDeps(w *obj.Workflow) *WorkflowDeps {
 		}),
 	}
 
-	return wrd
+	return wd
 }
