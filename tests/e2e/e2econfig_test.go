@@ -59,7 +59,7 @@ type Config struct {
 	withMetadataAPIBoundInCluster bool
 	withTenantReconciler          bool
 	withWebhookTriggerReconciler  bool
-	withWorkflowRunReconciler     bool
+	withRunReconciler             bool
 	withPodEnforcementAdmission   bool
 	withVolumeClaimAdmission      bool
 }
@@ -104,14 +104,14 @@ func ConfigWithWebhookTriggerReconciler(cfg *Config) {
 	cfg.withWebhookTriggerReconciler = true
 }
 
-func ConfigWithWorkflowRunReconciler(cfg *Config) {
-	cfg.withWorkflowRunReconciler = true
+func ConfigWithRunReconciler(cfg *Config) {
+	cfg.withRunReconciler = true
 }
 
 func ConfigWithAllReconcilers(cfg *Config) {
 	ConfigWithTenantReconciler(cfg)
 	ConfigWithWebhookTriggerReconciler(cfg)
-	ConfigWithWorkflowRunReconciler(cfg)
+	ConfigWithRunReconciler(cfg)
 }
 
 func ConfigWithPodEnforcementAdmission(cfg *Config) {
@@ -150,7 +150,7 @@ func doConfigNamespace(ctx context.Context) doConfigFunc {
 }
 
 func doConfigInit(t *testing.T, cfg *Config, next func()) {
-	if !cfg.withTenantReconciler && !cfg.withWebhookTriggerReconciler && !cfg.withWorkflowRunReconciler {
+	if !cfg.withTenantReconciler && !cfg.withWebhookTriggerReconciler && !cfg.withRunReconciler {
 		next()
 		return
 	}
@@ -167,7 +167,8 @@ func doConfigInit(t *testing.T, cfg *Config, next func()) {
 }
 
 func doConfigVault(t *testing.T, cfg *Config, next func()) {
-	if !cfg.withVault && !cfg.withTenantReconciler && !cfg.withWebhookTriggerReconciler && !cfg.withWorkflowRunReconciler {
+	if !cfg.withVault &&
+		!cfg.withTenantReconciler && !cfg.withWebhookTriggerReconciler && !cfg.withRunReconciler {
 		next()
 		return
 	}
@@ -231,7 +232,7 @@ func doConfigMetadataAPI(ctx context.Context) doConfigFunc {
 
 func doConfigDependencyManager(ctx context.Context) doConfigFunc {
 	return func(t *testing.T, cfg *Config, next func()) {
-		if !cfg.withTenantReconciler && !cfg.withWebhookTriggerReconciler && !cfg.withWorkflowRunReconciler {
+		if !cfg.withTenantReconciler && !cfg.withWebhookTriggerReconciler && !cfg.withRunReconciler {
 			next()
 			return
 		}
@@ -353,8 +354,8 @@ func doConfigReconcilers(t *testing.T, cfg *Config, next func()) {
 		require.NoError(t, trigger.Add(cfg.dependencyManager))
 	}
 
-	if cfg.withWorkflowRunReconciler {
-		log.Println("using workflow run reconciler")
+	if cfg.withRunReconciler {
+		log.Println("using run reconciler")
 
 		require.NotNil(t, cfg.dependencyManager)
 
@@ -440,21 +441,21 @@ func doConfigCleanup(t *testing.T, cfg *Config, next func()) {
 		}
 	}
 
-	wrl := &relayv1beta1.RunList{}
-	require.NoError(t, cfg.Environment.ControllerClient.List(ctx, wrl, client.InNamespace(cfg.Namespace.GetName())))
-	if len(wrl.Items) > 0 {
-		log.Printf("removing %d stale workflow run(s)", len(wrl.Items))
-		for _, wr := range wrl.Items {
-			func(wr relayv1beta1.Run) {
-				del = append(del, &wr)
-			}(wr)
+	rl := &relayv1beta1.RunList{}
+	require.NoError(t, cfg.Environment.ControllerClient.List(ctx, rl, client.InNamespace(cfg.Namespace.GetName())))
+	if len(rl.Items) > 0 {
+		log.Printf("removing %d stale run(s)", len(rl.Items))
+		for _, r := range rl.Items {
+			func(r relayv1beta1.Run) {
+				del = append(del, &r)
+			}(r)
 		}
 	}
 
 	wl := &relayv1beta1.WorkflowList{}
-	require.NoError(t, cfg.Environment.ControllerClient.List(ctx, wrl, client.InNamespace(cfg.Namespace.GetName())))
-	if len(wrl.Items) > 0 {
-		log.Printf("removing %d stale workflow(s)", len(wrl.Items))
+	require.NoError(t, cfg.Environment.ControllerClient.List(ctx, wl, client.InNamespace(cfg.Namespace.GetName())))
+	if len(wl.Items) > 0 {
+		log.Printf("removing %d stale workflow(s)", len(wl.Items))
 		for _, w := range wl.Items {
 			func(w relayv1beta1.Workflow) {
 				del = append(del, &w)
@@ -490,7 +491,7 @@ func WithConfig(t *testing.T, ctx context.Context, opts []ConfigOption, fn func(
 	}
 
 	var installers []testutil.EndToEndEnvironmentInstaller
-	if cfg.withWorkflowRunReconciler {
+	if cfg.withRunReconciler {
 		installers = append(installers, testutil.EndToEndEnvironmentWithTekton)
 	}
 	if cfg.withWebhookTriggerReconciler {
@@ -532,16 +533,16 @@ func WithConfig(t *testing.T, ctx context.Context, opts []ConfigOption, fn func(
 
 			// Execute chain.
 			i := -1
-			var run func()
-			run = func() {
+			var execute func()
+			execute = func() {
 				i++
 				if i < len(chain) {
-					chain[i](t, cfg, run)
+					chain[i](t, cfg, execute)
 				}
 			}
-			run()
+			execute()
 
-			require.Equal(t, len(chain), i, "config chain did not run to completion")
+			require.Equal(t, len(chain), i, "config chain did not execute to completion")
 		},
 	)
 }
