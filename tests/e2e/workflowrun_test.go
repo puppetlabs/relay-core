@@ -26,20 +26,20 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func stepTaskLabelValue(wr *relayv1beta1.Run, stepName string) string {
-	return app.ModelStepObjectKey(client.ObjectKeyFromObject(wr), &model.Step{Run: model.Run{ID: wr.GetName()}, Name: stepName}).Name
+func stepTaskLabelValue(r *relayv1beta1.Run, stepName string) string {
+	return app.ModelStepObjectKey(client.ObjectKeyFromObject(r), &model.Step{Run: model.Run{ID: r.GetName()}, Name: stepName}).Name
 }
 
-func waitForStepToStart(t *testing.T, ctx context.Context, cfg *Config, wr *relayv1beta1.Run, stepName string) {
+func waitForStepToStart(t *testing.T, ctx context.Context, cfg *Config, r *relayv1beta1.Run, stepName string) {
 	require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
 		if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{
-			Namespace: wr.GetNamespace(),
-			Name:      wr.GetName(),
-		}, wr); err != nil {
+			Namespace: r.GetNamespace(),
+			Name:      r.GetName(),
+		}, r); err != nil {
 			return true, err
 		}
 
-		for _, step := range wr.Status.Steps {
+		for _, step := range r.Status.Steps {
 			if step.Name == stepName {
 				for _, cond := range step.Conditions {
 					if cond.Type == relayv1beta1.StepCompleted &&
@@ -54,16 +54,16 @@ func waitForStepToStart(t *testing.T, ctx context.Context, cfg *Config, wr *rela
 	}))
 }
 
-func waitForStepToSucceed(t *testing.T, ctx context.Context, cfg *Config, wr *relayv1beta1.Run, stepName string) {
+func waitForStepToSucceed(t *testing.T, ctx context.Context, cfg *Config, r *relayv1beta1.Run, stepName string) {
 	require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
 		if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{
-			Namespace: wr.GetNamespace(),
-			Name:      wr.GetName(),
-		}, wr); err != nil {
+			Namespace: r.GetNamespace(),
+			Name:      r.GetName(),
+		}, r); err != nil {
 			return true, err
 		}
 
-		for _, step := range wr.Status.Steps {
+		for _, step := range r.Status.Steps {
 			if step.Name == stepName {
 				for _, cond := range step.Conditions {
 					if cond.Type == relayv1beta1.StepSucceeded {
@@ -82,20 +82,20 @@ func waitForStepToSucceed(t *testing.T, ctx context.Context, cfg *Config, wr *re
 	}))
 }
 
-func waitForStepPodToComplete(t *testing.T, ctx context.Context, cfg *Config, wr *relayv1beta1.Run, stepName string) *corev1.Pod {
-	waitForStepToStart(t, ctx, cfg, wr, stepName)
+func waitForStepPodToComplete(t *testing.T, ctx context.Context, cfg *Config, r *relayv1beta1.Run, stepName string) *corev1.Pod {
+	waitForStepToStart(t, ctx, cfg, r, stepName)
 
 	pod := &corev1.Pod{}
 	require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
 		pods := &corev1.PodList{}
-		if err := cfg.Environment.ControllerClient.List(ctx, pods, client.InNamespace(wr.GetNamespace()), client.MatchingLabels{
-			"tekton.dev/task": stepTaskLabelValue(wr, stepName),
+		if err := cfg.Environment.ControllerClient.List(ctx, pods, client.InNamespace(r.GetNamespace()), client.MatchingLabels{
+			"tekton.dev/task": stepTaskLabelValue(r, stepName),
 		}); err != nil {
 			return true, err
 		}
 
 		if len(pods.Items) == 0 {
-			return false, fmt.Errorf("waiting for step %q pod with label tekton.dev/task=%s", stepName, stepTaskLabelValue(wr, stepName))
+			return false, fmt.Errorf("waiting for step %q pod with label tekton.dev/task=%s", stepName, stepTaskLabelValue(r, stepName))
 		}
 
 		pod = &pods.Items[0]
@@ -109,14 +109,14 @@ func waitForStepPodToComplete(t *testing.T, ctx context.Context, cfg *Config, wr
 	return pod
 }
 
-func waitForStepPodIP(t *testing.T, ctx context.Context, cfg *Config, wr *relayv1beta1.Run, stepName string) *corev1.Pod {
-	waitForStepToStart(t, ctx, cfg, wr, stepName)
+func waitForStepPodIP(t *testing.T, ctx context.Context, cfg *Config, r *relayv1beta1.Run, stepName string) *corev1.Pod {
+	waitForStepToStart(t, ctx, cfg, r, stepName)
 
 	pod := &corev1.Pod{}
 	require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
 		pods := &corev1.PodList{}
-		if err := cfg.Environment.ControllerClient.List(ctx, pods, client.InNamespace(wr.GetNamespace()), client.MatchingLabels{
-			"tekton.dev/task": stepTaskLabelValue(wr, stepName),
+		if err := cfg.Environment.ControllerClient.List(ctx, pods, client.InNamespace(r.GetNamespace()), client.MatchingLabels{
+			"tekton.dev/task": stepTaskLabelValue(r, stepName),
 		}); err != nil {
 			return true, err
 		}
@@ -138,14 +138,14 @@ func waitForStepPodIP(t *testing.T, ctx context.Context, cfg *Config, wr *relayv
 	return pod
 }
 
-func TestWorkflowRunWithTenantToolInjection(t *testing.T) {
+func TestRunWithTenantToolInjection(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
 	WithConfig(t, ctx, []ConfigOption{
 		ConfigWithMetadataAPI,
 		ConfigWithTenantReconciler,
-		ConfigWithWorkflowRunReconciler,
+		ConfigWithRunReconciler,
 		ConfigWithVolumeClaimAdmission,
 	}, func(cfg *Config) {
 
@@ -226,7 +226,7 @@ func TestWorkflowRunWithTenantToolInjection(t *testing.T) {
 				}
 				require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, w))
 
-				wr := &relayv1beta1.Run{
+				r := &relayv1beta1.Run{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: tenant.Status.Namespace,
 						Name:      uuid.NewString(),
@@ -244,9 +244,9 @@ func TestWorkflowRunWithTenantToolInjection(t *testing.T) {
 						},
 					},
 				}
-				require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, wr))
+				require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, r))
 
-				pod := waitForStepPodToComplete(t, ctx, cfg, wr, "my-test-step")
+				pod := waitForStepPodToComplete(t, ctx, cfg, r, "my-test-step")
 				require.Equal(t, corev1.PodSucceeded, pod.Status.Phase)
 
 				podLogOptions := &corev1.PodLogOptions{
@@ -270,10 +270,10 @@ func TestWorkflowRunWithTenantToolInjection(t *testing.T) {
 	})
 }
 
-// TestWorkflowRun tests that an instance of the controller, when given a run to
+// TestRun tests that an instance of the controller, when given a run to
 // process, correctly sets up a Tekton pipeline and that the resulting pipeline
 // should be able to access a metadata API service.
-func TestWorkflowRun(t *testing.T) {
+func TestRun(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
@@ -302,9 +302,8 @@ func TestWorkflowRun(t *testing.T) {
 	WithConfig(t, ctx, []ConfigOption{
 		ConfigWithMetadataAPI,
 		ConfigWithTenantReconciler,
-		ConfigWithWorkflowRunReconciler,
+		ConfigWithRunReconciler,
 	}, func(cfg *Config) {
-		// Set a secret and connection for this workflow to look up.
 		cfg.Vault.SetSecret(t, "my-tenant-id", "foo", "Hello")
 		cfg.Vault.SetSecret(t, "my-tenant-id", "accessKeyId", data.accessKeyID)
 		cfg.Vault.SetSecret(t, "my-tenant-id", "secretAccessKey", data.secretAccessKey)
@@ -423,7 +422,7 @@ func TestWorkflowRun(t *testing.T) {
 		}
 		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, w))
 
-		wr := &relayv1beta1.Run{
+		r := &relayv1beta1.Run{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      uuid.NewString(),
 				Namespace: cfg.Namespace.GetName(),
@@ -445,9 +444,9 @@ func TestWorkflowRun(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, wr))
+		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, r))
 
-		pod := waitForStepPodIP(t, ctx, cfg, wr, stepName)
+		pod := waitForStepPodIP(t, ctx, cfg, r, stepName)
 
 		var result exprmodel.JSONResultEnvelope
 		evaluateRequest := func(url string) exprmodel.JSONResultEnvelope {
@@ -517,20 +516,20 @@ func TestWorkflowRun(t *testing.T) {
 	})
 }
 
-func TestInvalidWorkflowRuns(t *testing.T) {
+func TestInvalidRuns(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	WithConfig(t, ctx, []ConfigOption{
-		ConfigWithWorkflowRunReconciler,
+		ConfigWithRunReconciler,
 	}, func(cfg *Config) {
 		tests := []struct {
-			Name        string
-			WorkflowRun *relayv1beta1.Run
+			Name string
+			Run  *relayv1beta1.Run
 		}{
 			{
 				Name: "missing-workflow-reference",
-				WorkflowRun: &relayv1beta1.Run{
+				Run: &relayv1beta1.Run{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      uuid.NewString(),
 						Namespace: cfg.Namespace.GetName(),
@@ -547,7 +546,7 @@ func TestInvalidWorkflowRuns(t *testing.T) {
 			},
 			{
 				Name: "invalid-workflow-reference",
-				WorkflowRun: &relayv1beta1.Run{
+				Run: &relayv1beta1.Run{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      uuid.NewString(),
 						Namespace: cfg.Namespace.GetName(),
@@ -569,23 +568,23 @@ func TestInvalidWorkflowRuns(t *testing.T) {
 		}
 		for _, test := range tests {
 			t.Run(test.Name, func(t *testing.T) {
-				wr := test.WorkflowRun
-				require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, wr))
+				r := test.Run
+				require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, r))
 
 				require.Error(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
-					if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: wr.GetName(), Namespace: wr.GetNamespace()}, wr); err != nil {
+					if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: r.GetName(), Namespace: r.GetNamespace()}, r); err != nil {
 						if k8serrors.IsNotFound(err) {
-							return retry.Repeat(fmt.Errorf("waiting for initial workflow run"))
+							return retry.Repeat(fmt.Errorf("waiting for initial run"))
 						}
 
 						return retry.Done(err)
 					}
 
-					if len(wr.Status.Conditions) > 0 {
+					if len(r.Status.Conditions) > 0 {
 						return retry.Done(nil)
 					}
 
-					return retry.Repeat(fmt.Errorf("waiting for workflow run status"))
+					return retry.Repeat(fmt.Errorf("waiting for run status"))
 				}, retry.WithBackoffFactory(
 					backoff.Build(
 						backoff.Linear(100*time.Millisecond),
@@ -597,13 +596,13 @@ func TestInvalidWorkflowRuns(t *testing.T) {
 	})
 }
 
-func TestWorkflowRunWithoutSteps(t *testing.T) {
+func TestRunWithoutSteps(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	WithConfig(t, ctx, []ConfigOption{
 		ConfigWithTenantReconciler,
-		ConfigWithWorkflowRunReconciler,
+		ConfigWithRunReconciler,
 	}, func(cfg *Config) {
 		tenant := &relayv1beta1.Tenant{
 			ObjectMeta: metav1.ObjectMeta{
@@ -631,7 +630,7 @@ func TestWorkflowRunWithoutSteps(t *testing.T) {
 		}
 		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, w))
 
-		wr := &relayv1beta1.Run{
+		r := &relayv1beta1.Run{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      uuid.NewString(),
 				Namespace: cfg.Namespace.GetName(),
@@ -649,18 +648,18 @@ func TestWorkflowRunWithoutSteps(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, wr))
+		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, r))
 
 		require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
-			if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: wr.GetName(), Namespace: wr.GetNamespace()}, wr); err != nil {
+			if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: r.GetName(), Namespace: r.GetNamespace()}, r); err != nil {
 				if k8serrors.IsNotFound(err) {
-					return retry.Repeat(fmt.Errorf("waiting for initial workflow run"))
+					return retry.Repeat(fmt.Errorf("waiting for initial run"))
 				}
 
 				return retry.Done(err)
 			}
 
-			for _, cond := range wr.Status.Conditions {
+			for _, cond := range r.Status.Conditions {
 				if cond.Type == relayv1beta1.RunSucceeded {
 					switch cond.Status {
 					case corev1.ConditionTrue, corev1.ConditionFalse:
@@ -669,30 +668,30 @@ func TestWorkflowRunWithoutSteps(t *testing.T) {
 				}
 			}
 
-			return retry.Repeat(fmt.Errorf("waiting for workflow run status"))
+			return retry.Repeat(fmt.Errorf("waiting for run status"))
 		}))
 
 		status := corev1.ConditionUnknown
-		for _, cond := range wr.Status.Conditions {
+		for _, cond := range r.Status.Conditions {
 			if cond.Type == relayv1beta1.RunSucceeded {
 				status = cond.Status
 			}
 		}
 
 		require.Equal(t, corev1.ConditionTrue, status)
-		require.NotNil(t, wr.Status.StartTime)
-		require.NotNil(t, wr.Status.CompletionTime)
+		require.NotNil(t, r.Status.StartTime)
+		require.NotNil(t, r.Status.CompletionTime)
 	})
 }
 
-func TestWorkflowRunStepInitTime(t *testing.T) {
+func TestRunStepInitTime(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
 	WithConfig(t, ctx, []ConfigOption{
 		ConfigWithMetadataAPIBoundInCluster,
 		ConfigWithTenantReconciler,
-		ConfigWithWorkflowRunReconciler,
+		ConfigWithRunReconciler,
 	}, func(cfg *Config) {
 		tenant := &relayv1beta1.Tenant{
 			ObjectMeta: metav1.ObjectMeta{
@@ -734,7 +733,7 @@ func TestWorkflowRunStepInitTime(t *testing.T) {
 		}
 		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, w))
 
-		wr := &relayv1beta1.Run{
+		r := &relayv1beta1.Run{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: cfg.Namespace.GetName(),
 				Name:      uuid.NewString(),
@@ -752,11 +751,11 @@ func TestWorkflowRunStepInitTime(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, wr))
+		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, r))
 
-		waitForStepToSucceed(t, ctx, cfg, wr, stepName)
+		waitForStepToSucceed(t, ctx, cfg, r, stepName)
 
-		for _, step := range wr.Status.Steps {
+		for _, step := range r.Status.Steps {
 			if step.Name == stepName {
 				require.NotEmpty(t, step.InitializationTime)
 			}
@@ -764,14 +763,14 @@ func TestWorkflowRunStepInitTime(t *testing.T) {
 	})
 }
 
-func TestWorkflowRunInGVisor(t *testing.T) {
+func TestRunInGVisor(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 6*time.Minute)
 	defer cancel()
 
 	WithConfig(t, ctx, []ConfigOption{
 		ConfigWithMetadataAPIBoundInCluster,
 		ConfigWithTenantReconciler,
-		ConfigWithWorkflowRunReconciler,
+		ConfigWithRunReconciler,
 		ConfigWithPodEnforcementAdmission,
 	}, func(cfg *Config) {
 		if cfg.Environment.GVisorRuntimeClassName == "" {
@@ -855,7 +854,7 @@ func TestWorkflowRunInGVisor(t *testing.T) {
 				}
 				require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, w))
 
-				wr := &relayv1beta1.Run{
+				r := &relayv1beta1.Run{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: cfg.Namespace.GetName(),
 						Name:      fmt.Sprintf("my-test-run-%s", test.Name),
@@ -866,16 +865,15 @@ func TestWorkflowRunInGVisor(t *testing.T) {
 						},
 					},
 				}
-				require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, wr))
+				require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, r))
 
-				waitForStepToSucceed(t, ctx, cfg, wr, "my-test-step")
+				waitForStepToSucceed(t, ctx, cfg, r, "my-test-step")
 
-				// Get the logs from the pod.
 				pod := &corev1.Pod{}
 				require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
 					pods := &corev1.PodList{}
-					if err := cfg.Environment.ControllerClient.List(ctx, pods, client.InNamespace(wr.GetNamespace()), client.MatchingLabels{
-						"tekton.dev/task": stepTaskLabelValue(wr, "my-test-step"),
+					if err := cfg.Environment.ControllerClient.List(ctx, pods, client.InNamespace(r.GetNamespace()), client.MatchingLabels{
+						"tekton.dev/task": stepTaskLabelValue(r, "my-test-step"),
 					}); err != nil {
 						return true, err
 					}
