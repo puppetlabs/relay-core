@@ -33,7 +33,7 @@ type RunDepsLoadResult struct {
 
 // RunDeps represents the dependencies of a Run.
 type RunDeps struct {
-	WorkflowRun  *obj.WorkflowRun
+	Run          *obj.Run
 	Workflow     *obj.Workflow
 	WorkflowDeps *WorkflowDeps
 
@@ -73,7 +73,7 @@ func (rd *RunDeps) Delete(ctx context.Context, cl client.Client, opts ...lifecyc
 	if ok, err := DependencyManager.IsDependencyOf(
 		rd.OwnerConfigMap.Object,
 		lifecycle.TypedObject{
-			Object: rd.WorkflowRun.Object,
+			Object: rd.Run.Object,
 			GVK:    relayv1beta1.RunKind,
 		}); err != nil {
 		return false, err
@@ -101,7 +101,7 @@ func (rd *RunDeps) Load(ctx context.Context, cl client.Client) (*RunDepsLoadResu
 
 	key := client.ObjectKey{
 		Namespace: rd.WorkflowDeps.TenantDeps.Namespace.Name,
-		Name:      rd.WorkflowRun.Key.Name,
+		Name:      rd.Run.Key.Name,
 	}
 
 	rd.OwnerConfigMap = corev1obj.NewConfigMap(SuffixObjectKey(key, "owner"))
@@ -216,14 +216,14 @@ func (rd *RunDeps) AnnotateStepToken(ctx context.Context, target *metav1.ObjectM
 		return nil
 	}
 
-	ms := ModelStep(rd.WorkflowRun, ws)
+	ms := ModelStep(rd.Run, ws)
 	now := time.Now()
 
 	// FIXME Temporarily avoid unknown transient issue
 	if rd.MetadataAPIServiceAccountTokenSecrets == nil ||
 		rd.MetadataAPIServiceAccountTokenSecrets.DefaultTokenSecret == nil ||
 		rd.MetadataAPIServiceAccountTokenSecrets.DefaultTokenSecret.Object == nil {
-		return errors.New("no default token secret for workflow run")
+		return errors.New("no default token secret set for run")
 	}
 
 	sat, err := rd.MetadataAPIServiceAccountTokenSecrets.DefaultTokenSecret.Token()
@@ -231,7 +231,7 @@ func (rd *RunDeps) AnnotateStepToken(ctx context.Context, target *metav1.ObjectM
 		return errmark.MarkTransientIf(err, errmark.RuleIs(corev1obj.ErrServiceAccountTokenMissingData))
 	}
 
-	annotations := rd.WorkflowRun.Object.GetAnnotations()
+	annotations := rd.Run.Object.GetAnnotations()
 
 	claims := &authenticate.Claims{
 		Claims: &jwt.Claims{
@@ -295,12 +295,12 @@ func RunDepsWithToolInjectionPool(pr pvpoolv1alpha1.PoolReference) RunDepsOption
 	}
 }
 
-func NewRunDeps(wr *obj.WorkflowRun, issuer authenticate.Issuer, metadataAPIURL *url.URL, opts ...RunDepsOption) *RunDeps {
+func NewRunDeps(r *obj.Run, issuer authenticate.Issuer, metadataAPIURL *url.URL, opts ...RunDepsOption) *RunDeps {
 	rd := &RunDeps{
-		WorkflowRun: wr,
+		Run: r,
 		Workflow: obj.NewWorkflow(client.ObjectKey{
-			Namespace: wr.Key.Namespace,
-			Name:      wr.Object.Spec.WorkflowRef.Name,
+			Namespace: r.Key.Namespace,
+			Name:      r.Object.Spec.WorkflowRef.Name,
 		}),
 
 		Issuer: issuer,
@@ -319,7 +319,7 @@ func ConfigureRunDeps(ctx context.Context, rd *RunDeps) error {
 	if err := DependencyManager.SetDependencyOf(
 		rd.OwnerConfigMap.Object,
 		lifecycle.TypedObject{
-			Object: rd.WorkflowRun.Object,
+			Object: rd.Run.Object,
 			GVK:    relayv1beta1.RunKind,
 		}); err != nil {
 		return err
@@ -335,22 +335,22 @@ func ConfigureRunDeps(ctx context.Context, rd *RunDeps) error {
 		rd.UntrustedServiceAccount,
 	}
 	for _, laf := range lafs {
-		laf.LabelAnnotateFrom(ctx, rd.WorkflowRun.Object)
-		lifecycle.Label(ctx, laf, model.RelayControllerWorkflowRunIDLabel, rd.WorkflowRun.Key.Name)
+		laf.LabelAnnotateFrom(ctx, rd.Run.Object)
+		lifecycle.Label(ctx, laf, model.RelayControllerWorkflowRunIDLabel, rd.Run.Key.Name)
 	}
 
 	if rd.Standalone {
 		rd.NetworkPolicy.AllowAll()
 	} else {
-		ConfigureNetworkPolicyForWorkflowRun(rd.NetworkPolicy, rd.WorkflowRun)
+		ConfigureNetworkPolicyForRun(rd.NetworkPolicy, rd.Run)
 	}
 
 	ConfigureToolInjectionCheckout(rd.ToolInjectionCheckout, rd.WorkflowDeps.TenantDeps.Tenant, rd.ToolInjectionPoolRef)
 
-	if err := ConfigureImmutableConfigMapForWorkflowRun(ctx, rd.ImmutableConfigMap, rd); err != nil {
+	if err := ConfigureImmutableConfigMapForRun(ctx, rd.ImmutableConfigMap, rd); err != nil {
 		return err
 	}
-	if err := ConfigureMutableConfigMapForWorkflowRun(ctx, rd.MutableConfigMap, rd.WorkflowRun); err != nil {
+	if err := ConfigureMutableConfigMapForRun(ctx, rd.MutableConfigMap, rd.Run); err != nil {
 		return err
 	}
 
@@ -363,8 +363,8 @@ func ConfigureRunDeps(ctx context.Context, rd *RunDeps) error {
 	return nil
 }
 
-func ApplyRunDeps(ctx context.Context, cl client.Client, wr *obj.WorkflowRun, issuer authenticate.Issuer, metadataAPIURL *url.URL, opts ...RunDepsOption) (*RunDeps, error) {
-	rd := NewRunDeps(wr, issuer, metadataAPIURL, opts...)
+func ApplyRunDeps(ctx context.Context, cl client.Client, r *obj.Run, issuer authenticate.Issuer, metadataAPIURL *url.URL, opts ...RunDepsOption) (*RunDeps, error) {
+	rd := NewRunDeps(r, issuer, metadataAPIURL, opts...)
 
 	if lr, err := rd.Load(ctx, cl); err != nil {
 		return nil, err

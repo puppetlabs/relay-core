@@ -15,18 +15,18 @@ import (
 	"knative.dev/pkg/apis"
 )
 
-func ConfigureWorkflowRun(ctx context.Context, rd *RunDeps, pr *obj.PipelineRun) {
-	ConfigureWorkflowRunStatus(rd.WorkflowRun, pr)
-	ConfigureWorkflowRunStepStatus(ctx, rd, pr)
+func ConfigureRun(ctx context.Context, rd *RunDeps, pr *obj.PipelineRun) {
+	ConfigureRunStatus(rd.Run, pr)
+	ConfigureRunStepStatus(ctx, rd, pr)
 }
 
-func ConfigureWorkflowRunStatus(wr *obj.WorkflowRun, pr *obj.PipelineRun) {
+func ConfigureRunStatus(r *obj.Run, pr *obj.PipelineRun) {
 	if then := pr.Object.Status.StartTime; then != nil {
-		wr.Object.Status.StartTime = then
+		r.Object.Status.StartTime = then
 	}
 
 	if then := pr.Object.Status.CompletionTime; then != nil {
-		wr.Object.Status.CompletionTime = then
+		r.Object.Status.CompletionTime = then
 	}
 
 	conds := map[relayv1beta1.RunConditionType]*relayv1beta1.Condition{
@@ -36,7 +36,7 @@ func ConfigureWorkflowRunStatus(wr *obj.WorkflowRun, pr *obj.PipelineRun) {
 		relayv1beta1.RunTimedOut:  {},
 	}
 
-	for _, cond := range wr.Object.Status.Conditions {
+	for _, cond := range r.Object.Status.Conditions {
 		if target, ok := conds[cond.Type]; ok {
 			*target = cond.Condition
 		}
@@ -45,7 +45,7 @@ func ConfigureWorkflowRunStatus(wr *obj.WorkflowRun, pr *obj.PipelineRun) {
 	cs := pr.Object.Status.Status.GetCondition(apis.ConditionSucceeded)
 
 	UpdateStatusConditionIfTransitioned(conds[relayv1beta1.RunCancelled], func() relayv1beta1.Condition {
-		if wr.IsCancelled() {
+		if r.IsCancelled() {
 			return relayv1beta1.Condition{
 				Status: corev1.ConditionTrue,
 			}
@@ -107,8 +107,8 @@ func ConfigureWorkflowRunStatus(wr *obj.WorkflowRun, pr *obj.PipelineRun) {
 		}
 	})
 
-	wr.Object.Status.ObservedGeneration = wr.Object.GetGeneration()
-	wr.Object.Status.Conditions = []relayv1beta1.RunCondition{
+	r.Object.Status.ObservedGeneration = r.Object.GetGeneration()
+	r.Object.Status.Conditions = []relayv1beta1.RunCondition{
 		{
 			Condition: *conds[relayv1beta1.RunCancelled],
 			Type:      relayv1beta1.RunCancelled,
@@ -128,8 +128,8 @@ func ConfigureWorkflowRunStatus(wr *obj.WorkflowRun, pr *obj.PipelineRun) {
 	}
 }
 
-func ConfigureWorkflowRunStepStatus(ctx context.Context, rd *RunDeps, pr *obj.PipelineRun) {
-	wr := rd.WorkflowRun
+func ConfigureRunStepStatus(ctx context.Context, rd *RunDeps, pr *obj.PipelineRun) {
+	wr := rd.Run
 	wf := rd.Workflow
 
 	configMap := configmap.NewLocalConfigMap(rd.MutableConfigMap.Object)
@@ -193,7 +193,7 @@ func ConfigureWorkflowRunStepStatus(ctx context.Context, rd *RunDeps, pr *obj.Pi
 
 		cs := status.Status.GetCondition(apis.ConditionSucceeded)
 
-		step.Conditions = ConfigureWorkflowRunStepStatusConditions(ctx, cs, cc)
+		step.Conditions = ConfigureRunStepStatusConditions(ctx, cs, cc)
 
 		if timer, err := configmap.NewTimerManager(action, configMap).Get(ctx, model.TimerStepInit); err == nil {
 			step.InitializationTime = &metav1.Time{Time: timer.Time}
@@ -227,7 +227,7 @@ func ConfigureWorkflowRunStepStatus(ctx context.Context, rd *RunDeps, pr *obj.Pi
 	wr.Object.Status.Steps = steps
 }
 
-func ConfigureWorkflowRunStepStatusConditions(ctx context.Context, condition *apis.Condition, currentConditions []relayv1beta1.StepCondition) []relayv1beta1.StepCondition {
+func ConfigureRunStepStatusConditions(ctx context.Context, condition *apis.Condition, currentConditions []relayv1beta1.StepCondition) []relayv1beta1.StepCondition {
 	conds := map[relayv1beta1.StepConditionType]*relayv1beta1.Condition{
 		relayv1beta1.StepCompleted: {},
 		relayv1beta1.StepSkipped:   {},
@@ -309,13 +309,13 @@ func ConfigureWorkflowRunStepStatusConditions(ctx context.Context, condition *ap
 	return stepConditions
 }
 
-func ConfigureWorkflowRunWithSpecificStatus(wr *obj.WorkflowRun, rc relayv1beta1.RunConditionType, status corev1.ConditionStatus) {
-	if wr.Object.Status.StartTime == nil {
-		wr.Object.Status.StartTime = &metav1.Time{Time: time.Now()}
+func ConfigureRunWithSpecificStatus(r *obj.Run, rc relayv1beta1.RunConditionType, status corev1.ConditionStatus) {
+	if r.Object.Status.StartTime == nil {
+		r.Object.Status.StartTime = &metav1.Time{Time: time.Now()}
 	}
 
-	if wr.Object.Status.CompletionTime == nil {
-		wr.Object.Status.CompletionTime = &metav1.Time{Time: time.Now()}
+	if r.Object.Status.CompletionTime == nil {
+		r.Object.Status.CompletionTime = &metav1.Time{Time: time.Now()}
 	}
 
 	conds := map[relayv1beta1.RunConditionType]*relayv1beta1.Condition{
@@ -325,7 +325,7 @@ func ConfigureWorkflowRunWithSpecificStatus(wr *obj.WorkflowRun, rc relayv1beta1
 		relayv1beta1.RunTimedOut:  {},
 	}
 
-	for _, cond := range wr.Object.Status.Conditions {
+	for _, cond := range r.Object.Status.Conditions {
 		if target, ok := conds[cond.Type]; ok {
 			*target = cond.Condition
 		}
@@ -337,8 +337,8 @@ func ConfigureWorkflowRunWithSpecificStatus(wr *obj.WorkflowRun, rc relayv1beta1
 		}
 	})
 
-	wr.Object.Status.ObservedGeneration = wr.Object.GetGeneration()
-	wr.Object.Status.Conditions = []relayv1beta1.RunCondition{
+	r.Object.Status.ObservedGeneration = r.Object.GetGeneration()
+	r.Object.Status.Conditions = []relayv1beta1.RunCondition{
 		{
 			Condition: *conds[rc],
 			Type:      rc,

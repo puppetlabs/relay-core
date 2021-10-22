@@ -68,7 +68,7 @@ func TestRunDepsConfigureAnnotate(t *testing.T) {
 				},
 			}))
 
-			run := obj.NewWorkflowRun(client.ObjectKey{
+			run := obj.NewRun(client.ObjectKey{
 				Namespace: namespace.Name,
 				Name:      "my-test-run",
 			})
@@ -189,7 +189,7 @@ func TestRunDepsConfigureWorkflowExecutionSink(t *testing.T) {
 				},
 			}))
 
-			run := obj.NewWorkflowRun(client.ObjectKey{
+			run := obj.NewRun(client.ObjectKey{
 				Namespace: namespace.Name,
 				Name:      "my-test-run",
 			})

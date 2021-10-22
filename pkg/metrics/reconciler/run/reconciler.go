@@ -17,14 +17,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-type WorkflowRunReconciler struct {
+type RunReconciler struct {
 	client client.Client
 	meter  *metric.Meter
 }
 
-var _ reconcile.Reconciler = &WorkflowRunReconciler{}
+var _ reconcile.Reconciler = &RunReconciler{}
 
-func (r *WorkflowRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *RunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	wr := &relayv1beta1.Run{}
 
 	if err := r.client.Get(ctx, req.NamespacedName, wr); errors.IsNotFound(err) {
@@ -105,7 +105,7 @@ func Add(mgr manager.Manager, meter *metric.Meter) error {
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: 16,
 		}).
-		Complete(&WorkflowRunReconciler{
+		Complete(&RunReconciler{
 			client: mgr.GetClient(),
 			meter:  meter,
 		})

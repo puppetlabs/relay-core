@@ -49,7 +49,7 @@ func ConfigureImmutableConfigMapForWebhookTrigger(ctx context.Context, cm *corev
 	return nil
 }
 
-func ConfigureImmutableConfigMapForWorkflowRun(ctx context.Context, cm *corev1obj.ConfigMap, rd *RunDeps) error {
+func ConfigureImmutableConfigMapForRun(ctx context.Context, cm *corev1obj.ConfigMap, rd *RunDeps) error {
 	// This implementation manages the underlying object, so no need to retrieve
 	// it later.
 	lcm := configmap.NewLocalConfigMap(cm.Object)
@@ -66,7 +66,7 @@ func ConfigureImmutableConfigMapForWorkflowRun(ctx context.Context, cm *corev1ob
 		}
 	}
 
-	wrp := rd.WorkflowRun.Object.Spec.Parameters
+	wrp := rd.Run.Object.Spec.Parameters
 	for name, value := range wrp {
 		params[name] = value.DeepCopy()
 	}
@@ -80,7 +80,7 @@ func ConfigureImmutableConfigMapForWorkflowRun(ctx context.Context, cm *corev1ob
 	configMapData := make(map[string]string)
 
 	for _, step := range rd.Workflow.Object.Spec.Steps {
-		sm := ModelStep(rd.WorkflowRun, step)
+		sm := ModelStep(rd.Run, step)
 
 		if len(step.Spec) > 0 {
 			if _, err := configmap.NewSpecManager(sm, lcm).Set(ctx, step.Spec.Value()); err != nil {
@@ -127,11 +127,11 @@ func ConfigureImmutableConfigMapForWorkflowRun(ctx context.Context, cm *corev1ob
 	return nil
 }
 
-func ConfigureMutableConfigMapForWorkflowRun(ctx context.Context, cm *corev1obj.ConfigMap, wr *obj.WorkflowRun) error {
+func ConfigureMutableConfigMapForRun(ctx context.Context, cm *corev1obj.ConfigMap, r *obj.Run) error {
 	lcm := configmap.NewLocalConfigMap(cm.Object)
 
-	for stepName, state := range wr.Object.Spec.State.Steps {
-		sm := configmap.NewStateManager(ModelStepFromName(wr, stepName), lcm)
+	for stepName, state := range r.Object.Spec.State.Steps {
+		sm := configmap.NewStateManager(ModelStepFromName(r, stepName), lcm)
 
 		for name, value := range state {
 			if _, err := sm.Set(ctx, name, value.Value()); err != nil {
