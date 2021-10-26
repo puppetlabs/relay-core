@@ -55,8 +55,8 @@ func (w *WorkflowRunManager) Run(ctx context.Context, name string, parameters ma
 	}
 
 	return &model.WorkflowRun{
-		Name:   name,
-		RunNum: ent.Run.RunNumber,
+		Name:      name,
+		RunNumber: ent.Run.RunNumber,
 	}, nil
 }
 
