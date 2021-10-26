@@ -67,5 +67,5 @@ func TestWorkflowRunManager(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, workflowName, wr.Name)
-	require.Equal(t, int32(2), wr.RunNum)
+	require.Equal(t, int32(2), wr.RunNumber)
 }
