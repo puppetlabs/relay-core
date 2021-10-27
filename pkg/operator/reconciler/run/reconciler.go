@@ -103,7 +103,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		// An exception is made of we get out of sync somehow such that the
 		// PipelineRun can't load (e.g. someone deletes it from under us).
 		switch {
-		case IsCondition(run, relayv1beta1.RunCompleted, corev1.ConditionFalse) && !run.IsCancelled():
+		case run.IsRunning() && !run.IsCancelled():
 			pr = obj.NewPipelineRun(
 				client.ObjectKey{
 					Namespace: rd.WorkflowDeps.TenantDeps.Namespace.Name,
@@ -266,15 +266,4 @@ func (r *Reconciler) uploadLog(ctx context.Context, namespace, podName, containe
 	}
 
 	return key, nil
-}
-
-// TODO: Where does this method really belong?
-func IsCondition(r *obj.Run, rc relayv1beta1.RunConditionType, status corev1.ConditionStatus) bool {
-	for _, c := range r.Object.Status.Conditions {
-		if c.Type == rc && c.Status == status {
-			return true
-		}
-	}
-
-	return false
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/model"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -58,6 +59,20 @@ func (r *Run) IsCancelled() bool {
 	}
 
 	return state.Value() == true
+}
+
+func (r *Run) IsRunning() bool {
+	return r.IsCondition(relayv1beta1.RunCompleted, corev1.ConditionFalse)
+}
+
+func (r *Run) IsCondition(rct relayv1beta1.RunConditionType, status corev1.ConditionStatus) bool {
+	for _, cond := range r.Object.Status.Conditions {
+		if cond.Type == rct && cond.Status == status {
+			return true
+		}
+	}
+
+	return false
 }
 
 func NewRun(key client.ObjectKey) *Run {
