@@ -1,6 +1,6 @@
 module github.com/puppetlabs/relay-core
 
-go 1.13
+go 1.16
 
 require (
 	github.com/PaesslerAG/gval v1.1.1-0.20210429131240-4f5f9c091d78
@@ -31,7 +31,6 @@ require (
 	github.com/puppetlabs/leg/datastructure v0.1.0
 	github.com/puppetlabs/leg/encoding v0.1.0
 	github.com/puppetlabs/leg/errmap v0.1.0
-	github.com/puppetlabs/leg/graph v0.1.1
 	github.com/puppetlabs/leg/gvalutil v0.2.0
 	github.com/puppetlabs/leg/hashutil v0.1.0
 	github.com/puppetlabs/leg/httputil v0.1.4
