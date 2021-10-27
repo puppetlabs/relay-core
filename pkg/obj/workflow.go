@@ -16,12 +16,19 @@ type Workflow struct {
 
 func makeWorkflow(key client.ObjectKey, obj *relayv1beta1.Workflow) *Workflow {
 	w := &Workflow{Key: key, Object: obj}
-	w.NamespaceScopedAPIObject = helper.ForNamespaceScopedAPIObject(&w.Key, lifecycle.TypedObject{GVK: relayv1beta1.WorkflowKind, Object: w.Object})
+	w.NamespaceScopedAPIObject =
+		helper.ForNamespaceScopedAPIObject(
+			&w.Key,
+			lifecycle.TypedObject{
+				GVK:    relayv1beta1.WorkflowKind,
+				Object: w.Object,
+			},
+		)
 	return w
 }
 
-func (wr *Workflow) Copy() *Workflow {
-	return makeWorkflow(wr.Key, wr.Object.DeepCopy())
+func (w *Workflow) Copy() *Workflow {
+	return makeWorkflow(w.Key, w.Object.DeepCopy())
 }
 
 func NewWorkflow(key client.ObjectKey) *Workflow {
