@@ -1687,8 +1687,8 @@ github.com/puppetlabs/leg/workdir v0.1.0 h1:ErFrZiEK7eYufupQ34ytM4AFIVxZryuOktMG
 github.com/puppetlabs/leg/workdir v0.1.0/go.mod h1:wqtQ5F1GvWJ2OH0OaDYkZnF4Iq+yV9uojU6kBub6jcA=
 github.com/puppetlabs/pvpool v0.3.0 h1:skgMzLeiUy4f8LnyBgR+8At7OSWov6QUXQ7VfDR+jZY=
 github.com/puppetlabs/pvpool v0.3.0/go.mod h1:yxvaQJGhcIuzUrpmWnVKG+86JRDK1JR0RepBbImMM+Q=
-github.com/puppetlabs/relay-client-go/client v0.4.2 h1:UIrbN/m/LpYivh0kHbZ/V9efX4S/TW79T43eBRaJpkc=
-github.com/puppetlabs/relay-client-go/client v0.4.2/go.mod h1:96UPPGfyCXTLt6zalSlcWDA+7TPIpi0ClPdlKuhVzRo=
+github.com/puppetlabs/relay-client-go/client v0.4.4 h1:n9EerwXxsnP2w/fiR/y/Z5y/LvKpK77aARIOamUyLVg=
+github.com/puppetlabs/relay-client-go/client v0.4.4/go.mod h1:96UPPGfyCXTLt6zalSlcWDA+7TPIpi0ClPdlKuhVzRo=
 github.com/puppetlabs/relay-pls v0.0.0-20201125074651-13575df50b51 h1:NwccjCOhZOi0l4w68vPJOV99ctreO/YlrY+RNiz7Llc=
 github.com/puppetlabs/relay-pls v0.0.0-20201125074651-13575df50b51/go.mod h1:xtYyc7gvvVZtfAn5kM89ihJj6v5zdBjNjMfp+a6z+8o=
 github.com/qri-io/starlib v0.4.2-0.20200213133954-ff2e8cd5ef8d/go.mod h1:7DPO4domFU579Ga6E61sB9VFNaniPVwJP5C4bBCu3wA=

@@ -13,7 +13,7 @@ type WorkflowRun struct {
 	// RunNumber is the run number for the workflow
 	RunNumber int32 `json:"run_number"`
 	// URL is the server URL the run was requested on
-	URL *url.URL `json:"url"`
+	AppURL *url.URL `json:"app_url"`
 }
 
 type WorkflowRunManager interface {

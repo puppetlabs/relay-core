@@ -72,5 +72,5 @@ func TestWorkflowRunManager(t *testing.T) {
 
 	require.Equal(t, workflowName, wr.Name)
 	require.Equal(t, int32(2), wr.RunNumber)
-	require.Equal(t, fmt.Sprintf("/workflows/%s/runs/2", workflowName), wr.URL.Path)
+	require.Equal(t, fmt.Sprintf("/workflows/%s/runs/2", workflowName), wr.AppURL.Path)
 }
