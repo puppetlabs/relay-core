@@ -12,7 +12,7 @@ help you out!
 
 ### Requirements
 
-* Kubernetes v1.18+
+* Kubernetes v1.19+
 * [Tekton](https://tekton.dev/) (v0.22.0+)
 * [Knative Serving](https://knative.dev/) (v0.21.0+)
 * [Ambassador API Gateway](https://www.getambassador.io/docs/latest/topics/install/install-ambassador-oss/) (v1.8.0+)
