@@ -54,9 +54,15 @@ func (w *WorkflowRunManager) Run(ctx context.Context, name string, parameters ma
 		return nil, err
 	}
 
+	u, err := url.Parse(*ent.Run.AppUrl)
+	if err != nil {
+		return nil, err
+	}
+
 	return &model.WorkflowRun{
 		Name:      name,
 		RunNumber: ent.Run.RunNumber,
+		URL:       u,
 	}, nil
 }
 

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	utilapi "github.com/puppetlabs/leg/httputil/api"
@@ -49,9 +50,12 @@ func TestWorkflowRunManager(t *testing.T) {
 			require.Equal(t, v.Value, got.Value)
 		}
 
+		appURL := r.URL.ResolveReference(&url.URL{Path: fmt.Sprintf("/workflows/%s/runs/2", workflowName)}).String()
+
 		resp := openapi.WorkflowRunEntity{
 			Run: &openapi.WorkflowRun{
 				RunNumber: 2,
+				AppUrl:    &appURL,
 			},
 			Access: &openapi.EntityAccess{},
 		}
@@ -68,4 +72,5 @@ func TestWorkflowRunManager(t *testing.T) {
 
 	require.Equal(t, workflowName, wr.Name)
 	require.Equal(t, int32(2), wr.RunNumber)
+	require.Equal(t, fmt.Sprintf("/workflows/%s/runs/2", workflowName), wr.URL.Path)
 }

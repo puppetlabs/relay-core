@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"net/url"
 
 	"github.com/puppetlabs/relay-client-go/client/pkg/client/openapi"
 )
@@ -12,7 +13,7 @@ type WorkflowRun struct {
 	// RunNumber is the run number for the workflow
 	RunNumber int32 `json:"run_number"`
 	// URL is the server URL the run was requested on
-	URL string `json:"url"`
+	URL *url.URL `json:"url"`
 }
 
 type WorkflowRunManager interface {
