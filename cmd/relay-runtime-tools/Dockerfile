@@ -1,4 +1,4 @@
-FROM golang:1.14-alpine AS builder
+FROM golang:1.16-alpine AS builder
 ENV GO111MODULE on
 ENV CGO_ENABLED 0
 WORKDIR /build
@@ -13,4 +13,3 @@ FROM gcr.io/distroless/base:debug-nonroot
 
 COPY --from=builder /relay/runtime/tools/entrypoint /relay/runtime/tools/entrypoint
 COPY --from=source /usr/local/bin/ni /relay/runtime/tools/ni
-

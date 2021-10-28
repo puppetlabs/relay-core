@@ -1,6 +1,6 @@
 module github.com/puppetlabs/relay-core
 
-go 1.13
+go 1.16
 
 require (
 	github.com/PaesslerAG/gval v1.1.1-0.20210429131240-4f5f9c091d78
