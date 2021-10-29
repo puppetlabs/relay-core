@@ -9,11 +9,11 @@ import (
 
 type WorkflowRun struct {
 	// Name is the name of the workflow that ran
-	Name string `json:"name"`
+	Name string
 	// RunNumber is the run number for the workflow
-	RunNumber int32 `json:"run_number"`
-	// URL is the server URL the run was requested on
-	AppURL *url.URL `json:"app_url"`
+	RunNumber int
+	// AppURL is the frontend URL to the run
+	AppURL *url.URL
 }
 
 type WorkflowRunManager interface {
