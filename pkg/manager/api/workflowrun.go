@@ -56,7 +56,7 @@ func (w *WorkflowRunManager) Run(ctx context.Context, name string, parameters ma
 
 	wr := &model.WorkflowRun{
 		Name:      name,
-		RunNumber: ent.Run.RunNumber,
+		RunNumber: int(ent.Run.RunNumber),
 	}
 
 	if ent.Run.AppUrl != nil {
