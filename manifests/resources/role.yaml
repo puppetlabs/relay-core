@@ -75,17 +75,6 @@ rules:
   - patch
   - update
 - apiGroups:
-  - nebula.puppet.com
-  resources:
-  - workflowruns
-  - workflowruns/status
-  verbs:
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
   - networking.k8s.io
   resources:
   - networkpolicies

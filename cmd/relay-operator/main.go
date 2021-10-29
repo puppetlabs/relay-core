@@ -21,9 +21,9 @@ import (
 	_ "github.com/puppetlabs/leg/storage/gcs"
 	"github.com/puppetlabs/relay-core/pkg/operator/admission"
 	"github.com/puppetlabs/relay-core/pkg/operator/config"
+	"github.com/puppetlabs/relay-core/pkg/operator/controller/run"
 	"github.com/puppetlabs/relay-core/pkg/operator/controller/tenant"
 	"github.com/puppetlabs/relay-core/pkg/operator/controller/trigger"
-	"github.com/puppetlabs/relay-core/pkg/operator/controller/workflow"
 	"github.com/puppetlabs/relay-core/pkg/operator/dependency"
 	jose "gopkg.in/square/go-jose.v2"
 	"k8s.io/apimachinery/pkg/types"
@@ -177,7 +177,7 @@ func main() {
 		log.Fatal("Error creating controller dependency builder", err)
 	}
 
-	if err := workflow.Add(dm); err != nil {
+	if err := run.Add(dm); err != nil {
 		log.Fatal("Could not add all controllers to operator manager", err)
 	}
 

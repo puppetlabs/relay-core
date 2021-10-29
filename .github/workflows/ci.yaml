@@ -6,7 +6,7 @@ jobs:
     steps:
     - uses: actions/setup-go@v2
       with:
-        go-version: '1.14'
+        go-version: '1.16'
     - uses: actions/checkout@v2
     - uses: actions/cache@v2
       with:
@@ -29,23 +29,17 @@ jobs:
       matrix:
         include:
         - k3s-image: rancher/k3s:v1.21.4-k3s1
-          k3s-containerd-config-version: v1.19
           gvisor-version: latest
         - k3s-image: rancher/k3s:v1.20.10-k3s1
-          k3s-containerd-config-version: v1.19
           gvisor-version: latest
         - k3s-image: rancher/k3s:v1.19.14-k3s1
-          k3s-containerd-config-version: v1.19
-          gvisor-version: '20210301.0'
-        - k3s-image: rancher/k3s:v1.18.20-k3s1
-          k3s-containerd-config-version: v1.16
           gvisor-version: '20210301.0'
     env:
       KUBECONFIG: /tmp/kubeconfig
     steps:
     - uses: actions/setup-go@v2
       with:
-        go-version: '1.14'
+        go-version: '1.16'
     - uses: actions/checkout@v2
     - uses: actions/cache@v2
       with:
@@ -76,7 +70,7 @@ jobs:
           --volume ${{ runner.temp }}/gvisor/runsc:/sbin/runsc \
           --volume ${{ runner.temp }}/gvisor/containerd-shim-runsc-v1:/sbin/containerd-shim-runsc-v1 \
           --volume ${{ github.workspace }}/hack/k3s/runsc.toml:/etc/containerd/runsc.toml \
-          --volume ${{ github.workspace }}/hack/k3s/config-${{ matrix.k3s-containerd-config-version }}.toml.tmpl:/var/lib/rancher/k3s/agent/etc/containerd/config.toml.tmpl \
+          --volume ${{ github.workspace }}/hack/k3s/config-v1.19.toml.tmpl:/var/lib/rancher/k3s/agent/etc/containerd/config.toml.tmpl \
           --k3s-arg '--flannel-backend=none@server:*' \
           --k3s-arg '--no-deploy=traefik@server:*' \
           --k3s-arg '--disable-network-policy@server:*'

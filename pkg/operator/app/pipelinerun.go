@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
-	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
+	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
@@ -14,8 +14,8 @@ import (
 )
 
 func ConfigurePipelineRun(ctx context.Context, pr *obj.PipelineRun, pp *PipelineParts) error {
-	lifecycle.Label(ctx, pr, model.RelayControllerWorkflowRunIDLabel, pp.Deps.WorkflowRun.Key.Name)
-	pr.LabelAnnotateFrom(ctx, pp.Deps.WorkflowRun.Object)
+	lifecycle.Label(ctx, pr, model.RelayControllerWorkflowRunIDLabel, pp.Deps.Run.Key.Name)
+	pr.LabelAnnotateFrom(ctx, pp.Deps.Run.Object)
 
 	if err := pp.Deps.OwnerConfigMap.Own(ctx, pr); err != nil {
 		return err
@@ -24,8 +24,8 @@ func ConfigurePipelineRun(ctx context.Context, pr *obj.PipelineRun, pp *Pipeline
 	if err := DependencyManager.SetDependencyOf(
 		&pr.Object.ObjectMeta,
 		lifecycle.TypedObject{
-			Object: pp.Deps.WorkflowRun.Object,
-			GVK:    nebulav1.WorkflowRunKind,
+			Object: pp.Deps.Run.Object,
+			GVK:    relayv1beta1.RunKind,
 		}); err != nil {
 		return err
 	}
@@ -59,7 +59,7 @@ func ConfigurePipelineRun(ctx context.Context, pr *obj.PipelineRun, pp *Pipeline
 		}
 	}
 
-	if pp.Deps.WorkflowRun.IsCancelled() {
+	if pp.Deps.Run.IsCancelled() {
 		pr.Object.Spec.Status = tektonv1beta1.PipelineRunSpecStatusCancelled
 	}
 

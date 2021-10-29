@@ -54,10 +54,21 @@ func (w *WorkflowRunManager) Run(ctx context.Context, name string, parameters ma
 		return nil, err
 	}
 
-	return &model.WorkflowRun{
-		Name:   name,
-		RunNum: ent.Run.RunNumber,
-	}, nil
+	wr := &model.WorkflowRun{
+		Name:      name,
+		RunNumber: ent.Run.RunNumber,
+	}
+
+	if ent.Run.AppUrl != nil {
+		u, err := url.Parse(*ent.Run.AppUrl)
+		if err != nil {
+			return nil, err
+		}
+
+		wr.AppURL = u
+	}
+
+	return wr, nil
 }
 
 func NewWorkflowRunManager(us, token string) (*WorkflowRunManager, error) {

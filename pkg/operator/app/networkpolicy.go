@@ -74,8 +74,8 @@ func ConfigureNetworkPolicyForTenant(np *networkingv1obj.NetworkPolicy) {
 	}
 }
 
-func ConfigureNetworkPolicyForWorkflowRun(np *networkingv1obj.NetworkPolicy, wr *obj.WorkflowRun, opts ...NetworkPolicyOption) {
-	np.Object.Spec = baseTenantWorkloadNetworkPolicySpec(wr.PodSelector(), opts)
+func ConfigureNetworkPolicyForRun(np *networkingv1obj.NetworkPolicy, r *obj.Run, opts ...NetworkPolicyOption) {
+	np.Object.Spec = baseTenantWorkloadNetworkPolicySpec(r.PodSelector(), opts)
 }
 
 func ConfigureNetworkPolicyForWebhookTrigger(np *networkingv1obj.NetworkPolicy, wt *obj.WebhookTrigger, opts ...NetworkPolicyOption) {

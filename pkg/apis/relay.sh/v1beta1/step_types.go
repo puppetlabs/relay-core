@@ -65,6 +65,11 @@ type StepStatus struct {
 	// +listMapKey=name
 	Outputs []*StepOutput `json:"outputs,omitempty"`
 
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	Decorators []*Decorator `json:"decorators,omitempty"`
+
 	// StartTime is the time this step began executing.
 	//
 	// +optional

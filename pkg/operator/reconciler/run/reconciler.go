@@ -1,4 +1,4 @@
-package workflow
+package run
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	"github.com/puppetlabs/leg/storage"
 	pvpoolv1alpha1 "github.com/puppetlabs/pvpool/pkg/apis/pvpool.puppet.com/v1alpha1"
+	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	"github.com/puppetlabs/relay-core/pkg/operator/app"
@@ -61,25 +62,25 @@ func NewReconciler(dm *dependency.DependencyManager) *Reconciler {
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, err error) {
-	wr := obj.NewWorkflowRun(req.NamespacedName)
-	if ok, err := wr.Load(ctx, r.Client); err != nil {
+	run := obj.NewRun(req.NamespacedName)
+	if ok, err := run.Load(ctx, r.Client); err != nil {
 		return ctrl.Result{}, errmap.Wrap(err, "failed to load dependencies")
 	} else if !ok {
 		// CRD deleted from under us?
 		return ctrl.Result{}, nil
 	}
 
-	var wrd *app.WorkflowRunDeps
+	var rd *app.RunDeps
 	var pr *obj.PipelineRun
 	err = r.metrics.trackDurationWithOutcome(metricWorkflowRunStartUpDuration, func() error {
-		wrd, err = app.ApplyWorkflowRunDeps(
+		rd, err = app.ApplyRunDeps(
 			ctx,
 			r.Client,
-			wr,
+			run,
 			r.issuer,
 			r.Config.MetadataAPIURL,
-			app.WorkflowRunDepsWithStandaloneMode(r.Config.Standalone),
-			app.WorkflowRunDepsWithToolInjectionPool(pvpoolv1alpha1.PoolReference{
+			app.RunDepsWithStandaloneMode(r.Config.Standalone),
+			app.RunDepsWithToolInjectionPool(pvpoolv1alpha1.PoolReference{
 				Namespace: r.Config.WorkflowToolInjectionPool.Namespace,
 				Name:      r.Config.WorkflowToolInjectionPool.Name,
 			}),
@@ -91,22 +92,22 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			return errmap.Wrap(err, "failed to apply dependencies")
 		}
 
-		if len(wrd.Workflow.Object.Spec.Steps) == 0 {
+		if len(rd.Workflow.Object.Spec.Steps) == 0 {
 			return nil
 		}
 
-		// We only need to build the pipeline when the workflow run is
+		// We only need to build the pipeline when the run is
 		// initializing or finalizing. While it's running, constantly persisting
 		// pipeline objects just puts strain on the Tekton webhook server.
 		//
 		// An exception is made of we get out of sync somehow such that the
 		// PipelineRun can't load (e.g. someone deletes it from under us).
 		switch {
-		case wr.Object.Status.Status == string(obj.WorkflowRunStatusInProgress) && !wr.IsCancelled():
+		case run.IsRunning() && !run.IsCancelled():
 			pr = obj.NewPipelineRun(
 				client.ObjectKey{
-					Namespace: wrd.WorkflowDeps.TenantDeps.Namespace.Name,
-					Name:      wr.Key.Name,
+					Namespace: rd.WorkflowDeps.TenantDeps.Namespace.Name,
+					Name:      run.Key.Name,
 				},
 			)
 			if ok, err := pr.Load(ctx, r.Client); err != nil {
@@ -116,7 +117,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			}
 			fallthrough
 		default:
-			pipeline, err := app.ApplyPipelineParts(ctx, r.Client, wrd)
+			pipeline, err := app.ApplyPipelineParts(ctx, r.Client, rd)
 			if err != nil {
 				return errmap.Wrap(err, "failed to apply Pipeline")
 			}
@@ -133,8 +134,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		klog.Error(err)
 		retryOnError := true
 		errmark.IfMarked(err, errmark.User, func(err error) {
-			ferr := wr.Fail(ctx, r.Client)
-			if ferr != nil {
+			app.ConfigureRunWithSpecificStatus(rd.Run, relayv1beta1.RunSucceeded, corev1.ConditionFalse)
+
+			if ferr := run.PersistStatus(ctx, r.Client); ferr != nil {
 				return
 			}
 
@@ -148,8 +150,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, nil
 	}
 
-	finalized, err := lifecycle.Finalize(ctx, r.Client, FinalizerName, wr, func() error {
-		_, err := wrd.Delete(ctx, r.Client)
+	finalized, err := lifecycle.Finalize(ctx, r.Client, FinalizerName, run, func() error {
+		_, err := rd.Delete(ctx, r.Client)
 		return err
 	})
 	if err != nil || finalized {
@@ -157,34 +159,38 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	}
 
 	if pr == nil {
-		if err := wr.Complete(ctx, r.Client); err != nil {
-			return ctrl.Result{}, err
+		app.ConfigureRunWithSpecificStatus(rd.Run, relayv1beta1.RunSucceeded, corev1.ConditionTrue)
+
+		if err := run.PersistStatus(ctx, r.Client); err != nil {
+			return ctrl.Result{}, errmap.Wrap(err, "failed to persist Run")
 		}
 
 		return ctrl.Result{}, nil
 	}
 
+	app.ConfigureRun(ctx, rd, pr)
+
 	err = r.metrics.trackDurationWithOutcome(metricWorkflowRunLogUploadDuration, func() error {
-		r.uploadLogs(ctx, wr, pr)
+		r.uploadLogs(ctx, run, pr)
 		return nil
 	})
 	if err != nil {
 		klog.Warning(err)
 	}
 
-	app.ConfigureWorkflowRun(ctx, wrd, pr)
-
-	if err := wr.PersistStatus(ctx, r.Client); err != nil {
-		return ctrl.Result{}, errmap.Wrap(err, "failed to persist WorkflowRun")
+	if err := run.PersistStatus(ctx, r.Client); err != nil {
+		return ctrl.Result{}, errmap.Wrap(err, "failed to persist Run")
 	}
 
 	return ctrl.Result{}, nil
 }
 
-func (r *Reconciler) uploadLogs(ctx context.Context, wr *obj.WorkflowRun, plr *obj.PipelineRun) {
-	podNames := make(map[string]string)
+// FIXME Temporary handling for legacy logs
+func (r *Reconciler) uploadLogs(ctx context.Context, run *obj.Run, plr *obj.PipelineRun) {
+	completed := make(map[string]bool)
 
-	for name, tr := range plr.Object.Status.TaskRuns {
+	// FIXME Theoretically this can be removed in favor of checking the step status directly
+	for _, tr := range plr.Object.Status.TaskRuns {
 		if tr.Status == nil {
 			continue
 		}
@@ -195,31 +201,41 @@ func (r *Reconciler) uploadLogs(ctx context.Context, wr *obj.WorkflowRun, plr *o
 			continue
 		}
 
-		podNames[name] = tr.Status.PodName
+		completed[tr.Status.PodName] = true
 	}
 
-	for name, step := range wr.Object.Status.Steps {
-		if step.LogKey != "" {
+	for i, step := range run.Object.Status.Steps {
+		if len(step.Logs) == 0 || step.Logs[0] == nil {
+			continue
+		}
+
+		if step.Logs[0].Context != "" {
 			// Already uploaded.
 			continue
 		}
 
-		podName, found := podNames[step.Name]
-		if !found {
+		podName := step.Logs[0].Name
+
+		done, found := completed[podName]
+		if !done || !found {
 			// Not done yet.
-			klog.Infof("WorkflowRun %s step %q is still progressing, waiting to upload logs", wr.Key, name)
+			klog.Infof("Run %s step %q is still progressing, waiting to upload logs", run.Key, step.Name)
 			continue
 		}
 
-		klog.Infof("WorkflowRun %s step %q is complete, uploading logs for pod %s", wr.Key, name, podName)
+		klog.Infof("Run %s step %q is complete, uploading logs for pod %s", run.Key, step.Name, podName)
 
 		logKey, err := r.uploadLog(ctx, plr.Key.Namespace, podName, "step-step")
 		if err != nil {
-			klog.Warningf("failed to upload log for WorkflowRun %s step %q: %+v", wr.Key, name, err)
+			klog.Warningf("failed to upload log for Run %s step %q: %+v", run.Key, step.Name, err)
 		}
 
-		step.LogKey = logKey
-		wr.Object.Status.Steps[name] = step
+		run.Object.Status.Steps[i].Logs = []*relayv1beta1.Log{
+			{
+				Name:    podName,
+				Context: logKey,
+			},
+		}
 	}
 }
 

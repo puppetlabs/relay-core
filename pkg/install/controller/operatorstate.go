@@ -450,11 +450,6 @@ func (m *operatorStateManager) clusterRole(clusterRole *rbacv1.ClusterRole) {
 			Verbs:     []string{"get", "list", "watch"},
 		},
 		{
-			APIGroups: []string{"nebula.puppet.com"},
-			Resources: []string{"workflowruns", "workflowruns/status"},
-			Verbs:     []string{"get", "list", "watch", "update", "patch"},
-		},
-		{
 			APIGroups: []string{"pvpool.puppet.com"},
 			Resources: []string{"checkouts"},
 			Verbs:     []string{"get", "list", "watch"},

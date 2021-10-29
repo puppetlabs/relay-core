@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
-	nebulav1 "github.com/puppetlabs/relay-core/pkg/apis/nebula.puppet.com/v1"
+	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,7 +14,7 @@ import (
 const ToolsWorkspaceName = "tools"
 
 type PipelineParts struct {
-	Deps *WorkflowRunDeps
+	Deps *RunDeps
 
 	Tasks      *TaskSet
 	Conditions *ConditionSet
@@ -61,7 +61,7 @@ func (pp *PipelineParts) Persist(ctx context.Context, cl client.Client) error {
 	}.Persist(ctx, cl)
 }
 
-func NewPipelineParts(deps *WorkflowRunDeps) *PipelineParts {
+func NewPipelineParts(deps *RunDeps) *PipelineParts {
 	return &PipelineParts{
 		Deps: deps,
 
@@ -70,14 +70,14 @@ func NewPipelineParts(deps *WorkflowRunDeps) *PipelineParts {
 		Pipeline: obj.NewPipeline(
 			client.ObjectKey{
 				Namespace: deps.WorkflowDeps.TenantDeps.Namespace.Name,
-				Name:      deps.WorkflowRun.Key.Name,
+				Name:      deps.Run.Key.Name,
 			},
 		),
 	}
 }
 
 func ConfigurePipelineParts(ctx context.Context, p *PipelineParts) error {
-	p.Pipeline.LabelAnnotateFrom(ctx, p.Deps.WorkflowRun.Object)
+	p.Pipeline.LabelAnnotateFrom(ctx, p.Deps.Run.Object)
 
 	if err := p.Deps.OwnerConfigMap.Own(ctx, p); err != nil {
 		return err
@@ -86,8 +86,8 @@ func ConfigurePipelineParts(ctx context.Context, p *PipelineParts) error {
 	if err := DependencyManager.SetDependencyOf(
 		&p.Pipeline.Object.ObjectMeta,
 		lifecycle.TypedObject{
-			Object: p.Deps.WorkflowRun.Object,
-			GVK:    nebulav1.WorkflowRunKind,
+			Object: p.Deps.Run.Object,
+			GVK:    relayv1beta1.RunKind,
 		}); err != nil {
 		return err
 	}
@@ -110,7 +110,7 @@ func ConfigurePipelineParts(ctx context.Context, p *PipelineParts) error {
 
 	for i, t := range p.Tasks.List {
 		ws := p.Deps.Workflow.Object.Spec.Steps[i]
-		ms := ModelStep(p.Deps.WorkflowRun, ws)
+		ms := ModelStep(p.Deps.Run, ws)
 
 		pt := tektonv1beta1.PipelineTask{
 			Name: ms.Hash().HexEncoding(),
@@ -121,7 +121,7 @@ func ConfigurePipelineParts(ctx context.Context, p *PipelineParts) error {
 		}
 
 		for i, dep := range ws.DependsOn {
-			pt.RunAfter[i] = ModelStepFromName(p.Deps.WorkflowRun, dep).Hash().HexEncoding()
+			pt.RunAfter[i] = ModelStepFromName(p.Deps.Run, dep).Hash().HexEncoding()
 		}
 
 		if cond, ok := p.Conditions.GetByStepName(ws.Name); ok {
@@ -145,14 +145,14 @@ func ConfigurePipelineParts(ctx context.Context, p *PipelineParts) error {
 	return nil
 }
 
-func ApplyPipelineParts(ctx context.Context, cl client.Client, deps *WorkflowRunDeps) (*PipelineParts, error) {
+func ApplyPipelineParts(ctx context.Context, cl client.Client, deps *RunDeps) (*PipelineParts, error) {
 	p := NewPipelineParts(deps)
 
 	if _, err := p.Load(ctx, cl); err != nil {
 		return nil, err
 	}
 
-	p.LabelAnnotateFrom(ctx, deps.WorkflowRun.Object)
+	p.LabelAnnotateFrom(ctx, deps.Run.Object)
 
 	if err := ConfigurePipelineParts(ctx, p); err != nil {
 		return nil, err

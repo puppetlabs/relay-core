@@ -37,6 +37,7 @@ type MetadataManagers interface {
 	State() StateGetterManager
 	Timers() TimerSetterManager
 	ActionMetadata() ActionMetadataManager
+	StepDecorators() StepDecoratorManager
 	StepOutputs() StepOutputManager
 	WorkflowRuns() WorkflowRunManager
 }

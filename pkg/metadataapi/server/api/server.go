@@ -28,6 +28,9 @@ func (s *Server) Route(r *mux.Router) {
 	// Conditions
 	r.HandleFunc("/conditions", s.GetConditions).Methods(http.MethodGet)
 
+	// Decorators
+	r.HandleFunc("/decorators/{name}", s.PostDecorator).Methods(http.MethodPost)
+
 	// Events
 	r.HandleFunc("/events", s.PostEvent).Methods(http.MethodPost)
 

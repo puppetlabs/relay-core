@@ -129,6 +129,8 @@ func NewAuthenticator(sc *opt.SampleConfig, key interface{}) *Authenticator {
 			stepOutputManager := memory.NewStepOutputManager(step, som)
 			timerManager := memory.NewTimerManager()
 
+			stepDecoratorManager := memory.NewStepDecoratorManager(step, memory.NewStepDecoratorMap())
+
 			a.mgrs[step.Hash()] = func(mgrs *builder.MetadataBuilder) {
 				mgrs.SetConditions(conditionManager)
 				mgrs.SetEnvironment(environmentManager)
@@ -137,6 +139,7 @@ func NewAuthenticator(sc *opt.SampleConfig, key interface{}) *Authenticator {
 				mgrs.SetSpec(specManager)
 				mgrs.SetState(stateManager)
 				mgrs.SetActionMetadata(actionMetadataManager)
+				mgrs.SetStepDecorators(stepDecoratorManager)
 				mgrs.SetStepOutputs(stepOutputManager)
 				mgrs.SetTimers(timerManager)
 			}
