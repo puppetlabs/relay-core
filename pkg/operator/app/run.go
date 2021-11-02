@@ -132,8 +132,6 @@ func ConfigureRunStepStatus(ctx context.Context, rd *RunDeps, pr *obj.PipelineRu
 	wr := rd.Run
 	wf := rd.Workflow
 
-	configMap := configmap.NewLocalConfigMap(rd.MutableConfigMap.Object)
-
 	currentStepStatus := make(map[string]*relayv1beta1.StepStatus)
 
 	for _, ss := range wr.Object.Status.Steps {
@@ -153,75 +151,39 @@ func ConfigureRunStepStatus(ctx context.Context, rd *RunDeps, pr *obj.PipelineRu
 		taskName := action.Hash().HexEncoding()
 
 		status, ok := statusByTaskName[taskName]
-		if !ok || status == nil || status.Status == nil {
+		if !ok || status == nil {
 			continue
 		}
 
-		step := relayv1beta1.StepStatus{
-			Name:           step.Name,
-			StartTime:      status.Status.StartTime,
-			CompletionTime: status.Status.CompletionTime,
+		// FIXME This is the only reliable means to determine if this is an approval type or container type
+		// The step "type" is purposefully not available as this will likely be deprecated
+		if step.Container.Image == "" {
+			// NOTE Only one condition is created for approvals
+			// This is a bad assumption to make, but it is the best we can do for now
+			for _, cond := range status.ConditionChecks {
+				if cond.Status == nil {
+					continue
+				}
 
-			// FIXME Temporary handling for legacy logs
-			Logs: []*relayv1beta1.Log{
-				{
-					Name: status.Status.PodName,
-				},
-			},
-		}
+				// FIXME This is to support legacy approval handling
+				// The "step" status needs to be equivalent to the "approval" status for legacy reasons
+				steps = append(steps,
+					configureConditionStatus(ctx, step.Name,
+						cond.Status, currentStepStatus[step.Name]))
 
-		cc := []relayv1beta1.StepCondition{}
-
-		if currentStepStatus != nil && currentStepStatus[step.Name] != nil {
-			// FIXME Temporary handling for legacy logs
-			if len(currentStepStatus[step.Name].Logs) > 0 {
-				step.Logs = currentStepStatus[step.Name].Logs
+				break
 			}
 
-			cc = currentStepStatus[step.Name].Conditions
+			continue
 		}
 
-		// FIXME Temporary handling for legacy logs
-		if len(step.Logs) > 0 {
-			// This should never toggle from a valid name to a blank one, but just in case...
-			if status.Status.PodName != "" {
-				// The log name is always the pod name currently for legacy logs
-				// Always update as the pod name may be blank when first initialized
-				step.Logs[0].Name = status.Status.PodName
-			}
+		if status.Status == nil {
+			continue
 		}
 
-		cs := status.Status.GetCondition(apis.ConditionSucceeded)
-
-		step.Conditions = ConfigureRunStepStatusConditions(ctx, cs, cc)
-
-		if timer, err := configmap.NewTimerManager(action, configMap).Get(ctx, model.TimerStepInit); err == nil {
-			step.InitializationTime = &metav1.Time{Time: timer.Time}
-		}
-
-		step.Outputs = make([]*relayv1beta1.StepOutput, 0)
-		if outputs, err := configmap.NewStepOutputManager(action, configMap).ListSelf(ctx); err == nil {
-			for _, output := range outputs {
-				value := relayv1beta1.AsUnstructured(output.Value)
-				step.Outputs = append(step.Outputs,
-					&relayv1beta1.StepOutput{
-						Name:      output.Name,
-						Value:     &value,
-						Sensitive: false,
-					})
-			}
-		}
-
-		decs := []*relayv1beta1.Decorator{}
-		if sdecs, err := configmap.NewStepDecoratorManager(action, configMap).List(ctx); err == nil {
-			for _, sdec := range sdecs {
-				decs = append(decs, &sdec.Value)
-			}
-		}
-
-		step.Decorators = decs
-
-		steps = append(steps, &step)
+		steps = append(steps,
+			configureStepStatus(ctx, rd, step.Name, action,
+				status.Status, currentStepStatus[step.Name]))
 	}
 
 	wr.Object.Status.Steps = steps
@@ -344,4 +306,98 @@ func ConfigureRunWithSpecificStatus(r *obj.Run, rc relayv1beta1.RunConditionType
 			Type:      rc,
 		},
 	}
+}
+
+func configureStepStatus(ctx context.Context, rd *RunDeps, stepName string, action *model.Step,
+	status *tektonv1beta1.TaskRunStatus, currentStepStatus *relayv1beta1.StepStatus) *relayv1beta1.StepStatus {
+
+	configMap := configmap.NewLocalConfigMap(rd.MutableConfigMap.Object)
+
+	step := &relayv1beta1.StepStatus{
+		Name:           stepName,
+		StartTime:      status.StartTime,
+		CompletionTime: status.CompletionTime,
+
+		// FIXME Temporary handling for legacy logs
+		Logs: []*relayv1beta1.Log{
+			{
+				Name: status.PodName,
+			},
+		},
+	}
+
+	cc := []relayv1beta1.StepCondition{}
+
+	if currentStepStatus != nil {
+		// FIXME Temporary handling for legacy logs
+		if len(currentStepStatus.Logs) > 0 {
+			step.Logs = currentStepStatus.Logs
+		}
+
+		cc = currentStepStatus.Conditions
+	}
+
+	// FIXME Temporary handling for legacy logs
+	if len(step.Logs) > 0 {
+		// This should never toggle from a valid name to a blank one, but just in case...
+		if status.PodName != "" {
+			// The log name is always the pod name currently for legacy logs
+			// Always update as the pod name may be blank when first initialized
+			step.Logs[0].Name = status.PodName
+		}
+	}
+
+	cs := status.Status.GetCondition(apis.ConditionSucceeded)
+
+	step.Conditions = ConfigureRunStepStatusConditions(ctx, cs, cc)
+
+	if timer, err := configmap.NewTimerManager(action, configMap).Get(ctx, model.TimerStepInit); err == nil {
+		step.InitializationTime = &metav1.Time{Time: timer.Time}
+	}
+
+	step.Outputs = make([]*relayv1beta1.StepOutput, 0)
+	if outputs, err := configmap.NewStepOutputManager(action, configMap).ListSelf(ctx); err == nil {
+		for _, output := range outputs {
+			value := relayv1beta1.AsUnstructured(output.Value)
+			step.Outputs = append(step.Outputs,
+				&relayv1beta1.StepOutput{
+					Name:      output.Name,
+					Value:     &value,
+					Sensitive: false,
+				})
+		}
+	}
+
+	decs := []*relayv1beta1.Decorator{}
+	if sdecs, err := configmap.NewStepDecoratorManager(action, configMap).List(ctx); err == nil {
+		for _, sdec := range sdecs {
+			decs = append(decs, &sdec.Value)
+		}
+	}
+
+	step.Decorators = decs
+
+	return step
+}
+
+func configureConditionStatus(ctx context.Context, stepName string,
+	status *tektonv1beta1.ConditionCheckStatus, currentStepStatus *relayv1beta1.StepStatus) *relayv1beta1.StepStatus {
+
+	step := &relayv1beta1.StepStatus{
+		Name:           stepName,
+		StartTime:      status.StartTime,
+		CompletionTime: status.CompletionTime,
+	}
+
+	cc := []relayv1beta1.StepCondition{}
+
+	if currentStepStatus != nil {
+		cc = currentStepStatus.Conditions
+	}
+
+	cs := status.Status.GetCondition(apis.ConditionSucceeded)
+
+	step.Conditions = ConfigureRunStepStatusConditions(ctx, cs, cc)
+
+	return step
 }
