@@ -191,7 +191,7 @@ func (r *Reconciler) uploadLogs(ctx context.Context, run *obj.Run, plr *obj.Pipe
 
 	// FIXME Theoretically this can be removed in favor of checking the step status directly
 	for _, tr := range plr.Object.Status.TaskRuns {
-		if tr.Status == nil {
+		if tr.Status == nil || tr.Status.PodName == "" {
 			continue
 		}
 
@@ -215,6 +215,10 @@ func (r *Reconciler) uploadLogs(ctx context.Context, run *obj.Run, plr *obj.Pipe
 		}
 
 		podName := step.Logs[0].Name
+
+		if podName == "" {
+			continue
+		}
 
 		done, found := completed[podName]
 		if !done || !found {
