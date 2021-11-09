@@ -18,8 +18,15 @@ import (
 
 func ConfigureTask(ctx context.Context, t *obj.Task, rd *RunDeps, ws *relayv1beta1.Step) error {
 	image := ws.Image
+	command := ws.Command
+	args := ws.Args
+
+	// FIXME This should return an error instead, as image is currently required
+	// Legacy approval steps are currently using a fake step which will have no image defined
+	// Uses a default command to avoid errors running the fake step
 	if image == "" {
 		image = model.DefaultImage
+		command = model.DefaultCommand
 	}
 
 	container := corev1.Container{
@@ -55,9 +62,6 @@ func ConfigureTask(ctx context.Context, t *obj.Task, rd *RunDeps, ws *relayv1bet
 			},
 		}
 	}
-
-	command := ws.Command
-	args := ws.Args
 
 	if len(ws.Input) > 0 {
 		sm := ModelStep(rd.Run, ws)

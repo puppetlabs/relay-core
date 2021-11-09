@@ -1,7 +1,8 @@
 package model
 
 const (
-	DefaultImage = "alpine:latest"
+	DefaultImage   = "alpine:latest"
+	DefaultCommand = "echo"
 
 	// TODO All tool injection settings should be fully configurable
 
