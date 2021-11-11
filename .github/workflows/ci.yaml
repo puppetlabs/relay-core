@@ -28,11 +28,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-        - k3s-image: rancher/k3s:v1.21.5-k3s2
+        - k3s-image: rancher/k3s:v1.21.6-k3s1
           gvisor-version: '20211019'
-        - k3s-image: rancher/k3s:v1.20.11-k3s2
+        - k3s-image: rancher/k3s:v1.20.12-k3s1
           gvisor-version: '20211019'
-        - k3s-image: rancher/k3s:v1.19.15-k3s2
+        - k3s-image: rancher/k3s:v1.19.16-k3s1
           gvisor-version: '20211019'
     env:
       KUBECONFIG: /tmp/kubeconfig
@@ -76,7 +76,7 @@ jobs:
           --k3s-arg '--disable-network-policy@server:*'
     - name: Install Calico
       run: |
-        kubectl create -f https://docs.projectcalico.org/manifests/tigera-operator.yaml
+        kubectl create -f https://docs.projectcalico.org/archive/v3.20/manifests/tigera-operator.yaml
         for i in $( seq 10 ); do
           test -n "$( kubectl get crd installations.operator.tigera.io --ignore-not-found -o name )" && break
           sleep 5
