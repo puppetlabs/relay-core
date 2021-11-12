@@ -18,7 +18,6 @@ type CoreDeps struct {
 	Namespace       *corev1.Namespace
 	OperatorDeps    *OperatorDeps
 	MetadataAPIDeps *MetadataAPIDeps
-	VaultAgentDeps  *VaultAgentDeps
 }
 
 func (cd *CoreDeps) Load(ctx context.Context, cl client.Client) (*CoreDepsLoadResult, error) {
@@ -28,16 +27,8 @@ func (cd *CoreDeps) Load(ctx context.Context, cl client.Client) (*CoreDepsLoadRe
 		return &CoreDepsLoadResult{}, nil
 	}
 
-	cd.VaultAgentDeps = NewVaultAgentDeps(cd.Core)
-
-	if ok, err := cd.VaultAgentDeps.Load(ctx, cl); err != nil {
-		return nil, err
-	} else if !ok {
-		return &CoreDepsLoadResult{}, nil
-	}
-
-	cd.OperatorDeps = NewOperatorDeps(cd.Core, cd.VaultAgentDeps)
-	cd.MetadataAPIDeps = NewMetadataAPIDeps(cd.Core, cd.VaultAgentDeps)
+	cd.OperatorDeps = NewOperatorDeps(cd.Core)
+	cd.MetadataAPIDeps = NewMetadataAPIDeps(cd.Core)
 
 	ok, err := lifecycle.Loaders{
 		lifecycle.RequiredLoader{Loader: cd.Namespace},
@@ -78,6 +69,16 @@ func ApplyCoreDeps(ctx context.Context, cl client.Client, c *obj.Core) (*CoreDep
 	cd := NewCoreDeps(c)
 
 	if _, err := cd.Load(ctx, cl); err != nil {
+		return nil, err
+	}
+
+	ConfigureCore(cd)
+
+	if err := ConfigureOperatorDeps(cd.OperatorDeps); err != nil {
+		return nil, err
+	}
+
+	if err := ConfigureMetadataAPIDeps(cd.MetadataAPIDeps); err != nil {
 		return nil, err
 	}
 

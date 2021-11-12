@@ -81,6 +81,7 @@ func (md *MetadataAPIDeps) Persist(ctx context.Context, cl client.Client) error 
 	}
 
 	ps := []lifecycle.Persister{
+		md.VaultAgentDeps,
 		md.Deployment,
 		md.Service,
 		md.ServiceAccount,
@@ -97,14 +98,14 @@ func (md *MetadataAPIDeps) Persist(ctx context.Context, cl client.Client) error 
 	return nil
 }
 
-func NewMetadataAPIDeps(c *obj.Core, vd *VaultAgentDeps) *MetadataAPIDeps {
+func NewMetadataAPIDeps(c *obj.Core) *MetadataAPIDeps {
 	return &MetadataAPIDeps{
 		Core:           c,
-		VaultAgentDeps: vd,
+		VaultAgentDeps: NewVaultAgentDepsForRole(obj.VaultAgentRoleMetadataAPI, c),
 	}
 }
 
-func ConfigureMetadataAPI(ctx context.Context, md *MetadataAPIDeps) error {
+func ConfigureMetadataAPIDeps(md *MetadataAPIDeps) error {
 	if err := DependencyManager.SetDependencyOf(
 		md.OwnerConfigMap.Object,
 		lifecycle.TypedObject{
@@ -114,6 +115,8 @@ func ConfigureMetadataAPI(ctx context.Context, md *MetadataAPIDeps) error {
 
 		return err
 	}
+
+	// ConfigureDeploymentWithVaultAgent(md.VaultAgentDeps, md.Deployment)
 
 	return nil
 }
