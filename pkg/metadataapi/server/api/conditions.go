@@ -13,8 +13,9 @@ import (
 )
 
 type GetConditionsResponseEnvelope struct {
-	Success bool   `json:"success"`
-	Message string `json:"message"`
+	Resolved bool   `json:"resolved"`
+	Success  bool   `json:"success"`
+	Message  string `json:"message"`
 }
 
 func (s *Server) GetConditions(w http.ResponseWriter, r *http.Request) {
@@ -39,7 +40,7 @@ func (s *Server) GetConditions(w http.ResponseWriter, r *http.Request) {
 
 	rv, rerr := model.EvaluateAll(ctx, ev, cond.Tree)
 	if rerr != nil {
-		utilapi.WriteError(ctx, w, errors.NewExpressionEvaluationError(rerr.Error()).Bug())
+		utilapi.WriteError(ctx, w, errors.NewExpressionEvaluationError(rerr.Error()))
 		return
 	}
 
@@ -70,7 +71,9 @@ check:
 		return
 	}
 
-	var resp GetConditionsResponseEnvelope
+	resp := GetConditionsResponseEnvelope{
+		Resolved: rv.Complete(),
+	}
 
 	if failed {
 		resp.Success = false
@@ -93,7 +96,8 @@ check:
 			causes[i] = cause.Error()
 		}
 
-		utilapi.WriteError(ctx, w, errors.NewExpressionUnresolvableError(causes))
+		resp.Message = errors.NewExpressionUnresolvableError(causes).Error()
+		utilapi.WriteObjectOK(ctx, w, resp)
 		return
 	}
 
