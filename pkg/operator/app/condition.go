@@ -19,25 +19,38 @@ const (
 JQ="${JQ:-jq}"
 
 CONDITIONS_URL="${CONDITIONS_URL:-conditions}"
+ERROR_NAME="${ERROR_NAME:-error}"
+MESSAGE_NAME="${MESSAGE_NAME:-message}"
+RESOLVED_NAME="${RESOLVED_NAME:-resolved}"
 VALUE_NAME="${VALUE_NAME:-success}"
 POLLING_INTERVAL="${POLLING_INTERVAL:-5s}"
 POLLING_ITERATIONS="${POLLING_ITERATIONS:-1080}"
 
 for i in $(seq ${POLLING_ITERATIONS}); do
 	CONDITIONS=$(curl "$METADATA_API_URL/${CONDITIONS_URL}")
-	VALUE=$(echo $CONDITIONS | $JQ --arg value "$VALUE_NAME" -r '.[$value]')
-	if [ -n "${VALUE}" ]; then
-	if [ "$VALUE" = "true" ]; then
-		exit 0
+	ERROR=$(echo $CONDITIONS | $JQ --arg value "$ERROR_NAME" -r '.[$value] // empty')
+	MESSAGE=$(echo $CONDITIONS | $JQ --arg value "$MESSAGE_NAME" -r '.[$value] // empty')
+	if [ -n "${MESSAGE}" ]; then
+		echo "Message: ${MESSAGE}"
 	fi
-	if [ "$VALUE" = "false" ]; then
-		exit 1
+	if [ -n "${ERROR}" ]; then
+		echo "Error: ${ERROR}"
+		exit 2
 	fi
+	RESOLVED=$(echo $CONDITIONS | $JQ --arg value "$RESOLVED_NAME" -r '.[$value]')
+	if [ "$RESOLVED" = "true" ]; then
+		VALUE=$(echo $CONDITIONS | $JQ --arg value "$VALUE_NAME" -r '.[$value]')
+		if [ "$VALUE" = "true" ]; then
+			exit 0
+		fi
+		if [ "$VALUE" = "false" ]; then
+			exit 1
+		fi
 	fi
 	sleep ${POLLING_INTERVAL}
 done
 
-exit 1
+exit 3
 `
 )
 
