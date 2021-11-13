@@ -10,6 +10,7 @@ import (
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	"github.com/puppetlabs/relay-core/pkg/apis/install.relay.sh/v1alpha1"
 	"github.com/puppetlabs/relay-core/pkg/install/jwt"
+	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -26,6 +27,7 @@ type OperatorDeps struct {
 	MutatingWebhookConfig *admissionregistrationv1.MutatingWebhookConfiguration
 	OwnerConfigMap        *corev1.ConfigMap
 	VaultAgentDeps        *VaultAgentDeps
+	Labels                map[string]string
 }
 
 func (od *OperatorDeps) Load(ctx context.Context, cl client.Client) (bool, error) {
@@ -41,18 +43,18 @@ func (od *OperatorDeps) Load(ctx context.Context, cl client.Client) (bool, error
 		return ok, nil
 	}
 
-	key := od.Core.Key
+	key := SuffixObjectKey(od.Core.Key, "operator")
 
-	od.OwnerConfigMap = corev1.NewConfigMap(SuffixObjectKey(key, "operator-owner"))
+	od.OwnerConfigMap = corev1.NewConfigMap(SuffixObjectKey(key, "owner"))
 
-	od.Deployment = appsv1.NewDeployment(SuffixObjectKey(key, "operator"))
-	od.WebhookService = corev1.NewService(SuffixObjectKey(key, "operator-webhook"))
-	od.ServiceAccount = corev1.NewServiceAccount(SuffixObjectKey(key, "operator"))
-	od.SigningKeysSecret = corev1.NewSecret(SuffixObjectKey(key, "operator-signing-keys"))
-	od.ClusterRole = rbacv1.NewClusterRole(SuffixObjectKey(key, "operator").Name)
-	od.ClusterRoleBinding = rbacv1.NewClusterRoleBinding(SuffixObjectKey(key, "operator").Name)
-	od.DelegateClusterRole = rbacv1.NewClusterRole(SuffixObjectKey(key, "operator-delegate").Name)
-	od.MutatingWebhookConfig = admissionregistrationv1.NewMutatingWebhookConfiguration(SuffixObjectKey(key, "operator").Name)
+	od.Deployment = appsv1.NewDeployment(key)
+	od.WebhookService = corev1.NewService(SuffixObjectKey(key, "webhook"))
+	od.ServiceAccount = corev1.NewServiceAccount(key)
+	od.SigningKeysSecret = corev1.NewSecret(SuffixObjectKey(key, "signing-keys"))
+	od.ClusterRole = rbacv1.NewClusterRole(key.Name)
+	od.ClusterRoleBinding = rbacv1.NewClusterRoleBinding(key.Name)
+	od.DelegateClusterRole = rbacv1.NewClusterRole(SuffixObjectKey(key, "delegate").Name)
+	od.MutatingWebhookConfig = admissionregistrationv1.NewMutatingWebhookConfiguration(key.Name)
 
 	ok, err := lifecycle.Loaders{
 		od.OwnerConfigMap,
@@ -118,10 +120,17 @@ func NewOperatorDeps(c *obj.Core) *OperatorDeps {
 	return &OperatorDeps{
 		Core:           c,
 		VaultAgentDeps: NewVaultAgentDepsForRole(obj.VaultAgentRoleOperator, c),
+		Labels: map[string]string{
+			model.RelayInstallerNameLabel: c.Key.Name,
+			model.RelayAppNameLabel:       "operator",
+			model.RelayAppInstanceLabel:   "operator-" + c.Key.Name,
+			model.RelayAppComponentLabel:  "server",
+			model.RelayAppManagedByLabel:  "relay-install-operator",
+		},
 	}
 }
 
-func ConfigureOperatorDeps(od *OperatorDeps) error {
+func ConfigureOperatorDeps(ctx context.Context, od *OperatorDeps) error {
 	if err := DependencyManager.SetDependencyOf(
 		od.OwnerConfigMap.Object,
 		lifecycle.TypedObject{
@@ -132,10 +141,24 @@ func ConfigureOperatorDeps(od *OperatorDeps) error {
 		return err
 	}
 
+	lafs := []lifecycle.LabelAnnotatableFrom{
+		od.Deployment,
+		od.ClusterRole,
+		od.ClusterRoleBinding,
+		od.ServiceAccount,
+	}
+
+	for _, laf := range lafs {
+		for label, value := range od.Labels {
+			lifecycle.Label(ctx, laf, label, value)
+		}
+	}
+
+	ConfigureVaultAgentDeps(od.VaultAgentDeps)
+
 	ConfigureOperatorDeployment(od, od.Deployment)
-	// ConfigureDeploymentWithVaultAgent(od.VaultAgentDeps, od.Deployment)
 	ConfigureOperatorClusterRole(od.ClusterRole)
-	ConfigureOperatorClusterRoleBinding(od, od.ClusterRoleBinding)
+	ConfigureClusterRoleBinding(od.Core, od.ClusterRoleBinding)
 	ConfigureOperatorDelegateClusterRole(od.DelegateClusterRole)
 	ConfigureOperatorSigningKeys(od.SigningKeysSecret)
 

@@ -2385,16 +2385,12 @@ spec:
                     description: ToolInjection is the configuration for the entrypointer
                       and tool injection runtime tooling.
                     properties:
-                      image:
-                        default: relaysh/relay-runtime-tools:latest
-                        type: string
-                      imagePullPolicy:
-                        default: IfNotPresent
-                        description: PullPolicy describes a policy for if/when to
-                          pull a container image
+                      triggerPoolName:
+                        description: TriggerPoolName is the name of the tool injection
+                          pool for triggers.
                         type: string
                     required:
-                    - image
+                    - triggerPoolName
                     type: object
                   vaultAgentRole:
                     description: VaultAgentRole is the role to use when configuring

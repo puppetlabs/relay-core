@@ -18,6 +18,7 @@ type CoreDeps struct {
 	Namespace       *corev1.Namespace
 	OperatorDeps    *OperatorDeps
 	MetadataAPIDeps *MetadataAPIDeps
+	LogServiceDeps  *LogServiceDeps
 }
 
 func (cd *CoreDeps) Load(ctx context.Context, cl client.Client) (*CoreDepsLoadResult, error) {
@@ -29,11 +30,13 @@ func (cd *CoreDeps) Load(ctx context.Context, cl client.Client) (*CoreDepsLoadRe
 
 	cd.OperatorDeps = NewOperatorDeps(cd.Core)
 	cd.MetadataAPIDeps = NewMetadataAPIDeps(cd.Core)
+	cd.LogServiceDeps = NewLogServiceDeps(cd.Core)
 
 	ok, err := lifecycle.Loaders{
 		lifecycle.RequiredLoader{Loader: cd.Namespace},
 		cd.OperatorDeps,
 		cd.MetadataAPIDeps,
+		cd.LogServiceDeps,
 	}.Load(ctx, cl)
 	if err != nil {
 		return nil, err
@@ -47,6 +50,7 @@ func (cd *CoreDeps) Persist(ctx context.Context, cl client.Client) error {
 		cd.Namespace,
 		cd.MetadataAPIDeps,
 		cd.OperatorDeps,
+		cd.LogServiceDeps,
 	}
 
 	for _, p := range ps {
@@ -74,11 +78,15 @@ func ApplyCoreDeps(ctx context.Context, cl client.Client, c *obj.Core) (*CoreDep
 
 	ConfigureCore(cd)
 
-	if err := ConfigureOperatorDeps(cd.OperatorDeps); err != nil {
+	if err := ConfigureOperatorDeps(ctx, cd.OperatorDeps); err != nil {
 		return nil, err
 	}
 
-	if err := ConfigureMetadataAPIDeps(cd.MetadataAPIDeps); err != nil {
+	if err := ConfigureMetadataAPIDeps(ctx, cd.MetadataAPIDeps); err != nil {
+		return nil, err
+	}
+
+	if err := ConfigureLogServiceDeps(ctx, cd.LogServiceDeps); err != nil {
 		return nil, err
 	}
 

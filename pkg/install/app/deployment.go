@@ -10,12 +10,14 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/apis/install.relay.sh/v1alpha1"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 const (
-	webhookTLSDirPath    = "/var/run/secrets/puppet/relay/webhook-tls"
-	jwtSigningKeyDirPath = "/var/run/secrets/puppet/relay/jwt"
-	jwtSigningKeyPath    = "/var/run/secrets/puppet/relay/jwt/private-key.pem"
+	webhookTLSDirPath     = "/var/run/secrets/puppet/relay/webhook-tls"
+	jwtSigningKeyDirPath  = "/var/run/secrets/puppet/relay/jwt"
+	jwtSigningKeyPath     = "/var/run/secrets/puppet/relay/jwt/private-key.pem"
+	metadataAPITLSDirPath = "/var/run/secrets/puppet/relay/tls"
 )
 
 func ConfigureOperatorDeployment(od *OperatorDeps, dep *appsv1obj.Deployment) {
@@ -106,7 +108,28 @@ func ConfigureOperatorContainer(coreobj *obj.Core, c *corev1.Container) {
 	c.Name = "operator"
 	c.Image = core.Spec.Operator.Image
 	c.ImagePullPolicy = core.Spec.Operator.ImagePullPolicy
-	c.Env = []corev1.EnvVar{}
+
+	env := []corev1.EnvVar{{Name: "VAULT_ADDR", Value: "http://localhost:8200"}}
+
+	if core.Spec.SentryDSNSecretName != nil {
+		env = append(env, corev1.EnvVar{
+			Name: "RELAY_OPERATOR_SENTRY_DSN",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: *core.Spec.SentryDSNSecretName,
+					},
+					Key: "dsn",
+				},
+			},
+		})
+	}
+
+	if core.Spec.Operator.Env != nil {
+		env = append(env, core.Spec.Operator.Env...)
+	}
+
+	c.Env = env
 
 	cmd := []string{
 		"relay-operator",
@@ -173,6 +196,13 @@ func ConfigureOperatorContainer(coreobj *obj.Core, c *corev1.Container) {
 		)
 	}
 
+	if core.Spec.Operator.ToolInjection != nil {
+		cmd = append(cmd,
+			"-trigger-tool-injection-pool",
+			core.Spec.Operator.ToolInjection.TriggerPoolName,
+		)
+	}
+
 	c.Command = cmd
 
 	c.VolumeMounts = []corev1.VolumeMount{}
@@ -203,4 +233,148 @@ func ConfigureOperatorContainer(coreobj *obj.Core, c *corev1.Container) {
 		ReadOnly:  true,
 		MountPath: jwtSigningKeyDirPath,
 	})
+}
+
+func ConfigureMetadataAPIDeployment(md *MetadataAPIDeps, dep *appsv1obj.Deployment) {
+	core := md.Core.Object
+
+	dep.Object.Spec.Replicas = &core.Spec.MetadataAPI.Replicas
+
+	template := &dep.Object.Spec.Template.Spec
+	template.ServiceAccountName = dep.Key.Name
+	template.Affinity = core.Spec.MetadataAPI.Affinity
+
+	template.Volumes = []corev1.Volume{
+		{
+			Name: "vault-agent-sa-token",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: fmt.Sprintf("%s-vault", dep.Key.Name),
+				},
+			},
+		},
+		{
+			Name: "vault-agent-config",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: fmt.Sprintf("%s-vault", dep.Key.Name),
+					},
+				},
+			},
+		},
+	}
+
+	if core.Spec.MetadataAPI.TLSSecretName != nil {
+		template.Volumes = append(template.Volumes, corev1.Volume{
+			Name: "tls-crt",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: *core.Spec.MetadataAPI.TLSSecretName,
+				},
+			},
+		})
+	}
+
+	template.NodeSelector = core.Spec.MetadataAPI.NodeSelector
+
+	if len(template.Containers) == 0 {
+		template.Containers = make([]corev1.Container, 2)
+	}
+
+	sc := corev1.Container{}
+
+	ConfigureMetadataAPIContainer(md.Core, &sc)
+
+	template.Containers[0] = sc
+
+	vac := corev1.Container{}
+	ConfigureVaultAgentContainer(md.Core, &vac)
+
+	template.Containers[1] = vac
+}
+
+func ConfigureMetadataAPIContainer(coreobj *obj.Core, c *corev1.Container) {
+	core := coreobj.Object
+
+	c.Name = "metadata-api"
+	c.Image = core.Spec.MetadataAPI.Image
+	c.ImagePullPolicy = core.Spec.MetadataAPI.ImagePullPolicy
+
+	lsURL := ""
+	if core.Spec.LogService != nil {
+		if core.Spec.MetadataAPI.LogServiceURL != nil {
+			lsURL = *core.Spec.MetadataAPI.LogServiceURL
+		}
+	}
+
+	env := []corev1.EnvVar{
+		{Name: "VAULT_ADDR", Value: "http://localhost:8200"},
+		{Name: "RELAY_METADATA_API_ENVIRONMENT", Value: core.Spec.Environment},
+		{Name: "RELAY_METADATA_API_VAULT_TRANSIT_PATH", Value: core.Spec.Vault.TransitPath},
+		{Name: "RELAY_METADATA_API_VAULT_TRANSIT_KEY", Value: core.Spec.Vault.TransitKey},
+		{Name: "RELAY_METADATA_API_VAULT_AUTH_PATH", Value: core.Spec.MetadataAPI.VaultAuthPath},
+		{Name: "RELAY_METADATA_API_VAULT_AUTH_ROLE", Value: core.Spec.MetadataAPI.VaultAuthRole},
+		{Name: "RELAY_METADATA_API_LOG_SERVICE_URL", Value: lsURL},
+		{Name: "RELAY_METADATA_API_STEP_METADATA_URL", Value: core.Spec.MetadataAPI.StepMetadataURL},
+	}
+	if core.Spec.Debug {
+		env = append(env, corev1.EnvVar{Name: "RELAY_METADATA_API_DEBUG", Value: "true"})
+	}
+
+	if core.Spec.SentryDSNSecretName != nil {
+		env = append(env, corev1.EnvVar{
+			Name: "RELAY_METADATA_API_SENTRY_DSN",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: *core.Spec.SentryDSNSecretName,
+					},
+					Key: "dsn",
+				},
+			},
+		})
+	}
+
+	if core.Spec.MetadataAPI.Env != nil {
+		env = append(env, core.Spec.MetadataAPI.Env...)
+	}
+
+	c.Env = env
+
+	c.Ports = []corev1.ContainerPort{
+		{
+			Name:          "http",
+			ContainerPort: int32(7000),
+			Protocol:      corev1.ProtocolTCP,
+		},
+	}
+
+	probeScheme := corev1.URISchemeHTTP
+	if core.Spec.MetadataAPI.TLSSecretName != nil {
+		probeScheme = corev1.URISchemeHTTPS
+	}
+
+	probe := &corev1.Probe{
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path:   "/healthz",
+				Port:   intstr.FromString("http"),
+				Scheme: probeScheme,
+			},
+		},
+	}
+
+	c.LivenessProbe = probe
+	c.ReadinessProbe = probe
+
+	if core.Spec.MetadataAPI.TLSSecretName != nil {
+		c.VolumeMounts = []corev1.VolumeMount{
+			{
+				Name:      "tls-crt",
+				MountPath: metadataAPITLSDirPath,
+				ReadOnly:  true,
+			},
+		}
+	}
 }

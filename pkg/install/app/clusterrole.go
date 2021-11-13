@@ -2,6 +2,7 @@ package app
 
 import (
 	rbacv1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/rbacv1"
+	"github.com/puppetlabs/relay-core/pkg/obj"
 	rbacv1 "k8s.io/api/rbac/v1"
 )
 
@@ -85,7 +86,15 @@ func ConfigureOperatorDelegateClusterRole(cr *rbacv1obj.ClusterRole) {
 	}
 }
 
-func ConfigureOperatorClusterRoleBinding(od *OperatorDeps, crb *rbacv1obj.ClusterRoleBinding) {
+func ConfigureMetadataAPIClusterRole(cr *rbacv1obj.ClusterRole) {
+	cr.Object.Rules = []rbacv1.PolicyRule{
+		{APIGroups: []string{""}, Resources: []string{"namespaces"}, Verbs: []string{"get"}},
+		{APIGroups: []string{""}, Resources: []string{"pods"}, Verbs: []string{"get", "list"}},
+		{APIGroups: []string{"tekton.dev"}, Resources: []string{"conditions"}, Verbs: []string{"get", "list"}},
+	}
+}
+
+func ConfigureClusterRoleBinding(coreobj *obj.Core, crb *rbacv1obj.ClusterRoleBinding) {
 	crb.Object.RoleRef = rbacv1.RoleRef{
 		APIGroup: "rbac.authorization.k8s.io",
 		Kind:     "ClusterRole",
@@ -96,7 +105,7 @@ func ConfigureOperatorClusterRoleBinding(od *OperatorDeps, crb *rbacv1obj.Cluste
 		{
 			Kind:      "ServiceAccount",
 			Name:      crb.Object.Name,
-			Namespace: od.Core.Object.Namespace,
+			Namespace: coreobj.Object.Namespace,
 		},
 	}
 }

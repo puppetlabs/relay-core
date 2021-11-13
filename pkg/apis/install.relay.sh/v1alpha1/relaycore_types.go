@@ -351,12 +351,8 @@ type VaultSidecar struct {
 }
 
 type ToolInjectionConfig struct {
-	// +kubebuilder:default="relaysh/relay-runtime-tools:latest"
-	Image string `json:"image"`
-
-	// +kubebuilder:default="IfNotPresent"
-	// +optional
-	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy"`
+	// TriggerPoolName is the name of the tool injection pool for triggers.
+	TriggerPoolName string `json:"triggerPoolName"`
 }
 
 // RelayCoreStatus defines the observed state of RelayCore

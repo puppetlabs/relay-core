@@ -98,6 +98,7 @@ func ConfigureVaultAgentDeps(vd *VaultAgentDeps) error {
 	}
 
 	ConfigureVaultAgentTokenSecret(vd, vd.TokenSecret)
+	ConfigureVaultAgentConfigMap(vd.Core, vd.Role, vd.ConfigMap)
 
 	return nil
 }
