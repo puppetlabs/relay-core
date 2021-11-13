@@ -18,16 +18,21 @@ package main
 
 import (
 	"flag"
-	"os"
+	"log"
 
+	"github.com/puppetlabs/leg/instrumentation/alerts"
+	installerv1alpha1 "github.com/puppetlabs/relay-core/pkg/apis/install.relay.sh/v1alpha1"
+	"github.com/puppetlabs/relay-core/pkg/install/config"
+	"github.com/puppetlabs/relay-core/pkg/install/controller"
+	"github.com/puppetlabs/relay-core/pkg/install/dependency"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	installerv1alpha1 "github.com/puppetlabs/relay-core/pkg/apis/install.relay.sh/v1alpha1"
-	"github.com/puppetlabs/relay-core/pkg/install/controller"
+	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -51,36 +56,57 @@ func main() {
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+	environment := flag.String("environment", "dev", "the environment this operator is running in")
+	kubeconfig := flag.String("kubeconfig", "", "path to kubeconfig file. Only required if running outside of a cluster.")
+	kubeMasterURL := flag.String("kube-master-url", "", "url to the kubernetes master")
+	kubeNamespace := flag.String("kube-namespace", "", "an optional working namespace to restrict to for watching CRDs")
+	numWorkers := flag.Int("num-workers", 2, "the number of worker threads to spawn")
+	sentryDSN := flag.String("sentry-dsn", "", "the Sentry DSN to use for error reporting")
 
 	flag.Parse()
 
-	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
+	klogFlags := flag.NewFlagSet("klog", flag.ExitOnError)
+	klog.InitFlags(klogFlags)
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:             scheme,
-		MetricsBindAddress: metricsAddr,
-		Port:               9443,
-		LeaderElection:     enableLeaderElection,
-		LeaderElectionID:   "ddeb5fc4.install.relay.sh",
-	})
-	if err != nil {
-		setupLog.Error(err, "unable to start manager")
-		os.Exit(1)
-	}
-
-	if err = (&controller.RelayCoreReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controller").WithName("RelayCore"),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "RelayCore")
-		os.Exit(1)
-	}
 	// +kubebuilder:scaffold:builder
 
+	kcfg := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		&clientcmd.ClientConfigLoadingRules{ExplicitPath: *kubeconfig},
+		&clientcmd.ConfigOverrides{ClusterInfo: clientcmdapi.Cluster{Server: *kubeMasterURL}},
+	)
+
+	kcc, err := kcfg.ClientConfig()
+	if err != nil {
+		log.Fatal("Error creating kubernetes config", err)
+	}
+
+	var alertsDelegate alerts.DelegateFunc
+	if *sentryDSN != "" {
+		var err error
+		alertsDelegate, err = alerts.DelegateToSentry(*sentryDSN)
+		if err != nil {
+			log.Fatal("Error initializing Sentry", err)
+		}
+	}
+
+	cfg := &config.InstallerControllerConfig{
+		Environment:             *environment,
+		MaxConcurrentReconciles: *numWorkers,
+		Namespace:               *kubeNamespace,
+		AlertsDelegate:          alertsDelegate,
+	}
+
+	m, err := dependency.NewManager(cfg, kcc)
+	if err != nil {
+		log.Fatal("Error creating controller dependency builder", err)
+	}
+
+	if err := controller.Add(m); err != nil {
+		log.Fatal("Could not add all controllers to operator manager", err)
+	}
+
 	setupLog.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-		setupLog.Error(err, "problem running manager")
-		os.Exit(1)
+	if err := m.Manager.Start(signals.SetupSignalHandler()); err != nil {
+		log.Fatal("Manager exited non-zero", err)
 	}
 }

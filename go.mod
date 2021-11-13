@@ -75,6 +75,7 @@ require (
 )
 
 replace (
+	github.com/puppetlabs/leg/k8sutil => /home/kyle/code/puppet/leg/k8sutil
 	k8s.io/api => k8s.io/api v0.19.7
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.19.7
 	k8s.io/apimachinery => k8s.io/apimachinery v0.19.7
