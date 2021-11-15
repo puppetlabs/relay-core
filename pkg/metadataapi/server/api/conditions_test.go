@@ -96,7 +96,7 @@ func TestGetConditions(t *testing.T) {
 					"fubar",
 				}),
 			},
-			ExpectedResolved: false,
+			ExpectedResolved: true,
 			ExpectedSuccess:  false,
 		},
 		{
@@ -111,7 +111,7 @@ func TestGetConditions(t *testing.T) {
 					"fubar",
 				}),
 			},
-			ExpectedResolved: false,
+			ExpectedResolved: true,
 			ExpectedSuccess:  false,
 		},
 	}
