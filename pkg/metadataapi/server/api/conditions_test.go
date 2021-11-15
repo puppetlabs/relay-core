@@ -27,10 +27,11 @@ func TestGetConditions(t *testing.T) {
 	require.NoError(t, err)
 
 	tests := []struct {
-		Name            string
-		Conditions      parse.Tree
-		ExpectedError   errawr.Error
-		ExpectedSuccess bool
+		Name             string
+		Conditions       parse.Tree
+		ExpectedError    errawr.Error
+		ExpectedResolved bool
+		ExpectedSuccess  bool
 	}{
 		{
 			Name: "Success",
@@ -44,7 +45,8 @@ func TestGetConditions(t *testing.T) {
 					"barfoo",
 				}),
 			},
-			ExpectedSuccess: true,
+			ExpectedResolved: true,
+			ExpectedSuccess:  true,
 		},
 		{
 			Name: "Failure",
@@ -58,7 +60,8 @@ func TestGetConditions(t *testing.T) {
 					"foobar",
 				}),
 			},
-			ExpectedSuccess: false,
+			ExpectedResolved: true,
+			ExpectedSuccess:  false,
 		},
 		{
 			Name: "Resolution error",
@@ -68,9 +71,8 @@ func TestGetConditions(t *testing.T) {
 					"foobar",
 				}),
 			},
-			ExpectedError: errors.NewExpressionUnresolvableError([]string{
-				`model: parameter "param1" could not be found`,
-			}),
+			ExpectedResolved: false,
+			ExpectedSuccess:  false,
 		},
 		{
 			Name: "Condition type error",
@@ -94,7 +96,8 @@ func TestGetConditions(t *testing.T) {
 					"fubar",
 				}),
 			},
-			ExpectedSuccess: false,
+			ExpectedResolved: false,
+			ExpectedSuccess:  false,
 		},
 		{
 			Name: "Short-circuit failure ordering variant 2 (unresolvable first)",
@@ -108,17 +111,18 @@ func TestGetConditions(t *testing.T) {
 					"fubar",
 				}),
 			},
-			ExpectedSuccess: false,
+			ExpectedResolved: false,
+			ExpectedSuccess:  false,
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
 			sc := &opt.SampleConfig{
 				Runs: map[string]*opt.SampleConfigRun{
-					"test": &opt.SampleConfigRun{
+					"test": {
 						Steps: map[string]*opt.SampleConfigStep{
-							"previous-task": &opt.SampleConfigStep{},
-							"current-task": &opt.SampleConfigStep{
+							"previous-task": {},
+							"current-task": {
 								Conditions: serialize.YAMLTree{
 									Tree: test.Conditions,
 								},
@@ -159,6 +163,7 @@ func TestGetConditions(t *testing.T) {
 
 				var env api.GetConditionsResponseEnvelope
 				require.NoError(t, json.NewDecoder(resp.Result().Body).Decode(&env))
+				require.Equal(t, test.ExpectedResolved, env.Resolved)
 				require.Equal(t, test.ExpectedSuccess, env.Success)
 			} else {
 				testutil.RequireErrorResponse(t, test.ExpectedError, resp.Result())

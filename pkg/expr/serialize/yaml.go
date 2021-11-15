@@ -18,3 +18,7 @@ func (yt *YAMLTree) UnmarshalYAML(value *yaml.Node) error {
 	*yt = YAMLTree{Tree: tree}
 	return nil
 }
+
+func (yt YAMLTree) MarshalYAML() (interface{}, error) {
+	return yt.Tree, nil
+}

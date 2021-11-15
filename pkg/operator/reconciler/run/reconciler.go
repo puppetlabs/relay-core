@@ -64,32 +64,49 @@ func NewReconciler(dm *dependency.DependencyManager) *Reconciler {
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, err error) {
 	run := obj.NewRun(req.NamespacedName)
 	if ok, err := run.Load(ctx, r.Client); err != nil {
-		return ctrl.Result{}, errmap.Wrap(err, "failed to load dependencies")
+		return ctrl.Result{}, errmap.Wrap(err, "failed to load Run")
 	} else if !ok {
 		// CRD deleted from under us?
 		return ctrl.Result{}, nil
 	}
 
-	var rd *app.RunDeps
+	rd := app.NewRunDeps(
+		run,
+		r.issuer,
+		r.Config.MetadataAPIURL,
+		app.RunDepsWithStandaloneMode(r.Config.Standalone),
+		app.RunDepsWithToolInjectionPool(pvpoolv1alpha1.PoolReference{
+			Namespace: r.Config.WorkflowToolInjectionPool.Namespace,
+			Name:      r.Config.WorkflowToolInjectionPool.Name,
+		}),
+	)
+
+	loaded, err := rd.Load(ctx, r.Client)
+	if err != nil {
+		err = errmark.MarkTransientIf(err, errhandler.RuleIsRequired)
+		return ctrl.Result{}, errmap.Wrap(err, "failed to load Run dependencies")
+	}
+
+	finalized, err := lifecycle.Finalize(ctx, r.Client, FinalizerName, run, func() error {
+		_, err := rd.Delete(ctx, r.Client)
+		return err
+	})
+	if err != nil || finalized {
+		return ctrl.Result{}, err
+	}
+
+	if !loaded.Upstream {
+		return ctrl.Result{}, errmark.MarkTransient(fmt.Errorf("waiting on Run upstream dependencies"))
+	}
+
 	var pr *obj.PipelineRun
 	err = r.metrics.trackDurationWithOutcome(metricWorkflowRunStartUpDuration, func() error {
-		rd, err = app.ApplyRunDeps(
-			ctx,
-			r.Client,
-			run,
-			r.issuer,
-			r.Config.MetadataAPIURL,
-			app.RunDepsWithStandaloneMode(r.Config.Standalone),
-			app.RunDepsWithToolInjectionPool(pvpoolv1alpha1.PoolReference{
-				Namespace: r.Config.WorkflowToolInjectionPool.Namespace,
-				Name:      r.Config.WorkflowToolInjectionPool.Name,
-			}),
-		)
+		if err := app.ConfigureRunDeps(ctx, rd); err != nil {
+			return errmap.Wrap(err, "failed to configure Run dependencies")
+		}
 
-		if err != nil {
-			err = errmark.MarkTransientIf(err, errhandler.RuleIsRequired)
-
-			return errmap.Wrap(err, "failed to apply dependencies")
+		if err := rd.Persist(ctx, r.Client); err != nil {
+			return errmap.Wrap(err, "failed to persist Run dependencies")
 		}
 
 		if len(rd.Workflow.Object.Spec.Steps) == 0 {
@@ -150,14 +167,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, nil
 	}
 
-	finalized, err := lifecycle.Finalize(ctx, r.Client, FinalizerName, run, func() error {
-		_, err := rd.Delete(ctx, r.Client)
-		return err
-	})
-	if err != nil || finalized {
-		return ctrl.Result{}, err
-	}
-
 	if pr == nil {
 		app.ConfigureRunWithSpecificStatus(rd.Run, relayv1beta1.RunSucceeded, corev1.ConditionTrue)
 
@@ -191,7 +200,7 @@ func (r *Reconciler) uploadLogs(ctx context.Context, run *obj.Run, plr *obj.Pipe
 
 	// FIXME Theoretically this can be removed in favor of checking the step status directly
 	for _, tr := range plr.Object.Status.TaskRuns {
-		if tr.Status == nil {
+		if tr.Status == nil || tr.Status.PodName == "" {
 			continue
 		}
 
@@ -215,6 +224,10 @@ func (r *Reconciler) uploadLogs(ctx context.Context, run *obj.Run, plr *obj.Pipe
 		}
 
 		podName := step.Logs[0].Name
+
+		if podName == "" {
+			continue
+		}
 
 		done, found := completed[podName]
 		if !done || !found {
