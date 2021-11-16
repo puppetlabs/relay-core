@@ -44,6 +44,7 @@ func (s *Server) Route(r *mux.Router) {
 
 	// Outputs
 	r.HandleFunc("/outputs/{name}", s.PutOutput).Methods(http.MethodPut)
+	r.HandleFunc("/outputs/{name}/metadata", s.PutOutputMetadata).Methods(http.MethodPut)
 	r.HandleFunc("/outputs/{stepName}/{name}", s.GetOutput).Methods(http.MethodGet)
 
 	// Secrets

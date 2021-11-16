@@ -9,12 +9,17 @@ import (
 	utilapi "github.com/puppetlabs/leg/httputil/api"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/errors"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/middleware"
+	"github.com/puppetlabs/relay-core/pkg/model"
 )
 
 type GetOutputResponseEnvelope struct {
 	TaskName string                 `json:"task_name"`
 	Key      string                 `json:"key"`
 	Value    transfer.JSONInterface `json:"value"`
+}
+
+type PostOutputMetadataRequestEnvelope struct {
+	Sensitive bool `json:"sensitive"`
 }
 
 func (s *Server) GetOutput(w http.ResponseWriter, r *http.Request) {
@@ -70,7 +75,33 @@ func (s *Server) PutOutput(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := om.Set(ctx, name, value.Data); err != nil {
+	if err := om.Set(ctx, name, value.Data); err != nil {
+		utilapi.WriteError(ctx, w, ModelWriteError(err))
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+}
+
+func (s *Server) PutOutputMetadata(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	managers := middleware.Managers(r)
+	om := managers.StepOutputs()
+
+	name, _ := middleware.Var(r, "name")
+
+	var env PostOutputMetadataRequestEnvelope
+	if err := json.NewDecoder(r.Body).Decode(&env); err != nil {
+		utilapi.WriteError(ctx, w, errors.NewAPIMalformedRequestError().WithCause(err))
+		return
+	}
+
+	metadata := &model.StepOutputMetadata{
+		Sensitive: env.Sensitive,
+	}
+
+	if err := om.SetMetadata(ctx, name, metadata); err != nil {
 		utilapi.WriteError(ctx, w, ModelWriteError(err))
 		return
 	}

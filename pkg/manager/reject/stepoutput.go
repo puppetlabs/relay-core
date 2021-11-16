@@ -20,8 +20,12 @@ func (*stepOutputManager) Get(ctx context.Context, stepName, name string) (*mode
 	return nil, model.ErrRejected
 }
 
-func (*stepOutputManager) Set(ctx context.Context, name string, value interface{}) (*model.StepOutput, error) {
-	return nil, model.ErrRejected
+func (*stepOutputManager) Set(ctx context.Context, name string, value interface{}) error {
+	return model.ErrRejected
+}
+
+func (*stepOutputManager) SetMetadata(ctx context.Context, name string, metadata *model.StepOutputMetadata) error {
+	return model.ErrRejected
 }
 
 var StepOutputManager model.StepOutputManager = &stepOutputManager{}
