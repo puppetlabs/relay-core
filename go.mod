@@ -63,13 +63,13 @@ require (
 	k8s.io/api v0.20.2
 	k8s.io/apiextensions-apiserver v0.20.1
 	k8s.io/apimachinery v0.20.2
-	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
+	k8s.io/client-go v0.20.2
 	k8s.io/klog/v2 v2.5.0
 	k8s.io/utils v0.0.0-20210111153108-fddb29f9d009
 	knative.dev/caching v0.0.0-20210215030244-1212288570f0
 	knative.dev/pkg v0.0.0-20210215165523-84c98f3c3e7a
 	knative.dev/serving v0.21.0
-	sigs.k8s.io/controller-runtime v0.8.1
+	sigs.k8s.io/controller-runtime v0.8.3
 	sigs.k8s.io/controller-tools v0.4.1
 )
 
