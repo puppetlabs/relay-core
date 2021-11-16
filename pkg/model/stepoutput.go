@@ -5,9 +5,14 @@ import (
 )
 
 type StepOutput struct {
-	Step  *Step
-	Name  string
-	Value interface{}
+	Step     *Step
+	Name     string
+	Value    interface{}
+	Metadata *StepOutputMetadata
+}
+
+type StepOutputMetadata struct {
+	Sensitive bool
 }
 
 type StepOutputGetterManager interface {
@@ -17,7 +22,8 @@ type StepOutputGetterManager interface {
 }
 
 type StepOutputSetterManager interface {
-	Set(ctx context.Context, name string, value interface{}) (*StepOutput, error)
+	Set(ctx context.Context, name string, value interface{}) error
+	SetMetadata(ctx context.Context, name string, metadata *StepOutputMetadata) error
 }
 
 type StepOutputManager interface {

@@ -2,6 +2,7 @@ package configmap
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -43,14 +44,23 @@ func (m *StepOutputManager) List(ctx context.Context) ([]*model.StepOutput, erro
 			continue
 		}
 
-		l = append(l, &model.StepOutput{
+		so := &model.StepOutput{
 			Step: &model.Step{
 				Run:  m.me.Run,
 				Name: stepName,
 			},
 			Name:  name,
 			Value: value,
-		})
+		}
+
+		metadata, err := m.lookupStepOutputMetadata(ctx, so)
+		if err != nil {
+			return nil, err
+		}
+
+		so.Metadata = metadata
+
+		l = append(l, so)
 	}
 
 	return l, nil
@@ -65,11 +75,20 @@ func (m *StepOutputManager) ListSelf(ctx context.Context) ([]*model.StepOutput, 
 	var l []*model.StepOutput
 
 	for key, value := range som {
-		l = append(l, &model.StepOutput{
+		so := &model.StepOutput{
 			Step:  m.me,
 			Name:  key,
 			Value: value,
-		})
+		}
+
+		metadata, err := m.lookupStepOutputMetadata(ctx, so)
+		if err != nil {
+			return nil, err
+		}
+
+		so.Metadata = metadata
+
+		l = append(l, so)
 	}
 
 	return l, nil
@@ -86,30 +105,67 @@ func (m *StepOutputManager) Get(ctx context.Context, stepName, name string) (*mo
 		return nil, err
 	}
 
-	return &model.StepOutput{
+	so := &model.StepOutput{
 		Step:  step,
 		Name:  name,
 		Value: value,
-	}, nil
+	}
+
+	metadata, err := m.lookupStepOutputMetadata(ctx, so)
+	if err != nil {
+		return nil, err
+	}
+
+	so.Metadata = metadata
+
+	return so, nil
 }
 
-func (m *StepOutputManager) Set(ctx context.Context, name string, value interface{}) (*model.StepOutput, error) {
+func (m *StepOutputManager) Set(ctx context.Context, name string, value interface{}) error {
 	// TODO: Should this be somewhere else? We only need it for the reverse
 	// lookup in the list method but it could be useful to other managers down
 	// the line.
 	if err := m.kcm.Set(ctx, stepNameKey(m.me), m.me.Name); err != nil {
-		return nil, err
+		return err
 	}
 
 	if err := m.kcm.Set(ctx, stepOutputKey(m.me, name), value); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *StepOutputManager) SetMetadata(ctx context.Context, name string, metadata *model.StepOutputMetadata) error {
+	if err := m.kcm.Set(ctx, stepOutputMetadataKey(m.me, name), metadata); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *StepOutputManager) lookupStepOutputMetadata(ctx context.Context, so *model.StepOutput) (*model.StepOutputMetadata, error) {
+	data, err := m.kcm.Get(ctx, stepOutputMetadataKey(so.Step, so.Name))
+	if err == model.ErrNotFound {
+		return nil, nil
+	}
+
+	if err != nil {
 		return nil, err
 	}
 
-	return &model.StepOutput{
-		Step:  m.me,
-		Name:  name,
-		Value: value,
-	}, nil
+	b, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+
+	metadata := &model.StepOutputMetadata{}
+	err = json.Unmarshal(b, metadata)
+	if err != nil {
+		return nil, err
+	}
+
+	return metadata, nil
 }
 
 func NewStepOutputManager(step *model.Step, cm ConfigMap) *StepOutputManager {
@@ -125,4 +181,8 @@ func stepNameKey(step *model.Step) string {
 
 func stepOutputKey(step *model.Step, name string) string {
 	return fmt.Sprintf("%s.%s.output.%s", step.Type().Plural, step.Hash(), name)
+}
+
+func stepOutputMetadataKey(step *model.Step, name string) string {
+	return fmt.Sprintf("%s.%s.metadata.output.%s", step.Type().Plural, step.Hash(), name)
 }
