@@ -13,9 +13,10 @@ import (
 )
 
 type GetOutputResponseEnvelope struct {
-	TaskName string                 `json:"task_name"`
-	Key      string                 `json:"key"`
-	Value    transfer.JSONInterface `json:"value"`
+	TaskName string                    `json:"task_name"`
+	Key      string                    `json:"key"`
+	Value    transfer.JSONInterface    `json:"value"`
+	Metadata *model.StepOutputMetadata `json:"metadata"`
 }
 
 type PostOutputMetadataRequestEnvelope struct {
@@ -41,6 +42,7 @@ func (s *Server) GetOutput(w http.ResponseWriter, r *http.Request) {
 		TaskName: output.Step.Name,
 		Key:      output.Name,
 		Value:    transfer.JSONInterface{Data: output.Value},
+		Metadata: output.Metadata,
 	}
 
 	utilapi.WriteObjectOK(ctx, w, env)
