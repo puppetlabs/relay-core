@@ -67,8 +67,10 @@ check:
 			}
 		}
 	default:
-		utilapi.WriteError(ctx, w, errors.NewConditionTypeError(fmt.Sprintf("%T", vt)))
-		return
+		if rv.Complete() {
+			utilapi.WriteError(ctx, w, errors.NewConditionTypeError(fmt.Sprintf("%T", vt)))
+			return
+		}
 	}
 
 	resp := GetConditionsResponseEnvelope{
