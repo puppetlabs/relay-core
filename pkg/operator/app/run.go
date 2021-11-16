@@ -123,13 +123,22 @@ func ConfigureStepStatus(ctx context.Context, rd *RunDeps, stepName string, acti
 	step.Outputs = make([]*relayv1beta1.StepOutput, 0)
 	if outputs, err := configmap.NewStepOutputManager(action, configMap).ListSelf(ctx); err == nil {
 		for _, output := range outputs {
-			value := relayv1beta1.AsUnstructured(output.Value)
-			step.Outputs = append(step.Outputs,
-				&relayv1beta1.StepOutput{
-					Name:      output.Name,
-					Value:     &value,
-					Sensitive: false,
-				})
+			sensitive := false
+			if output.Metadata != nil {
+				sensitive = output.Metadata.Sensitive
+			}
+
+			stepOutput := &relayv1beta1.StepOutput{
+				Name:      output.Name,
+				Sensitive: sensitive,
+			}
+
+			if !sensitive {
+				value := relayv1beta1.AsUnstructured(output.Value)
+				stepOutput.Value = &value
+			}
+
+			step.Outputs = append(step.Outputs, stepOutput)
 		}
 	}
 
