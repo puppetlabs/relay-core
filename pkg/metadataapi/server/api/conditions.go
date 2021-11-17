@@ -67,8 +67,10 @@ check:
 			}
 		}
 	default:
-		utilapi.WriteError(ctx, w, errors.NewConditionTypeError(fmt.Sprintf("%T", vt)))
-		return
+		if rv.Complete() {
+			utilapi.WriteError(ctx, w, errors.NewConditionTypeError(fmt.Sprintf("%T", vt)))
+			return
+		}
 	}
 
 	resp := GetConditionsResponseEnvelope{
@@ -76,6 +78,8 @@ check:
 	}
 
 	if failed {
+		// Override the resolved flag if the condition failed.
+		resp.Resolved = true
 		resp.Success = false
 		resp.Message = "one or more conditions failed"
 		utilapi.WriteObjectOK(ctx, w, resp)

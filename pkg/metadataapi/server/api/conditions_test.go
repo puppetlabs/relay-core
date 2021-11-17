@@ -64,7 +64,28 @@ func TestGetConditions(t *testing.T) {
 			ExpectedSuccess:  false,
 		},
 		{
-			Name: "Resolution error",
+			Name:             "Explicitly true",
+			Conditions:       true,
+			ExpectedResolved: true,
+			ExpectedSuccess:  true,
+		},
+		{
+			Name:             "Explicitly false",
+			Conditions:       false,
+			ExpectedResolved: true,
+			ExpectedSuccess:  false,
+		},
+		{
+			Name: "Resolution error (single expression)",
+			Conditions: exprtestutil.JSONInvocation("equals", []interface{}{
+				exprtestutil.JSONParameter("param1"),
+				"foobar",
+			}),
+			ExpectedResolved: false,
+			ExpectedSuccess:  false,
+		},
+		{
+			Name: "Resolution error (multiple expressions)",
 			Conditions: []interface{}{
 				exprtestutil.JSONInvocation("equals", []interface{}{
 					exprtestutil.JSONParameter("param1"),
@@ -75,7 +96,14 @@ func TestGetConditions(t *testing.T) {
 			ExpectedSuccess:  false,
 		},
 		{
-			Name: "Condition type error",
+			Name:       "Condition type error (single string)",
+			Conditions: "foobar",
+			ExpectedError: errors.NewConditionTypeError(
+				`string`,
+			),
+		},
+		{
+			Name: "Condition type error (multiple strings)",
 			Conditions: []interface{}{
 				"foobar",
 				"fubar",
@@ -96,7 +124,7 @@ func TestGetConditions(t *testing.T) {
 					"fubar",
 				}),
 			},
-			ExpectedResolved: false,
+			ExpectedResolved: true,
 			ExpectedSuccess:  false,
 		},
 		{
@@ -111,7 +139,7 @@ func TestGetConditions(t *testing.T) {
 					"fubar",
 				}),
 			},
-			ExpectedResolved: false,
+			ExpectedResolved: true,
 			ExpectedSuccess:  false,
 		},
 	}

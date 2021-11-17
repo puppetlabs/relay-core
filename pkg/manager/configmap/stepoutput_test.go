@@ -27,20 +27,27 @@ func TestStepOutputManager(t *testing.T) {
 	om1 := configmap.NewStepOutputManager(step1, configmap.NewLocalConfigMap(obj))
 	om2 := configmap.NewStepOutputManager(step2, configmap.NewLocalConfigMap(obj))
 
-	_, err := om1.Set(ctx, "key-a", "value-a-step-1")
+	err := om1.Set(ctx, "key-a", "value-a-step-1")
 	require.NoError(t, err)
 
-	_, err = om2.Set(ctx, "key-a", "value-a-step-2")
+	err = om2.Set(ctx, "key-a", "value-a-step-2")
 	require.NoError(t, err)
 
-	_, err = om1.Set(ctx, "key-b", "value-b-step-1")
+	err = om1.SetMetadata(ctx, "key-b",
+		&model.StepOutputMetadata{
+			Sensitive: true,
+		},
+	)
+	require.NoError(t, err)
+
+	err = om1.Set(ctx, "key-b", "value-b-step-1")
 	require.NoError(t, err)
 
 	outs, err := om1.ListSelf(ctx)
 	require.NoError(t, err)
 	require.Len(t, outs, 2)
 	require.Contains(t, outs, &model.StepOutput{Step: step1, Name: "key-a", Value: "value-a-step-1"})
-	require.Contains(t, outs, &model.StepOutput{Step: step1, Name: "key-b", Value: "value-b-step-1"})
+	require.Contains(t, outs, &model.StepOutput{Step: step1, Name: "key-b", Value: "value-b-step-1", Metadata: &model.StepOutputMetadata{Sensitive: true}})
 
 	outs, err = om2.ListSelf(ctx)
 	require.NoError(t, err)
@@ -56,6 +63,7 @@ func TestStepOutputManager(t *testing.T) {
 			out, err = om.Get(ctx, step1.Name, "key-b")
 			require.NoError(t, err)
 			require.Equal(t, "value-b-step-1", out.Value)
+			require.Equal(t, true, out.Metadata.Sensitive)
 
 			out, err = om.Get(ctx, step2.Name, "key-a")
 			require.NoError(t, err)
@@ -69,7 +77,7 @@ func TestStepOutputManager(t *testing.T) {
 			require.Len(t, outs, 3)
 			require.Contains(t, outs, &model.StepOutput{Step: step1, Name: "key-a", Value: "value-a-step-1"})
 			require.Contains(t, outs, &model.StepOutput{Step: step2, Name: "key-a", Value: "value-a-step-2"})
-			require.Contains(t, outs, &model.StepOutput{Step: step1, Name: "key-b", Value: "value-b-step-1"})
+			require.Contains(t, outs, &model.StepOutput{Step: step1, Name: "key-b", Value: "value-b-step-1", Metadata: &model.StepOutputMetadata{Sensitive: true}})
 		})
 	}
 }

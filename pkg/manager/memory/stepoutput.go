@@ -12,8 +12,9 @@ type StepOutputKey struct {
 }
 
 type StepOutputMap struct {
-	mut     sync.RWMutex
-	outputs map[StepOutputKey]interface{}
+	mut            sync.RWMutex
+	outputs        map[StepOutputKey]interface{}
+	outputMetadata map[StepOutputKey]*model.StepOutputMetadata
 }
 
 func (m *StepOutputMap) Keys() []StepOutputKey {
@@ -37,6 +38,14 @@ func (m *StepOutputMap) Get(key StepOutputKey) (interface{}, bool) {
 	return value, found
 }
 
+func (m *StepOutputMap) GetMetadata(key StepOutputKey) (*model.StepOutputMetadata, bool) {
+	m.mut.RLock()
+	defer m.mut.RUnlock()
+
+	value, found := m.outputMetadata[key]
+	return value, found
+}
+
 func (m *StepOutputMap) Set(key StepOutputKey, value interface{}) {
 	m.mut.Lock()
 	defer m.mut.Unlock()
@@ -44,9 +53,17 @@ func (m *StepOutputMap) Set(key StepOutputKey, value interface{}) {
 	m.outputs[key] = value
 }
 
+func (m *StepOutputMap) SetMetadata(key StepOutputKey, metadata *model.StepOutputMetadata) {
+	m.mut.Lock()
+	defer m.mut.Unlock()
+
+	m.outputMetadata[key] = metadata
+}
+
 func NewStepOutputMap() *StepOutputMap {
 	return &StepOutputMap{
-		outputs: make(map[StepOutputKey]interface{}),
+		outputs:        make(map[StepOutputKey]interface{}),
+		outputMetadata: make(map[StepOutputKey]*model.StepOutputMetadata),
 	}
 }
 
@@ -66,14 +83,20 @@ func (m *StepOutputManager) List(ctx context.Context) ([]*model.StepOutput, erro
 			continue
 		}
 
-		l = append(l, &model.StepOutput{
+		so := &model.StepOutput{
 			Step: &model.Step{
 				Run:  m.me.Run,
 				Name: key.StepName,
 			},
 			Name:  key.Name,
 			Value: value,
-		})
+		}
+
+		if metadata, found := m.m.GetMetadata(key); found {
+			so.Metadata = metadata
+		}
+
+		l = append(l, so)
 	}
 
 	return l, nil
@@ -89,11 +112,17 @@ func (m *StepOutputManager) ListSelf(ctx context.Context) ([]*model.StepOutput, 
 		}
 
 		if key.StepName == m.me.Name {
-			l = append(l, &model.StepOutput{
+			so := &model.StepOutput{
 				Step:  m.me,
 				Name:  key.Name,
 				Value: value,
-			})
+			}
+
+			if metadata, found := m.m.GetMetadata(key); found {
+				so.Metadata = metadata
+			}
+
+			l = append(l, so)
 		}
 	}
 
@@ -106,26 +135,36 @@ func (m *StepOutputManager) Get(ctx context.Context, stepName, name string) (*mo
 		Name: stepName,
 	}
 
-	value, found := m.m.Get(StepOutputKey{StepName: step.Name, Name: name})
+	key := StepOutputKey{StepName: step.Name, Name: name}
+
+	value, found := m.m.Get(key)
 	if !found {
 		return nil, model.ErrNotFound
 	}
 
-	return &model.StepOutput{
+	so := &model.StepOutput{
 		Step:  step,
 		Name:  name,
 		Value: value,
-	}, nil
+	}
+
+	if metadata, found := m.m.GetMetadata(key); found {
+		so.Metadata = metadata
+	}
+
+	return so, nil
 }
 
-func (m *StepOutputManager) Set(ctx context.Context, name string, value interface{}) (*model.StepOutput, error) {
+func (m *StepOutputManager) Set(ctx context.Context, name string, value interface{}) error {
 	m.m.Set(StepOutputKey{StepName: m.me.Name, Name: name}, value)
 
-	return &model.StepOutput{
-		Step:  m.me,
-		Name:  name,
-		Value: value,
-	}, nil
+	return nil
+}
+
+func (m *StepOutputManager) SetMetadata(ctx context.Context, name string, metadata *model.StepOutputMetadata) error {
+	m.m.SetMetadata(StepOutputKey{StepName: m.me.Name, Name: name}, metadata)
+
+	return nil
 }
 
 func NewStepOutputManager(step *model.Step, backend *StepOutputMap) *StepOutputManager {
