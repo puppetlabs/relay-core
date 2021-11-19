@@ -6,6 +6,7 @@ import (
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	"github.com/puppetlabs/relay-core/pkg/obj"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -22,10 +23,10 @@ type CoreDeps struct {
 }
 
 func (cd *CoreDeps) Load(ctx context.Context, cl client.Client) (*CoreDepsLoadResult, error) {
-	if ok, err := cd.Core.Load(ctx, cl); err != nil {
+	if _, err := cd.Core.Load(ctx, cl); err != nil {
 		return nil, err
-	} else if !ok {
-		return &CoreDepsLoadResult{}, nil
+		// } else if !ok {
+		// 	return &CoreDepsLoadResult{}, nil
 	}
 
 	cd.OperatorDeps = NewOperatorDeps(cd.Core)
@@ -72,9 +73,18 @@ func NewCoreDeps(c *obj.Core) *CoreDeps {
 func ApplyCoreDeps(ctx context.Context, cl client.Client, c *obj.Core) (*CoreDeps, error) {
 	cd := NewCoreDeps(c)
 
-	if _, err := cd.Load(ctx, cl); err != nil {
+	_, err := cd.Load(ctx, cl)
+	if err != nil {
+		klog.Error(err)
 		return nil, err
 	}
+
+	// if !result.All {
+	// 	err := fmt.Errorf("waiting for upstream dependencies")
+	// 	klog.Error(err)
+
+	// 	return nil, err
+	// }
 
 	ConfigureCore(cd)
 

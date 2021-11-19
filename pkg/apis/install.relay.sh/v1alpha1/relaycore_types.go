@@ -49,8 +49,9 @@ type RelayCoreSpec struct {
 
 	// LogService is the configuration for the log service.
 	//
+	// +kubebuilder:default={image: "relaysh/relay-pls:latest", imagePullPolicy: "IfNotPresent"}
 	// +optional
-	LogService *LogServiceConfig `json:"logService,omitempty"`
+	LogService LogServiceConfig `json:"logService,omitempty"`
 
 	// Operator is the configuration for the workflow run operator.
 	//
@@ -59,6 +60,7 @@ type RelayCoreSpec struct {
 
 	// MetadataAPI is the configuration for the step metadata-api server.
 	//
+	// +kubebuilder:default={image: "relaysh/relay-metadata-api:latest", imagePullPolicy: "IfNotPresent"}
 	// +optional
 	MetadataAPI *MetadataAPIConfig `json:"metadataAPI,omitempty"`
 
@@ -209,7 +211,7 @@ type OperatorConfig struct {
 	// ToolInjection is the configuration for the entrypointer and tool
 	// injection runtime tooling.
 	//
-	// +kubebuilder:default={image: "relaysh/relay-runtime-tools:latest"}
+	// +optional
 	ToolInjection *ToolInjectionConfig `json:"toolInjection,omitempty"`
 
 	// AdmissionWebhookServer is the configuration for the

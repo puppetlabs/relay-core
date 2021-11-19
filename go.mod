@@ -7,6 +7,7 @@ require (
 	github.com/PaesslerAG/jsonpath v0.1.1 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20200108200545-475eaeb16496 // indirect
 	github.com/certifi/gocertifi v0.0.0-20180118203423-deb3ae2ef261 // indirect
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/generikvault/gvalstrings v0.0.0-20180926130504-471f38f0112a
 	github.com/go-logr/logr v0.4.0
 	github.com/gofrs/flock v0.8.1
@@ -37,7 +38,7 @@ require (
 	github.com/puppetlabs/leg/httputil v0.1.4
 	github.com/puppetlabs/leg/instrumentation v0.1.4
 	github.com/puppetlabs/leg/jsonutil v0.2.2
-	github.com/puppetlabs/leg/k8sutil v0.6.2
+	github.com/puppetlabs/leg/k8sutil v0.6.3
 	github.com/puppetlabs/leg/logging v0.1.0
 	github.com/puppetlabs/leg/mainutil v0.1.2
 	github.com/puppetlabs/leg/scheduler v0.1.4
@@ -75,7 +76,6 @@ require (
 )
 
 replace (
-	github.com/puppetlabs/leg/k8sutil => /home/kyle/code/puppet/leg/k8sutil
 	k8s.io/api => k8s.io/api v0.19.7
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.19.7
 	k8s.io/apimachinery => k8s.io/apimachinery v0.19.7

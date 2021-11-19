@@ -10,6 +10,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/install/dependency"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -27,8 +28,10 @@ func New(dm *dependency.Manager) *Reconciler {
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	klog.Infof("reconciling request: %v", req)
 	core := obj.NewCore(req.NamespacedName)
 	if ok, err := core.Load(ctx, r.Client); err != nil {
+		klog.Error(err)
 		return ctrl.Result{}, errmap.Wrap(err, "failed to load dependencies")
 	} else if !ok {
 		return ctrl.Result{}, nil
@@ -41,6 +44,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		core,
 	)
 	if err != nil {
+		klog.Error(err)
 		err = errmark.MarkTransientIf(err, errhandler.RuleIsRequired)
 
 		return ctrl.Result{}, errmap.Wrap(err, "failed to apply dependencies")

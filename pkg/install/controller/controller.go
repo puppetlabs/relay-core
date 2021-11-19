@@ -29,7 +29,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler, cfg *config.InstallerContr
 				),
 				errhandler.WithPanicHandler(capturer.CapturePanicHandler(cfg.Capturer(), v1alpha1.RelayCoreKind)),
 			),
-			filter.ChainSingleNamespaceReconciler(cfg.Namespace),
 		))
 }
 

@@ -10,10 +10,24 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/apis/install.relay.sh/v1alpha1"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func ConfigureOperatorDeployment(od *OperatorDeps, dep *appsv1obj.Deployment) {
 	core := od.Core.Object
+
+	if dep.Object.Labels == nil {
+		dep.Object.Labels = make(map[string]string)
+	}
+
+	for k, v := range od.Labels {
+		dep.Object.Labels[k] = v
+	}
+
+	dep.Object.Spec.Template.Labels = od.Labels
+	dep.Object.Spec.Selector = &metav1.LabelSelector{
+		MatchLabels: od.Labels,
+	}
 
 	template := &dep.Object.Spec.Template.Spec
 	template.ServiceAccountName = dep.Key.Name

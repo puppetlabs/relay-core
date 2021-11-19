@@ -23,16 +23,12 @@ type LogServiceDeps struct {
 }
 
 func (ld *LogServiceDeps) Load(ctx context.Context, cl client.Client) (bool, error) {
-	if ok, err := ld.Core.Load(ctx, cl); err != nil {
+	if _, err := ld.Core.Load(ctx, cl); err != nil {
 		return false, err
-	} else if !ok {
-		return ok, nil
 	}
 
-	if ok, err := ld.VaultAgentDeps.Load(ctx, cl); err != nil {
+	if _, err := ld.VaultAgentDeps.Load(ctx, cl); err != nil {
 		return false, err
-	} else if !ok {
-		return ok, nil
 	}
 
 	key := SuffixObjectKey(ld.Core.Key, "log-service")

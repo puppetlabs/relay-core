@@ -114,13 +114,13 @@ func (r *RelayCoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	// reconcile objects for each manager type
 
-	if relayCore.Spec.LogService != nil {
-		log.Info("reconciling relay-log-service")
-		lssm := newLogServiceStateManager(relayCore, r, log)
-		if err := lssm.reconcile(ctx); err != nil {
-			return ctrl.Result{}, err
-		}
+	// if relayCore.Spec.LogService != nil {
+	log.Info("reconciling relay-log-service")
+	lssm := newLogServiceStateManager(relayCore, r, log)
+	if err := lssm.reconcile(ctx); err != nil {
+		return ctrl.Result{}, err
 	}
+	// }
 
 	log.Info("reconciling relay-operator")
 	osm := newOperatorStateManager(relayCore, r, log)

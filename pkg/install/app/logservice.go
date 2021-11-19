@@ -7,6 +7,7 @@ import (
 	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -14,6 +15,19 @@ func ConfigureLogServiceDeployment(ld *LogServiceDeps, dep *appsv1obj.Deployment
 	core := ld.Core.Object
 
 	dep.Object.Spec.Replicas = &core.Spec.LogService.Replicas
+
+	if dep.Object.Labels == nil {
+		dep.Object.Labels = make(map[string]string)
+	}
+
+	for k, v := range ld.Labels {
+		dep.Object.Labels[k] = v
+	}
+
+	dep.Object.Spec.Template.Labels = ld.Labels
+	dep.Object.Spec.Selector = &metav1.LabelSelector{
+		MatchLabels: ld.Labels,
+	}
 
 	template := &dep.Object.Spec.Template.Spec
 	template.ServiceAccountName = dep.Key.Name

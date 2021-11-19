@@ -7,6 +7,7 @@ import (
 	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -14,6 +15,19 @@ func ConfigureMetadataAPIDeployment(md *MetadataAPIDeps, dep *appsv1obj.Deployme
 	core := md.Core.Object
 
 	dep.Object.Spec.Replicas = &core.Spec.MetadataAPI.Replicas
+
+	if dep.Object.Labels == nil {
+		dep.Object.Labels = make(map[string]string)
+	}
+
+	for k, v := range md.Labels {
+		dep.Object.Labels[k] = v
+	}
+
+	dep.Object.Spec.Template.Labels = md.Labels
+	dep.Object.Spec.Selector = &metav1.LabelSelector{
+		MatchLabels: md.Labels,
+	}
 
 	template := &dep.Object.Spec.Template.Spec
 	template.ServiceAccountName = dep.Key.Name
@@ -77,10 +91,13 @@ func ConfigureMetadataAPIContainer(coreobj *obj.Core, c *corev1.Container) {
 	c.ImagePullPolicy = core.Spec.MetadataAPI.ImagePullPolicy
 
 	lsURL := ""
-	if core.Spec.LogService != nil {
-		if core.Spec.MetadataAPI.LogServiceURL != nil {
-			lsURL = *core.Spec.MetadataAPI.LogServiceURL
-		}
+	// if core.Spec.LogService != nil {
+	// 	if core.Spec.MetadataAPI.LogServiceURL != nil {
+	// 		lsURL = *core.Spec.MetadataAPI.LogServiceURL
+	// 	}
+	// }
+	if core.Spec.MetadataAPI.LogServiceURL != nil {
+		lsURL = *core.Spec.MetadataAPI.LogServiceURL
 	}
 
 	env := []corev1.EnvVar{

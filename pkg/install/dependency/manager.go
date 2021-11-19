@@ -1,15 +1,13 @@
 package dependency
 
 import (
-	"log"
-
 	installerv1alpha1 "github.com/puppetlabs/relay-core/pkg/apis/install.relay.sh/v1alpha1"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/install/config"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/scale/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
@@ -38,11 +36,15 @@ type Manager struct {
 }
 
 func NewManager(cfg *config.InstallerControllerConfig, kcc *rest.Config) (*Manager, error) {
+	log := ctrl.Log.WithName("relay-installer")
+
 	mgr, err := ctrl.NewManager(kcc, ctrl.Options{
 		Scheme: Scheme,
 	})
 	if err != nil {
-		log.Fatal("Unable to create new manager", err)
+		log.Error(err, "Unable to create new manager")
+
+		return nil, err
 	}
 
 	kc, err := kubernetes.NewForConfig(mgr.GetConfig())

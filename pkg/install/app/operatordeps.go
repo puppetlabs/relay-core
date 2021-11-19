@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 
-	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/admissionregistrationv1"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/appsv1"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/rbacv1"
@@ -16,31 +15,27 @@ import (
 )
 
 type OperatorDeps struct {
-	Core                  *obj.Core
-	Deployment            *appsv1.Deployment
-	WebhookService        *corev1.Service
-	ServiceAccount        *corev1.ServiceAccount
-	SigningKeysSecret     *corev1.Secret
-	ClusterRole           *rbacv1.ClusterRole
-	ClusterRoleBinding    *rbacv1.ClusterRoleBinding
-	DelegateClusterRole   *rbacv1.ClusterRole
-	MutatingWebhookConfig *admissionregistrationv1.MutatingWebhookConfiguration
-	OwnerConfigMap        *corev1.ConfigMap
-	VaultAgentDeps        *VaultAgentDeps
-	Labels                map[string]string
+	Core                *obj.Core
+	Deployment          *appsv1.Deployment
+	WebhookService      *corev1.Service
+	ServiceAccount      *corev1.ServiceAccount
+	SigningKeysSecret   *corev1.Secret
+	ClusterRole         *rbacv1.ClusterRole
+	ClusterRoleBinding  *rbacv1.ClusterRoleBinding
+	DelegateClusterRole *rbacv1.ClusterRole
+	// MutatingWebhookConfig *admissionregistrationv1.MutatingWebhookConfiguration
+	OwnerConfigMap *corev1.ConfigMap
+	VaultAgentDeps *VaultAgentDeps
+	Labels         map[string]string
 }
 
 func (od *OperatorDeps) Load(ctx context.Context, cl client.Client) (bool, error) {
-	if ok, err := od.Core.Load(ctx, cl); err != nil {
+	if _, err := od.Core.Load(ctx, cl); err != nil {
 		return false, err
-	} else if !ok {
-		return ok, nil
 	}
 
-	if ok, err := od.VaultAgentDeps.Load(ctx, cl); err != nil {
+	if _, err := od.VaultAgentDeps.Load(ctx, cl); err != nil {
 		return false, err
-	} else if !ok {
-		return ok, nil
 	}
 
 	key := SuffixObjectKey(od.Core.Key, "operator")
@@ -54,7 +49,7 @@ func (od *OperatorDeps) Load(ctx context.Context, cl client.Client) (bool, error
 	od.ClusterRole = rbacv1.NewClusterRole(key.Name)
 	od.ClusterRoleBinding = rbacv1.NewClusterRoleBinding(key.Name)
 	od.DelegateClusterRole = rbacv1.NewClusterRole(SuffixObjectKey(key, "delegate").Name)
-	od.MutatingWebhookConfig = admissionregistrationv1.NewMutatingWebhookConfiguration(key.Name)
+	// od.MutatingWebhookConfig = admissionregistrationv1.NewMutatingWebhookConfiguration(key.Name)
 
 	ok, err := lifecycle.Loaders{
 		od.OwnerConfigMap,
@@ -65,7 +60,7 @@ func (od *OperatorDeps) Load(ctx context.Context, cl client.Client) (bool, error
 		od.ClusterRole,
 		od.ClusterRoleBinding,
 		od.DelegateClusterRole,
-		od.MutatingWebhookConfig,
+		// od.MutatingWebhookConfig,
 	}.Load(ctx, cl)
 	if err != nil {
 		return false, err
@@ -84,10 +79,6 @@ func (od *OperatorDeps) Persist(ctx context.Context, cl client.Client) error {
 		od.WebhookService,
 		od.ServiceAccount,
 		od.SigningKeysSecret,
-		od.ClusterRole,
-		od.ClusterRoleBinding,
-		od.DelegateClusterRole,
-		od.MutatingWebhookConfig,
 	}
 	for _, o := range os {
 		if err := od.OwnerConfigMap.Own(ctx, o); err != nil {
@@ -104,7 +95,7 @@ func (od *OperatorDeps) Persist(ctx context.Context, cl client.Client) error {
 		od.ClusterRole,
 		od.ClusterRoleBinding,
 		od.DelegateClusterRole,
-		od.MutatingWebhookConfig,
+		// od.MutatingWebhookConfig,
 	}
 
 	for _, p := range ps {

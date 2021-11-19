@@ -26,16 +26,12 @@ type MetadataAPIDeps struct {
 }
 
 func (md *MetadataAPIDeps) Load(ctx context.Context, cl client.Client) (bool, error) {
-	if ok, err := md.Core.Load(ctx, cl); err != nil {
+	if _, err := md.Core.Load(ctx, cl); err != nil {
 		return false, err
-	} else if !ok {
-		return ok, nil
 	}
 
-	if ok, err := md.VaultAgentDeps.Load(ctx, cl); err != nil {
+	if _, err := md.VaultAgentDeps.Load(ctx, cl); err != nil {
 		return false, err
-	} else if !ok {
-		return ok, nil
 	}
 
 	key := SuffixObjectKey(md.Core.Key, "metadata-api")
@@ -72,8 +68,6 @@ func (md *MetadataAPIDeps) Persist(ctx context.Context, cl client.Client) error 
 		md.Deployment,
 		md.Service,
 		md.ServiceAccount,
-		md.ClusterRole,
-		md.ClusterRoleBinding,
 	}
 
 	for _, o := range os {

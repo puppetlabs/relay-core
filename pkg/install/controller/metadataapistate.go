@@ -181,12 +181,12 @@ func (m *metadataAPIStateManager) deployment(deployment *appsv1.Deployment) {
 func (m *metadataAPIStateManager) deploymentEnv() []corev1.EnvVar {
 	// FIXME Implement a better mechanism for service-to-service configuration
 	lsURL := ""
-	if m.rc.Spec.LogService != nil {
-		lsURL = logServiceURL(m.rc)
-		if m.rc.Spec.MetadataAPI.LogServiceURL != nil {
-			lsURL = *m.rc.Spec.MetadataAPI.LogServiceURL
-		}
+	// if m.rc.Spec.LogService != nil {
+	lsURL = logServiceURL(m.rc)
+	if m.rc.Spec.MetadataAPI.LogServiceURL != nil {
+		lsURL = *m.rc.Spec.MetadataAPI.LogServiceURL
 	}
+	// }
 
 	env := []corev1.EnvVar{
 		{Name: "VAULT_ADDR", Value: "http://localhost:8200"},

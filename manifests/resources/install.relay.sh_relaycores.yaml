@@ -45,6 +45,9 @@ spec:
                   in.
                 type: string
               logService:
+                default:
+                  image: relaysh/relay-pls:latest
+                  imagePullPolicy: IfNotPresent
                 description: LogService is the configuration for the log service.
                 properties:
                   affinity:
@@ -808,6 +811,9 @@ spec:
                     type: string
                 type: object
               metadataAPI:
+                default:
+                  image: relaysh/relay-metadata-api:latest
+                  imagePullPolicy: IfNotPresent
                 description: MetadataAPI is the configuration for the step metadata-api
                   server.
                 properties:
@@ -2380,8 +2386,6 @@ spec:
                       runtimes?'
                     type: string
                   toolInjection:
-                    default:
-                      image: relaysh/relay-runtime-tools:latest
                     description: ToolInjection is the configuration for the entrypointer
                       and tool injection runtime tooling.
                     properties:
