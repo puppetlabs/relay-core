@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 
+	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/admissionregistrationv1"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/appsv1"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/rbacv1"
@@ -11,6 +12,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/install/jwt"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -23,10 +25,11 @@ type OperatorDeps struct {
 	ClusterRole         *rbacv1.ClusterRole
 	ClusterRoleBinding  *rbacv1.ClusterRoleBinding
 	DelegateClusterRole *rbacv1.ClusterRole
-	// MutatingWebhookConfig *admissionregistrationv1.MutatingWebhookConfiguration
-	OwnerConfigMap *corev1.ConfigMap
-	VaultAgentDeps *VaultAgentDeps
-	Labels         map[string]string
+	CASecret            *corev1.Secret
+	WebhookConfig       *admissionregistrationv1.MutatingWebhookConfiguration
+	OwnerConfigMap      *corev1.ConfigMap
+	VaultAgentDeps      *VaultAgentDeps
+	Labels              map[string]string
 }
 
 func (od *OperatorDeps) Load(ctx context.Context, cl client.Client) (bool, error) {
@@ -37,6 +40,8 @@ func (od *OperatorDeps) Load(ctx context.Context, cl client.Client) (bool, error
 	if _, err := od.VaultAgentDeps.Load(ctx, cl); err != nil {
 		return false, err
 	}
+
+	operatorConfig := od.Core.Object.Spec.Operator
 
 	key := SuffixObjectKey(od.Core.Key, "operator")
 
@@ -49,9 +54,18 @@ func (od *OperatorDeps) Load(ctx context.Context, cl client.Client) (bool, error
 	od.ClusterRole = rbacv1.NewClusterRole(key.Name)
 	od.ClusterRoleBinding = rbacv1.NewClusterRoleBinding(key.Name)
 	od.DelegateClusterRole = rbacv1.NewClusterRole(SuffixObjectKey(key, "delegate").Name)
-	// od.MutatingWebhookConfig = admissionregistrationv1.NewMutatingWebhookConfiguration(key.Name)
+
+	caSecretKey := types.NamespacedName{
+		Name:      *operatorConfig.AdmissionWebhookServer.CABundleSecretName,
+		Namespace: key.Namespace,
+	}
+
+	od.CASecret = corev1.NewSecret(caSecretKey)
+	od.WebhookConfig = admissionregistrationv1.NewMutatingWebhookConfiguration(key.Name)
 
 	ok, err := lifecycle.Loaders{
+		lifecycle.RequiredLoader{Loader: od.CASecret},
+
 		od.OwnerConfigMap,
 		od.Deployment,
 		od.WebhookService,
@@ -60,7 +74,7 @@ func (od *OperatorDeps) Load(ctx context.Context, cl client.Client) (bool, error
 		od.ClusterRole,
 		od.ClusterRoleBinding,
 		od.DelegateClusterRole,
-		// od.MutatingWebhookConfig,
+		od.WebhookConfig,
 	}.Load(ctx, cl)
 	if err != nil {
 		return false, err
@@ -95,7 +109,7 @@ func (od *OperatorDeps) Persist(ctx context.Context, cl client.Client) error {
 		od.ClusterRole,
 		od.ClusterRoleBinding,
 		od.DelegateClusterRole,
-		// od.MutatingWebhookConfig,
+		od.WebhookConfig,
 	}
 
 	for _, p := range ps {
@@ -148,6 +162,7 @@ func ConfigureOperatorDeps(ctx context.Context, od *OperatorDeps) error {
 	ConfigureVaultAgentDeps(od.VaultAgentDeps)
 
 	ConfigureOperatorDeployment(od, od.Deployment)
+	ConfigureOperatorWebhookService(od, od.WebhookService)
 	ConfigureOperatorClusterRole(od.ClusterRole)
 	ConfigureClusterRoleBinding(od.Core, od.ClusterRoleBinding)
 	ConfigureOperatorDelegateClusterRole(od.DelegateClusterRole)

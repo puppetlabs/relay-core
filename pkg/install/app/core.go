@@ -13,6 +13,10 @@ func ConfigureCore(cd *CoreDeps) {
 
 	spew.Dump(cd)
 
+	if core.Object.Spec.Operator == nil {
+		core.Object.Spec.Operator = &v1alpha1.OperatorConfig{}
+	}
+
 	if core.Object.Spec.MetadataAPI == nil {
 		core.Object.Spec.MetadataAPI = &v1alpha1.MetadataAPIConfig{}
 	}
@@ -30,5 +34,12 @@ func ConfigureCore(cd *CoreDeps) {
 
 		us := u.String()
 		core.Object.Spec.MetadataAPI.URL = &us
+	}
+
+	if core.Object.Spec.LogService.CredentialsSecretName == "" {
+		core.Object.Spec.LogService.CredentialsSecretName = SuffixObjectKey(
+			cd.LogServiceDeps.Deployment.Key,
+			"google-application-credentials",
+		).Name
 	}
 }

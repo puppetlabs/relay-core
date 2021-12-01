@@ -7,9 +7,11 @@ spec:
   operator:
     standalone: true
     storageAddr: file:///tmp
-    # admissionWebhookServer:
-    #   tlsSecretName: relay-tasks-webhook-tls-crt
-    jwtSigningKeySecretName: jwt-signing-keys
+    admissionWebhookServer:
+      domain: admission.controller.relay.sh
+      caBundleSecretName: relay-tasks-webhook-tls-crt
+      tlsSecretName: relay-tasks-webhook-tls-crt
+    # jwtSigningKeySecretName: jwt-signing-keys
   vault:
     sidecar:
       serverAddr: http://vault.relay-system.svc.cluster.local:8200

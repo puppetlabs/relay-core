@@ -1,8 +1,6 @@
 package app
 
 import (
-	"fmt"
-
 	appsv1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/appsv1"
 	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
 	"github.com/puppetlabs/relay-core/pkg/obj"
@@ -38,7 +36,7 @@ func ConfigureLogServiceDeployment(ld *LogServiceDeps, dep *appsv1obj.Deployment
 			Name: "vault-agent-sa-token",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName: fmt.Sprintf("%s-vault", dep.Key.Name),
+					SecretName: ld.VaultAgentDeps.TokenSecret.Key.Name,
 				},
 			},
 		},
@@ -47,7 +45,7 @@ func ConfigureLogServiceDeployment(ld *LogServiceDeps, dep *appsv1obj.Deployment
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: fmt.Sprintf("%s-vault", dep.Key.Name),
+						Name: ld.VaultAgentDeps.ConfigMap.Key.Name,
 					},
 				},
 			},
@@ -83,7 +81,7 @@ func ConfigureLogServiceDeployment(ld *LogServiceDeps, dep *appsv1obj.Deployment
 func ConfigureLogServiceContainer(coreobj *obj.Core, c *corev1.Container) {
 	core := coreobj.Object
 
-	c.Name = "metadata-api"
+	c.Name = "log-service"
 	c.Image = core.Spec.LogService.Image
 	c.ImagePullPolicy = core.Spec.LogService.ImagePullPolicy
 

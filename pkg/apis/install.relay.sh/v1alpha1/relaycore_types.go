@@ -215,10 +215,7 @@ type OperatorConfig struct {
 	ToolInjection *ToolInjectionConfig `json:"toolInjection,omitempty"`
 
 	// AdmissionWebhookServer is the configuration for the
-	// admissionregistration webhook server.  If this field is set, then the
-	// admission webhook server is enabled and MutatingWebhooks are created.
-	//
-	// +optional
+	// admissionregistration webhook server.
 	AdmissionWebhookServer *AdmissionWebhookServerConfig `json:"admissionWebhookServer,omitempty"`
 
 	// VaultAgentRole is the role to use when configuring the vault agent.
@@ -228,9 +225,17 @@ type OperatorConfig struct {
 }
 
 type AdmissionWebhookServerConfig struct {
+	// Domain is the domain to use as a suffix for the webhook subdomain.
+	// Example: admission.controller.example.com
+	Domain string `json:"domain"`
+	// NamespaceSelector is the map of labels to use in the NamespaceSelector
+	// section of the MutatingWebhooks.
+	NamespaceSelector *metav1.LabelSelector `json:"namespaceSelector,omitempty"`
 	// TLSSecretName is the name of the secret that holds the tls cert
 	// files for webhooks. The secret object MUST have two data fields called
 	// "tls.key" and "tls.crt".
+	//
+	// +optional
 	TLSSecretName string `json:"tlsSecretName,omitempty"`
 	// CABundleSecretName is the name of the secret that holds the ca
 	// certificate bundle for the admission webhook config.  The secret object

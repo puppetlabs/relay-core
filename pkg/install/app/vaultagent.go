@@ -62,9 +62,9 @@ func ConfigureVaultAgentConfigMap(core *obj.Core, role obj.VaultAgentRole, cm *c
 		},
 		Listeners: []*VaultListener{
 			{
-				Type:        "tcp",
-				Address:     "127.0.0.1",
-				TLSDisabled: true,
+				Type:       "tcp",
+				Address:    "127.0.0.1:8200",
+				TLSDisable: true,
 			},
 		},
 		Vault: &VaultServer{

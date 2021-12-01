@@ -25,8 +25,6 @@ type CoreDeps struct {
 func (cd *CoreDeps) Load(ctx context.Context, cl client.Client) (*CoreDepsLoadResult, error) {
 	if _, err := cd.Core.Load(ctx, cl); err != nil {
 		return nil, err
-		// } else if !ok {
-		// 	return &CoreDepsLoadResult{}, nil
 	}
 
 	cd.OperatorDeps = NewOperatorDeps(cd.Core)

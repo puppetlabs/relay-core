@@ -27,9 +27,9 @@ type VaultCache struct {
 }
 
 type VaultListener struct {
-	Type        string `hcl:"type,label"`
-	Address     string `hcl:"address"`
-	TLSDisabled bool   `hcl:"tls_disabled"`
+	Type       string `hcl:"type,label"`
+	Address    string `hcl:"address"`
+	TLSDisable bool   `hcl:"tls_disable"`
 }
 
 type VaultServer struct {

@@ -1,16 +1,17 @@
 package app
 
 import (
-	"fmt"
 	"net/url"
 	"path/filepath"
 	"strconv"
 
 	appsv1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/appsv1"
+	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
 	"github.com/puppetlabs/relay-core/pkg/apis/install.relay.sh/v1alpha1"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 func ConfigureOperatorDeployment(od *OperatorDeps, dep *appsv1obj.Deployment) {
@@ -38,7 +39,7 @@ func ConfigureOperatorDeployment(od *OperatorDeps, dep *appsv1obj.Deployment) {
 			Name: "vault-agent-sa-token",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName: fmt.Sprintf("%s-vault", dep.Key.Name),
+					SecretName: od.VaultAgentDeps.TokenSecret.Key.Name,
 				},
 			},
 		},
@@ -47,7 +48,7 @@ func ConfigureOperatorDeployment(od *OperatorDeps, dep *appsv1obj.Deployment) {
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: fmt.Sprintf("%s-vault", dep.Key.Name),
+						Name: od.VaultAgentDeps.ConfigMap.Key.Name,
 					},
 				},
 			},
@@ -150,6 +151,8 @@ func ConfigureOperatorContainer(coreobj *obj.Core, c *corev1.Container) {
 		"-vault-transit-key",
 		core.Spec.Vault.TransitKey,
 		"-dynamic-rbac-binding",
+		"-webhook-server-key-dir",
+		webhookTLSDirPath,
 	}
 
 	if core.Spec.Operator.Standalone {
@@ -195,13 +198,6 @@ func ConfigureOperatorContainer(coreobj *obj.Core, c *corev1.Container) {
 
 	cmd = append(cmd, "-metadata-api-url", *core.Spec.MetadataAPI.URL)
 
-	if core.Spec.Operator.AdmissionWebhookServer != nil {
-		cmd = append(cmd,
-			"-webhook-server-key-dir",
-			webhookTLSDirPath,
-		)
-	}
-
 	if core.Spec.Operator.ToolInjection != nil {
 		cmd = append(cmd,
 			"-trigger-tool-injection-pool",
@@ -213,19 +209,17 @@ func ConfigureOperatorContainer(coreobj *obj.Core, c *corev1.Container) {
 
 	c.VolumeMounts = []corev1.VolumeMount{}
 
-	if core.Spec.Operator.AdmissionWebhookServer != nil {
-		c.Ports = append(c.Ports, corev1.ContainerPort{
-			Name:          "webhook",
-			ContainerPort: int32(443),
-			Protocol:      corev1.ProtocolTCP,
-		})
+	c.Ports = append(c.Ports, corev1.ContainerPort{
+		Name:          "webhook",
+		ContainerPort: int32(443),
+		Protocol:      corev1.ProtocolTCP,
+	})
 
-		c.VolumeMounts = append(c.VolumeMounts, corev1.VolumeMount{
-			Name:      "webhook-tls",
-			ReadOnly:  true,
-			MountPath: webhookTLSDirPath,
-		})
-	}
+	c.VolumeMounts = append(c.VolumeMounts, corev1.VolumeMount{
+		Name:      "webhook-tls",
+		ReadOnly:  true,
+		MountPath: webhookTLSDirPath,
+	})
 
 	if core.Spec.Operator.LogStoragePVCName != nil {
 		c.VolumeMounts = append(c.VolumeMounts, corev1.VolumeMount{
@@ -239,4 +233,17 @@ func ConfigureOperatorContainer(coreobj *obj.Core, c *corev1.Container) {
 		ReadOnly:  true,
 		MountPath: jwtSigningKeyDirPath,
 	})
+}
+
+func ConfigureOperatorWebhookService(od *OperatorDeps, svc *corev1obj.Service) {
+	svc.Object.Spec.Selector = od.Labels
+
+	svc.Object.Spec.Ports = []corev1.ServicePort{
+		{
+			Name:       "webhook",
+			Port:       int32(443),
+			Protocol:   corev1.ProtocolTCP,
+			TargetPort: intstr.FromString("webhook"),
+		},
+	}
 }

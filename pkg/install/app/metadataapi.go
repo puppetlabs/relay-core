@@ -1,8 +1,6 @@
 package app
 
 import (
-	"fmt"
-
 	appsv1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/appsv1"
 	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
 	"github.com/puppetlabs/relay-core/pkg/obj"
@@ -38,7 +36,7 @@ func ConfigureMetadataAPIDeployment(md *MetadataAPIDeps, dep *appsv1obj.Deployme
 			Name: "vault-agent-sa-token",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName: fmt.Sprintf("%s-vault", dep.Key.Name),
+					SecretName: md.VaultAgentDeps.TokenSecret.Key.Name,
 				},
 			},
 		},
@@ -47,7 +45,7 @@ func ConfigureMetadataAPIDeployment(md *MetadataAPIDeps, dep *appsv1obj.Deployme
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: fmt.Sprintf("%s-vault", dep.Key.Name),
+						Name: md.VaultAgentDeps.ConfigMap.Key.Name,
 					},
 				},
 			},

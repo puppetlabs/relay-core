@@ -22,7 +22,7 @@ cache {
 
 listener "tcp" {
   address      = "127.0.0.1:8200"
-  tls_disabled = true
+  tls_disable = true
 }
 
 vault {
@@ -46,9 +46,9 @@ vault {
 		},
 		Listeners: []*VaultListener{
 			{
-				Type:        "tcp",
-				Address:     "127.0.0.1:8200",
-				TLSDisabled: true,
+				Type:       "tcp",
+				Address:    "127.0.0.1:8200",
+				TLSDisable: true,
 			},
 		},
 		Vault: &VaultServer{
