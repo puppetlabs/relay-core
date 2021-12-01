@@ -4,14 +4,11 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/puppetlabs/relay-core/pkg/apis/install.relay.sh/v1alpha1"
 )
 
 func ConfigureCore(cd *CoreDeps) {
 	core := cd.Core
-
-	spew.Dump(cd)
 
 	if core.Object.Spec.Operator == nil {
 		core.Object.Spec.Operator = &v1alpha1.OperatorConfig{}

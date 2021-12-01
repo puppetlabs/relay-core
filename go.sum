@@ -1271,6 +1271,7 @@ github.com/kulti/thelper v0.2.1/go.mod h1:vMu2Cizjy/grP+jmsvOFDx1kYP6+PD1lqg4Yu5
 github.com/kulti/thelper v0.4.0/go.mod h1:vMu2Cizjy/grP+jmsvOFDx1kYP6+PD1lqg4Yu5exl2U=
 github.com/kunwardeep/paralleltest v1.0.2/go.mod h1:ZPqNm1fVHPllh5LPVujzbVz1JN2GhLxSfY+oqUsvG30=
 github.com/kylelemons/godebug v0.0.0-20170820004349-d65d576e9348/go.mod h1:B69LEHPfb2qLo0BaaOLcbitczOKLWTsrBG9LczfCD4k=
+github.com/kylelemons/godebug v1.1.0 h1:RPNrshWIDI6G2gRW9EHilWtl7Z6Sb1BR0xunSBf0SNc=
 github.com/kylelemons/godebug v1.1.0/go.mod h1:9/0rRGxNHcop5bhtWyNeEfOS8JIWk580+fNqagV/RAw=
 github.com/kyoh86/exportloopref v0.1.8/go.mod h1:1tUcJeiioIs7VWe5gcOObrux3lb66+sBqGZrRkMwPgg=
 github.com/ldez/gomoddirectives v0.2.2/go.mod h1:cpgBogWITnCfRq2qGoDkKMEVSaarhdBr6g8G04uz6d0=
@@ -1655,8 +1656,6 @@ github.com/puppetlabs/leg/instrumentation v0.1.4/go.mod h1:x6wQv38l6/tZRQHolqpL6
 github.com/puppetlabs/leg/jsonutil v0.2.2 h1:vjWbc4HMT7STEgavaMi9AjJoAPrn3Y4sg47xDmq/nJY=
 github.com/puppetlabs/leg/jsonutil v0.2.2/go.mod h1:CsTmPdDmiQFH6dwRs/AXHu+gBRspew+w66tCxzy9ojg=
 github.com/puppetlabs/leg/k8sutil v0.4.0/go.mod h1:5LN5B926v3QNyCQa8IYYIoFS+4f2ak2Mg0LHdIPFQZU=
-github.com/puppetlabs/leg/k8sutil v0.6.2 h1:DGoGy014arGUp2BcCDr4AmjMSOimeovTA8iaQAhRzH0=
-github.com/puppetlabs/leg/k8sutil v0.6.2/go.mod h1:5LN5B926v3QNyCQa8IYYIoFS+4f2ak2Mg0LHdIPFQZU=
 github.com/puppetlabs/leg/k8sutil v0.6.3 h1:bDRrskefoVsRIPzJatqJmOHlqz3ZZ/nv97eBkVXXFNI=
 github.com/puppetlabs/leg/k8sutil v0.6.3/go.mod h1:5LN5B926v3QNyCQa8IYYIoFS+4f2ak2Mg0LHdIPFQZU=
 github.com/puppetlabs/leg/lifecycle v0.2.0 h1:WYaQF+mdW8Wy+tRHkEE9175Bhkd3zJ7i0qnOQkb+BmY=
@@ -1744,6 +1743,7 @@ github.com/securego/gosec/v2 v2.8.1/go.mod h1:pUmsq6+VyFEElJMUX+QB3p3LWNHXg1R3xh
 github.com/serenize/snaker v0.0.0-20171002133257-c7a77c38c398 h1:BbvM3zbEZXBScbJawRAPLkmc44D1KUi/zR5NIBPOWMI=
 github.com/serenize/snaker v0.0.0-20171002133257-c7a77c38c398/go.mod h1:Yow6lPLSAXx2ifx470yD/nUe22Dv5vBvxK/UK9UUTVs=
 github.com/sergi/go-diff v1.0.0/go.mod h1:0CfEIISq7TuYL3j771MWULgwwjU+GofnZX9QAmXWZgo=
+github.com/sergi/go-diff v1.1.0 h1:we8PVUC3FE2uYfodKH/nBHMSetSfHDR6scGdBi+erh0=
 github.com/sergi/go-diff v1.1.0/go.mod h1:STckp+ISIX8hZLjrqAeVduY0gWCT9IjLuqbuNXdaHfM=
 github.com/sethvargo/go-limiter v0.3.0 h1:yRMc+Qs2yqw6YJp6UxrO2iUs6DOSq4zcnljbB7/rMns=
 github.com/sethvargo/go-limiter v0.3.0/go.mod h1:C0kbSFbiriE5k2FFOe18M1YZbAR2Fiwf72uGu0CXCcU=
