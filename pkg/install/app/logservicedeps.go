@@ -5,6 +5,7 @@ import (
 
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/appsv1"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
+	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/helper"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	"github.com/puppetlabs/relay-core/pkg/apis/install.relay.sh/v1alpha1"
 	"github.com/puppetlabs/relay-core/pkg/model"
@@ -31,9 +32,9 @@ func (ld *LogServiceDeps) Load(ctx context.Context, cl client.Client) (bool, err
 		return false, err
 	}
 
-	key := SuffixObjectKey(ld.Core.Key, "log-service")
+	key := helper.SuffixObjectKey(ld.Core.Key, "log-service")
 
-	ld.OwnerConfigMap = corev1.NewConfigMap(SuffixObjectKey(key, "owner"))
+	ld.OwnerConfigMap = corev1.NewConfigMap(helper.SuffixObjectKey(key, "owner"))
 	ld.Deployment = appsv1.NewDeployment(key)
 	ld.Service = corev1.NewService(key)
 	ld.ServiceAccount = corev1.NewServiceAccount(key)

@@ -6,6 +6,7 @@ import (
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/appsv1"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/rbacv1"
+	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/helper"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	"github.com/puppetlabs/leg/k8sutil/pkg/norm"
 	"github.com/puppetlabs/relay-core/pkg/apis/install.relay.sh/v1alpha1"
@@ -35,9 +36,9 @@ func (md *MetadataAPIDeps) Load(ctx context.Context, cl client.Client) (bool, er
 		return false, err
 	}
 
-	key := SuffixObjectKey(md.Core.Key, "metadata-api")
+	key := helper.SuffixObjectKey(md.Core.Key, "metadata-api")
 
-	md.OwnerConfigMap = corev1.NewConfigMap(SuffixObjectKey(key, "owner"))
+	md.OwnerConfigMap = corev1.NewConfigMap(helper.SuffixObjectKey(key, "owner"))
 
 	md.Deployment = appsv1.NewDeployment(key)
 	md.Service = corev1.NewService(key)

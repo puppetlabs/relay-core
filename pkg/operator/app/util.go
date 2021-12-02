@@ -39,13 +39,6 @@ func ModelWebhookTrigger(wt *obj.WebhookTrigger) *model.Trigger {
 	}
 }
 
-func SuffixObjectKey(key client.ObjectKey, suffix string) client.ObjectKey {
-	return client.ObjectKey{
-		Namespace: key.Namespace,
-		Name:      norm.MetaNameSuffixed(key.Name, "-"+suffix),
-	}
-}
-
 func SuffixObjectKeyWithHashOfObjectKey(key, hashable client.ObjectKey) client.ObjectKey {
 	hsh := sha256.Sum256([]byte(hashable.String()))
 	return SuffixObjectKey(key, strings.ToLower(base32.HexEncoding.WithPadding(base32.NoPadding).EncodeToString(hsh[:12])))

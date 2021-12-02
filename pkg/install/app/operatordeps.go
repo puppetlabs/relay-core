@@ -7,6 +7,7 @@ import (
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/appsv1"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/rbacv1"
+	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/helper"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	"github.com/puppetlabs/leg/k8sutil/pkg/norm"
 	"github.com/puppetlabs/relay-core/pkg/apis/install.relay.sh/v1alpha1"
@@ -44,17 +45,17 @@ func (od *OperatorDeps) Load(ctx context.Context, cl client.Client) (bool, error
 
 	operatorConfig := od.Core.Object.Spec.Operator
 
-	key := SuffixObjectKey(od.Core.Key, "operator")
+	key := helper.SuffixObjectKey(od.Core.Key, "operator")
 
-	od.OwnerConfigMap = corev1.NewConfigMap(SuffixObjectKey(key, "owner"))
+	od.OwnerConfigMap = corev1.NewConfigMap(helper.SuffixObjectKey(key, "owner"))
 
 	od.Deployment = appsv1.NewDeployment(key)
-	od.WebhookService = corev1.NewService(SuffixObjectKey(key, "webhook"))
+	od.WebhookService = corev1.NewService(helper.SuffixObjectKey(key, "webhook"))
 	od.ServiceAccount = corev1.NewServiceAccount(key)
-	od.SigningKeysSecret = corev1.NewSecret(SuffixObjectKey(key, "signing-keys"))
+	od.SigningKeysSecret = corev1.NewSecret(helper.SuffixObjectKey(key, "signing-keys"))
 	od.ClusterRole = rbacv1.NewClusterRole(key.Name)
 	od.ClusterRoleBinding = rbacv1.NewClusterRoleBinding(key.Name)
-	od.DelegateClusterRole = rbacv1.NewClusterRole(SuffixObjectKey(key, "delegate").Name)
+	od.DelegateClusterRole = rbacv1.NewClusterRole(helper.SuffixObjectKey(key, "delegate").Name)
 
 	caSecretKey := types.NamespacedName{
 		Name:      *operatorConfig.AdmissionWebhookServer.CABundleSecretName,

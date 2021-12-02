@@ -4,6 +4,7 @@ import (
 	"context"
 
 	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
+	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/helper"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	"github.com/puppetlabs/relay-core/pkg/apis/install.relay.sh/v1alpha1"
 	"github.com/puppetlabs/relay-core/pkg/obj"
@@ -25,13 +26,13 @@ type VaultAgentDeps struct {
 }
 
 func (vd *VaultAgentDeps) Load(ctx context.Context, cl client.Client) (bool, error) {
-	key := SuffixObjectKey(vd.Core.Key, string(vd.Role))
+	key := helper.SuffixObjectKey(vd.Core.Key, string(vd.Role))
 
-	vd.OwnerConfigMap = corev1obj.NewConfigMap(SuffixObjectKey(key, "vault-agent-owner"))
+	vd.OwnerConfigMap = corev1obj.NewConfigMap(helper.SuffixObjectKey(key, "vault-agent-owner"))
 
-	vd.ConfigMap = corev1obj.NewConfigMap(SuffixObjectKey(key, "vault-agent"))
-	vd.ServiceAccount = corev1obj.NewServiceAccount(SuffixObjectKey(key, "vault-agent"))
-	vd.TokenSecret = corev1obj.NewSecret(SuffixObjectKey(key, "vault-agent-token"))
+	vd.ConfigMap = corev1obj.NewConfigMap(helper.SuffixObjectKey(key, "vault-agent"))
+	vd.ServiceAccount = corev1obj.NewServiceAccount(helper.SuffixObjectKey(key, "vault-agent"))
+	vd.TokenSecret = corev1obj.NewSecret(helper.SuffixObjectKey(key, "vault-agent-token"))
 
 	ok, err := lifecycle.Loaders{
 		vd.OwnerConfigMap,
