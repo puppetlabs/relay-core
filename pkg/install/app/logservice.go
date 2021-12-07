@@ -29,7 +29,7 @@ func ConfigureLogServiceDeployment(ld *LogServiceDeps, dep *appsv1obj.Deployment
 
 	template := &dep.Object.Spec.Template.Spec
 	template.ServiceAccountName = dep.Key.Name
-	template.Affinity = core.Spec.MetadataAPI.Affinity
+	template.Affinity = core.Spec.LogService.Affinity
 
 	template.Volumes = []corev1.Volume{
 		{

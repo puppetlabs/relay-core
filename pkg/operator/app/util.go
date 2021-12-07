@@ -5,6 +5,7 @@ import (
 	"encoding/base32"
 	"strings"
 
+	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/helper"
 	"github.com/puppetlabs/leg/k8sutil/pkg/norm"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/model"
@@ -41,7 +42,7 @@ func ModelWebhookTrigger(wt *obj.WebhookTrigger) *model.Trigger {
 
 func SuffixObjectKeyWithHashOfObjectKey(key, hashable client.ObjectKey) client.ObjectKey {
 	hsh := sha256.Sum256([]byte(hashable.String()))
-	return SuffixObjectKey(key, strings.ToLower(base32.HexEncoding.WithPadding(base32.NoPadding).EncodeToString(hsh[:12])))
+	return helper.SuffixObjectKey(key, strings.ToLower(base32.HexEncoding.WithPadding(base32.NoPadding).EncodeToString(hsh[:12])))
 }
 
 func ModelStepObjectKey(key client.ObjectKey, ms *model.Step) client.ObjectKey {
