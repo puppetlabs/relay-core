@@ -109,3 +109,34 @@ func ConfigureClusterRoleBinding(coreobj *obj.Core, crb *rbacv1obj.ClusterRoleBi
 		},
 	}
 }
+
+func ConfigureWebhookCertificateControllerClusterRole(cr *rbacv1obj.ClusterRole) {
+	cr.Object.Rules = []rbacv1.PolicyRule{
+		{
+			APIGroups: []string{""},
+			Resources: []string{"secrets"},
+			Verbs:     []string{"create", "update", "list", "get", "watch"},
+		},
+		{
+			APIGroups: []string{"admissionregistration.k8s.io"},
+			Resources: []string{"mutatingwebhookconfigurations"},
+			Verbs:     []string{"get", "list", "watch", "update"},
+		},
+	}
+}
+
+func ConfigureWebhookCertificateControllerClusterRoleBinding(coreobj *obj.Core, crb *rbacv1obj.ClusterRoleBinding) {
+	crb.Object.RoleRef = rbacv1.RoleRef{
+		APIGroup: "rbac.authorization.k8s.io",
+		Kind:     "ClusterRole",
+		Name:     crb.Name,
+	}
+
+	crb.Object.Subjects = []rbacv1.Subject{
+		{
+			Kind:      "ServiceAccount",
+			Name:      crb.Object.Name,
+			Namespace: coreobj.Object.Namespace,
+		},
+	}
+}

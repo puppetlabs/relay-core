@@ -7,6 +7,7 @@ import (
 
 	appsv1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/appsv1"
 	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
+	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/helper"
 	"github.com/puppetlabs/relay-core/pkg/apis/install.relay.sh/v1alpha1"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	corev1 "k8s.io/api/core/v1"
@@ -55,16 +56,14 @@ func ConfigureOperatorDeployment(od *OperatorDeps, dep *appsv1obj.Deployment) {
 		},
 	}
 
-	if core.Spec.Operator.AdmissionWebhookServer != nil {
-		template.Volumes = append(template.Volumes, corev1.Volume{
-			Name: "webhook-tls",
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName: core.Spec.Operator.AdmissionWebhookServer.TLSSecretName,
-				},
+	template.Volumes = append(template.Volumes, corev1.Volume{
+		Name: "webhook-tls",
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: helper.SuffixObjectKey(dep.Key, "certificate").Name,
 			},
-		})
-	}
+		},
+	})
 
 	if core.Spec.Operator.LogStoragePVCName != nil {
 		template.Volumes = append(template.Volumes, corev1.Volume{

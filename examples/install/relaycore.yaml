@@ -4,13 +4,17 @@ metadata:
   name: relay-core-v1
 spec:
   environment: dev
+  debug: true
   operator:
     standalone: true
     storageAddr: file:///tmp
     admissionWebhookServer:
+      certificateControllerImage: relay-development:5000/relay-operator-webhook-certificate-controller:latest
+      certificateControllerImagePullPolicy: Always
       domain: admission.controller.relay.sh
-      caBundleSecretName: relay-tasks-webhook-tls-crt
-      tlsSecretName: relay-tasks-webhook-tls-crt
+      namespaceSelector:
+        matchLabels:
+          controller.relay.sh/tenant-workload: "true"
     # jwtSigningKeySecretName: jwt-signing-keys
   vault:
     sidecar:

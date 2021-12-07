@@ -18,15 +18,12 @@ func ConfigureOperatorWebhookConfiguration(od *OperatorDeps, mwc *admissionregis
 
 	oc := od.Core.Object.Spec.Operator
 	aws := oc.AdmissionWebhookServer
-	caSecret := od.CASecret.Object
-	caCert := caSecret.Data["ca.crt"]
 
 	mwc.Object.Webhooks = []admissionv1.MutatingWebhook{
 		{
 			AdmissionReviewVersions: []string{"v1", "v1beta1"},
 			Name:                    fmt.Sprintf("%s-pod-enforcement.%s", mwc.Name, aws.Domain),
 			ClientConfig: admissionv1.WebhookClientConfig{
-				CABundle: caCert,
 				Service: &admissionv1.ServiceReference{
 					Name:      od.WebhookService.Key.Name,
 					Namespace: od.WebhookService.Key.Namespace,
@@ -54,7 +51,6 @@ func ConfigureOperatorWebhookConfiguration(od *OperatorDeps, mwc *admissionregis
 			AdmissionReviewVersions: []string{"v1", "v1beta1"},
 			Name:                    fmt.Sprintf("%s-volume-claim.%s", mwc.Name, aws.Domain),
 			ClientConfig: admissionv1.WebhookClientConfig{
-				CABundle: caCert,
 				Service: &admissionv1.ServiceReference{
 					Name:      od.WebhookService.Key.Name,
 					Namespace: od.WebhookService.Key.Namespace,

@@ -225,24 +225,22 @@ type OperatorConfig struct {
 }
 
 type AdmissionWebhookServerConfig struct {
+	// CertificateControllerImage is the image to use for the certificate
+	// controller that managers the TLS certificates for the operator's webhook
+	// server
+	//
+	// +kubebuilder:default="relaysh/relay-operator-webhook-certificate-controller:latest"
+	// +optional
+	CertificateControllerImage string `json:"certificateControllerImage"`
+	// +kubebuilder:default="IfNotPresent"
+	// +optional
+	CertificateControllerImagePullPolicy corev1.PullPolicy `json:"certificateControllerImagePullPolicy,omitempty"`
 	// Domain is the domain to use as a suffix for the webhook subdomain.
 	// Example: admission.controller.example.com
 	Domain string `json:"domain"`
 	// NamespaceSelector is the map of labels to use in the NamespaceSelector
 	// section of the MutatingWebhooks.
 	NamespaceSelector *metav1.LabelSelector `json:"namespaceSelector,omitempty"`
-	// TLSSecretName is the name of the secret that holds the tls cert
-	// files for webhooks. The secret object MUST have two data fields called
-	// "tls.key" and "tls.crt".
-	//
-	// +optional
-	TLSSecretName string `json:"tlsSecretName,omitempty"`
-	// CABundleSecretName is the name of the secret that holds the ca
-	// certificate bundle for the admission webhook config.  The secret object
-	// MUST have a field called "ca.crt".
-	//
-	// +optional
-	CABundleSecretName *string `json:"caBundleSecretName,omitempty"`
 }
 
 // MetadataAPIConfig is the configuration for the relay-metadata-api deployment

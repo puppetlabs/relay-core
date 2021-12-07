@@ -14,24 +14,23 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/install/jwt"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type OperatorDeps struct {
-	Core                *obj.Core
-	Deployment          *appsv1.Deployment
-	WebhookService      *corev1.Service
-	ServiceAccount      *corev1.ServiceAccount
-	SigningKeysSecret   *corev1.Secret
-	ClusterRole         *rbacv1.ClusterRole
-	ClusterRoleBinding  *rbacv1.ClusterRoleBinding
-	DelegateClusterRole *rbacv1.ClusterRole
-	CASecret            *corev1.Secret
-	WebhookConfig       *admissionregistrationv1.MutatingWebhookConfiguration
-	OwnerConfigMap      *corev1.ConfigMap
-	VaultAgentDeps      *VaultAgentDeps
-	Labels              map[string]string
+	Core                             *obj.Core
+	Deployment                       *appsv1.Deployment
+	WebhookService                   *corev1.Service
+	ServiceAccount                   *corev1.ServiceAccount
+	SigningKeysSecret                *corev1.Secret
+	ClusterRole                      *rbacv1.ClusterRole
+	ClusterRoleBinding               *rbacv1.ClusterRoleBinding
+	DelegateClusterRole              *rbacv1.ClusterRole
+	WebhookConfig                    *admissionregistrationv1.MutatingWebhookConfiguration
+	OwnerConfigMap                   *corev1.ConfigMap
+	WebhookCertificateControllerDeps *WebhookCertificateControllerDeps
+	VaultAgentDeps                   *VaultAgentDeps
+	Labels                           map[string]string
 }
 
 func (od *OperatorDeps) Load(ctx context.Context, cl client.Client) (bool, error) {
@@ -39,13 +38,17 @@ func (od *OperatorDeps) Load(ctx context.Context, cl client.Client) (bool, error
 		return false, err
 	}
 
+	key := helper.SuffixObjectKey(od.Core.Key, "operator")
+
 	if _, err := od.VaultAgentDeps.Load(ctx, cl); err != nil {
 		return false, err
 	}
 
-	operatorConfig := od.Core.Object.Spec.Operator
+	od.WebhookCertificateControllerDeps = NewWebhookCertificateControllerDeps(key, od.Core)
 
-	key := helper.SuffixObjectKey(od.Core.Key, "operator")
+	if _, err := od.WebhookCertificateControllerDeps.Load(ctx, cl); err != nil {
+		return false, err
+	}
 
 	od.OwnerConfigMap = corev1.NewConfigMap(helper.SuffixObjectKey(key, "owner"))
 
@@ -56,18 +59,9 @@ func (od *OperatorDeps) Load(ctx context.Context, cl client.Client) (bool, error
 	od.ClusterRole = rbacv1.NewClusterRole(key.Name)
 	od.ClusterRoleBinding = rbacv1.NewClusterRoleBinding(key.Name)
 	od.DelegateClusterRole = rbacv1.NewClusterRole(helper.SuffixObjectKey(key, "delegate").Name)
-
-	caSecretKey := types.NamespacedName{
-		Name:      *operatorConfig.AdmissionWebhookServer.CABundleSecretName,
-		Namespace: key.Namespace,
-	}
-
-	od.CASecret = corev1.NewSecret(caSecretKey)
 	od.WebhookConfig = admissionregistrationv1.NewMutatingWebhookConfiguration(key.Name)
 
 	ok, err := lifecycle.Loaders{
-		lifecycle.RequiredLoader{Loader: od.CASecret},
-
 		od.OwnerConfigMap,
 		od.Deployment,
 		od.WebhookService,
@@ -104,6 +98,7 @@ func (od *OperatorDeps) Persist(ctx context.Context, cl client.Client) error {
 
 	ps := []lifecycle.Persister{
 		od.VaultAgentDeps,
+		od.WebhookCertificateControllerDeps,
 		od.Deployment,
 		od.WebhookService,
 		od.ServiceAccount,
@@ -162,9 +157,13 @@ func ConfigureOperatorDeps(ctx context.Context, od *OperatorDeps) error {
 	}
 
 	ConfigureVaultAgentDeps(od.VaultAgentDeps)
+	if err := ConfigureWebhookCertificateControllerDeps(ctx, od.WebhookCertificateControllerDeps); err != nil {
+		return err
+	}
 
 	ConfigureOperatorDeployment(od, od.Deployment)
 	ConfigureOperatorWebhookService(od, od.WebhookService)
+	ConfigureOperatorWebhookConfiguration(od, od.WebhookConfig)
 	ConfigureOperatorClusterRole(od.ClusterRole)
 	ConfigureClusterRoleBinding(od.Core, od.ClusterRoleBinding)
 	ConfigureOperatorDelegateClusterRole(od.DelegateClusterRole)

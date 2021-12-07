@@ -1596,10 +1596,16 @@ spec:
                     description: AdmissionWebhookServer is the configuration for the
                       admissionregistration webhook server.
                     properties:
-                      caBundleSecretName:
-                        description: CABundleSecretName is the name of the secret
-                          that holds the ca certificate bundle for the admission webhook
-                          config.  The secret object MUST have a field called "ca.crt".
+                      certificateControllerImage:
+                        default: relaysh/relay-operator-webhook-certificate-controller:latest
+                        description: CertificateControllerImage is the image to use
+                          for the certificate controller that managers the TLS certificates
+                          for the operator's webhook server
+                        type: string
+                      certificateControllerImagePullPolicy:
+                        default: IfNotPresent
+                        description: PullPolicy describes a policy for if/when to
+                          pull a container image
                         type: string
                       domain:
                         description: 'Domain is the domain to use as a suffix for
@@ -1651,11 +1657,6 @@ spec:
                               only "value". The requirements are ANDed.
                             type: object
                         type: object
-                      tlsSecretName:
-                        description: TLSSecretName is the name of the secret that
-                          holds the tls cert files for webhooks. The secret object
-                          MUST have two data fields called "tls.key" and "tls.crt".
-                        type: string
                     required:
                     - domain
                     type: object
