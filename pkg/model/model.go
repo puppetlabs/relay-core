@@ -22,6 +22,12 @@ const (
 	RelayControllerTenantWorkloadLabel   = "controller.relay.sh/tenant-workload"
 	RelayControllerWorkflowRunIDLabel    = "controller.relay.sh/run-id"
 	RelayControllerWebhookTriggerIDLabel = "controller.relay.sh/webhook-trigger-id"
+
+	RelayInstallerNameLabel = "install.relay.sh/relay-core"
+	RelayAppNameLabel       = "app.kubernetes.io/name"
+	RelayAppInstanceLabel   = "app.kubernetes.io/instance"
+	RelayAppComponentLabel  = "app.kubernetes.io/component"
+	RelayAppManagedByLabel  = "app.kubernetes.io/managed-by"
 )
 
 // MetadataManagers are the managers used by actions accessing the metadata

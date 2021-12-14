@@ -45,6 +45,9 @@ spec:
                   in.
                 type: string
               logService:
+                default:
+                  image: relaysh/relay-pls:latest
+                  imagePullPolicy: IfNotPresent
                 description: LogService is the configuration for the log service.
                 properties:
                   affinity:
@@ -808,6 +811,9 @@ spec:
                     type: string
                 type: object
               metadataAPI:
+                default:
+                  image: relaysh/relay-metadata-api:latest
+                  imagePullPolicy: IfNotPresent
                 description: MetadataAPI is the configuration for the step metadata-api
                   server.
                 properties:
@@ -1588,20 +1594,70 @@ spec:
                 properties:
                   admissionWebhookServer:
                     description: AdmissionWebhookServer is the configuration for the
-                      admissionregistration webhook server.  If this field is set,
-                      then the admission webhook server is enabled and MutatingWebhooks
-                      are created.
+                      admissionregistration webhook server.
                     properties:
                       caBundleSecretName:
                         description: CABundleSecretName is the name of the secret
                           that holds the ca certificate bundle for the admission webhook
                           config.  The secret object MUST have a field called "ca.crt".
                         type: string
+                      domain:
+                        description: 'Domain is the domain to use as a suffix for
+                          the webhook subdomain. Example: admission.controller.example.com'
+                        type: string
+                      namespaceSelector:
+                        description: NamespaceSelector is the map of labels to use
+                          in the NamespaceSelector section of the MutatingWebhooks.
+                        properties:
+                          matchExpressions:
+                            description: matchExpressions is a list of label selector
+                              requirements. The requirements are ANDed.
+                            items:
+                              description: A label selector requirement is a selector
+                                that contains values, a key, and an operator that
+                                relates the key and values.
+                              properties:
+                                key:
+                                  description: key is the label key that the selector
+                                    applies to.
+                                  type: string
+                                operator:
+                                  description: operator represents a key's relationship
+                                    to a set of values. Valid operators are In, NotIn,
+                                    Exists and DoesNotExist.
+                                  type: string
+                                values:
+                                  description: values is an array of string values.
+                                    If the operator is In or NotIn, the values array
+                                    must be non-empty. If the operator is Exists or
+                                    DoesNotExist, the values array must be empty.
+                                    This array is replaced during a strategic merge
+                                    patch.
+                                  items:
+                                    type: string
+                                  type: array
+                              required:
+                              - key
+                              - operator
+                              type: object
+                            type: array
+                          matchLabels:
+                            additionalProperties:
+                              type: string
+                            description: matchLabels is a map of {key,value} pairs.
+                              A single {key,value} in the matchLabels map is equivalent
+                              to an element of matchExpressions, whose key field is
+                              "key", the operator is "In", and the values array contains
+                              only "value". The requirements are ANDed.
+                            type: object
+                        type: object
                       tlsSecretName:
                         description: TLSSecretName is the name of the secret that
                           holds the tls cert files for webhooks. The secret object
                           MUST have two data fields called "tls.key" and "tls.crt".
                         type: string
+                    required:
+                    - domain
                     type: object
                   affinity:
                     description: Affinity is an optional set of affinity constraints
@@ -2380,21 +2436,15 @@ spec:
                       runtimes?'
                     type: string
                   toolInjection:
-                    default:
-                      image: relaysh/relay-runtime-tools:latest
                     description: ToolInjection is the configuration for the entrypointer
                       and tool injection runtime tooling.
                     properties:
-                      image:
-                        default: relaysh/relay-runtime-tools:latest
-                        type: string
-                      imagePullPolicy:
-                        default: IfNotPresent
-                        description: PullPolicy describes a policy for if/when to
-                          pull a container image
+                      triggerPoolName:
+                        description: TriggerPoolName is the name of the tool injection
+                          pool for triggers.
                         type: string
                     required:
-                    - image
+                    - triggerPoolName
                     type: object
                   vaultAgentRole:
                     description: VaultAgentRole is the role to use when configuring

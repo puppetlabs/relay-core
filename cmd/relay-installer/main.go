@@ -18,69 +18,91 @@ package main
 
 import (
 	"flag"
+	"log"
 	"os"
 
-	"k8s.io/apimachinery/pkg/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	installerv1alpha1 "github.com/puppetlabs/relay-core/pkg/apis/install.relay.sh/v1alpha1"
+	"github.com/puppetlabs/leg/instrumentation/alerts"
+	"github.com/puppetlabs/relay-core/pkg/install/config"
 	"github.com/puppetlabs/relay-core/pkg/install/controller"
-	// +kubebuilder:scaffold:imports
+	"github.com/puppetlabs/relay-core/pkg/install/dependency"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/klog/v2"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 )
 
-var (
-	scheme   = runtime.NewScheme()
-	setupLog = ctrl.Log.WithName("setup")
-)
-
-func init() {
-	_ = clientgoscheme.AddToScheme(scheme)
-
-	_ = installerv1alpha1.AddToScheme(scheme)
-	// +kubebuilder:scaffold:scheme
-}
+var setupLog = ctrl.Log.WithName("setup")
 
 func main() {
-	var metricsAddr string
-	var enableLeaderElection bool
+	fs := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 
-	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
+	var (
+		metricsAddr          string
+		enableLeaderElection bool
+		environment          string
+		kubeconfig           string
+		kubeMasterURL        string
+		kubeNamespace        string
+		numWorkers           int
+		sentryDSN            string
+	)
+
+	fs.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
+	fs.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+	fs.StringVar(&environment, "environment", "dev", "the environment this operator is running in")
+	fs.StringVar(&kubeconfig, "kubeconfig", "", "path to kubeconfig file. Only required if running outside of a cluster.")
+	fs.StringVar(&kubeMasterURL, "kube-master-url", "", "url to the kubernetes master")
+	fs.StringVar(&kubeNamespace, "kube-namespace", "", "an optional working namespace to restrict to for watching CRDs")
+	fs.IntVar(&numWorkers, "num-workers", 2, "the number of worker threads to spawn")
+	fs.StringVar(&sentryDSN, "sentry-dsn", "", "the Sentry DSN to use for error reporting")
 
-	flag.Parse()
+	fs.Parse(os.Args[1:])
 
-	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
+	klogFlags := flag.NewFlagSet("klog", flag.ExitOnError)
+	klog.InitFlags(klogFlags)
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:             scheme,
-		MetricsBindAddress: metricsAddr,
-		Port:               9443,
-		LeaderElection:     enableLeaderElection,
-		LeaderElectionID:   "ddeb5fc4.install.relay.sh",
-	})
+	kcfg := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfig},
+		&clientcmd.ConfigOverrides{ClusterInfo: clientcmdapi.Cluster{Server: kubeMasterURL}},
+	)
+
+	kcc, err := kcfg.ClientConfig()
 	if err != nil {
-		setupLog.Error(err, "unable to start manager")
-		os.Exit(1)
+		log.Fatal("Error creating kubernetes config", err)
 	}
 
-	if err = (&controller.RelayCoreReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controller").WithName("RelayCore"),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "RelayCore")
-		os.Exit(1)
+	var alertsDelegate alerts.DelegateFunc
+	if sentryDSN != "" {
+		var err error
+		alertsDelegate, err = alerts.DelegateToSentry(sentryDSN)
+		if err != nil {
+			log.Fatal("Error initializing Sentry", err)
+		}
 	}
-	// +kubebuilder:scaffold:builder
+
+	cfg := &config.InstallerControllerConfig{
+		Environment:             environment,
+		MaxConcurrentReconciles: numWorkers,
+		Namespace:               kubeNamespace,
+		AlertsDelegate:          alertsDelegate,
+	}
+
+	setupLog.Info("creating manager")
+	m, err := dependency.NewManager(cfg, kcc)
+	if err != nil {
+		log.Fatal("Error creating controller dependency builder", err)
+	}
+
+	if err := controller.Add(m); err != nil {
+		log.Fatal("Could not add all controllers to operator manager", err)
+	}
 
 	setupLog.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-		setupLog.Error(err, "problem running manager")
-		os.Exit(1)
+	if err := m.Manager.Start(signals.SetupSignalHandler()); err != nil {
+		log.Fatal("Manager exited non-zero", err)
 	}
 }

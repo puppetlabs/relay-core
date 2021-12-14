@@ -2,14 +2,16 @@ apiVersion: install.relay.sh/v1alpha1
 kind: RelayCore
 metadata:
   name: relay-core-v1
-  namespace: relay-system
 spec:
   environment: dev
   operator:
     standalone: true
     storageAddr: file:///tmp
-    webhookTLSSecretName: relay-tasks-webhook-tls-crt
-    jwtSigningKeySecretName: jwt-signing-keys
+    admissionWebhookServer:
+      domain: admission.controller.relay.sh
+      caBundleSecretName: relay-tasks-webhook-tls-crt
+      tlsSecretName: relay-tasks-webhook-tls-crt
+    # jwtSigningKeySecretName: jwt-signing-keys
   vault:
     sidecar:
       serverAddr: http://vault.relay-system.svc.cluster.local:8200

@@ -8,7 +8,6 @@ require (
 	github.com/asaskevich/govalidator v0.0.0-20200108200545-475eaeb16496 // indirect
 	github.com/certifi/gocertifi v0.0.0-20180118203423-deb3ae2ef261 // indirect
 	github.com/generikvault/gvalstrings v0.0.0-20180926130504-471f38f0112a
-	github.com/go-logr/logr v0.4.0
 	github.com/gofrs/flock v0.8.1
 	github.com/golang/protobuf v1.5.2
 	github.com/gomarkdown/markdown v0.0.0-20200513213024-62c5e2c608cc
@@ -17,6 +16,7 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/hashicorp/go-cleanhttp v0.5.2
 	github.com/hashicorp/go-retryablehttp v0.6.8
+	github.com/hashicorp/hcl2 v0.0.0-20191002203319-fb75b3253c80
 	github.com/hashicorp/vault v1.8.2
 	github.com/hashicorp/vault-plugin-auth-jwt v0.10.1
 	github.com/hashicorp/vault-plugin-secrets-kv v0.9.0
@@ -36,7 +36,7 @@ require (
 	github.com/puppetlabs/leg/httputil v0.1.4
 	github.com/puppetlabs/leg/instrumentation v0.1.4
 	github.com/puppetlabs/leg/jsonutil v0.2.2
-	github.com/puppetlabs/leg/k8sutil v0.6.2
+	github.com/puppetlabs/leg/k8sutil v0.6.3
 	github.com/puppetlabs/leg/logging v0.1.0
 	github.com/puppetlabs/leg/mainutil v0.1.2
 	github.com/puppetlabs/leg/scheduler v0.1.4

@@ -49,8 +49,9 @@ type RelayCoreSpec struct {
 
 	// LogService is the configuration for the log service.
 	//
+	// +kubebuilder:default={image: "relaysh/relay-pls:latest", imagePullPolicy: "IfNotPresent"}
 	// +optional
-	LogService *LogServiceConfig `json:"logService,omitempty"`
+	LogService LogServiceConfig `json:"logService,omitempty"`
 
 	// Operator is the configuration for the workflow run operator.
 	//
@@ -59,6 +60,7 @@ type RelayCoreSpec struct {
 
 	// MetadataAPI is the configuration for the step metadata-api server.
 	//
+	// +kubebuilder:default={image: "relaysh/relay-metadata-api:latest", imagePullPolicy: "IfNotPresent"}
 	// +optional
 	MetadataAPI *MetadataAPIConfig `json:"metadataAPI,omitempty"`
 
@@ -209,14 +211,11 @@ type OperatorConfig struct {
 	// ToolInjection is the configuration for the entrypointer and tool
 	// injection runtime tooling.
 	//
-	// +kubebuilder:default={image: "relaysh/relay-runtime-tools:latest"}
+	// +optional
 	ToolInjection *ToolInjectionConfig `json:"toolInjection,omitempty"`
 
 	// AdmissionWebhookServer is the configuration for the
-	// admissionregistration webhook server.  If this field is set, then the
-	// admission webhook server is enabled and MutatingWebhooks are created.
-	//
-	// +optional
+	// admissionregistration webhook server.
 	AdmissionWebhookServer *AdmissionWebhookServerConfig `json:"admissionWebhookServer,omitempty"`
 
 	// VaultAgentRole is the role to use when configuring the vault agent.
@@ -226,9 +225,17 @@ type OperatorConfig struct {
 }
 
 type AdmissionWebhookServerConfig struct {
+	// Domain is the domain to use as a suffix for the webhook subdomain.
+	// Example: admission.controller.example.com
+	Domain string `json:"domain"`
+	// NamespaceSelector is the map of labels to use in the NamespaceSelector
+	// section of the MutatingWebhooks.
+	NamespaceSelector *metav1.LabelSelector `json:"namespaceSelector,omitempty"`
 	// TLSSecretName is the name of the secret that holds the tls cert
 	// files for webhooks. The secret object MUST have two data fields called
 	// "tls.key" and "tls.crt".
+	//
+	// +optional
 	TLSSecretName string `json:"tlsSecretName,omitempty"`
 	// CABundleSecretName is the name of the secret that holds the ca
 	// certificate bundle for the admission webhook config.  The secret object
@@ -351,12 +358,8 @@ type VaultSidecar struct {
 }
 
 type ToolInjectionConfig struct {
-	// +kubebuilder:default="relaysh/relay-runtime-tools:latest"
-	Image string `json:"image"`
-
-	// +kubebuilder:default="IfNotPresent"
-	// +optional
-	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy"`
+	// TriggerPoolName is the name of the tool injection pool for triggers.
+	TriggerPoolName string `json:"triggerPoolName"`
 }
 
 // RelayCoreStatus defines the observed state of RelayCore
