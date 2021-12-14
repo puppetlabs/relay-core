@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 
@@ -14,7 +15,8 @@ import (
 )
 
 type CoreDepsLoadResult struct {
-	All bool
+	VaultConfig *VaultConfigDepsLoadResult
+	All         bool
 }
 
 type CoreDeps struct {
@@ -23,10 +25,18 @@ type CoreDeps struct {
 	OperatorDeps    *OperatorDeps
 	MetadataAPIDeps *MetadataAPIDeps
 	LogServiceDeps  *LogServiceDeps
+	VaultConfigDeps *VaultConfigDeps
 }
 
 func (cd *CoreDeps) Load(ctx context.Context, cl client.Client) (*CoreDepsLoadResult, error) {
 	if _, err := cd.Core.Load(ctx, cl); err != nil {
+		return nil, err
+	}
+
+	cd.VaultConfigDeps = NewVaultConfigDeps(cd.Core)
+
+	vr, err := cd.VaultConfigDeps.Load(ctx, cl)
+	if err != nil {
 		return nil, err
 	}
 
@@ -44,7 +54,7 @@ func (cd *CoreDeps) Load(ctx context.Context, cl client.Client) (*CoreDepsLoadRe
 		return nil, err
 	}
 
-	return &CoreDepsLoadResult{All: ok}, nil
+	return &CoreDepsLoadResult{All: ok, VaultConfig: vr}, nil
 }
 
 func (cd *CoreDeps) Persist(ctx context.Context, cl client.Client) error {
@@ -74,10 +84,24 @@ func NewCoreDeps(c *obj.Core) *CoreDeps {
 func ApplyCoreDeps(ctx context.Context, cl client.Client, c *obj.Core) (*CoreDeps, error) {
 	cd := NewCoreDeps(c)
 
-	_, err := cd.Load(ctx, cl)
+	result, err := cd.Load(ctx, cl)
 	if err != nil {
 		klog.Error(err)
 		return nil, err
+	}
+
+	if result.VaultConfig.JobsRunning {
+		return nil, errors.New("waiting for vault configuration jobs to finish")
+	} else if !result.VaultConfig.JobsExist {
+		if err := ConfigureVaultConfigDeps(ctx, cd.VaultConfigDeps); err != nil {
+			return nil, err
+		}
+
+		if err := cd.VaultConfigDeps.Persist(ctx, cl); err != nil {
+			return nil, err
+		}
+
+		return nil, errors.New("waiting for vault configuration jobs to finish")
 	}
 
 	ConfigureCoreDeps(cd)

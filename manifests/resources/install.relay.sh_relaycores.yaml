@@ -676,6 +676,8 @@ spec:
                     description: Dataset is the BigQuery dataset to use for logging.
                     type: string
                   env:
+                    description: Env is the slice of environment variables to use
+                      when launching the log service.
                     items:
                       description: EnvVar represents an environment variable present
                         in a Container.
@@ -785,21 +787,25 @@ spec:
                     type: array
                   image:
                     default: relaysh/relay-pls:latest
+                    description: Image is the container image to use for the log service.
                     type: string
                   imagePullPolicy:
                     default: IfNotPresent
-                    description: PullPolicy describes a policy for if/when to pull
-                      a container image
+                    description: ImagePullPolicy instructs the cluster when it should
+                      attempt to pull the container image.
                     type: string
                   nodeSelector:
                     additionalProperties:
                       type: string
+                    description: NodeSelector instructs the cluster how to choose
+                      a node to run the log service pods.
                     type: object
                   project:
                     description: Project is the BigQuery project to use for logging.
                     type: string
                   replicas:
                     default: 1
+                    description: Replicas is the number of pods to run for this server.
                     format: int32
                     type: integer
                   table:
@@ -809,6 +815,11 @@ spec:
                     description: VaultAgentRole is the role to use when configuring
                       the vault agent.
                     type: string
+                required:
+                - credentialsSecretName
+                - dataset
+                - project
+                - table
                 type: object
               metadataAPI:
                 default:
@@ -2479,6 +2490,35 @@ spec:
                 description: Vault is the configuration for accessing vault from the
                   operator and metadata-api.
                 properties:
+                  auth:
+                    description: Auth provides credentials for vault server authentication.
+                    properties:
+                      token:
+                        description: Token is the token to use for vault server authentication
+                          when configuring engine mounts and policies for relay-core
+                          components.
+                        type: string
+                      tokenFrom:
+                        description: TokenFrom allows the vault server token to be
+                          provided by another source such as a Secret.
+                        properties:
+                          secretKeyRef:
+                            description: SecretKeyRef selects an API token by looking
+                              up the value in a secret.
+                            properties:
+                              key:
+                                description: Key is the key from the secret to use.
+                                type: string
+                              name:
+                                description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                  TODO: Add other useful fields. apiVersion, kind,
+                                  uid?'
+                                type: string
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
                   logServicePath:
                     default: pls
                     type: string
@@ -2557,6 +2597,8 @@ spec:
                   transitPath:
                     default: transit-tenants
                     type: string
+                required:
+                - auth
                 type: object
             type: object
           status:

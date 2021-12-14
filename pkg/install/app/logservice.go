@@ -102,6 +102,15 @@ func ConfigureLogServiceContainer(coreobj *obj.Core, c *corev1.Container) {
 		env = append(env, core.Spec.LogService.Env...)
 	}
 
+	if core.Spec.Vault.LogServicePath != "" {
+		env = append(env,
+			corev1.EnvVar{
+				Name:  "RELAY_PLS_VAULT_ENGINE_MOUNT",
+				Value: core.Spec.Vault.LogServicePath,
+			},
+		)
+	}
+
 	c.Env = env
 
 	c.Ports = []corev1.ContainerPort{

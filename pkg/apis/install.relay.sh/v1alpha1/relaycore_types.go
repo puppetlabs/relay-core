@@ -80,17 +80,28 @@ type RelayCoreSpec struct {
 
 // LogServiceConfig is the configuration for the relay-log-service deployment
 type LogServiceConfig struct {
+	// Image is the container image to use for the log service.
+	//
 	// +kubebuilder:default="relaysh/relay-pls:latest"
 	// +optional
 	Image string `json:"image"`
 
+	// ImagePullPolicy instructs the cluster when it should attempt to pull the
+	// container image.
+	//
 	// +kubebuilder:default="IfNotPresent"
 	// +optional
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 
+	// Env is the slice of environment variables to use when launching the log
+	// service.
+	//
 	// +optional
 	Env []corev1.EnvVar `json:"env,omitempty"`
 
+	// NodeSelector instructs the cluster how to choose a node to run the log
+	// service pods.
+	//
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
@@ -100,6 +111,8 @@ type LogServiceConfig struct {
 	// +optional
 	Affinity *corev1.Affinity `json:"affinity,omitempty"`
 
+	// Replicas is the number of pods to run for this server.
+	//
 	// +kubebuilder:default=1
 	// +optional
 	Replicas int32 `json:"replicas,omitempty"`
@@ -111,23 +124,15 @@ type LogServiceConfig struct {
 
 	// CredentialsSecretName is the name of the secret containing the
 	// credentials for the log service.
-	//
-	// +optional
 	CredentialsSecretName string `json:"credentialsSecretName"`
 
 	// Project is the BigQuery project to use for logging.
-	//
-	// +optional
 	Project string `json:"project"`
 
 	// Dataset is the BigQuery dataset to use for logging.
-	//
-	// +optional
 	Dataset string `json:"dataset"`
 
 	// Project is the BigQuery table to use for logging.
-	//
-	// +optional
 	Table string `json:"table"`
 }
 
@@ -326,12 +331,53 @@ type VaultConfig struct {
 	// +optional
 	TenantPath string `json:"tenantPath"`
 
+	// Auth provides credentials for vault server authentication.
+	//
+	// +optional
+	Auth *VaultConfigAuth `json:"auth"`
+
+	// AuthDelegatorServiceAccount is the name of the service account that
+	// should be used to give vault token review access for the kubernetes auth
+	// method.
+	//
+	// +optional
+	AuthDelegatorServiceAccount string `json:"authDelegatorServiceAccount"`
+
 	// Sidecar is the configuration for the vault sidecar containers used by
 	// the operator and the metadata-api.
 	//
 	// +kubebuilder:default={image: "vault:latest", imagePullPolicy: "IfNotPresent", resources: {limits: {cpu: "50m", memory: "64Mi"}, requests: {cpu: "25m", memory: "32Mi"}}, serverAddr: "http://vault:8200"}
 	// +optional
 	Sidecar *VaultSidecar `json:"sidecar"`
+}
+
+type VaultConfigAuth struct {
+	// Token is the token to use for vault server authentication when
+	// configuring engine mounts and policies for relay-core components.
+	//
+	// +optional
+	Token string `json:"token,omitempty"`
+
+	// TokenFrom allows the vault server token to be provided by another source
+	// such as a Secret.
+	//
+	// +optional
+	TokenFrom *VaultTokenSource `json:"tokenFrom,omitempty"`
+
+	// UnsealKey enables a Job to unseal a vault server. This is intended to
+	// only be used by the development environment and must not be used in any
+	// other environment. This Job only supports a singlular unseal key, so
+	// servers that require multiple keys will not be unsealed.
+	//
+	// +optional
+	UnsealKey string `json:"unsealKey,omitempty"`
+}
+
+type VaultTokenSource struct {
+	// SecretKeyRef selects an API token by looking up the value in a secret.
+	//
+	// +optional
+	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
 }
 
 type VaultSidecar struct {
