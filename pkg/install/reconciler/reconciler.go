@@ -37,8 +37,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, nil
 	}
 
-	var cd *app.CoreDeps
-	cd, err := app.ApplyCoreDeps(
+	_, err := app.ApplyCoreDeps(
 		ctx,
 		r.Client,
 		core,
@@ -49,8 +48,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 		return ctrl.Result{}, errmap.Wrap(err, "failed to apply dependencies")
 	}
-
-	app.ConfigureCore(cd)
 
 	if err := core.PersistStatus(ctx, r.Client); err != nil {
 		return ctrl.Result{}, errmap.Wrap(err, "failed to persist Run")

@@ -2,9 +2,12 @@ package app
 
 import (
 	"context"
+	"fmt"
+	"net/url"
 
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
+	"github.com/puppetlabs/relay-core/pkg/apis/install.relay.sh/v1alpha1"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -77,14 +80,7 @@ func ApplyCoreDeps(ctx context.Context, cl client.Client, c *obj.Core) (*CoreDep
 		return nil, err
 	}
 
-	// if !result.All {
-	// 	err := fmt.Errorf("waiting for upstream dependencies")
-	// 	klog.Error(err)
-
-	// 	return nil, err
-	// }
-
-	ConfigureCore(cd)
+	ConfigureCoreDeps(cd)
 
 	if err := ConfigureOperatorDeps(ctx, cd.OperatorDeps); err != nil {
 		return nil, err
@@ -103,4 +99,38 @@ func ApplyCoreDeps(ctx context.Context, cl client.Client, c *obj.Core) (*CoreDep
 	}
 
 	return cd, nil
+}
+
+func ConfigureCoreDeps(cd *CoreDeps) {
+	core := cd.Core
+
+	if core.Object.Spec.Operator == nil {
+		core.Object.Spec.Operator = &v1alpha1.OperatorConfig{}
+	}
+
+	if core.Object.Spec.MetadataAPI == nil {
+		core.Object.Spec.MetadataAPI = &v1alpha1.MetadataAPIConfig{}
+	}
+
+	if core.Object.Spec.MetadataAPI.URL == nil {
+		u := url.URL{
+			Scheme: "http",
+		}
+
+		if core.Object.Spec.MetadataAPI.TLSSecretName != nil {
+			u.Scheme = "https"
+		}
+
+		u.Host = fmt.Sprintf("%s.%s.svc.cluster.local", cd.MetadataAPIDeps.Service.Key.Name, cd.MetadataAPIDeps.Service.Key.Namespace)
+
+		us := u.String()
+		core.Object.Spec.MetadataAPI.URL = &us
+	}
+
+	if core.Object.Spec.LogService.CredentialsSecretName == "" {
+		core.Object.Spec.LogService.CredentialsSecretName = SuffixObjectKey(
+			cd.LogServiceDeps.Deployment.Key,
+			"google-application-credentials",
+		).Name
+	}
 }

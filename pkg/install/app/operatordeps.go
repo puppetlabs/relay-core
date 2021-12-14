@@ -8,6 +8,7 @@ import (
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/rbacv1"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
+	"github.com/puppetlabs/leg/k8sutil/pkg/norm"
 	"github.com/puppetlabs/relay-core/pkg/apis/install.relay.sh/v1alpha1"
 	"github.com/puppetlabs/relay-core/pkg/install/jwt"
 	"github.com/puppetlabs/relay-core/pkg/model"
@@ -128,7 +129,7 @@ func NewOperatorDeps(c *obj.Core) *OperatorDeps {
 		Labels: map[string]string{
 			model.RelayInstallerNameLabel: c.Key.Name,
 			model.RelayAppNameLabel:       "operator",
-			model.RelayAppInstanceLabel:   "operator-" + c.Key.Name,
+			model.RelayAppInstanceLabel:   norm.AnyDNSLabelNameSuffixed("operator-", c.Key.Name),
 			model.RelayAppComponentLabel:  "server",
 			model.RelayAppManagedByLabel:  "relay-install-operator",
 		},

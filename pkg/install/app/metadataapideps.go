@@ -7,6 +7,7 @@ import (
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/rbacv1"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
+	"github.com/puppetlabs/leg/k8sutil/pkg/norm"
 	"github.com/puppetlabs/relay-core/pkg/apis/install.relay.sh/v1alpha1"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
@@ -101,7 +102,7 @@ func NewMetadataAPIDeps(c *obj.Core) *MetadataAPIDeps {
 		Labels: map[string]string{
 			model.RelayInstallerNameLabel: c.Key.Name,
 			model.RelayAppNameLabel:       "metadata-api",
-			model.RelayAppInstanceLabel:   "metadata-api-" + c.Key.Name,
+			model.RelayAppInstanceLabel:   norm.AnyDNSLabelNameSuffixed("metadata-api-", c.Key.Name),
 			model.RelayAppComponentLabel:  "server",
 			model.RelayAppManagedByLabel:  "relay-install-operator",
 		},

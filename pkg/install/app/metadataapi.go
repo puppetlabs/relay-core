@@ -89,11 +89,6 @@ func ConfigureMetadataAPIContainer(coreobj *obj.Core, c *corev1.Container) {
 	c.ImagePullPolicy = core.Spec.MetadataAPI.ImagePullPolicy
 
 	lsURL := ""
-	// if core.Spec.LogService != nil {
-	// 	if core.Spec.MetadataAPI.LogServiceURL != nil {
-	// 		lsURL = *core.Spec.MetadataAPI.LogServiceURL
-	// 	}
-	// }
 	if core.Spec.MetadataAPI.LogServiceURL != nil {
 		lsURL = *core.Spec.MetadataAPI.LogServiceURL
 	}
