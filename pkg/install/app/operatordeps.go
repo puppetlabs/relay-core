@@ -89,6 +89,7 @@ func (od *OperatorDeps) Persist(ctx context.Context, cl client.Client) error {
 		od.WebhookService,
 		od.ServiceAccount,
 		od.SigningKeysSecret,
+		od.WebhookCertificateControllerDeps.OwnerConfigMap,
 	}
 	for _, o := range os {
 		if err := od.OwnerConfigMap.Own(ctx, o); err != nil {
@@ -121,7 +122,7 @@ func (od *OperatorDeps) Persist(ctx context.Context, cl client.Client) error {
 func NewOperatorDeps(c *obj.Core) *OperatorDeps {
 	return &OperatorDeps{
 		Core:           c,
-		VaultAgentDeps: NewVaultAgentDepsForRole(obj.VaultAgentRoleOperator, c),
+		VaultAgentDeps: NewVaultAgentDepsForRole(c.Object.Spec.Operator.VaultAgentRole, c),
 		Labels: map[string]string{
 			model.RelayInstallerNameLabel: c.Key.Name,
 			model.RelayAppNameLabel:       "operator",

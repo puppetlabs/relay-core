@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 
 	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/helper"
@@ -29,9 +30,15 @@ func (vd *VaultConfigDeps) Load(ctx context.Context, cl client.Client) (*VaultCo
 
 	vd.OwnerConfigMap = corev1obj.NewConfigMap(helper.SuffixObjectKey(key, "owner"))
 
-	vd.ConfigMap = corev1obj.NewConfigMap(key)
-
 	if vd.Auth != nil {
+		if vd.Core.Object.Spec.Vault.ConfigMapRef == nil {
+			return &VaultConfigDepsLoadResult{}, fmt.Errorf("vault configuration enabled but the config map is missing")
+		}
+
+		vd.ConfigMap = corev1obj.NewConfigMap(client.ObjectKey{
+			Namespace: vd.Core.Key.Namespace,
+			Name:      vd.Core.Object.Spec.Vault.ConfigMapRef.Name,
+		})
 		vd.Jobs = NewVaultConfigJobs(vd.Core, vd.Auth, key)
 	}
 
@@ -43,7 +50,7 @@ func (vd *VaultConfigDeps) Load(ctx context.Context, cl client.Client) (*VaultCo
 	_, err = lifecycle.Loaders{
 		vd.OwnerConfigMap,
 		lifecycle.IgnoreNilLoader{Loader: vd.Auth},
-		vd.ConfigMap,
+		lifecycle.IgnoreNilLoader{Loader: vd.ConfigMap},
 	}.Load(ctx, cl)
 	if err != nil {
 		return &VaultConfigDepsLoadResult{}, err
@@ -62,14 +69,12 @@ func (vd *VaultConfigDeps) Persist(ctx context.Context, cl client.Client) error 
 		return err
 	}
 
-	os := []lifecycle.Ownable{
-		vd.ConfigMap,
-	}
+	var os []lifecycle.Ownable
 	if vd.Jobs != nil {
-		os = append(os,
+		os = []lifecycle.Ownable{
 			vd.Jobs.ConfigJob,
 			lifecycle.IgnoreNilOwnable{Ownable: vd.Jobs.UnsealJob},
-		)
+		}
 	}
 
 	for _, o := range os {
@@ -79,7 +84,6 @@ func (vd *VaultConfigDeps) Persist(ctx context.Context, cl client.Client) error 
 	}
 
 	ps := []lifecycle.Persister{
-		vd.ConfigMap,
 		lifecycle.IgnoreNilPersister{Persister: vd.Jobs},
 	}
 
@@ -105,7 +109,6 @@ func NewVaultConfigDeps(c *obj.Core) *VaultConfigDeps {
 }
 
 func ConfigureVaultConfigDeps(ctx context.Context, vd *VaultConfigDeps) error {
-	ConfigureVaultConfigConfigMap(vd.Core, vd.ConfigMap)
 	ConfigureVaultConfigJobs(vd.Jobs, vd.ConfigMap)
 
 	return nil

@@ -27,13 +27,13 @@ var _ lifecycle.Loader = &VaultConfigJobs{}
 func (vj *VaultConfigJobs) Load(ctx context.Context, cl client.Client) (bool, error) {
 	vj.ConfigJob = batchv1obj.NewJob(vj.key)
 
-	if _, ok := vj.Auth.UnsealKey(); ok {
+	if _, ok := vj.Auth.UnsealKeyEnvVar(); ok {
 		vj.UnsealJob = batchv1obj.NewJob(helper.SuffixObjectKey(vj.key, "unseal"))
 	}
 
 	ok, err := lifecycle.Loaders{
 		lifecycle.IgnoreNilLoader{Loader: vj.UnsealJob},
-		lifecycle.RequiredLoader{Loader: vj.ConfigJob},
+		vj.ConfigJob,
 	}.Load(ctx, cl)
 	if err != nil {
 		return false, err
@@ -59,7 +59,7 @@ func (vj *VaultConfigJobs) Persist(ctx context.Context, cl client.Client) error 
 
 func (vj *VaultConfigJobs) Running() bool {
 	running := func(job *batchv1obj.Job) bool {
-		return job.Complete() || job.Failed()
+		return !job.Complete() && !job.Failed()
 	}
 
 	if vj.UnsealJob != nil {
@@ -82,5 +82,6 @@ func NewVaultConfigJobs(c *obj.Core, auth *VaultConfigAuth, key types.Namespaced
 }
 
 func ConfigureVaultConfigJobs(vj *VaultConfigJobs, cm *corev1obj.ConfigMap) {
-
+	ConfigureVaultConfigJob(vj, cm, vj.ConfigJob)
+	ConfigureVaultConfigUnsealJob(vj, vj.UnsealJob)
 }

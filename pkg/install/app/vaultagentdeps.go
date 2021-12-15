@@ -22,11 +22,11 @@ type VaultAgentDeps struct {
 	ServiceAccount *corev1obj.ServiceAccount
 	TokenSecret    *corev1obj.Secret
 	OwnerConfigMap *corev1obj.ConfigMap
-	Role           obj.VaultAgentRole
+	Role           string
 }
 
 func (vd *VaultAgentDeps) Load(ctx context.Context, cl client.Client) (bool, error) {
-	key := helper.SuffixObjectKey(vd.Core.Key, string(vd.Role))
+	key := helper.SuffixObjectKey(vd.Core.Key, vd.Role)
 
 	vd.OwnerConfigMap = corev1obj.NewConfigMap(helper.SuffixObjectKey(key, "vault-agent-owner"))
 
@@ -79,7 +79,7 @@ func (vd *VaultAgentDeps) Persist(ctx context.Context, cl client.Client) error {
 	return nil
 }
 
-func NewVaultAgentDepsForRole(role obj.VaultAgentRole, c *obj.Core) *VaultAgentDeps {
+func NewVaultAgentDepsForRole(role string, c *obj.Core) *VaultAgentDeps {
 	return &VaultAgentDeps{
 		Role: role,
 		Core: c,

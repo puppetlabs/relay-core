@@ -105,6 +105,12 @@ type LogServiceConfig struct {
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
+	// ServiceAccountName is the service account to use to run this service's pods.
+	// This is the service account that is also handed to Vault for Kubernetes Auth.
+	//
+	// +optional
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+
 	// Affinity is an optional set of affinity constraints to apply to operator
 	// pods.
 	//
@@ -119,21 +125,22 @@ type LogServiceConfig struct {
 
 	// VaultAgentRole is the role to use when configuring the vault agent.
 	//
+	// +kubebuilder:default="log-service"
 	// +optional
-	VaultAgentRole *string `json:"vaultAgentRole,omitempty"`
+	VaultAgentRole string `json:"vaultAgentRole,omitempty"`
 
 	// CredentialsSecretName is the name of the secret containing the
 	// credentials for the log service.
-	CredentialsSecretName string `json:"credentialsSecretName"`
+	CredentialsSecretName string `json:"credentialsSecretName,omitempty"`
 
 	// Project is the BigQuery project to use for logging.
-	Project string `json:"project"`
+	Project string `json:"project,omitempty"`
 
 	// Dataset is the BigQuery dataset to use for logging.
-	Dataset string `json:"dataset"`
+	Dataset string `json:"dataset,omitempty"`
 
 	// Project is the BigQuery table to use for logging.
-	Table string `json:"table"`
+	Table string `json:"table,omitempty"`
 }
 
 // OperatorConfig is the configuration for the relay-operator deployment
@@ -182,6 +189,12 @@ type OperatorConfig struct {
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
+	// ServiceAccountName is the service account to use to run this service's pods.
+	// This is the service account that is also handed to Vault for Kubernetes Auth.
+	//
+	// +optional
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+
 	// Affinity is an optional set of affinity constraints to apply to operator
 	// pods.
 	//
@@ -221,12 +234,17 @@ type OperatorConfig struct {
 
 	// AdmissionWebhookServer is the configuration for the
 	// admissionregistration webhook server.
+	//
+	//
+	// +kubebuilder:default={certificateControllerImagePullPolicy: "IfNotPresent"}
+	// +optional
 	AdmissionWebhookServer *AdmissionWebhookServerConfig `json:"admissionWebhookServer,omitempty"`
 
 	// VaultAgentRole is the role to use when configuring the vault agent.
 	//
+	// +kubebuilder:default="operator"
 	// +optional
-	VaultAgentRole *string `json:"vaultAgentRole,omitempty"`
+	VaultAgentRole string `json:"vaultAgentRole,omitempty"`
 }
 
 type AdmissionWebhookServerConfig struct {
@@ -236,13 +254,16 @@ type AdmissionWebhookServerConfig struct {
 	//
 	// +kubebuilder:default="relaysh/relay-operator-webhook-certificate-controller:latest"
 	// +optional
-	CertificateControllerImage string `json:"certificateControllerImage"`
+	CertificateControllerImage string `json:"certificateControllerImage,omitempty"`
+
 	// +kubebuilder:default="IfNotPresent"
 	// +optional
 	CertificateControllerImagePullPolicy corev1.PullPolicy `json:"certificateControllerImagePullPolicy,omitempty"`
+
 	// Domain is the domain to use as a suffix for the webhook subdomain.
 	// Example: admission.controller.example.com
-	Domain string `json:"domain"`
+	Domain string `json:"domain,omitempty"`
+
 	// NamespaceSelector is the map of labels to use in the NamespaceSelector
 	// section of the MutatingWebhooks.
 	NamespaceSelector *metav1.LabelSelector `json:"namespaceSelector,omitempty"`
@@ -263,6 +284,12 @@ type MetadataAPIConfig struct {
 
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+
+	// ServiceAccountName is the service account to use to run this service's pods.
+	// This is the service account that is also handed to Vault for Kubernetes Auth.
+	//
+	// +optional
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 
 	// Affinity is an optional set of affinity constraints to apply to
 	// metadata-api pods.
@@ -302,8 +329,9 @@ type MetadataAPIConfig struct {
 
 	// VaultAgentRole is the role to use when configuring the vault agent.
 	//
+	// +kubebuilder:default="metadata-api"
 	// +optional
-	VaultAgentRole *string `json:"vaultAgentRole,omitempty"`
+	VaultAgentRole string `json:"vaultAgentRole,omitempty"`
 
 	// +kubebuilder:default="tenant"
 	// +optional
@@ -341,7 +369,13 @@ type VaultConfig struct {
 	// method.
 	//
 	// +optional
-	AuthDelegatorServiceAccount string `json:"authDelegatorServiceAccount"`
+	AuthDelegatorServiceAccountName string `json:"authDelegatorServiceAccountName"`
+
+	// ConfigMapRef is the reference to the config map that contains the
+	// scripts and policies to configure vault with.
+	//
+	// +optional
+	ConfigMapRef *VaultConfigMapSource `json:"configMapRef"`
 
 	// Sidecar is the configuration for the vault sidecar containers used by
 	// the operator and the metadata-api.
@@ -349,6 +383,10 @@ type VaultConfig struct {
 	// +kubebuilder:default={image: "vault:latest", imagePullPolicy: "IfNotPresent", resources: {limits: {cpu: "50m", memory: "64Mi"}, requests: {cpu: "25m", memory: "32Mi"}}, serverAddr: "http://vault:8200"}
 	// +optional
 	Sidecar *VaultSidecar `json:"sidecar"`
+}
+
+type VaultConfigMapSource struct {
+	corev1.LocalObjectReference `json:",inline"`
 }
 
 type VaultConfigAuth struct {

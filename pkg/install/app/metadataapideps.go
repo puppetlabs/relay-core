@@ -99,7 +99,7 @@ func (md *MetadataAPIDeps) Persist(ctx context.Context, cl client.Client) error 
 func NewMetadataAPIDeps(c *obj.Core) *MetadataAPIDeps {
 	return &MetadataAPIDeps{
 		Core:           c,
-		VaultAgentDeps: NewVaultAgentDepsForRole(obj.VaultAgentRoleMetadataAPI, c),
+		VaultAgentDeps: NewVaultAgentDepsForRole(c.Object.Spec.MetadataAPI.VaultAgentRole, c),
 		Labels: map[string]string{
 			model.RelayInstallerNameLabel: c.Key.Name,
 			model.RelayAppNameLabel:       "metadata-api",

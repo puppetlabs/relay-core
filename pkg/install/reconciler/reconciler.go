@@ -6,6 +6,7 @@ import (
 	"github.com/puppetlabs/leg/errmap/pkg/errmap"
 	"github.com/puppetlabs/leg/errmap/pkg/errmark"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/errhandler"
+	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	"github.com/puppetlabs/relay-core/pkg/install/app"
 	"github.com/puppetlabs/relay-core/pkg/install/dependency"
 	"github.com/puppetlabs/relay-core/pkg/obj"
@@ -14,6 +15,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+const FinalizerName = "installer.finalizers.controller.relay.sh"
 
 type Reconciler struct {
 	Client client.Client
@@ -37,7 +40,21 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, nil
 	}
 
-	_, err := app.ApplyCoreDeps(
+	cd := app.NewCoreDeps(core)
+
+	if _, err := cd.Load(ctx, r.Client); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	finalized, err := lifecycle.Finalize(ctx, r.Client, FinalizerName, core, func() error {
+		_, err := cd.Delete(ctx, r.Client)
+		return err
+	})
+	if err != nil || finalized {
+		return ctrl.Result{}, err
+	}
+
+	_, err = app.ApplyCoreDeps(
 		ctx,
 		r.Client,
 		core,

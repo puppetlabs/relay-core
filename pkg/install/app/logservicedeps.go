@@ -7,6 +7,7 @@ import (
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/helper"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
+	"github.com/puppetlabs/leg/k8sutil/pkg/norm"
 	"github.com/puppetlabs/relay-core/pkg/apis/install.relay.sh/v1alpha1"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
@@ -88,11 +89,11 @@ func (ld *LogServiceDeps) Persist(ctx context.Context, cl client.Client) error {
 func NewLogServiceDeps(c *obj.Core) *LogServiceDeps {
 	return &LogServiceDeps{
 		Core:           c,
-		VaultAgentDeps: NewVaultAgentDepsForRole(obj.VaultAgentRoleLogService, c),
+		VaultAgentDeps: NewVaultAgentDepsForRole(c.Object.Spec.LogService.VaultAgentRole, c),
 		Labels: map[string]string{
 			model.RelayInstallerNameLabel: c.Key.Name,
 			model.RelayAppNameLabel:       "log-service",
-			model.RelayAppInstanceLabel:   "log-service-" + c.Key.Name,
+			model.RelayAppInstanceLabel:   norm.AnyDNSLabelNameSuffixed("log-service-", c.Key.Name),
 			model.RelayAppComponentLabel:  "server",
 			model.RelayAppManagedByLabel:  "relay-install-operator",
 		},

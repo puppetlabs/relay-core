@@ -2,12 +2,14 @@ package app
 
 import (
 	"context"
+	"fmt"
 
 	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	"github.com/puppetlabs/relay-core/pkg/apis/install.relay.sh/v1alpha1"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -18,13 +20,20 @@ const (
 
 type VaultConfigAuth struct {
 	Auth        *v1alpha1.VaultConfigAuth
-	TokenSecret *corev1obj.OpaqueSecret
+	TokenSecret *corev1obj.Secret
 }
 
 var _ lifecycle.Loader = &VaultConfigAuth{}
 
 func (v *VaultConfigAuth) Load(ctx context.Context, cl client.Client) (bool, error) {
-	return lifecycle.IgnoreNilLoader{v.TokenSecret}.Load(ctx, cl)
+	klog.Infof("loading vault config auth secret %s", v.TokenSecret.Key.String())
+
+	ok, err := lifecycle.IgnoreNilLoader{v.TokenSecret}.Load(ctx, cl)
+	if err != nil {
+		return ok, fmt.Errorf("failed to load vault config auth: %w", err)
+	}
+
+	return ok, nil
 }
 
 func (v *VaultConfigAuth) TokenEnvVar() (corev1.EnvVar, bool) {
@@ -62,7 +71,7 @@ func NewVaultConfigAuth(c *obj.Core, auth *v1alpha1.VaultConfigAuth) *VaultConfi
 	}
 
 	if auth.TokenFrom != nil && auth.TokenFrom.SecretKeyRef != nil {
-		v.TokenSecret = corev1obj.NewOpaqueSecret(client.ObjectKey{
+		v.TokenSecret = corev1obj.NewSecret(client.ObjectKey{
 			Namespace: c.Object.GetNamespace(),
 			Name:      auth.TokenFrom.SecretKeyRef.Name,
 		})

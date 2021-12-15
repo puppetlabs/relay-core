@@ -9,14 +9,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type VaultAgentRole string
-
-const (
-	VaultAgentRoleOperator    VaultAgentRole = "operator"
-	VaultAgentRoleMetadataAPI VaultAgentRole = "metadata-api"
-	VaultAgentRoleLogService  VaultAgentRole = "log-service"
-)
-
 type Core struct {
 	*helper.NamespaceScopedAPIObject
 

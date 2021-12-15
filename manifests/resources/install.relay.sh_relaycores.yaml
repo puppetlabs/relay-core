@@ -808,18 +808,19 @@ spec:
                     description: Replicas is the number of pods to run for this server.
                     format: int32
                     type: integer
+                  serviceAccountName:
+                    description: ServiceAccountName is the service account to use
+                      to run this service's pods. This is the service account that
+                      is also handed to Vault for Kubernetes Auth.
+                    type: string
                   table:
                     description: Project is the BigQuery table to use for logging.
                     type: string
                   vaultAgentRole:
+                    default: log-service
                     description: VaultAgentRole is the role to use when configuring
                       the vault agent.
                     type: string
-                required:
-                - credentialsSecretName
-                - dataset
-                - project
-                - table
                 type: object
               metadataAPI:
                 default:
@@ -1574,6 +1575,11 @@ spec:
                     default: 1
                     format: int32
                     type: integer
+                  serviceAccountName:
+                    description: ServiceAccountName is the service account to use
+                      to run this service's pods. This is the service account that
+                      is also handed to Vault for Kubernetes Auth.
+                    type: string
                   stepMetadataURL:
                     default: https://relay.sh/step-metadata.json
                     description: StepMetadataURL is the URL to use to fetch step metadata
@@ -1590,6 +1596,7 @@ spec:
                       used by workflows and the operator. This defaults to: http(s)://<RelayCore.Name>-metadata-api.<RelayCore.Namespace>.svc.cluster.local'
                     type: string
                   vaultAgentRole:
+                    default: metadata-api
                     description: VaultAgentRole is the role to use when configuring
                       the vault agent.
                     type: string
@@ -1604,6 +1611,8 @@ spec:
                 description: Operator is the configuration for the workflow run operator.
                 properties:
                   admissionWebhookServer:
+                    default:
+                      certificateControllerImagePullPolicy: IfNotPresent
                     description: AdmissionWebhookServer is the configuration for the
                       admissionregistration webhook server.
                     properties:
@@ -1668,8 +1677,6 @@ spec:
                               only "value". The requirements are ANDed.
                             type: object
                         type: object
-                    required:
-                    - domain
                     type: object
                   affinity:
                     description: Affinity is an optional set of affinity constraints
@@ -2434,6 +2441,11 @@ spec:
                     additionalProperties:
                       type: string
                     type: object
+                  serviceAccountName:
+                    description: ServiceAccountName is the service account to use
+                      to run this service's pods. This is the service account that
+                      is also handed to Vault for Kubernetes Auth.
+                    type: string
                   standalone:
                     default: false
                     type: boolean
@@ -2459,6 +2471,7 @@ spec:
                     - triggerPoolName
                     type: object
                   vaultAgentRole:
+                    default: operator
                     description: VaultAgentRole is the role to use when configuring
                       the vault agent.
                     type: string
@@ -2507,17 +2520,43 @@ spec:
                               up the value in a secret.
                             properties:
                               key:
-                                description: Key is the key from the secret to use.
+                                description: The key of the secret to select from.  Must
+                                  be a valid secret key.
                                 type: string
                               name:
                                 description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                                   TODO: Add other useful fields. apiVersion, kind,
                                   uid?'
                                 type: string
+                              optional:
+                                description: Specify whether the Secret or its key
+                                  must be defined
+                                type: boolean
                             required:
                             - key
                             type: object
                         type: object
+                      unsealKey:
+                        description: UnsealKey enables a Job to unseal a vault server.
+                          This is intended to only be used by the development environment
+                          and must not be used in any other environment. This Job
+                          only supports a singlular unseal key, so servers that require
+                          multiple keys will not be unsealed.
+                        type: string
+                    type: object
+                  authDelegatorServiceAccountName:
+                    description: AuthDelegatorServiceAccount is the name of the service
+                      account that should be used to give vault token review access
+                      for the kubernetes auth method.
+                    type: string
+                  configMapRef:
+                    description: ConfigMapRef is the reference to the config map that
+                      contains the scripts and policies to configure vault with.
+                    properties:
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          TODO: Add other useful fields. apiVersion, kind, uid?'
+                        type: string
                     type: object
                   logServicePath:
                     default: pls
@@ -2597,8 +2636,6 @@ spec:
                   transitPath:
                     default: transit-tenants
                     type: string
-                required:
-                - auth
                 type: object
             type: object
           status:

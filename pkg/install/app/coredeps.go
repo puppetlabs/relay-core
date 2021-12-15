@@ -7,6 +7,7 @@ import (
 	"net/url"
 
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
+	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/helper"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	"github.com/puppetlabs/relay-core/pkg/apis/install.relay.sh/v1alpha1"
 	"github.com/puppetlabs/relay-core/pkg/obj"
@@ -21,11 +22,31 @@ type CoreDepsLoadResult struct {
 
 type CoreDeps struct {
 	Core            *obj.Core
+	OwnerConfigMap  *corev1.ConfigMap
 	Namespace       *corev1.Namespace
 	OperatorDeps    *OperatorDeps
 	MetadataAPIDeps *MetadataAPIDeps
 	LogServiceDeps  *LogServiceDeps
 	VaultConfigDeps *VaultConfigDeps
+}
+
+func (cd *CoreDeps) Delete(ctx context.Context, cl client.Client, opts ...lifecycle.DeleteOption) (bool, error) {
+	if cd.OwnerConfigMap == nil || cd.OwnerConfigMap.Object.GetUID() == "" {
+		return true, nil
+	}
+
+	if ok, err := DependencyManager.IsDependencyOf(
+		cd.OwnerConfigMap.Object,
+		lifecycle.TypedObject{
+			Object: cd.Core.Object,
+			GVK:    v1alpha1.RelayCoreKind,
+		}); err != nil {
+		return false, err
+	} else if ok {
+		return cd.OwnerConfigMap.Delete(ctx, cl, opts...)
+	}
+
+	return true, nil
 }
 
 func (cd *CoreDeps) Load(ctx context.Context, cl client.Client) (*CoreDepsLoadResult, error) {
@@ -37,15 +58,17 @@ func (cd *CoreDeps) Load(ctx context.Context, cl client.Client) (*CoreDepsLoadRe
 
 	vr, err := cd.VaultConfigDeps.Load(ctx, cl)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load vault config deps: %w", err)
 	}
 
+	cd.OwnerConfigMap = corev1.NewConfigMap(helper.SuffixObjectKey(cd.Core.Key, "owner"))
 	cd.OperatorDeps = NewOperatorDeps(cd.Core)
 	cd.MetadataAPIDeps = NewMetadataAPIDeps(cd.Core)
 	cd.LogServiceDeps = NewLogServiceDeps(cd.Core)
 
 	ok, err := lifecycle.Loaders{
 		lifecycle.RequiredLoader{Loader: cd.Namespace},
+		cd.OwnerConfigMap,
 		cd.OperatorDeps,
 		cd.MetadataAPIDeps,
 		cd.LogServiceDeps,
@@ -58,6 +81,22 @@ func (cd *CoreDeps) Load(ctx context.Context, cl client.Client) (*CoreDepsLoadRe
 }
 
 func (cd *CoreDeps) Persist(ctx context.Context, cl client.Client) error {
+	if err := cd.OwnerConfigMap.Persist(ctx, cl); err != nil {
+		return err
+	}
+
+	os := []lifecycle.Ownable{
+		cd.OperatorDeps.OwnerConfigMap,
+		cd.MetadataAPIDeps.OwnerConfigMap,
+		cd.LogServiceDeps.OwnerConfigMap,
+		cd.VaultConfigDeps.OwnerConfigMap,
+	}
+	for _, o := range os {
+		if err := cd.OwnerConfigMap.Own(ctx, o); err != nil {
+			return err
+		}
+	}
+
 	ps := []lifecycle.Persister{
 		cd.Namespace,
 		cd.MetadataAPIDeps,
@@ -90,6 +129,15 @@ func ApplyCoreDeps(ctx context.Context, cl client.Client, c *obj.Core) (*CoreDep
 		return nil, err
 	}
 
+	if err := ConfigureCoreDeps(cd); err != nil {
+		return nil, err
+	}
+
+	ConfigureCoreDefaults(cd)
+	if err := cd.Core.Persist(ctx, cl); err != nil {
+		return nil, err
+	}
+
 	if result.VaultConfig.JobsRunning {
 		return nil, errors.New("waiting for vault configuration jobs to finish")
 	} else if !result.VaultConfig.JobsExist {
@@ -101,10 +149,8 @@ func ApplyCoreDeps(ctx context.Context, cl client.Client, c *obj.Core) (*CoreDep
 			return nil, err
 		}
 
-		return nil, errors.New("waiting for vault configuration jobs to finish")
+		return nil, errors.New("waiting for vault configuration jobs to be created")
 	}
-
-	ConfigureCoreDeps(cd)
 
 	if err := ConfigureOperatorDeps(ctx, cd.OperatorDeps); err != nil {
 		return nil, err
@@ -125,15 +171,36 @@ func ApplyCoreDeps(ctx context.Context, cl client.Client, c *obj.Core) (*CoreDep
 	return cd, nil
 }
 
-func ConfigureCoreDeps(cd *CoreDeps) {
+func ConfigureCoreDeps(cd *CoreDeps) error {
+	if err := DependencyManager.SetDependencyOf(
+		cd.OwnerConfigMap.Object,
+		lifecycle.TypedObject{
+			Object: cd.Core.Object,
+			GVK:    v1alpha1.RelayCoreKind,
+		}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func ConfigureCoreDefaults(cd *CoreDeps) {
 	core := cd.Core
 
 	if core.Object.Spec.Operator == nil {
 		core.Object.Spec.Operator = &v1alpha1.OperatorConfig{}
 	}
 
+	if core.Object.Spec.Operator.ServiceAccountName == "" {
+		core.Object.Spec.Operator.ServiceAccountName = cd.OperatorDeps.ServiceAccount.Key.Name
+	}
+
 	if core.Object.Spec.MetadataAPI == nil {
 		core.Object.Spec.MetadataAPI = &v1alpha1.MetadataAPIConfig{}
+	}
+
+	if core.Object.Spec.MetadataAPI.ServiceAccountName == "" {
+		core.Object.Spec.MetadataAPI.ServiceAccountName = cd.MetadataAPIDeps.ServiceAccount.Key.Name
 	}
 
 	if core.Object.Spec.MetadataAPI.URL == nil {
@@ -152,9 +219,13 @@ func ConfigureCoreDeps(cd *CoreDeps) {
 	}
 
 	if core.Object.Spec.LogService.CredentialsSecretName == "" {
-		core.Object.Spec.LogService.CredentialsSecretName = SuffixObjectKey(
+		core.Object.Spec.LogService.CredentialsSecretName = helper.SuffixObjectKey(
 			cd.LogServiceDeps.Deployment.Key,
 			"google-application-credentials",
 		).Name
+	}
+
+	if core.Object.Spec.LogService.ServiceAccountName == "" {
+		core.Object.Spec.LogService.ServiceAccountName = cd.LogServiceDeps.ServiceAccount.Key.Name
 	}
 }

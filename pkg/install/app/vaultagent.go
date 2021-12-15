@@ -41,7 +41,7 @@ func ConfigureVaultAgentTokenSecret(vd *VaultAgentDeps, secret *corev1obj.Secret
 	secret.Object.Type = corev1.SecretTypeServiceAccountToken
 }
 
-func ConfigureVaultAgentConfigMap(core *obj.Core, role obj.VaultAgentRole, cm *corev1obj.ConfigMap) {
+func ConfigureVaultAgentConfigMap(core *obj.Core, role string, cm *corev1obj.ConfigMap) {
 	if cm.Object.Data == nil {
 		cm.Object.Data = make(map[string]string)
 	}
