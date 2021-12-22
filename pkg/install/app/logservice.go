@@ -1,6 +1,8 @@
 package app
 
 import (
+	"path/filepath"
+
 	appsv1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/appsv1"
 	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
 	"github.com/puppetlabs/relay-core/pkg/obj"
@@ -8,6 +10,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
+
+const credentialsMountPath = "/var/run/secrets/google"
 
 func ConfigureLogServiceDeployment(ld *LogServiceDeps, dep *appsv1obj.Deployment) {
 	core := ld.Core.Object
@@ -54,7 +58,7 @@ func ConfigureLogServiceDeployment(ld *LogServiceDeps, dep *appsv1obj.Deployment
 			Name: "google-application-credentials",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName: core.Spec.LogService.CredentialsSecretName,
+					SecretName: core.Spec.LogService.CredentialsSecretKeyRef.Name,
 				},
 			},
 		},
@@ -86,7 +90,10 @@ func ConfigureLogServiceContainer(coreobj *obj.Core, c *corev1.Container) {
 	c.ImagePullPolicy = core.Spec.LogService.ImagePullPolicy
 
 	env := []corev1.EnvVar{
-		{Name: "GOOGLE_APPLICATION_CREDENTIALS", Value: "/var/run/secrets/google/key.json"},
+		{Name: "GOOGLE_APPLICATION_CREDENTIALS", Value: filepath.Join(
+			credentialsMountPath,
+			core.Spec.LogService.CredentialsSecretKeyRef.Key,
+		)},
 		{Name: "RELAY_PLS_LISTEN_PORT", Value: "7050"},
 		{Name: "RELAY_PLS_VAULT_ADDR", Value: "http://localhost:8200"},
 		{Name: "RELAY_PLS_PROJECT", Value: core.Spec.LogService.Project},
@@ -102,14 +109,14 @@ func ConfigureLogServiceContainer(coreobj *obj.Core, c *corev1.Container) {
 		env = append(env, core.Spec.LogService.Env...)
 	}
 
-	if core.Spec.Vault.LogServicePath != "" {
-		env = append(env,
-			corev1.EnvVar{
-				Name:  "RELAY_PLS_VAULT_ENGINE_MOUNT",
-				Value: core.Spec.Vault.LogServicePath,
-			},
-		)
-	}
+	// if core.Spec.Vault.LogServicePath != "" {
+	// 	env = append(env,
+	// 		corev1.EnvVar{
+	// 			Name:  "RELAY_PLS_VAULT_ENGINE_MOUNT",
+	// 			Value: core.Spec.Vault.LogServicePath,
+	// 		},
+	// 	)
+	// }
 
 	c.Env = env
 
@@ -124,7 +131,7 @@ func ConfigureLogServiceContainer(coreobj *obj.Core, c *corev1.Container) {
 	c.VolumeMounts = []corev1.VolumeMount{
 		{
 			Name:      "google-application-credentials",
-			MountPath: "/var/run/secrets/google",
+			MountPath: credentialsMountPath,
 			ReadOnly:  true,
 		},
 	}

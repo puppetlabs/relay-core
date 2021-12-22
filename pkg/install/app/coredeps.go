@@ -2,17 +2,23 @@ package app
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/url"
 
-	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
+	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/helper"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	"github.com/puppetlabs/relay-core/pkg/apis/install.relay.sh/v1alpha1"
+	"github.com/puppetlabs/relay-core/pkg/install/jwt"
 	"github.com/puppetlabs/relay-core/pkg/obj"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	defaultPrivateJWTSigningKeyName = "private-key.pem"
+	defaultPublicJWTSigningKeyName  = "public-key.pem"
 )
 
 type CoreDepsLoadResult struct {
@@ -21,13 +27,14 @@ type CoreDepsLoadResult struct {
 }
 
 type CoreDeps struct {
-	Core            *obj.Core
-	OwnerConfigMap  *corev1.ConfigMap
-	Namespace       *corev1.Namespace
-	OperatorDeps    *OperatorDeps
-	MetadataAPIDeps *MetadataAPIDeps
-	LogServiceDeps  *LogServiceDeps
-	VaultConfigDeps *VaultConfigDeps
+	Core                *obj.Core
+	OwnerConfigMap      *corev1obj.ConfigMap
+	Namespace           *corev1obj.Namespace
+	OperatorDeps        *OperatorDeps
+	MetadataAPIDeps     *MetadataAPIDeps
+	LogServiceDeps      *LogServiceDeps
+	JWTSigningKeySecret *corev1obj.Secret
+	VaultConfigDeps     *VaultConfigDeps
 }
 
 func (cd *CoreDeps) Delete(ctx context.Context, cl client.Client, opts ...lifecycle.DeleteOption) (bool, error) {
@@ -61,10 +68,14 @@ func (cd *CoreDeps) Load(ctx context.Context, cl client.Client) (*CoreDepsLoadRe
 		return nil, fmt.Errorf("failed to load vault config deps: %w", err)
 	}
 
-	cd.OwnerConfigMap = corev1.NewConfigMap(helper.SuffixObjectKey(cd.Core.Key, "owner"))
+	cd.OwnerConfigMap = corev1obj.NewConfigMap(helper.SuffixObjectKey(cd.Core.Key, "owner"))
 	cd.OperatorDeps = NewOperatorDeps(cd.Core)
 	cd.MetadataAPIDeps = NewMetadataAPIDeps(cd.Core)
 	cd.LogServiceDeps = NewLogServiceDeps(cd.Core)
+	cd.JWTSigningKeySecret = corev1obj.NewSecret(client.ObjectKey{
+		Name:      cd.Core.Object.Spec.JWTSigningKeyRef.Name,
+		Namespace: cd.Core.Key.Namespace,
+	})
 
 	ok, err := lifecycle.Loaders{
 		lifecycle.RequiredLoader{Loader: cd.Namespace},
@@ -72,6 +83,7 @@ func (cd *CoreDeps) Load(ctx context.Context, cl client.Client) (*CoreDepsLoadRe
 		cd.OperatorDeps,
 		cd.MetadataAPIDeps,
 		cd.LogServiceDeps,
+		cd.JWTSigningKeySecret,
 	}.Load(ctx, cl)
 	if err != nil {
 		return nil, err
@@ -91,17 +103,27 @@ func (cd *CoreDeps) Persist(ctx context.Context, cl client.Client) error {
 		cd.LogServiceDeps.OwnerConfigMap,
 		cd.VaultConfigDeps.OwnerConfigMap,
 	}
-	for _, o := range os {
-		if err := cd.OwnerConfigMap.Own(ctx, o); err != nil {
-			return err
-		}
-	}
 
 	ps := []lifecycle.Persister{
 		cd.Namespace,
 		cd.MetadataAPIDeps,
 		cd.OperatorDeps,
 		cd.LogServiceDeps,
+		cd.VaultConfigDeps,
+	}
+
+	// if we didn't load a secret managed outside the installer, we are
+	// generating keys here and therefore want to fully manage the secret
+	// object by owning and persisting it.
+	if cd.JWTSigningKeySecret.Object.GetUID() == "" {
+		os = append(os, cd.JWTSigningKeySecret)
+		ps = append(ps, cd.JWTSigningKeySecret)
+	}
+
+	for _, o := range os {
+		if err := cd.OwnerConfigMap.Own(ctx, o); err != nil {
+			return err
+		}
 	}
 
 	for _, p := range ps {
@@ -116,54 +138,66 @@ func (cd *CoreDeps) Persist(ctx context.Context, cl client.Client) error {
 func NewCoreDeps(c *obj.Core) *CoreDeps {
 	return &CoreDeps{
 		Core:      c,
-		Namespace: corev1.NewNamespace(c.Object.GetNamespace()),
+		Namespace: corev1obj.NewNamespace(c.Object.GetNamespace()),
 	}
 }
 
 func ApplyCoreDeps(ctx context.Context, cl client.Client, c *obj.Core) (*CoreDeps, error) {
 	cd := NewCoreDeps(c)
 
-	result, err := cd.Load(ctx, cl)
+	_, err := cd.Load(ctx, cl)
 	if err != nil {
 		klog.Error(err)
 		return nil, err
 	}
 
 	if err := ConfigureCoreDeps(cd); err != nil {
+		klog.Error(err)
 		return nil, err
 	}
 
 	ConfigureCoreDefaults(cd)
+
 	if err := cd.Core.Persist(ctx, cl); err != nil {
+		klog.Error(err)
 		return nil, err
 	}
 
-	if result.VaultConfig.JobsRunning {
-		return nil, errors.New("waiting for vault configuration jobs to finish")
-	} else if !result.VaultConfig.JobsExist {
-		if err := ConfigureVaultConfigDeps(ctx, cd.VaultConfigDeps); err != nil {
-			return nil, err
-		}
+	// if result.VaultConfig.JobsRunning {
+	// 	return nil, errors.New("waiting for vault configuration jobs to finish")
+	// } else if !result.VaultConfig.JobsExist {
+	// 	if err := ConfigureVaultConfigDeps(cd.VaultConfigDeps); err != nil {
+	// 		return nil, err
+	// 	}
 
-		if err := cd.VaultConfigDeps.Persist(ctx, cl); err != nil {
-			return nil, err
-		}
+	// 	if err := cd.VaultConfigDeps.Persist(ctx, cl); err != nil {
+	// 		return nil, err
+	// 	}
 
-		return nil, errors.New("waiting for vault configuration jobs to be created")
+	// 	return nil, errors.New("waiting for vault configuration jobs to be created")
+	// }
+
+	klog.Info("configuring vault deps")
+	if err := ConfigureVaultConfigDeps(cd.VaultConfigDeps); err != nil {
+		return nil, err
 	}
 
+	klog.Info("configuring operator deps")
 	if err := ConfigureOperatorDeps(ctx, cd.OperatorDeps); err != nil {
 		return nil, err
 	}
 
+	klog.Info("configuring metadata-api deps")
 	if err := ConfigureMetadataAPIDeps(ctx, cd.MetadataAPIDeps); err != nil {
 		return nil, err
 	}
 
+	klog.Info("configuring log-service deps")
 	if err := ConfigureLogServiceDeps(ctx, cd.LogServiceDeps); err != nil {
 		return nil, err
 	}
 
+	klog.Info("persisting all deps")
 	if err := cd.Persist(ctx, cl); err != nil {
 		return nil, err
 	}
@@ -178,7 +212,14 @@ func ConfigureCoreDeps(cd *CoreDeps) error {
 			Object: cd.Core.Object,
 			GVK:    v1alpha1.RelayCoreKind,
 		}); err != nil {
+
 		return err
+	}
+
+	if cd.JWTSigningKeySecret.Object.GetUID() == "" {
+		if err := ConfigureJWTSigningKeys(cd.JWTSigningKeySecret); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -193,6 +234,18 @@ func ConfigureCoreDefaults(cd *CoreDeps) {
 
 	if core.Object.Spec.Operator.ServiceAccountName == "" {
 		core.Object.Spec.Operator.ServiceAccountName = cd.OperatorDeps.ServiceAccount.Key.Name
+	}
+
+	if core.Object.Spec.JWTSigningKeyRef == nil {
+		resourceKey := helper.SuffixObjectKey(core.Key, "jwt-signing-keys")
+
+		core.Object.Spec.JWTSigningKeyRef = &v1alpha1.JWTSigningKeySource{
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: resourceKey.Name,
+			},
+			PrivateKeyRef: defaultPrivateJWTSigningKeyName,
+			PublicKeyRef:  defaultPublicJWTSigningKeyName,
+		}
 	}
 
 	if core.Object.Spec.MetadataAPI == nil {
@@ -218,14 +271,23 @@ func ConfigureCoreDefaults(cd *CoreDeps) {
 		core.Object.Spec.MetadataAPI.URL = &us
 	}
 
-	if core.Object.Spec.LogService.CredentialsSecretName == "" {
-		core.Object.Spec.LogService.CredentialsSecretName = helper.SuffixObjectKey(
-			cd.LogServiceDeps.Deployment.Key,
-			"google-application-credentials",
-		).Name
-	}
-
 	if core.Object.Spec.LogService.ServiceAccountName == "" {
 		core.Object.Spec.LogService.ServiceAccountName = cd.LogServiceDeps.ServiceAccount.Key.Name
 	}
+}
+
+func ConfigureJWTSigningKeys(sec *corev1obj.Secret) error {
+	pair, err := jwt.GenerateSigningKeys()
+	if err != nil {
+		return err
+	}
+
+	if sec.Object.Data == nil {
+		sec.Object.Data = make(map[string][]byte)
+	}
+
+	sec.Object.Data[defaultPrivateJWTSigningKeyName] = pair.PrivateKey
+	sec.Object.Data[defaultPublicJWTSigningKeyName] = pair.PublicKey
+
+	return nil
 }

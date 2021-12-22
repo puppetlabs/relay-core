@@ -6,8 +6,6 @@ import (
 
 const (
 	webhookTLSDirPath     = "/var/run/secrets/puppet/relay/webhook-tls"
-	jwtSigningKeyDirPath  = "/var/run/secrets/puppet/relay/jwt"
-	jwtSigningKeyPath     = "/var/run/secrets/puppet/relay/jwt/private-key.pem"
 	metadataAPITLSDirPath = "/var/run/secrets/puppet/relay/tls"
 )
 

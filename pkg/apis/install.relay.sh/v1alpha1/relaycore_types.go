@@ -47,6 +47,15 @@ type RelayCoreSpec struct {
 	// +optional
 	Debug bool `json:"debug"`
 
+	// JWTSigningKeys is the secret and keys that hold a JWT signing key pair
+	// for the workflow run key signing operations with vault. This secret must
+	// have 2 fields for a public and private key pair. If this field is not
+	// set, then signings key will be generated when the relay core resources
+	// are being persisted.
+	//
+	// +optional
+	JWTSigningKeyRef *JWTSigningKeySource `json:"jwtSigningKeys,omitempty"`
+
 	// LogService is the configuration for the log service.
 	//
 	// +kubebuilder:default={image: "relaysh/relay-pls:latest", imagePullPolicy: "IfNotPresent"}
@@ -76,6 +85,13 @@ type RelayCoreSpec struct {
 	//
 	// +optional
 	SentryDSNSecretName *string `json:"sentryDSNSecretName,omitempty"`
+}
+
+type JWTSigningKeySource struct {
+	corev1.LocalObjectReference `json:",inline"`
+
+	PrivateKeyRef string `json:"privateKeyRef,omitempty"`
+	PublicKeyRef  string `json:"publicKeyRef,omitempty"`
 }
 
 // LogServiceConfig is the configuration for the relay-log-service deployment
@@ -129,9 +145,9 @@ type LogServiceConfig struct {
 	// +optional
 	VaultAgentRole string `json:"vaultAgentRole,omitempty"`
 
-	// CredentialsSecretName is the name of the secret containing the
-	// credentials for the log service.
-	CredentialsSecretName string `json:"credentialsSecretName,omitempty"`
+	// CredentialsSecretKeyRef is the secret and key to use for the log service
+	// cloud credentials
+	CredentialsSecretKeyRef corev1.SecretKeySelector `json:"credentialsSecretKeyRef,omitempty"`
 
 	// Project is the BigQuery project to use for logging.
 	Project string `json:"project,omitempty"`
@@ -155,21 +171,6 @@ type OperatorConfig struct {
 
 	// +optional
 	Env []corev1.EnvVar `json:"env,omitempty"`
-
-	// GenerateJWTSigningKey will generate a JWT signing key and store it in a
-	// Secret for use by the operator pods. If this field is set to true, then
-	// the below JWTSigningKeySecretName is ignored.
-	//
-	// +kubebuilder:default=false
-	// +optional
-	GenerateJWTSigningKey bool `json:"generateJWTSigningKey"`
-
-	// JWTSigningKeySecretName is the name of the secret object that holds a
-	// JWT signing key.  The secret object MUST have a data field called
-	// "key.pem".  This field is ignored if GenerateJWTSigningKey is true.
-	//
-	// +optional
-	JWTSigningKeySecretName *string `json:"jwtSigningKeySecretName,omitempty"`
 
 	// MetricsEnabled enables the metrics server for the operator deployment
 	// and creates a service that can be used to scrape those metrics.

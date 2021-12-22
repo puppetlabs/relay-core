@@ -62,6 +62,7 @@ func (ld *LogServiceDeps) Persist(ctx context.Context, cl client.Client) error {
 		ld.Deployment,
 		ld.Service,
 		ld.ServiceAccount,
+		ld.VaultAgentDeps.OwnerConfigMap,
 	}
 
 	for _, o := range os {

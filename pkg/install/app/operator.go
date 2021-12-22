@@ -15,6 +15,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
+const jwtSigningKeyDirPath = "/var/run/secrets/puppet/relay/jwt"
+
 func ConfigureOperatorDeployment(od *OperatorDeps, dep *appsv1obj.Deployment) {
 	core := od.Core.Object
 
@@ -76,16 +78,11 @@ func ConfigureOperatorDeployment(od *OperatorDeps, dep *appsv1obj.Deployment) {
 		})
 	}
 
-	signingKeySecretName := od.SigningKeysSecret.Key.Name
-	if core.Spec.Operator.JWTSigningKeySecretName != nil {
-		signingKeySecretName = *core.Spec.Operator.JWTSigningKeySecretName
-	}
-
 	template.Volumes = append(template.Volumes, corev1.Volume{
 		Name: "jwt-signing-key",
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
-				SecretName: signingKeySecretName,
+				SecretName: core.Spec.JWTSigningKeyRef.Name,
 			},
 		},
 	})
@@ -144,7 +141,7 @@ func ConfigureOperatorContainer(coreobj *obj.Core, c *corev1.Container) {
 		"-num-workers",
 		strconv.Itoa(int(core.Spec.Operator.Workers)),
 		"-jwt-signing-key-file",
-		jwtSigningKeyPath,
+		filepath.Join(jwtSigningKeyDirPath, core.Spec.JWTSigningKeyRef.PrivateKeyRef),
 		"-vault-transit-path",
 		core.Spec.Vault.TransitPath,
 		"-vault-transit-key",

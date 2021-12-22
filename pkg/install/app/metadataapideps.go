@@ -70,6 +70,7 @@ func (md *MetadataAPIDeps) Persist(ctx context.Context, cl client.Client) error 
 		md.Deployment,
 		md.Service,
 		md.ServiceAccount,
+		md.VaultAgentDeps.OwnerConfigMap,
 	}
 
 	for _, o := range os {
