@@ -13,6 +13,7 @@ import (
 	pvpoolv1alpha1 "github.com/puppetlabs/pvpool/pkg/apis/pvpool.puppet.com/v1alpha1"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
+	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	"github.com/puppetlabs/relay-core/pkg/operator/app"
 	"github.com/puppetlabs/relay-core/pkg/operator/dependency"
@@ -99,6 +100,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, errmark.MarkTransient(fmt.Errorf("waiting on Run upstream dependencies"))
 	}
 
+	annotations := rd.Run.Object.GetAnnotations()
+	domainID := annotations[model.RelayDomainIDAnnotation]
+
 	var pr *obj.PipelineRun
 	err = r.metrics.trackDurationWithOutcome(metricWorkflowRunStartUpDuration, func() error {
 		if err := app.ConfigureRunDeps(ctx, rd); err != nil {
@@ -146,7 +150,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		}
 
 		return nil
-	})
+	}, withAccountIDTrackDurationOption(domainID))
 	if err != nil {
 		klog.Error(err)
 		retryOnError := true
@@ -182,7 +186,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	err = r.metrics.trackDurationWithOutcome(metricWorkflowRunLogUploadDuration, func() error {
 		r.uploadLogs(ctx, run, pr)
 		return nil
-	})
+	}, withAccountIDTrackDurationOption(domainID))
 	if err != nil {
 		klog.Warning(err)
 	}
