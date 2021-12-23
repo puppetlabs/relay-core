@@ -8,6 +8,7 @@ import (
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	"github.com/puppetlabs/relay-core/pkg/apis/install.relay.sh/v1alpha1"
 	"github.com/puppetlabs/relay-core/pkg/obj"
+	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -47,31 +48,27 @@ func (vd *VaultAgentDeps) Load(ctx context.Context, cl client.Client) (bool, err
 	return ok, nil
 }
 
+func (vd *VaultAgentDeps) Owned(ctx context.Context, owner lifecycle.TypedObject) error {
+	return helper.Own(vd.OwnerConfigMap.Object, owner)
+}
+
 func (vd *VaultAgentDeps) Persist(ctx context.Context, cl client.Client) error {
 	if err := vd.OwnerConfigMap.Persist(ctx, cl); err != nil {
 		return err
 	}
 
-	os := []lifecycle.Ownable{
+	objs := []lifecycle.OwnablePersister{
 		vd.ConfigMap,
 		vd.ServiceAccount,
 		vd.TokenSecret,
 	}
 
-	for _, o := range os {
-		if err := vd.OwnerConfigMap.Own(ctx, o); err != nil {
+	for _, obj := range objs {
+		if err := vd.OwnerConfigMap.Own(ctx, obj); err != nil {
 			return err
 		}
-	}
 
-	ps := []lifecycle.Persister{
-		vd.ConfigMap,
-		vd.ServiceAccount,
-		vd.TokenSecret,
-	}
-
-	for _, p := range ps {
-		if err := p.Persist(ctx, cl); err != nil {
+		if err := obj.Persist(ctx, cl); err != nil {
 			return err
 		}
 	}
@@ -79,14 +76,7 @@ func (vd *VaultAgentDeps) Persist(ctx context.Context, cl client.Client) error {
 	return nil
 }
 
-func NewVaultAgentDepsForRole(role string, c *obj.Core) *VaultAgentDeps {
-	return &VaultAgentDeps{
-		Role: role,
-		Core: c,
-	}
-}
-
-func ConfigureVaultAgentDeps(vd *VaultAgentDeps) error {
+func (vd *VaultAgentDeps) Configure(ctx context.Context) error {
 	if err := DependencyManager.SetDependencyOf(
 		vd.OwnerConfigMap.Object,
 		lifecycle.TypedObject{
@@ -101,4 +91,34 @@ func ConfigureVaultAgentDeps(vd *VaultAgentDeps) error {
 	ConfigureVaultAgentConfigMap(vd.Core, vd.Role, vd.ConfigMap)
 
 	return nil
+}
+
+func (vd *VaultAgentDeps) DeploymentVolumes() []corev1.Volume {
+	return []corev1.Volume{
+		{
+			Name: "vault-agent-sa-token",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: vd.TokenSecret.Key.Name,
+				},
+			},
+		},
+		{
+			Name: "vault-agent-config",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: vd.ConfigMap.Key.Name,
+					},
+				},
+			},
+		},
+	}
+}
+
+func NewVaultAgentDepsForRole(role string, c *obj.Core) *VaultAgentDeps {
+	return &VaultAgentDeps{
+		Role: role,
+		Core: c,
+	}
 }

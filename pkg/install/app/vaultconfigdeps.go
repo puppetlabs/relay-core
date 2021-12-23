@@ -10,6 +10,7 @@ import (
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	"github.com/puppetlabs/relay-core/pkg/apis/install.relay.sh/v1alpha1"
 	"github.com/puppetlabs/relay-core/pkg/obj"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -90,6 +91,10 @@ func (vd *VaultConfigDeps) Load(ctx context.Context, cl client.Client) (*VaultCo
 	return &VaultConfigDepsLoadResult{JobsExist: false, JobsRunning: jobsRunning}, nil
 }
 
+func (vd *VaultConfigDeps) Owned(ctx context.Context, owner lifecycle.TypedObject) error {
+	return helper.Own(vd.OwnerConfigMap.Object, owner)
+}
+
 func (vd *VaultConfigDeps) Persist(ctx context.Context, cl client.Client) error {
 	if err := vd.OwnerConfigMap.Persist(ctx, cl); err != nil {
 		return err
@@ -141,19 +146,9 @@ func (vd *VaultConfigDeps) Running() bool {
 	return running(vd.ConfigJob)
 }
 
-func NewVaultConfigDeps(c *obj.Core) *VaultConfigDeps {
-	vd := &VaultConfigDeps{
-		Core: c,
-	}
+func (vd *VaultConfigDeps) Configure(_ context.Context) error {
+	klog.Info("configuring vault config deps")
 
-	if c.Object.Spec.Vault.Auth != nil {
-		vd.Auth = NewVaultConfigAuth(c, c.Object.Spec.Vault.Auth)
-	}
-
-	return vd
-}
-
-func ConfigureVaultConfigDeps(vd *VaultConfigDeps) error {
 	if err := DependencyManager.SetDependencyOf(
 		vd.OwnerConfigMap.Object,
 		lifecycle.TypedObject{
@@ -168,4 +163,16 @@ func ConfigureVaultConfigDeps(vd *VaultConfigDeps) error {
 	ConfigureVaultConfigUnsealJob(vd, vd.UnsealJob)
 
 	return nil
+}
+
+func NewVaultConfigDeps(c *obj.Core) *VaultConfigDeps {
+	vd := &VaultConfigDeps{
+		Core: c,
+	}
+
+	if c.Object.Spec.Vault.Auth != nil {
+		vd.Auth = NewVaultConfigAuth(c, c.Object.Spec.Vault.Auth)
+	}
+
+	return vd
 }

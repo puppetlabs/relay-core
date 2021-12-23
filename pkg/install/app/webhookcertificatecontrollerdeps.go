@@ -12,6 +12,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -53,30 +54,28 @@ func (d *WebhookCertificateControllerDeps) Load(ctx context.Context, cl client.C
 	return ok, nil
 }
 
+func (d *WebhookCertificateControllerDeps) Owned(ctx context.Context, owner lifecycle.TypedObject) error {
+	return helper.Own(d.OwnerConfigMap.Object, owner)
+}
+
 func (d *WebhookCertificateControllerDeps) Persist(ctx context.Context, cl client.Client) error {
 	if err := d.OwnerConfigMap.Persist(ctx, cl); err != nil {
 		return err
 	}
 
-	os := []lifecycle.Ownable{
-		d.Deployment,
-		d.ServiceAccount,
-	}
-	for _, o := range os {
-		if err := d.OwnerConfigMap.Own(ctx, o); err != nil {
-			return err
-		}
-	}
-
-	ps := []lifecycle.Persister{
+	objs := []lifecycle.OwnablePersister{
 		d.Deployment,
 		d.ServiceAccount,
 		d.ClusterRole,
 		d.ClusterRoleBinding,
 	}
 
-	for _, p := range ps {
-		if err := p.Persist(ctx, cl); err != nil {
+	for _, obj := range objs {
+		if err := d.OwnerConfigMap.Own(ctx, obj); err != nil {
+			return err
+		}
+
+		if err := obj.Persist(ctx, cl); err != nil {
 			return err
 		}
 	}
@@ -84,21 +83,9 @@ func (d *WebhookCertificateControllerDeps) Persist(ctx context.Context, cl clien
 	return nil
 }
 
-func NewWebhookCertificateControllerDeps(target types.NamespacedName, c *obj.Core) *WebhookCertificateControllerDeps {
-	return &WebhookCertificateControllerDeps{
-		Core:             c,
-		TargetDeployment: target,
-		Labels: map[string]string{
-			model.RelayInstallerNameLabel: c.Key.Name,
-			model.RelayAppNameLabel:       "operator",
-			model.RelayAppInstanceLabel:   "operator-" + c.Key.Name,
-			model.RelayAppComponentLabel:  "webhook-certificate-server",
-			model.RelayAppManagedByLabel:  "relay-install-operator",
-		},
-	}
-}
+func (wd *WebhookCertificateControllerDeps) Configure(ctx context.Context) error {
+	klog.Info("configuring webhook certificate controller deps")
 
-func ConfigureWebhookCertificateControllerDeps(ctx context.Context, wd *WebhookCertificateControllerDeps) error {
 	if err := DependencyManager.SetDependencyOf(
 		wd.OwnerConfigMap.Object,
 		lifecycle.TypedObject{
@@ -127,4 +114,18 @@ func ConfigureWebhookCertificateControllerDeps(ctx context.Context, wd *WebhookC
 	ConfigureWebhookCertificateControllerClusterRoleBinding(wd.Core, wd.ClusterRoleBinding)
 
 	return nil
+}
+
+func NewWebhookCertificateControllerDeps(target types.NamespacedName, c *obj.Core) *WebhookCertificateControllerDeps {
+	return &WebhookCertificateControllerDeps{
+		Core:             c,
+		TargetDeployment: target,
+		Labels: map[string]string{
+			model.RelayInstallerNameLabel: c.Key.Name,
+			model.RelayAppNameLabel:       "operator",
+			model.RelayAppInstanceLabel:   "operator-" + c.Key.Name,
+			model.RelayAppComponentLabel:  "webhook-certificate-server",
+			model.RelayAppManagedByLabel:  "relay-install-operator",
+		},
+	}
 }

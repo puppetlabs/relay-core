@@ -97,15 +97,11 @@ func (cd *CoreDeps) Persist(ctx context.Context, cl client.Client) error {
 		return err
 	}
 
-	os := []lifecycle.Ownable{
-		cd.OperatorDeps.OwnerConfigMap,
-		cd.MetadataAPIDeps.OwnerConfigMap,
-		cd.LogServiceDeps.OwnerConfigMap,
-		cd.VaultConfigDeps.OwnerConfigMap,
+	if err := cd.Namespace.Persist(ctx, cl); err != nil {
+		return err
 	}
 
-	ps := []lifecycle.Persister{
-		cd.Namespace,
+	objs := []lifecycle.OwnablePersister{
 		cd.MetadataAPIDeps,
 		cd.OperatorDeps,
 		cd.LogServiceDeps,
@@ -116,21 +112,40 @@ func (cd *CoreDeps) Persist(ctx context.Context, cl client.Client) error {
 	// generating keys here and therefore want to fully manage the secret
 	// object by owning and persisting it.
 	if cd.JWTSigningKeySecret.Object.GetUID() == "" {
-		os = append(os, cd.JWTSigningKeySecret)
-		ps = append(ps, cd.JWTSigningKeySecret)
+		objs = append(objs, cd.JWTSigningKeySecret)
 	}
 
-	for _, o := range os {
-		if err := cd.OwnerConfigMap.Own(ctx, o); err != nil {
+	for _, obj := range objs {
+		if err := cd.OwnerConfigMap.Own(ctx, obj); err != nil {
+			return err
+		}
+
+		if err := obj.Persist(ctx, cl); err != nil {
 			return err
 		}
 	}
 
-	for _, p := range ps {
-		if err := p.Persist(ctx, cl); err != nil {
+	return nil
+}
+
+func (cd *CoreDeps) Configure(_ context.Context) error {
+	if err := DependencyManager.SetDependencyOf(
+		cd.OwnerConfigMap.Object,
+		lifecycle.TypedObject{
+			Object: cd.Core.Object,
+			GVK:    v1alpha1.RelayCoreKind,
+		}); err != nil {
+
+		return err
+	}
+
+	if cd.JWTSigningKeySecret.Object.GetUID() == "" {
+		if err := ConfigureJWTSigningKeys(cd.JWTSigningKeySecret); err != nil {
 			return err
 		}
 	}
+
+	ConfigureCoreDefaults(cd)
 
 	return nil
 }
@@ -151,15 +166,15 @@ func ApplyCoreDeps(ctx context.Context, cl client.Client, c *obj.Core) (*CoreDep
 		return nil, err
 	}
 
-	if err := ConfigureCoreDeps(cd); err != nil {
+	if err := cd.Configure(ctx); err != nil {
 		klog.Error(err)
+
 		return nil, err
 	}
 
-	ConfigureCoreDefaults(cd)
-
 	if err := cd.Core.Persist(ctx, cl); err != nil {
 		klog.Error(err)
+
 		return nil, err
 	}
 
@@ -177,24 +192,17 @@ func ApplyCoreDeps(ctx context.Context, cl client.Client, c *obj.Core) (*CoreDep
 	// 	return nil, errors.New("waiting for vault configuration jobs to be created")
 	// }
 
-	klog.Info("configuring vault deps")
-	if err := ConfigureVaultConfigDeps(cd.VaultConfigDeps); err != nil {
-		return nil, err
+	objs := []Configurable{
+		cd.VaultConfigDeps,
+		cd.OperatorDeps,
+		cd.MetadataAPIDeps,
+		cd.LogServiceDeps,
 	}
 
-	klog.Info("configuring operator deps")
-	if err := ConfigureOperatorDeps(ctx, cd.OperatorDeps); err != nil {
-		return nil, err
-	}
-
-	klog.Info("configuring metadata-api deps")
-	if err := ConfigureMetadataAPIDeps(ctx, cd.MetadataAPIDeps); err != nil {
-		return nil, err
-	}
-
-	klog.Info("configuring log-service deps")
-	if err := ConfigureLogServiceDeps(ctx, cd.LogServiceDeps); err != nil {
-		return nil, err
+	for _, obj := range objs {
+		if err := obj.Configure(ctx); err != nil {
+			return nil, err
+		}
 	}
 
 	klog.Info("persisting all deps")
@@ -203,26 +211,6 @@ func ApplyCoreDeps(ctx context.Context, cl client.Client, c *obj.Core) (*CoreDep
 	}
 
 	return cd, nil
-}
-
-func ConfigureCoreDeps(cd *CoreDeps) error {
-	if err := DependencyManager.SetDependencyOf(
-		cd.OwnerConfigMap.Object,
-		lifecycle.TypedObject{
-			Object: cd.Core.Object,
-			GVK:    v1alpha1.RelayCoreKind,
-		}); err != nil {
-
-		return err
-	}
-
-	if cd.JWTSigningKeySecret.Object.GetUID() == "" {
-		if err := ConfigureJWTSigningKeys(cd.JWTSigningKeySecret); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func ConfigureCoreDefaults(cd *CoreDeps) {

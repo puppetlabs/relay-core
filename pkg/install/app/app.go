@@ -1,6 +1,8 @@
 package app
 
 import (
+	"context"
+
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/ownerext"
 )
 
@@ -10,3 +12,7 @@ const (
 )
 
 var DependencyManager = ownerext.NewManager("installer.relay.sh/dependency-of")
+
+type Configurable interface {
+	Configure(ctx context.Context) error
+}

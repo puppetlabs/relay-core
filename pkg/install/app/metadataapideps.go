@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 
-	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/appsv1"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/rbacv1"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/helper"
@@ -12,13 +11,14 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/apis/install.relay.sh/v1alpha1"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type MetadataAPIDeps struct {
 	Core               *obj.Core
-	Deployment         *appsv1.Deployment
-	Service            *corev1.Service
+	Deployment         *metadataAPIDeployment
+	Service            *metadataAPIService
 	ServiceAccount     *corev1.ServiceAccount
 	ClusterRole        *rbacv1.ClusterRole
 	ClusterRoleBinding *rbacv1.ClusterRoleBinding
@@ -40,8 +40,8 @@ func (md *MetadataAPIDeps) Load(ctx context.Context, cl client.Client) (bool, er
 
 	md.OwnerConfigMap = corev1.NewConfigMap(helper.SuffixObjectKey(key, "owner"))
 
-	md.Deployment = appsv1.NewDeployment(key)
-	md.Service = corev1.NewService(key)
+	md.Deployment = newMetadataAPIDeployment(key, md.Core, md.VaultAgentDeps)
+	md.Service = newMetadataAPIService(md.Core, md.Deployment)
 	md.ServiceAccount = corev1.NewServiceAccount(key)
 	md.ClusterRole = rbacv1.NewClusterRole(key.Name)
 	md.ClusterRoleBinding = rbacv1.NewClusterRoleBinding(key.Name)
@@ -61,25 +61,16 @@ func (md *MetadataAPIDeps) Load(ctx context.Context, cl client.Client) (bool, er
 	return ok, nil
 }
 
+func (md *MetadataAPIDeps) Owned(ctx context.Context, owner lifecycle.TypedObject) error {
+	return helper.Own(md.OwnerConfigMap.Object, owner)
+}
+
 func (md *MetadataAPIDeps) Persist(ctx context.Context, cl client.Client) error {
 	if err := md.OwnerConfigMap.Persist(ctx, cl); err != nil {
 		return err
 	}
 
-	os := []lifecycle.Ownable{
-		md.Deployment,
-		md.Service,
-		md.ServiceAccount,
-		md.VaultAgentDeps.OwnerConfigMap,
-	}
-
-	for _, o := range os {
-		if err := md.OwnerConfigMap.Own(ctx, o); err != nil {
-			return err
-		}
-	}
-
-	ps := []lifecycle.Persister{
+	objs := []lifecycle.OwnablePersister{
 		md.VaultAgentDeps,
 		md.Deployment,
 		md.Service,
@@ -88,8 +79,12 @@ func (md *MetadataAPIDeps) Persist(ctx context.Context, cl client.Client) error 
 		md.ClusterRoleBinding,
 	}
 
-	for _, p := range ps {
-		if err := p.Persist(ctx, cl); err != nil {
+	for _, obj := range objs {
+		if err := md.OwnerConfigMap.Own(ctx, obj); err != nil {
+			return err
+		}
+
+		if err := obj.Persist(ctx, cl); err != nil {
 			return err
 		}
 	}
@@ -97,21 +92,9 @@ func (md *MetadataAPIDeps) Persist(ctx context.Context, cl client.Client) error 
 	return nil
 }
 
-func NewMetadataAPIDeps(c *obj.Core) *MetadataAPIDeps {
-	return &MetadataAPIDeps{
-		Core:           c,
-		VaultAgentDeps: NewVaultAgentDepsForRole(c.Object.Spec.MetadataAPI.VaultAgentRole, c),
-		Labels: map[string]string{
-			model.RelayInstallerNameLabel: c.Key.Name,
-			model.RelayAppNameLabel:       "metadata-api",
-			model.RelayAppInstanceLabel:   norm.AnyDNSLabelNameSuffixed("metadata-api-", c.Key.Name),
-			model.RelayAppComponentLabel:  "server",
-			model.RelayAppManagedByLabel:  "relay-install-operator",
-		},
-	}
-}
+func (md *MetadataAPIDeps) Configure(ctx context.Context) error {
+	klog.Info("configuring metadata-api deps")
 
-func ConfigureMetadataAPIDeps(ctx context.Context, md *MetadataAPIDeps) error {
 	if err := DependencyManager.SetDependencyOf(
 		md.OwnerConfigMap.Object,
 		lifecycle.TypedObject{
@@ -136,12 +119,34 @@ func ConfigureMetadataAPIDeps(ctx context.Context, md *MetadataAPIDeps) error {
 		}
 	}
 
-	ConfigureVaultAgentDeps(md.VaultAgentDeps)
+	objs := []Configurable{
+		md.VaultAgentDeps,
+		md.Deployment,
+		md.Service,
+	}
 
-	ConfigureMetadataAPIDeployment(md, md.Deployment)
+	for _, obj := range objs {
+		if err := obj.Configure(ctx); err != nil {
+			return err
+		}
+	}
+
 	ConfigureMetadataAPIClusterRole(md.ClusterRole)
 	ConfigureClusterRoleBinding(md.Core, md.ClusterRoleBinding)
-	ConfigureMetadataAPIService(md, md.Service)
 
 	return nil
+}
+
+func NewMetadataAPIDeps(c *obj.Core) *MetadataAPIDeps {
+	return &MetadataAPIDeps{
+		Core:           c,
+		VaultAgentDeps: NewVaultAgentDepsForRole(c.Object.Spec.MetadataAPI.VaultAgentRole, c),
+		Labels: map[string]string{
+			model.RelayInstallerNameLabel: c.Key.Name,
+			model.RelayAppNameLabel:       "metadata-api",
+			model.RelayAppInstanceLabel:   norm.AnyDNSLabelNameSuffixed("metadata-api-", c.Key.Name),
+			model.RelayAppComponentLabel:  "server",
+			model.RelayAppManagedByLabel:  "relay-install-operator",
+		},
+	}
 }

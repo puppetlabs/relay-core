@@ -11,6 +11,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/apis/install.relay.sh/v1alpha1"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -53,33 +54,28 @@ func (ld *LogServiceDeps) Load(ctx context.Context, cl client.Client) (bool, err
 	return ok, nil
 }
 
+func (ld *LogServiceDeps) Owned(ctx context.Context, owner lifecycle.TypedObject) error {
+	return helper.Own(ld.OwnerConfigMap.Object, owner)
+}
+
 func (ld *LogServiceDeps) Persist(ctx context.Context, cl client.Client) error {
 	if err := ld.OwnerConfigMap.Persist(ctx, cl); err != nil {
 		return err
 	}
 
-	os := []lifecycle.Ownable{
-		ld.Deployment,
-		ld.Service,
-		ld.ServiceAccount,
-		ld.VaultAgentDeps.OwnerConfigMap,
-	}
-
-	for _, o := range os {
-		if err := ld.OwnerConfigMap.Own(ctx, o); err != nil {
-			return err
-		}
-	}
-
-	ps := []lifecycle.Persister{
+	objs := []lifecycle.OwnablePersister{
 		ld.VaultAgentDeps,
 		ld.Deployment,
 		ld.Service,
 		ld.ServiceAccount,
 	}
 
-	for _, p := range ps {
-		if err := p.Persist(ctx, cl); err != nil {
+	for _, obj := range objs {
+		if err := ld.OwnerConfigMap.Own(ctx, obj); err != nil {
+			return err
+		}
+
+		if err := obj.Persist(ctx, cl); err != nil {
 			return err
 		}
 	}
@@ -87,21 +83,9 @@ func (ld *LogServiceDeps) Persist(ctx context.Context, cl client.Client) error {
 	return nil
 }
 
-func NewLogServiceDeps(c *obj.Core) *LogServiceDeps {
-	return &LogServiceDeps{
-		Core:           c,
-		VaultAgentDeps: NewVaultAgentDepsForRole(c.Object.Spec.LogService.VaultAgentRole, c),
-		Labels: map[string]string{
-			model.RelayInstallerNameLabel: c.Key.Name,
-			model.RelayAppNameLabel:       "log-service",
-			model.RelayAppInstanceLabel:   norm.AnyDNSLabelNameSuffixed("log-service-", c.Key.Name),
-			model.RelayAppComponentLabel:  "server",
-			model.RelayAppManagedByLabel:  "relay-install-operator",
-		},
-	}
-}
+func (ld *LogServiceDeps) Configure(ctx context.Context) error {
+	klog.Info("configuring log-service deps")
 
-func ConfigureLogServiceDeps(ctx context.Context, ld *LogServiceDeps) error {
 	if err := DependencyManager.SetDependencyOf(
 		ld.OwnerConfigMap.Object,
 		lifecycle.TypedObject{
@@ -124,10 +108,32 @@ func ConfigureLogServiceDeps(ctx context.Context, ld *LogServiceDeps) error {
 		}
 	}
 
-	ConfigureVaultAgentDeps(ld.VaultAgentDeps)
+	objs := []Configurable{
+		ld.VaultAgentDeps,
+	}
+
+	for _, obj := range objs {
+		if err := obj.Configure(ctx); err != nil {
+			return err
+		}
+	}
 
 	ConfigureLogServiceDeployment(ld, ld.Deployment)
 	ConfigureLogServiceService(ld, ld.Service)
 
 	return nil
+}
+
+func NewLogServiceDeps(c *obj.Core) *LogServiceDeps {
+	return &LogServiceDeps{
+		Core:           c,
+		VaultAgentDeps: NewVaultAgentDepsForRole(c.Object.Spec.LogService.VaultAgentRole, c),
+		Labels: map[string]string{
+			model.RelayInstallerNameLabel: c.Key.Name,
+			model.RelayAppNameLabel:       "log-service",
+			model.RelayAppInstanceLabel:   norm.AnyDNSLabelNameSuffixed("log-service-", c.Key.Name),
+			model.RelayAppComponentLabel:  "server",
+			model.RelayAppManagedByLabel:  "relay-install-operator",
+		},
+	}
 }

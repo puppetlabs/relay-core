@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/admissionregistrationv1"
-	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/appsv1"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/rbacv1"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/helper"
@@ -13,13 +12,14 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/apis/install.relay.sh/v1alpha1"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type OperatorDeps struct {
 	Core                             *obj.Core
-	Deployment                       *appsv1.Deployment
-	WebhookService                   *corev1.Service
+	Deployment                       *operatorDeployment
+	WebhookService                   *operatorWebhookService
 	ServiceAccount                   *corev1.ServiceAccount
 	ClusterRole                      *rbacv1.ClusterRole
 	ClusterRoleBinding               *rbacv1.ClusterRoleBinding
@@ -50,8 +50,8 @@ func (od *OperatorDeps) Load(ctx context.Context, cl client.Client) (bool, error
 
 	od.OwnerConfigMap = corev1.NewConfigMap(helper.SuffixObjectKey(key, "owner"))
 
-	od.Deployment = appsv1.NewDeployment(key)
-	od.WebhookService = corev1.NewService(helper.SuffixObjectKey(key, "webhook"))
+	od.Deployment = newOperatorDeployment(key, od.Core, od.VaultAgentDeps)
+	od.WebhookService = newOperatorWebhookService(od.Deployment)
 	od.ServiceAccount = corev1.NewServiceAccount(key)
 	od.ClusterRole = rbacv1.NewClusterRole(key.Name)
 	od.ClusterRoleBinding = rbacv1.NewClusterRoleBinding(key.Name)
@@ -75,26 +75,18 @@ func (od *OperatorDeps) Load(ctx context.Context, cl client.Client) (bool, error
 	return ok, nil
 }
 
+func (od *OperatorDeps) Owned(ctx context.Context, owner lifecycle.TypedObject) error {
+	return helper.Own(od.OwnerConfigMap.Object, owner)
+}
+
 func (od *OperatorDeps) Persist(ctx context.Context, cl client.Client) error {
 	if err := od.OwnerConfigMap.Persist(ctx, cl); err != nil {
 		return err
 	}
 
-	os := []lifecycle.Ownable{
-		od.Deployment,
-		od.WebhookService,
-		od.ServiceAccount,
-		od.VaultAgentDeps.OwnerConfigMap,
-		od.WebhookCertificateControllerDeps.OwnerConfigMap,
-	}
-	for _, o := range os {
-		if err := od.OwnerConfigMap.Own(ctx, o); err != nil {
-			return err
-		}
-	}
-
-	ps := []lifecycle.Persister{
+	objs := []lifecycle.OwnablePersister{
 		od.VaultAgentDeps,
+		od.WebhookConfig,
 		od.WebhookCertificateControllerDeps,
 		od.Deployment,
 		od.WebhookService,
@@ -102,14 +94,66 @@ func (od *OperatorDeps) Persist(ctx context.Context, cl client.Client) error {
 		od.ClusterRole,
 		od.ClusterRoleBinding,
 		od.DelegateClusterRole,
-		od.WebhookConfig,
 	}
 
-	for _, p := range ps {
-		if err := p.Persist(ctx, cl); err != nil {
+	for _, obj := range objs {
+		if err := od.OwnerConfigMap.Own(ctx, obj); err != nil {
+			return err
+		}
+
+		if err := obj.Persist(ctx, cl); err != nil {
 			return err
 		}
 	}
+
+	return nil
+}
+
+func (od *OperatorDeps) Configure(ctx context.Context) error {
+	klog.Info("configuring operator deps")
+
+	err := DependencyManager.SetDependencyOf(
+		od.OwnerConfigMap.Object,
+		lifecycle.TypedObject{
+			Object: od.Core.Object,
+			GVK:    v1alpha1.RelayCoreKind,
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	lafs := []lifecycle.LabelAnnotatableFrom{
+		od.Deployment,
+		od.WebhookService,
+		od.ClusterRole,
+		od.ClusterRoleBinding,
+		od.ServiceAccount,
+	}
+
+	for _, laf := range lafs {
+		for label, value := range od.Labels {
+			lifecycle.Label(ctx, laf, label, value)
+		}
+	}
+
+	objs := []Configurable{
+		od.VaultAgentDeps,
+		od.WebhookCertificateControllerDeps,
+		od.Deployment,
+		od.WebhookService,
+	}
+
+	for _, obj := range objs {
+		if err := obj.Configure(ctx); err != nil {
+			return err
+		}
+	}
+
+	ConfigureOperatorWebhookConfiguration(od, od.WebhookConfig)
+	ConfigureOperatorClusterRole(od.ClusterRole)
+	ConfigureClusterRoleBinding(od.Core, od.ClusterRoleBinding)
+	ConfigureOperatorDelegateClusterRole(od.DelegateClusterRole)
 
 	return nil
 }
@@ -126,43 +170,4 @@ func NewOperatorDeps(c *obj.Core) *OperatorDeps {
 			model.RelayAppManagedByLabel:  "relay-install-operator",
 		},
 	}
-}
-
-func ConfigureOperatorDeps(ctx context.Context, od *OperatorDeps) error {
-	if err := DependencyManager.SetDependencyOf(
-		od.OwnerConfigMap.Object,
-		lifecycle.TypedObject{
-			Object: od.Core.Object,
-			GVK:    v1alpha1.RelayCoreKind,
-		}); err != nil {
-
-		return err
-	}
-
-	lafs := []lifecycle.LabelAnnotatableFrom{
-		od.Deployment,
-		od.ClusterRole,
-		od.ClusterRoleBinding,
-		od.ServiceAccount,
-	}
-
-	for _, laf := range lafs {
-		for label, value := range od.Labels {
-			lifecycle.Label(ctx, laf, label, value)
-		}
-	}
-
-	ConfigureVaultAgentDeps(od.VaultAgentDeps)
-	if err := ConfigureWebhookCertificateControllerDeps(ctx, od.WebhookCertificateControllerDeps); err != nil {
-		return err
-	}
-
-	ConfigureOperatorDeployment(od, od.Deployment)
-	ConfigureOperatorWebhookService(od, od.WebhookService)
-	ConfigureOperatorWebhookConfiguration(od, od.WebhookConfig)
-	ConfigureOperatorClusterRole(od.ClusterRole)
-	ConfigureClusterRoleBinding(od.Core, od.ClusterRoleBinding)
-	ConfigureOperatorDelegateClusterRole(od.DelegateClusterRole)
-
-	return nil
 }

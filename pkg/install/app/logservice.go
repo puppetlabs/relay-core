@@ -35,26 +35,9 @@ func ConfigureLogServiceDeployment(ld *LogServiceDeps, dep *appsv1obj.Deployment
 	template.ServiceAccountName = dep.Key.Name
 	template.Affinity = core.Spec.LogService.Affinity
 
-	template.Volumes = []corev1.Volume{
-		{
-			Name: "vault-agent-sa-token",
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName: ld.VaultAgentDeps.TokenSecret.Key.Name,
-				},
-			},
-		},
-		{
-			Name: "vault-agent-config",
-			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: ld.VaultAgentDeps.ConfigMap.Key.Name,
-					},
-				},
-			},
-		},
-		{
+	template.Volumes = ld.VaultAgentDeps.DeploymentVolumes()
+	template.Volumes = append(template.Volumes,
+		corev1.Volume{
 			Name: "google-application-credentials",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
@@ -62,7 +45,7 @@ func ConfigureLogServiceDeployment(ld *LogServiceDeps, dep *appsv1obj.Deployment
 				},
 			},
 		},
-	}
+	)
 
 	template.NodeSelector = core.Spec.LogService.NodeSelector
 
