@@ -13,8 +13,10 @@ import (
 )
 
 const (
-	vaultAgentConfigDirPath = "/var/run/vault/config"
-	vaultAgentSATokenPath   = "/var/run/secrets/kubernetes.io/serviceaccount@vault"
+	vaultAgentConfigDirPath     = "/var/run/vault/config"
+	vaultAgentConfigVolumeName  = "vault-agent-config"
+	vaultAgentSATokenPath       = "/var/run/secrets/kubernetes.io/serviceaccount@vault"
+	vaultAgentSATokenVolumeName = "vault-agent-sa-token"
 )
 
 type VaultAgentDeps struct {
@@ -96,7 +98,7 @@ func (vd *VaultAgentDeps) Configure(ctx context.Context) error {
 func (vd *VaultAgentDeps) DeploymentVolumes() []corev1.Volume {
 	return []corev1.Volume{
 		{
-			Name: "vault-agent-sa-token",
+			Name: vaultAgentSATokenVolumeName,
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
 					SecretName: vd.TokenSecret.Key.Name,
@@ -104,7 +106,7 @@ func (vd *VaultAgentDeps) DeploymentVolumes() []corev1.Volume {
 			},
 		},
 		{
-			Name: "vault-agent-config",
+			Name: vaultAgentConfigVolumeName,
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					LocalObjectReference: corev1.LocalObjectReference{
@@ -114,6 +116,36 @@ func (vd *VaultAgentDeps) DeploymentVolumes() []corev1.Volume {
 			},
 		},
 	}
+}
+
+func (vd *VaultAgentDeps) SidecarContainer() corev1.Container {
+	conf := vd.Core.Object.Spec.Vault.Sidecar
+
+	c := corev1.Container{
+		Name:            "vault-agent",
+		Image:           conf.Image,
+		ImagePullPolicy: conf.ImagePullPolicy,
+		Resources:       conf.Resources,
+		Command: []string{
+			"vault",
+			"agent",
+			"-config=/var/run/vault/config/agent.hcl",
+		},
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      vaultAgentSATokenVolumeName,
+				ReadOnly:  true,
+				MountPath: vaultAgentSATokenPath,
+			},
+			{
+				Name:      vaultAgentConfigVolumeName,
+				ReadOnly:  true,
+				MountPath: vaultAgentConfigDirPath,
+			},
+		},
+	}
+
+	return c
 }
 
 func NewVaultAgentDepsForRole(role string, c *obj.Core) *VaultAgentDeps {

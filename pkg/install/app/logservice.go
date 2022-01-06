@@ -58,11 +58,7 @@ func ConfigureLogServiceDeployment(ld *LogServiceDeps, dep *appsv1obj.Deployment
 	ConfigureLogServiceContainer(ld.Core, &sc)
 
 	template.Containers[0] = sc
-
-	vac := corev1.Container{}
-	ConfigureVaultAgentContainer(ld.Core, &vac)
-
-	template.Containers[1] = vac
+	template.Containers[1] = ld.VaultAgentDeps.SidecarContainer()
 }
 
 func ConfigureLogServiceContainer(coreobj *obj.Core, c *corev1.Container) {

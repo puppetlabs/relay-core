@@ -76,28 +76,15 @@ func (d *operatorDeployment) Configure(_ context.Context) error {
 		template.Containers = make([]corev1.Container, 2)
 	}
 
-	sc := corev1.Container{}
-
-	d.configureContainer(&sc)
-
-	template.Containers[0] = sc
-
-	vac := corev1.Container{}
-
-	ConfigureVaultAgentContainer(d.core, &vac)
-
-	template.Containers[1] = vac
+	template.Containers[0] = d.container()
+	template.Containers[1] = d.vaultAgentDeps.SidecarContainer()
 
 	return nil
 }
 
-func (d *operatorDeployment) configureContainer(c *corev1.Container) {
+func (d *operatorDeployment) container() corev1.Container {
 	core := d.core.Object
 	conf := core.Spec.Operator
-
-	c.Name = "operator"
-	c.Image = conf.Image
-	c.ImagePullPolicy = conf.ImagePullPolicy
 
 	env := []corev1.EnvVar{{Name: "VAULT_ADDR", Value: "http://localhost:8200"}}
 
@@ -118,8 +105,6 @@ func (d *operatorDeployment) configureContainer(c *corev1.Container) {
 	if conf.Env != nil {
 		env = append(env, conf.Env...)
 	}
-
-	c.Env = env
 
 	cmd := []string{
 		"relay-operator",
@@ -188,21 +173,32 @@ func (d *operatorDeployment) configureContainer(c *corev1.Container) {
 		)
 	}
 
-	c.Command = cmd
-
-	c.VolumeMounts = []corev1.VolumeMount{}
-
-	c.Ports = append(c.Ports, corev1.ContainerPort{
-		Name:          "webhook",
-		ContainerPort: int32(443),
-		Protocol:      corev1.ProtocolTCP,
-	})
-
-	c.VolumeMounts = append(c.VolumeMounts, corev1.VolumeMount{
-		Name:      "webhook-tls",
-		ReadOnly:  true,
-		MountPath: webhookTLSDirPath,
-	})
+	c := corev1.Container{
+		Name:            "operator",
+		Image:           conf.Image,
+		ImagePullPolicy: conf.ImagePullPolicy,
+		Command:         cmd,
+		Env:             env,
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      "webhook-tls",
+				ReadOnly:  true,
+				MountPath: webhookTLSDirPath,
+			},
+			{
+				Name:      "jwt-signing-key",
+				ReadOnly:  true,
+				MountPath: jwtSigningKeyDirPath,
+			},
+		},
+		Ports: []corev1.ContainerPort{
+			{
+				Name:          "webhook",
+				ContainerPort: int32(443),
+				Protocol:      corev1.ProtocolTCP,
+			},
+		},
+	}
 
 	if conf.LogStoragePVCName != nil {
 		c.VolumeMounts = append(c.VolumeMounts, corev1.VolumeMount{
@@ -211,11 +207,7 @@ func (d *operatorDeployment) configureContainer(c *corev1.Container) {
 		})
 	}
 
-	c.VolumeMounts = append(c.VolumeMounts, corev1.VolumeMount{
-		Name:      "jwt-signing-key",
-		ReadOnly:  true,
-		MountPath: jwtSigningKeyDirPath,
-	})
+	return c
 }
 
 func newOperatorDeployment(key client.ObjectKey, core *obj.Core, vad *VaultAgentDeps) *operatorDeployment {

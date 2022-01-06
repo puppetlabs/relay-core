@@ -54,15 +54,9 @@ func (d *metadataAPIDeployment) Configure(_ context.Context) error {
 	}
 
 	sc := corev1.Container{}
-
 	d.configureContainer(&sc)
-
 	template.Containers[0] = sc
-
-	vac := corev1.Container{}
-	ConfigureVaultAgentContainer(d.core, &vac)
-
-	template.Containers[1] = vac
+	template.Containers[1] = d.vaultAgentDeps.SidecarContainer()
 
 	return nil
 }
