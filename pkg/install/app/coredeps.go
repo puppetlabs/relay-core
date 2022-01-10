@@ -22,8 +22,7 @@ const (
 )
 
 type CoreDepsLoadResult struct {
-	VaultConfig *VaultConfigDepsLoadResult
-	All         bool
+	All bool
 }
 
 type CoreDeps struct {
@@ -34,7 +33,6 @@ type CoreDeps struct {
 	MetadataAPIDeps     *MetadataAPIDeps
 	LogServiceDeps      *LogServiceDeps
 	JWTSigningKeySecret *corev1obj.Secret
-	VaultConfigDeps     *VaultConfigDeps
 }
 
 func (cd *CoreDeps) Delete(ctx context.Context, cl client.Client, opts ...lifecycle.DeleteOption) (bool, error) {
@@ -61,13 +59,6 @@ func (cd *CoreDeps) Load(ctx context.Context, cl client.Client) (*CoreDepsLoadRe
 		return nil, err
 	}
 
-	cd.VaultConfigDeps = NewVaultConfigDeps(cd.Core)
-
-	vr, err := cd.VaultConfigDeps.Load(ctx, cl)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load vault config deps: %w", err)
-	}
-
 	cd.OwnerConfigMap = corev1obj.NewConfigMap(helper.SuffixObjectKey(cd.Core.Key, "owner"))
 	cd.OperatorDeps = NewOperatorDeps(cd.Core)
 	cd.MetadataAPIDeps = NewMetadataAPIDeps(cd.Core)
@@ -89,7 +80,7 @@ func (cd *CoreDeps) Load(ctx context.Context, cl client.Client) (*CoreDepsLoadRe
 		return nil, err
 	}
 
-	return &CoreDepsLoadResult{All: ok, VaultConfig: vr}, nil
+	return &CoreDepsLoadResult{All: ok}, nil
 }
 
 func (cd *CoreDeps) Persist(ctx context.Context, cl client.Client) error {
@@ -105,7 +96,6 @@ func (cd *CoreDeps) Persist(ctx context.Context, cl client.Client) error {
 		cd.MetadataAPIDeps,
 		cd.OperatorDeps,
 		cd.LogServiceDeps,
-		cd.VaultConfigDeps,
 	}
 
 	// if we didn't load a secret managed outside the installer, we are
@@ -178,22 +168,7 @@ func ApplyCoreDeps(ctx context.Context, cl client.Client, c *obj.Core) (*CoreDep
 		return nil, err
 	}
 
-	// if result.VaultConfig.JobsRunning {
-	// 	return nil, errors.New("waiting for vault configuration jobs to finish")
-	// } else if !result.VaultConfig.JobsExist {
-	// 	if err := ConfigureVaultConfigDeps(cd.VaultConfigDeps); err != nil {
-	// 		return nil, err
-	// 	}
-
-	// 	if err := cd.VaultConfigDeps.Persist(ctx, cl); err != nil {
-	// 		return nil, err
-	// 	}
-
-	// 	return nil, errors.New("waiting for vault configuration jobs to be created")
-	// }
-
 	objs := []Configurable{
-		cd.VaultConfigDeps,
 		cd.OperatorDeps,
 		cd.MetadataAPIDeps,
 		cd.LogServiceDeps,
