@@ -168,7 +168,7 @@ func ApplyCoreDeps(ctx context.Context, cl client.Client, c *obj.Core) (*CoreDep
 		return nil, err
 	}
 
-	objs := []Configurable{
+	objs := []obj.Configurable{
 		cd.OperatorDeps,
 		cd.MetadataAPIDeps,
 		cd.LogServiceDeps,

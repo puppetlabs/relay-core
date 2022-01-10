@@ -108,7 +108,7 @@ func (ld *LogServiceDeps) Configure(ctx context.Context) error {
 		}
 	}
 
-	objs := []Configurable{
+	objs := []obj.Configurable{
 		ld.VaultAgentDeps,
 	}
 

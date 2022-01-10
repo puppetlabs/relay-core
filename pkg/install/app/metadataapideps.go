@@ -119,7 +119,7 @@ func (md *MetadataAPIDeps) Configure(ctx context.Context) error {
 		}
 	}
 
-	objs := []Configurable{
+	objs := []obj.Configurable{
 		md.VaultAgentDeps,
 		md.Deployment,
 		md.Service,

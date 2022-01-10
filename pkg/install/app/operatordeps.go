@@ -16,6 +16,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+var (
+	_ lifecycle.Loader    = &OperatorDeps{}
+	_ lifecycle.Persister = &OperatorDeps{}
+	_ obj.Configurable    = &OperatorDeps{}
+)
+
 type OperatorDeps struct {
 	Core                             *obj.Core
 	Deployment                       *operatorDeployment
@@ -137,7 +143,7 @@ func (od *OperatorDeps) Configure(ctx context.Context) error {
 		}
 	}
 
-	objs := []Configurable{
+	objs := []obj.Configurable{
 		od.VaultAgentDeps,
 		od.WebhookCertificateControllerDeps,
 		od.Deployment,
