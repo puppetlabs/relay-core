@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller
+  labels:
+    app.kubernetes.io/component: controller
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: controller
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: controller
+    spec:
+      serviceAccountName: controller
+      containers:
+      - name: controller
+        image: "relaysh/relay-install-operator:latest"
+        imagePullPolicy: Always

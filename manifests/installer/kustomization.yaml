@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namePrefix: relay-installer-
+
+commonLabels:
+    app.kubernetes.io/name: relay-core
+    app.kubernetes.io/version: "v1"
+    app.kubernetes.io/instance: installer-1
+
+
+resources:
+- install.relay.sh_relaycores.yaml
+- serviceaccount.yaml
+- clusterrole.yaml
+- clusterrolebinding.yaml
+- deployment.yaml

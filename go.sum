@@ -1656,8 +1656,8 @@ github.com/puppetlabs/leg/instrumentation v0.1.4/go.mod h1:x6wQv38l6/tZRQHolqpL6
 github.com/puppetlabs/leg/jsonutil v0.2.2 h1:vjWbc4HMT7STEgavaMi9AjJoAPrn3Y4sg47xDmq/nJY=
 github.com/puppetlabs/leg/jsonutil v0.2.2/go.mod h1:CsTmPdDmiQFH6dwRs/AXHu+gBRspew+w66tCxzy9ojg=
 github.com/puppetlabs/leg/k8sutil v0.4.0/go.mod h1:5LN5B926v3QNyCQa8IYYIoFS+4f2ak2Mg0LHdIPFQZU=
-github.com/puppetlabs/leg/k8sutil v0.6.3 h1:bDRrskefoVsRIPzJatqJmOHlqz3ZZ/nv97eBkVXXFNI=
-github.com/puppetlabs/leg/k8sutil v0.6.3/go.mod h1:5LN5B926v3QNyCQa8IYYIoFS+4f2ak2Mg0LHdIPFQZU=
+github.com/puppetlabs/leg/k8sutil v0.6.4 h1:lqE1+VyPJZs+Jk9Ds6EH9PxFUnF7OCxu26EI5K/8VMs=
+github.com/puppetlabs/leg/k8sutil v0.6.4/go.mod h1:5LN5B926v3QNyCQa8IYYIoFS+4f2ak2Mg0LHdIPFQZU=
 github.com/puppetlabs/leg/lifecycle v0.2.0 h1:WYaQF+mdW8Wy+tRHkEE9175Bhkd3zJ7i0qnOQkb+BmY=
 github.com/puppetlabs/leg/lifecycle v0.2.0/go.mod h1:QtYNNukWpkcLWZAWcM9tVxcWfqn9mULH5J3dCkMqzGk=
 github.com/puppetlabs/leg/logging v0.1.0 h1:G8M2w3izYEtoaH+d3rIJZ9iLX2oW2T/jO+J4l+T0Ieo=
@@ -1674,6 +1674,7 @@ github.com/puppetlabs/leg/scheduler v0.1.4 h1:1L8DOphtT+G8vESf39lIQnBMoZ0z7y0xMm
 github.com/puppetlabs/leg/scheduler v0.1.4/go.mod h1:kC6I8SA/nRt4VOu18qJ+HwBW+IxmXHI2lKicdfj3ItI=
 github.com/puppetlabs/leg/storage v0.1.1 h1:nxGgxE5nD+sIk3kE5lK0dCkA8yKjPxGPrCI7UXGB7kM=
 github.com/puppetlabs/leg/storage v0.1.1/go.mod h1:7CJaMZY4GOSsFMbQlYxwQ1osNzKxLvCEwT7EL8jE49Q=
+github.com/puppetlabs/leg/stringutil v0.1.0 h1:tvU0pPXtgZ29xSqMxIuZcEfgVqMif6WDQDxmcKxUwno=
 github.com/puppetlabs/leg/stringutil v0.1.0/go.mod h1:xIQbHjzTxuqVz/GpY5ReCqxGWptIceNV1vfvAPFDtog=
 github.com/puppetlabs/leg/timeutil v0.3.0/go.mod h1:FHkZ9rYegF0STjS4az6hsjdvcBHcG+FB4CsY5mx1DfI=
 github.com/puppetlabs/leg/timeutil v0.4.2 h1:bxbqoo9NmM8ypftLA2jB/qxfpQnCiAoMEiUGVfNMlAU=

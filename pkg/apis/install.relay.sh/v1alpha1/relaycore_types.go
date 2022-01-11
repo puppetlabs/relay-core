@@ -47,6 +47,15 @@ type RelayCoreSpec struct {
 	// +optional
 	Debug bool `json:"debug"`
 
+	// JWTSigningKeys is the secret and keys that hold a JWT signing key pair
+	// for the workflow run key signing operations with vault. This secret must
+	// have 2 fields for a public and private key pair. If this field is not
+	// set, then signings key will be generated when the relay core resources
+	// are being persisted.
+	//
+	// +optional
+	JWTSigningKeyRef *JWTSigningKeySource `json:"jwtSigningKeys,omitempty"`
+
 	// LogService is the configuration for the log service.
 	//
 	// +kubebuilder:default={image: "relaysh/relay-pls:latest", imagePullPolicy: "IfNotPresent"}
@@ -78,21 +87,45 @@ type RelayCoreSpec struct {
 	SentryDSNSecretName *string `json:"sentryDSNSecretName,omitempty"`
 }
 
+type JWTSigningKeySource struct {
+	corev1.LocalObjectReference `json:",inline"`
+
+	PrivateKeyRef string `json:"privateKeyRef,omitempty"`
+	PublicKeyRef  string `json:"publicKeyRef,omitempty"`
+}
+
 // LogServiceConfig is the configuration for the relay-log-service deployment
 type LogServiceConfig struct {
+	// Image is the container image to use for the log service.
+	//
 	// +kubebuilder:default="relaysh/relay-pls:latest"
 	// +optional
 	Image string `json:"image"`
 
+	// ImagePullPolicy instructs the cluster when it should attempt to pull the
+	// container image.
+	//
 	// +kubebuilder:default="IfNotPresent"
 	// +optional
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 
+	// Env is the slice of environment variables to use when launching the log
+	// service.
+	//
 	// +optional
 	Env []corev1.EnvVar `json:"env,omitempty"`
 
+	// NodeSelector instructs the cluster how to choose a node to run the log
+	// service pods.
+	//
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+
+	// ServiceAccountName is the service account to use to run this service's pods.
+	// This is the service account that is also handed to Vault for Kubernetes Auth.
+	//
+	// +optional
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 
 	// Affinity is an optional set of affinity constraints to apply to operator
 	// pods.
@@ -100,35 +133,30 @@ type LogServiceConfig struct {
 	// +optional
 	Affinity *corev1.Affinity `json:"affinity,omitempty"`
 
+	// Replicas is the number of pods to run for this server.
+	//
 	// +kubebuilder:default=1
 	// +optional
 	Replicas int32 `json:"replicas,omitempty"`
 
 	// VaultAgentRole is the role to use when configuring the vault agent.
 	//
+	// +kubebuilder:default="log-service"
 	// +optional
-	VaultAgentRole *string `json:"vaultAgentRole,omitempty"`
+	VaultAgentRole string `json:"vaultAgentRole,omitempty"`
 
-	// CredentialsSecretName is the name of the secret containing the
-	// credentials for the log service.
-	//
-	// +optional
-	CredentialsSecretName string `json:"credentialsSecretName"`
+	// CredentialsSecretKeyRef is the secret and key to use for the log service
+	// cloud credentials
+	CredentialsSecretKeyRef corev1.SecretKeySelector `json:"credentialsSecretKeyRef,omitempty"`
 
 	// Project is the BigQuery project to use for logging.
-	//
-	// +optional
-	Project string `json:"project"`
+	Project string `json:"project,omitempty"`
 
 	// Dataset is the BigQuery dataset to use for logging.
-	//
-	// +optional
-	Dataset string `json:"dataset"`
+	Dataset string `json:"dataset,omitempty"`
 
 	// Project is the BigQuery table to use for logging.
-	//
-	// +optional
-	Table string `json:"table"`
+	Table string `json:"table,omitempty"`
 }
 
 // OperatorConfig is the configuration for the relay-operator deployment
@@ -143,21 +171,6 @@ type OperatorConfig struct {
 
 	// +optional
 	Env []corev1.EnvVar `json:"env,omitempty"`
-
-	// GenerateJWTSigningKey will generate a JWT signing key and store it in a
-	// Secret for use by the operator pods. If this field is set to true, then
-	// the below JWTSigningKeySecretName is ignored.
-	//
-	// +kubebuilder:default=false
-	// +optional
-	GenerateJWTSigningKey bool `json:"generateJWTSigningKey"`
-
-	// JWTSigningKeySecretName is the name of the secret object that holds a
-	// JWT signing key.  The secret object MUST have a data field called
-	// "key.pem".  This field is ignored if GenerateJWTSigningKey is true.
-	//
-	// +optional
-	JWTSigningKeySecretName *string `json:"jwtSigningKeySecretName,omitempty"`
 
 	// MetricsEnabled enables the metrics server for the operator deployment
 	// and creates a service that can be used to scrape those metrics.
@@ -176,6 +189,12 @@ type OperatorConfig struct {
 
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+
+	// ServiceAccountName is the service account to use to run this service's pods.
+	// This is the service account that is also handed to Vault for Kubernetes Auth.
+	//
+	// +optional
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 
 	// Affinity is an optional set of affinity constraints to apply to operator
 	// pods.
@@ -216,33 +235,39 @@ type OperatorConfig struct {
 
 	// AdmissionWebhookServer is the configuration for the
 	// admissionregistration webhook server.
+	//
+	//
+	// +kubebuilder:default={certificateControllerImagePullPolicy: "IfNotPresent"}
+	// +optional
 	AdmissionWebhookServer *AdmissionWebhookServerConfig `json:"admissionWebhookServer,omitempty"`
 
 	// VaultAgentRole is the role to use when configuring the vault agent.
 	//
+	// +kubebuilder:default="operator"
 	// +optional
-	VaultAgentRole *string `json:"vaultAgentRole,omitempty"`
+	VaultAgentRole string `json:"vaultAgentRole,omitempty"`
 }
 
 type AdmissionWebhookServerConfig struct {
+	// CertificateControllerImage is the image to use for the certificate
+	// controller that managers the TLS certificates for the operator's webhook
+	// server
+	//
+	// +kubebuilder:default="relaysh/relay-operator-webhook-certificate-controller:latest"
+	// +optional
+	CertificateControllerImage string `json:"certificateControllerImage,omitempty"`
+
+	// +kubebuilder:default="IfNotPresent"
+	// +optional
+	CertificateControllerImagePullPolicy corev1.PullPolicy `json:"certificateControllerImagePullPolicy,omitempty"`
+
 	// Domain is the domain to use as a suffix for the webhook subdomain.
 	// Example: admission.controller.example.com
-	Domain string `json:"domain"`
+	Domain string `json:"domain,omitempty"`
+
 	// NamespaceSelector is the map of labels to use in the NamespaceSelector
 	// section of the MutatingWebhooks.
 	NamespaceSelector *metav1.LabelSelector `json:"namespaceSelector,omitempty"`
-	// TLSSecretName is the name of the secret that holds the tls cert
-	// files for webhooks. The secret object MUST have two data fields called
-	// "tls.key" and "tls.crt".
-	//
-	// +optional
-	TLSSecretName string `json:"tlsSecretName,omitempty"`
-	// CABundleSecretName is the name of the secret that holds the ca
-	// certificate bundle for the admission webhook config.  The secret object
-	// MUST have a field called "ca.crt".
-	//
-	// +optional
-	CABundleSecretName *string `json:"caBundleSecretName,omitempty"`
 }
 
 // MetadataAPIConfig is the configuration for the relay-metadata-api deployment
@@ -260,6 +285,12 @@ type MetadataAPIConfig struct {
 
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+
+	// ServiceAccountName is the service account to use to run this service's pods.
+	// This is the service account that is also handed to Vault for Kubernetes Auth.
+	//
+	// +optional
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 
 	// Affinity is an optional set of affinity constraints to apply to
 	// metadata-api pods.
@@ -299,8 +330,9 @@ type MetadataAPIConfig struct {
 
 	// VaultAgentRole is the role to use when configuring the vault agent.
 	//
+	// +kubebuilder:default="metadata-api"
 	// +optional
-	VaultAgentRole *string `json:"vaultAgentRole,omitempty"`
+	VaultAgentRole string `json:"vaultAgentRole,omitempty"`
 
 	// +kubebuilder:default="tenant"
 	// +optional
@@ -328,12 +360,63 @@ type VaultConfig struct {
 	// +optional
 	TenantPath string `json:"tenantPath"`
 
+	// Auth provides credentials for vault server authentication.
+	//
+	// +optional
+	Auth *VaultConfigAuth `json:"auth"`
+
+	// AuthDelegatorServiceAccount is the name of the service account that
+	// should be used to give vault token review access for the kubernetes auth
+	// method.
+	//
+	// +optional
+	AuthDelegatorServiceAccountName string `json:"authDelegatorServiceAccountName"`
+
+	// ConfigMapRef is the reference to the config map that contains the
+	// scripts and policies to configure vault with.
+	//
+	// +optional
+	ConfigMapRef *VaultConfigMapSource `json:"configMapRef"`
+
 	// Sidecar is the configuration for the vault sidecar containers used by
 	// the operator and the metadata-api.
 	//
 	// +kubebuilder:default={image: "vault:latest", imagePullPolicy: "IfNotPresent", resources: {limits: {cpu: "50m", memory: "64Mi"}, requests: {cpu: "25m", memory: "32Mi"}}, serverAddr: "http://vault:8200"}
 	// +optional
 	Sidecar *VaultSidecar `json:"sidecar"`
+}
+
+type VaultConfigMapSource struct {
+	corev1.LocalObjectReference `json:",inline"`
+}
+
+type VaultConfigAuth struct {
+	// Token is the token to use for vault server authentication when
+	// configuring engine mounts and policies for relay-core components.
+	//
+	// +optional
+	Token string `json:"token,omitempty"`
+
+	// TokenFrom allows the vault server token to be provided by another source
+	// such as a Secret.
+	//
+	// +optional
+	TokenFrom *VaultTokenSource `json:"tokenFrom,omitempty"`
+
+	// UnsealKey enables a Job to unseal a vault server. This is intended to
+	// only be used by the development environment and must not be used in any
+	// other environment. This Job only supports a singlular unseal key, so
+	// servers that require multiple keys will not be unsealed.
+	//
+	// +optional
+	UnsealKey string `json:"unsealKey,omitempty"`
+}
+
+type VaultTokenSource struct {
+	// SecretKeyRef selects an API token by looking up the value in a secret.
+	//
+	// +optional
+	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
 }
 
 type VaultSidecar struct {

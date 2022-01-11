@@ -1,96 +1,77 @@
 package app
 
 import (
+	"context"
+
 	appsv1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/appsv1"
 	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func ConfigureMetadataAPIDeployment(md *MetadataAPIDeps, dep *appsv1obj.Deployment) {
-	core := md.Core.Object
+type metadataAPIDeployment struct {
+	*appsv1obj.Deployment
 
-	dep.Object.Spec.Replicas = &core.Spec.MetadataAPI.Replicas
+	core           *obj.Core
+	vaultAgentDeps *VaultAgentDeps
+}
 
-	if dep.Object.Labels == nil {
-		dep.Object.Labels = make(map[string]string)
+func (d *metadataAPIDeployment) Configure(_ context.Context) error {
+	core := d.core.Object
+	conf := core.Spec.MetadataAPI
+	dep := d.Object
+
+	dep.Spec.Replicas = &conf.Replicas
+
+	dep.Spec.Template.Labels = dep.GetLabels()
+	dep.Spec.Selector = &metav1.LabelSelector{
+		MatchLabels: dep.GetLabels(),
 	}
 
-	for k, v := range md.Labels {
-		dep.Object.Labels[k] = v
-	}
+	template := &dep.Spec.Template.Spec
+	template.ServiceAccountName = conf.ServiceAccountName
+	template.Affinity = conf.Affinity
+	template.Volumes = d.vaultAgentDeps.DeploymentVolumes()
 
-	dep.Object.Spec.Template.Labels = md.Labels
-	dep.Object.Spec.Selector = &metav1.LabelSelector{
-		MatchLabels: md.Labels,
-	}
-
-	template := &dep.Object.Spec.Template.Spec
-	template.ServiceAccountName = dep.Key.Name
-	template.Affinity = core.Spec.MetadataAPI.Affinity
-
-	template.Volumes = []corev1.Volume{
-		{
-			Name: "vault-agent-sa-token",
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName: md.VaultAgentDeps.TokenSecret.Key.Name,
-				},
-			},
-		},
-		{
-			Name: "vault-agent-config",
-			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: md.VaultAgentDeps.ConfigMap.Key.Name,
-					},
-				},
-			},
-		},
-	}
-
-	if core.Spec.MetadataAPI.TLSSecretName != nil {
+	if conf.TLSSecretName != nil {
 		template.Volumes = append(template.Volumes, corev1.Volume{
 			Name: "tls-crt",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName: *core.Spec.MetadataAPI.TLSSecretName,
+					SecretName: *conf.TLSSecretName,
 				},
 			},
 		})
 	}
 
-	template.NodeSelector = core.Spec.MetadataAPI.NodeSelector
+	template.NodeSelector = conf.NodeSelector
 
 	if len(template.Containers) == 0 {
 		template.Containers = make([]corev1.Container, 2)
 	}
 
 	sc := corev1.Container{}
-
-	ConfigureMetadataAPIContainer(md.Core, &sc)
-
+	d.configureContainer(&sc)
 	template.Containers[0] = sc
+	template.Containers[1] = d.vaultAgentDeps.SidecarContainer()
 
-	vac := corev1.Container{}
-	ConfigureVaultAgentContainer(md.Core, &vac)
-
-	template.Containers[1] = vac
+	return nil
 }
 
-func ConfigureMetadataAPIContainer(coreobj *obj.Core, c *corev1.Container) {
-	core := coreobj.Object
+func (d *metadataAPIDeployment) configureContainer(c *corev1.Container) {
+	core := d.core.Object
+	conf := core.Spec.MetadataAPI
 
 	c.Name = "metadata-api"
-	c.Image = core.Spec.MetadataAPI.Image
-	c.ImagePullPolicy = core.Spec.MetadataAPI.ImagePullPolicy
+	c.Image = conf.Image
+	c.ImagePullPolicy = conf.ImagePullPolicy
 
 	lsURL := ""
-	if core.Spec.MetadataAPI.LogServiceURL != nil {
-		lsURL = *core.Spec.MetadataAPI.LogServiceURL
+	if conf.LogServiceURL != nil {
+		lsURL = *conf.LogServiceURL
 	}
 
 	env := []corev1.EnvVar{
@@ -98,10 +79,10 @@ func ConfigureMetadataAPIContainer(coreobj *obj.Core, c *corev1.Container) {
 		{Name: "RELAY_METADATA_API_ENVIRONMENT", Value: core.Spec.Environment},
 		{Name: "RELAY_METADATA_API_VAULT_TRANSIT_PATH", Value: core.Spec.Vault.TransitPath},
 		{Name: "RELAY_METADATA_API_VAULT_TRANSIT_KEY", Value: core.Spec.Vault.TransitKey},
-		{Name: "RELAY_METADATA_API_VAULT_AUTH_PATH", Value: core.Spec.MetadataAPI.VaultAuthPath},
-		{Name: "RELAY_METADATA_API_VAULT_AUTH_ROLE", Value: core.Spec.MetadataAPI.VaultAuthRole},
+		{Name: "RELAY_METADATA_API_VAULT_AUTH_PATH", Value: conf.VaultAuthPath},
+		{Name: "RELAY_METADATA_API_VAULT_AUTH_ROLE", Value: conf.VaultAuthRole},
 		{Name: "RELAY_METADATA_API_LOG_SERVICE_URL", Value: lsURL},
-		{Name: "RELAY_METADATA_API_STEP_METADATA_URL", Value: core.Spec.MetadataAPI.StepMetadataURL},
+		{Name: "RELAY_METADATA_API_STEP_METADATA_URL", Value: conf.StepMetadataURL},
 	}
 	if core.Spec.Debug {
 		env = append(env, corev1.EnvVar{Name: "RELAY_METADATA_API_DEBUG", Value: "true"})
@@ -121,8 +102,8 @@ func ConfigureMetadataAPIContainer(coreobj *obj.Core, c *corev1.Container) {
 		})
 	}
 
-	if core.Spec.MetadataAPI.Env != nil {
-		env = append(env, core.Spec.MetadataAPI.Env...)
+	if conf.Env != nil {
+		env = append(env, conf.Env...)
 	}
 
 	c.Env = env
@@ -136,7 +117,7 @@ func ConfigureMetadataAPIContainer(coreobj *obj.Core, c *corev1.Container) {
 	}
 
 	probeScheme := corev1.URISchemeHTTP
-	if core.Spec.MetadataAPI.TLSSecretName != nil {
+	if conf.TLSSecretName != nil {
 		probeScheme = corev1.URISchemeHTTPS
 	}
 
@@ -153,7 +134,7 @@ func ConfigureMetadataAPIContainer(coreobj *obj.Core, c *corev1.Container) {
 	c.LivenessProbe = probe
 	c.ReadinessProbe = probe
 
-	if core.Spec.MetadataAPI.TLSSecretName != nil {
+	if conf.TLSSecretName != nil {
 		c.VolumeMounts = []corev1.VolumeMount{
 			{
 				Name:      "tls-crt",
@@ -164,20 +145,49 @@ func ConfigureMetadataAPIContainer(coreobj *obj.Core, c *corev1.Container) {
 	}
 }
 
-func ConfigureMetadataAPIService(md *MetadataAPIDeps, svc *corev1obj.Service) {
-	svc.Object.Spec.Selector = md.Labels
+func newMetadataAPIDeployment(key client.ObjectKey, core *obj.Core, vad *VaultAgentDeps) *metadataAPIDeployment {
+	return &metadataAPIDeployment{
+		Deployment:     appsv1obj.NewDeployment(key),
+		core:           core,
+		vaultAgentDeps: vad,
+	}
+}
+
+type metadataAPIService struct {
+	*corev1obj.Service
+
+	core       *obj.Core
+	deployment *appsv1obj.Deployment
+}
+
+func (s *metadataAPIService) Configure(_ context.Context) error {
+	core := s.core.Object
+	conf := core.Spec.MetadataAPI
+	svc := s.Object
+
+	svc.Spec.Selector = s.deployment.Object.GetLabels()
 
 	port := int32(80)
-	if md.Core.Object.Spec.MetadataAPI.TLSSecretName != nil {
+	if conf.TLSSecretName != nil {
 		port = int32(443)
 	}
 
-	svc.Object.Spec.Ports = []corev1.ServicePort{
+	svc.Spec.Ports = []corev1.ServicePort{
 		{
 			Name:       "http",
 			Port:       port,
 			Protocol:   corev1.ProtocolTCP,
 			TargetPort: intstr.FromString("http"),
 		},
+	}
+
+	return nil
+}
+
+func newMetadataAPIService(core *obj.Core, dep *metadataAPIDeployment) *metadataAPIService {
+	return &metadataAPIService{
+		Service:    corev1obj.NewService(dep.Key),
+		core:       core,
+		deployment: dep.Deployment,
 	}
 }
