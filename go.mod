@@ -17,11 +17,11 @@ require (
 	github.com/hashicorp/go-cleanhttp v0.5.2
 	github.com/hashicorp/go-retryablehttp v0.6.8
 	github.com/hashicorp/hcl2 v0.0.0-20191002203319-fb75b3253c80
-	github.com/hashicorp/vault v1.8.2
+	github.com/hashicorp/vault v1.8.5
 	github.com/hashicorp/vault-plugin-auth-jwt v0.10.1
 	github.com/hashicorp/vault-plugin-secrets-kv v0.9.0
 	github.com/hashicorp/vault/api v1.1.2-0.20210713235431-1fc8af4c041f
-	github.com/hashicorp/vault/sdk v0.2.2-0.20210825150427-9b1f4d486f5d
+	github.com/hashicorp/vault/sdk v0.2.2-0.20211101151547-6654f4b913f9
 	github.com/inconshreveable/log15 v0.0.0-20201112154412-8562bdadbbac
 	github.com/keybase/go-crypto v0.0.0-20200123153347-de78d2cb44f4 // indirect
 	github.com/mitchellh/mapstructure v1.4.1
@@ -48,6 +48,7 @@ require (
 	github.com/spf13/viper v1.8.1
 	github.com/stretchr/testify v1.7.0
 	github.com/tektoncd/pipeline v0.22.0
+	github.com/tencentcloud/tencentcloud-sdk-go v3.0.171+incompatible // indirect
 	github.com/xeipuuv/gojsonschema v1.2.0
 	go.opentelemetry.io/otel v0.20.0
 	go.opentelemetry.io/otel/exporters/metric/prometheus v0.20.0
