@@ -63,7 +63,18 @@ func (d *WebhookCertificateControllerDeps) Persist(ctx context.Context, cl clien
 		return err
 	}
 
-	objs := []lifecycle.OwnablePersister{
+	os := []lifecycle.Ownable{
+		d.Deployment,
+		d.ServiceAccount,
+	}
+
+	for _, o := range os {
+		if err := d.OwnerConfigMap.Own(ctx, o); err != nil {
+			return err
+		}
+	}
+
+	objs := []lifecycle.Persister{
 		d.Deployment,
 		d.ServiceAccount,
 		d.ClusterRole,
@@ -71,10 +82,6 @@ func (d *WebhookCertificateControllerDeps) Persist(ctx context.Context, cl clien
 	}
 
 	for _, obj := range objs {
-		if err := d.OwnerConfigMap.Own(ctx, obj); err != nil {
-			return err
-		}
-
 		if err := obj.Persist(ctx, cl); err != nil {
 			return err
 		}
