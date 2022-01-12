@@ -12,6 +12,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/install/jwt"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -88,7 +89,7 @@ func (cd *CoreDeps) Persist(ctx context.Context, cl client.Client) error {
 		return err
 	}
 
-	if err := cd.Namespace.Persist(ctx, cl); err != nil {
+	if err := cd.Namespace.Persist(ctx, cl); err != nil && !errors.IsAlreadyExists(err) {
 		return err
 	}
 
