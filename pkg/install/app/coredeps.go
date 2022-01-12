@@ -17,6 +17,7 @@ import (
 )
 
 const (
+	defaultJWTSigningKeySecretName  = "jwt-signing-keys"
 	defaultPrivateJWTSigningKeyName = "private-key.pem"
 	defaultPublicJWTSigningKeyName  = "public-key.pem"
 )
@@ -63,10 +64,16 @@ func (cd *CoreDeps) Load(ctx context.Context, cl client.Client) (*CoreDepsLoadRe
 	cd.OperatorDeps = NewOperatorDeps(cd.Core)
 	cd.MetadataAPIDeps = NewMetadataAPIDeps(cd.Core)
 	cd.LogServiceDeps = NewLogServiceDeps(cd.Core)
-	cd.JWTSigningKeySecret = corev1obj.NewSecret(client.ObjectKey{
-		Name:      cd.Core.Object.Spec.JWTSigningKeyRef.Name,
-		Namespace: cd.Core.Key.Namespace,
-	})
+
+	key := helper.SuffixObjectKey(cd.Core.Key, defaultJWTSigningKeySecretName)
+	if cd.JWTSigningKeySecret != nil {
+		key = client.ObjectKey{
+			Name:      cd.Core.Object.Spec.JWTSigningKeyRef.Name,
+			Namespace: cd.Core.Key.Namespace,
+		}
+	}
+
+	cd.JWTSigningKeySecret = corev1obj.NewSecret(key)
 
 	ok, err := lifecycle.Loaders{
 		lifecycle.RequiredLoader{Loader: cd.Namespace},
@@ -200,7 +207,7 @@ func ConfigureCoreDefaults(cd *CoreDeps) {
 	}
 
 	if core.Object.Spec.JWTSigningKeyRef == nil {
-		resourceKey := helper.SuffixObjectKey(core.Key, "jwt-signing-keys")
+		resourceKey := helper.SuffixObjectKey(core.Key, defaultJWTSigningKeySecretName)
 
 		core.Object.Spec.JWTSigningKeyRef = &v1alpha1.JWTSigningKeySource{
 			LocalObjectReference: corev1.LocalObjectReference{
