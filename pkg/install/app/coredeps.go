@@ -152,19 +152,14 @@ func ApplyCoreDeps(ctx context.Context, cl client.Client, c *obj.Core) (*CoreDep
 
 	_, err := cd.Load(ctx, cl)
 	if err != nil {
-		klog.Error(err)
 		return nil, err
 	}
 
 	if err := cd.Configure(ctx); err != nil {
-		klog.Error(err)
-
 		return nil, err
 	}
 
 	if err := cd.Core.Persist(ctx, cl); err != nil {
-		klog.Error(err)
-
 		return nil, err
 	}
 
