@@ -43,6 +43,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	cd := app.NewCoreDeps(core)
 
 	if _, err := cd.Load(ctx, r.Client); err != nil {
+		klog.Error(err)
 		return ctrl.Result{}, err
 	}
 
