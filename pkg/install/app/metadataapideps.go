@@ -70,7 +70,20 @@ func (md *MetadataAPIDeps) Persist(ctx context.Context, cl client.Client) error 
 		return err
 	}
 
-	objs := []lifecycle.OwnablePersister{
+	os := []lifecycle.Ownable{
+		md.VaultAgentDeps,
+		md.Deployment,
+		md.Service,
+		md.ServiceAccount,
+	}
+
+	for _, o := range os {
+		if err := md.OwnerConfigMap.Own(ctx, o); err != nil {
+			return err
+		}
+	}
+
+	objs := []lifecycle.Persister{
 		md.VaultAgentDeps,
 		md.Deployment,
 		md.Service,
@@ -80,10 +93,6 @@ func (md *MetadataAPIDeps) Persist(ctx context.Context, cl client.Client) error 
 	}
 
 	for _, obj := range objs {
-		if err := md.OwnerConfigMap.Own(ctx, obj); err != nil {
-			return err
-		}
-
 		if err := obj.Persist(ctx, cl); err != nil {
 			return err
 		}

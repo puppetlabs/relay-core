@@ -90,7 +90,21 @@ func (od *OperatorDeps) Persist(ctx context.Context, cl client.Client) error {
 		return err
 	}
 
-	objs := []lifecycle.OwnablePersister{
+	os := []lifecycle.Ownable{
+		od.VaultAgentDeps,
+		od.WebhookCertificateControllerDeps,
+		od.Deployment,
+		od.WebhookService,
+		od.ServiceAccount,
+	}
+
+	for _, o := range os {
+		if err := od.OwnerConfigMap.Own(ctx, o); err != nil {
+			return err
+		}
+	}
+
+	objs := []lifecycle.Persister{
 		od.VaultAgentDeps,
 		od.WebhookConfig,
 		od.WebhookCertificateControllerDeps,
@@ -103,10 +117,6 @@ func (od *OperatorDeps) Persist(ctx context.Context, cl client.Client) error {
 	}
 
 	for _, obj := range objs {
-		if err := od.OwnerConfigMap.Own(ctx, obj); err != nil {
-			return err
-		}
-
 		if err := obj.Persist(ctx, cl); err != nil {
 			return err
 		}
