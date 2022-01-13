@@ -35,7 +35,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	core := obj.NewCore(req.NamespacedName)
 	if ok, err := core.Load(ctx, r.Client); err != nil {
 		klog.Error(err)
-		return ctrl.Result{}, errmap.Wrap(err, "failed to load dependencies")
+		return ctrl.Result{}, errmap.Wrap(err, "failed to load RelayCore")
 	} else if !ok {
 		return ctrl.Result{}, nil
 	}
@@ -44,7 +44,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	if _, err := cd.Load(ctx, r.Client); err != nil {
 		klog.Error(err)
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errmap.Wrap(err, "failed to load RelayCore dependencies")
 	}
 
 	finalized, err := lifecycle.Finalize(ctx, r.Client, FinalizerName, core, func() error {
@@ -64,11 +64,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		klog.Error(err)
 		err = errmark.MarkTransientIf(err, errhandler.RuleIsRequired)
 
-		return ctrl.Result{}, errmap.Wrap(err, "failed to apply dependencies")
+		return ctrl.Result{}, errmap.Wrap(err, "failed to apply RelayCore dependencies")
 	}
 
 	if err := core.PersistStatus(ctx, r.Client); err != nil {
-		return ctrl.Result{}, errmap.Wrap(err, "failed to persist Run")
+		return ctrl.Result{}, errmap.Wrap(err, "failed to persist RelayCore status")
 	}
 
 	return ctrl.Result{}, nil

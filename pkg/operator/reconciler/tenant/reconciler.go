@@ -30,7 +30,7 @@ func NewReconciler(cl client.Client, cfg *config.WorkflowControllerConfig) *Reco
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, err error) {
 	tn := obj.NewTenant(req.NamespacedName)
 	if ok, err := tn.Load(ctx, r.Client); err != nil {
-		return ctrl.Result{}, errmap.Wrap(err, "failed to load dependencies")
+		return ctrl.Result{}, errmap.Wrap(err, "failed to load Tenant")
 	} else if !ok {
 		// CRD deleted from under us?
 		return ctrl.Result{}, nil
@@ -38,7 +38,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 
 	deps := app.NewTenantDeps(tn, app.TenantDepsWithStandaloneMode(r.Config.Standalone))
 	if _, err := deps.Load(ctx, r.Client); err != nil {
-		return ctrl.Result{}, errmap.Wrap(err, "failed to load dependencies")
+		return ctrl.Result{}, errmap.Wrap(err, "failed to load Tenant dependencies")
 	}
 
 	finalized, err := lifecycle.Finalize(ctx, r.Client, FinalizerName, tn, func() error {
@@ -50,7 +50,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	}
 
 	if _, err := deps.DeleteStale(ctx, r.Client); err != nil {
-		return ctrl.Result{}, errmap.Wrap(err, "failed to delete stale dependencies")
+		return ctrl.Result{}, errmap.Wrap(err, "failed to delete stale Tenant dependencies")
 	}
 
 	err = app.ConfigureTenantDeps(ctx, deps)
@@ -67,7 +67,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	app.ConfigureTenant(tn, tdr)
 
 	if err := tn.PersistStatus(ctx, r.Client); err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errmap.Wrap(err, "failed to persist Tenant status")
 	}
 
 	return ctrl.Result{}, nil

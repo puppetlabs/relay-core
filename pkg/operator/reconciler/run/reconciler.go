@@ -175,7 +175,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		app.ConfigureRunWithSpecificStatus(rd.Run, relayv1beta1.RunSucceeded, corev1.ConditionTrue)
 
 		if err := run.PersistStatus(ctx, r.Client); err != nil {
-			return ctrl.Result{}, errmap.Wrap(err, "failed to persist Run")
+			return ctrl.Result{}, errmap.Wrap(err, "failed to persist Run status")
 		}
 
 		return ctrl.Result{}, nil
@@ -192,7 +192,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	}
 
 	if err := run.PersistStatus(ctx, r.Client); err != nil {
-		return ctrl.Result{}, errmap.Wrap(err, "failed to persist Run")
+		return ctrl.Result{}, errmap.Wrap(err, "failed to persist Run status")
 	}
 
 	return ctrl.Result{}, nil
