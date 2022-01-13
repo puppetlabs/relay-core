@@ -34,8 +34,9 @@ type Reconciler struct {
 	Client client.Client
 	Scheme *runtime.Scheme
 
-	metrics *controllerObservations
-	issuer  authenticate.Issuer
+	metrics              *controllerObservations
+	issuer               authenticate.Issuer
+	workflowRunNamespace string
 }
 
 func NewReconciler(dm *dependency.DependencyManager) *Reconciler {
@@ -45,7 +46,8 @@ func NewReconciler(dm *dependency.DependencyManager) *Reconciler {
 		Client: dm.Manager.GetClient(),
 		Scheme: dm.Manager.GetScheme(),
 
-		metrics: newControllerObservations(dm.Metrics),
+		workflowRunNamespace: dm.Config.WorkflowRunNamespace,
+		metrics:              newControllerObservations(dm.Metrics),
 		issuer: authenticate.IssuerFunc(func(ctx context.Context, claims *authenticate.Claims) (authenticate.Raw, error) {
 			raw, err := authenticate.NewKeySignerIssuer(dm.JWTSigner).Issue(ctx, claims)
 			if err != nil {
@@ -63,6 +65,21 @@ func NewReconciler(dm *dependency.DependencyManager) *Reconciler {
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, err error) {
+	// Only work on WorkflowRuns created for the namespace we want to watch.
+	//
+	// TODO: there are some new features of controller-runtime that make this
+	// easier using the manager WatchFuncs, but there are a bunch of module
+	// issues between vault, googleapis (changed github.com/google org name to
+	// googleapis), Go 1.17 bugs related to wall time (some of these are
+	// patched but rolled into later, problematic releases), k8s.io,
+	// controller-runtime, and other hashicorp libs that are making it very
+	// difficult to upgrade to the latest controller-runtime module. There are
+	// endless tickets promising that "this issue is fixed and will be released
+	// soon!" but it's been 7 to 8 months and I don't believe any of them :).
+	if req.Namespace != r.workflowRunNamespace {
+		return ctrl.Result{}, nil
+	}
+
 	run := obj.NewRun(req.NamespacedName)
 	if ok, err := run.Load(ctx, r.Client); err != nil {
 		return ctrl.Result{}, errmap.Wrap(err, "failed to load Run")

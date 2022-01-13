@@ -25,6 +25,7 @@ type WorkflowControllerConfig struct {
 	TriggerToolInjectionPool  client.ObjectKey
 	WorkflowToolInjectionPool client.ObjectKey
 	AlertsDelegate            alerts.DelegateFunc
+	WorkflowRunNamespace      string
 }
 
 func (c *WorkflowControllerConfig) Capturer() trackers.Capturer {

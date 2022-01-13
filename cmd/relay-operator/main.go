@@ -62,6 +62,7 @@ func main() {
 	dynamicRBACBinding := fs.Bool("dynamic-rbac-binding", false, "enable if RBAC rules are set up dynamically for the operator to reduce unhelpful reported errors")
 	triggerToolInjectionPool := fs.String("trigger-tool-injection-pool", "", "the name of a PVPool pool to use for injecting tools into trigger containers")
 	workflowToolInjectionPool := fs.String("workflow-tool-injection-pool", "", "the name of a PVPool pool to use for injecting tools into workflow containers")
+	workflowRunNamespace := fs.String("workflow-run-namespace", "", "optional namespace to select WorkflowRun objects from")
 
 	fs.Parse(os.Args[1:])
 
@@ -154,6 +155,10 @@ func main() {
 		}
 	}
 
+	if *workflowRunNamespace == "" {
+		log.Fatal("-workflow-run-namespace must be specified")
+	}
+
 	cfg := &config.WorkflowControllerConfig{
 		Environment:             *environment,
 		Standalone:              *standalone,
@@ -167,6 +172,7 @@ func main() {
 		WebhookServerKeyDir:     *webhookServerKeyDir,
 		AlertsDelegate:          alertsDelegate,
 		DynamicRBACBinding:      *dynamicRBACBinding,
+		WorkflowRunNamespace:    *workflowRunNamespace,
 	}
 
 	cfg.TriggerToolInjectionPool = splitNamespacedName(triggerToolInjectionPool)
