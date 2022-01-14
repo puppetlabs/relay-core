@@ -141,7 +141,8 @@ func doConfigNamespace(ctx context.Context) doConfigFunc {
 		cfg.Environment.WithTestNamespace(ctx, func(ns *corev1.Namespace) {
 			cfg.Namespace = ns
 			cfg.ControllerConfig = &config.WorkflowControllerConfig{
-				Namespace: ns.GetName(),
+				Namespace:            ns.GetName(),
+				WorkflowRunNamespace: ns.GetName(),
 			}
 
 			next()
