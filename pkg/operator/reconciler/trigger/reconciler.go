@@ -62,7 +62,7 @@ func NewReconciler(dm *dependency.DependencyManager) *Reconciler {
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, err error) {
 	wt := obj.NewWebhookTrigger(req.NamespacedName)
 	if ok, err := wt.Load(ctx, r.Client); err != nil {
-		return ctrl.Result{}, errmap.Wrap(err, "failed to load dependencies")
+		return ctrl.Result{}, errmap.Wrap(err, "failed to load WebhookTrigger")
 	} else if !ok {
 		// CRD deleted from under us?
 		return ctrl.Result{}, nil
@@ -80,7 +80,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	)
 	loaded, err := deps.Load(ctx, r.Client)
 	if err != nil {
-		return ctrl.Result{}, errmap.Wrap(err, "failed to load dependencies")
+		return ctrl.Result{}, errmap.Wrap(err, "failed to load WebhookTrigger dependencies")
 	}
 
 	finalized, err := lifecycle.Finalize(ctx, r.Client, FinalizerName, wt, func() error {
@@ -102,23 +102,23 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	// Delete stale dependencies regardless of upstream status. This will also
 	// remove stale Knative services because they are owned by the config map.
 	if _, err := deps.DeleteStale(ctx, r.Client); err != nil {
-		return ctrl.Result{}, errmap.Wrap(err, "failed to delete stale dependencies")
+		return ctrl.Result{}, errmap.Wrap(err, "failed to delete stale WebhookTrigger dependencies")
 	}
 
 	if !loaded.Upstream {
 		// Upstream dependencies (tenant, tenant dependencies) have not yet
 		// settled. Wait for them to do so.
-		return ctrl.Result{}, errmark.MarkTransient(fmt.Errorf("waiting for dependencies to reconcile"))
+		return ctrl.Result{}, errmark.MarkTransient(fmt.Errorf("waiting for WebhookTrigger dependencies to reconcile"))
 	}
 
 	if err := app.ConfigureWebhookTriggerDeps(ctx, deps); err != nil {
-		return ctrl.Result{}, errmap.Wrap(err, "failed to configure dependencies")
+		return ctrl.Result{}, errmap.Wrap(err, "failed to configure WebhookTrigger dependencies")
 	}
 
 	if err := deps.Persist(ctx, r.Client); err != nil {
 		err = errmark.MarkTransientIf(err, errhandler.RuleIsRequired)
 
-		return ctrl.Result{}, errmap.Wrap(err, "failed to apply dependencies")
+		return ctrl.Result{}, errmap.Wrap(err, "failed to apply WebhookTrigger dependencies")
 	}
 
 	ksr := app.AsKnativeServiceResult(app.ApplyKnativeService(ctx, r.Client, deps))
@@ -126,7 +126,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	app.ConfigureWebhookTrigger(wt, ksr)
 
 	if err := wt.PersistStatus(ctx, r.Client); err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errmap.Wrap(err, "failed to persist WebhookTrigger status")
 	}
 
 	// Finally delete stale objects that we created as part of the lifecycle of
