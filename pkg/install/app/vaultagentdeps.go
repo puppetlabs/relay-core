@@ -2,6 +2,8 @@ package app
 
 import (
 	"context"
+	"fmt"
+	"path"
 
 	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/helper"
@@ -14,6 +16,7 @@ import (
 
 const (
 	vaultAgentConfigDirPath     = "/var/run/vault/config"
+	vaultAgentConfigFileName    = "agent.hcl"
 	vaultAgentConfigVolumeName  = "vault-agent-config"
 	vaultAgentSATokenPath       = "/var/run/secrets/kubernetes.io/serviceaccount@vault"
 	vaultAgentSATokenVolumeName = "vault-agent-sa-token"
@@ -129,7 +132,8 @@ func (vd *VaultAgentDeps) SidecarContainer() corev1.Container {
 		Command: []string{
 			"vault",
 			"agent",
-			"-config=/var/run/vault/config/agent.hcl",
+			fmt.Sprintf("-config=%s",
+				path.Join(vaultAgentConfigDirPath, vaultAgentConfigFileName)),
 		},
 		VolumeMounts: []corev1.VolumeMount{
 			{

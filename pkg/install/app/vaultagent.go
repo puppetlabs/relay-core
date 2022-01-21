@@ -48,5 +48,5 @@ func ConfigureVaultAgentConfigMap(core *obj.Core, role string, cm *corev1obj.Con
 
 	b := generateVaultConfig(&config)
 
-	cm.Object.Data["agent.hcl"] = string(b)
+	cm.Object.Data[vaultAgentConfigFileName] = string(b)
 }

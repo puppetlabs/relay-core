@@ -344,6 +344,14 @@ type MetadataAPIConfig struct {
 }
 
 type VaultConfig struct {
+	// +kubebuilder:default="relaysh/relay-operator-vault-init:latest"
+	// +optional
+	VaultInitializationImage string `json:"vaultInitializationImage"`
+
+	// +kubebuilder:default="IfNotPresent"
+	// +optional
+	VaultInitializationImagePullPolicy corev1.PullPolicy `json:"vaultInitializationImagePullPolicy,omitempty"`
+
 	// +kubebuilder:default="pls"
 	// +optional
 	LogServicePath string `json:"logServicePath"`
@@ -395,24 +403,30 @@ type VaultConfigAuth struct {
 	// configuring engine mounts and policies for relay-core components.
 	//
 	// +optional
-	Token string `json:"token,omitempty"`
+	Token *VaultAuthData `json:"token,omitempty"`
 
-	// TokenFrom allows the vault server token to be provided by another source
-	// such as a Secret.
-	//
-	// +optional
-	TokenFrom *VaultTokenSource `json:"tokenFrom,omitempty"`
-
-	// UnsealKey enables a Job to unseal a vault server. This is intended to
-	// only be used by the development environment and must not be used in any
-	// other environment. This Job only supports a singlular unseal key, so
+	// UnsealKey enables a Job to unseal a vault server.
+	// This Job only supports a singular unseal key, so
 	// servers that require multiple keys will not be unsealed.
 	//
 	// +optional
-	UnsealKey string `json:"unsealKey,omitempty"`
+	UnsealKey *VaultAuthData `json:"unsealKey,omitempty"`
 }
 
-type VaultTokenSource struct {
+type VaultAuthData struct {
+	// Value provides vault server authentication data.
+	//
+	// +optional
+	Value string `json:"token,omitempty"`
+
+	// ValueFrom allows vault server auth data to be provided by another source
+	// such as a Secret.
+	//
+	// +optional
+	ValueFrom *VaultAuthSource `json:"tokenFrom,omitempty"`
+}
+
+type VaultAuthSource struct {
 	// SecretKeyRef selects an API token by looking up the value in a secret.
 	//
 	// +optional

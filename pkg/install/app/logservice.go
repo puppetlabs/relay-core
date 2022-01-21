@@ -11,7 +11,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-const credentialsMountPath = "/var/run/secrets/google"
+const (
+	credentialsMountName = "google-application-credentials"
+	credentialsMountPath = "/var/run/secrets/google"
+)
 
 func ConfigureLogServiceDeployment(ld *LogServiceDeps, dep *appsv1obj.Deployment) {
 	core := ld.Core.Object
@@ -38,7 +41,7 @@ func ConfigureLogServiceDeployment(ld *LogServiceDeps, dep *appsv1obj.Deployment
 	template.Volumes = ld.VaultAgentDeps.DeploymentVolumes()
 	template.Volumes = append(template.Volumes,
 		corev1.Volume{
-			Name: "google-application-credentials",
+			Name: credentialsMountName,
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
 					SecretName: core.Spec.LogService.CredentialsSecretKeyRef.Name,
@@ -109,7 +112,7 @@ func ConfigureLogServiceContainer(coreobj *obj.Core, c *corev1.Container) {
 
 	c.VolumeMounts = []corev1.VolumeMount{
 		{
-			Name:      "google-application-credentials",
+			Name:      credentialsMountName,
 			MountPath: credentialsMountPath,
 			ReadOnly:  true,
 		},

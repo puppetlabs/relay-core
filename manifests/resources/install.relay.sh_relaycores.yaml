@@ -2528,39 +2528,74 @@ spec:
                         description: Token is the token to use for vault server authentication
                           when configuring engine mounts and policies for relay-core
                           components.
-                        type: string
-                      tokenFrom:
-                        description: TokenFrom allows the vault server token to be
-                          provided by another source such as a Secret.
                         properties:
-                          secretKeyRef:
-                            description: SecretKeyRef selects an API token by looking
-                              up the value in a secret.
+                          token:
+                            description: Value provides vault server authentication
+                              data.
+                            type: string
+                          tokenFrom:
+                            description: ValueFrom allows vault server auth data to
+                              be provided by another source such as a Secret.
                             properties:
-                              key:
-                                description: The key of the secret to select from.  Must
-                                  be a valid secret key.
-                                type: string
-                              name:
-                                description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                  TODO: Add other useful fields. apiVersion, kind,
-                                  uid?'
-                                type: string
-                              optional:
-                                description: Specify whether the Secret or its key
-                                  must be defined
-                                type: boolean
-                            required:
-                            - key
+                              secretKeyRef:
+                                description: SecretKeyRef selects an API token by
+                                  looking up the value in a secret.
+                                properties:
+                                  key:
+                                    description: The key of the secret to select from.  Must
+                                      be a valid secret key.
+                                    type: string
+                                  name:
+                                    description: 'Name of the referent. More info:
+                                      https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                      TODO: Add other useful fields. apiVersion, kind,
+                                      uid?'
+                                    type: string
+                                  optional:
+                                    description: Specify whether the Secret or its
+                                      key must be defined
+                                    type: boolean
+                                required:
+                                - key
+                                type: object
                             type: object
                         type: object
                       unsealKey:
                         description: UnsealKey enables a Job to unseal a vault server.
-                          This is intended to only be used by the development environment
-                          and must not be used in any other environment. This Job
-                          only supports a singlular unseal key, so servers that require
-                          multiple keys will not be unsealed.
-                        type: string
+                          This Job only supports a singular unseal key, so servers
+                          that require multiple keys will not be unsealed.
+                        properties:
+                          token:
+                            description: Value provides vault server authentication
+                              data.
+                            type: string
+                          tokenFrom:
+                            description: ValueFrom allows vault server auth data to
+                              be provided by another source such as a Secret.
+                            properties:
+                              secretKeyRef:
+                                description: SecretKeyRef selects an API token by
+                                  looking up the value in a secret.
+                                properties:
+                                  key:
+                                    description: The key of the secret to select from.  Must
+                                      be a valid secret key.
+                                    type: string
+                                  name:
+                                    description: 'Name of the referent. More info:
+                                      https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                      TODO: Add other useful fields. apiVersion, kind,
+                                      uid?'
+                                    type: string
+                                  optional:
+                                    description: Specify whether the Secret or its
+                                      key must be defined
+                                    type: boolean
+                                required:
+                                - key
+                                type: object
+                            type: object
+                        type: object
                     type: object
                   authDelegatorServiceAccountName:
                     description: AuthDelegatorServiceAccount is the name of the service
@@ -2653,6 +2688,14 @@ spec:
                     type: string
                   transitPath:
                     default: transit-tenants
+                    type: string
+                  vaultInitializationImage:
+                    default: relaysh/relay-operator-vault-init:latest
+                    type: string
+                  vaultInitializationImagePullPolicy:
+                    default: IfNotPresent
+                    description: PullPolicy describes a policy for if/when to pull
+                      a container image
                     type: string
                 type: object
             type: object
