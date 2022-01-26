@@ -66,7 +66,7 @@ func ConfigureWebhookCertificateControllerContainer(wd *WebhookCertificateContro
 		},
 		{
 			Name:  "RELAY_OPERATOR_SERVICE_NAME",
-			Value: wd.TargetDeployment.Name,
+			Value: helper.SuffixObjectKey(wd.TargetDeployment, "webhook").Name,
 		},
 		{
 			Name:  "RELAY_OPERATOR_CERTIFICATE_SECRET_NAME",
