@@ -256,6 +256,7 @@ func doConfigDependencyManager(ctx context.Context) doConfigFunc {
 		wcc := &config.WorkflowControllerConfig{
 			Standalone:              true,
 			Namespace:               cfg.Namespace.GetName(),
+			WorkflowRunNamespace:    cfg.Namespace.GetName(),
 			ImagePullSecret:         imagePullSecret.Key.Name,
 			MaxConcurrentReconciles: 16,
 			MetadataAPIURL:          cfg.MetadataAPIURL,
@@ -358,6 +359,7 @@ func doConfigReconcilers(t *testing.T, cfg *Config, next func()) {
 	if cfg.withRunReconciler {
 		log.Println("using run reconciler")
 
+		require.NotEmpty(t, cfg.ControllerConfig.WorkflowRunNamespace)
 		require.NotNil(t, cfg.dependencyManager)
 
 		require.NoError(t, run.Add(cfg.dependencyManager))
