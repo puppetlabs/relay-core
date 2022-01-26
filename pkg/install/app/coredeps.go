@@ -31,6 +31,7 @@ type CoreDeps struct {
 	Core                *obj.Core
 	OwnerConfigMap      *corev1obj.ConfigMap
 	Namespace           *corev1obj.Namespace
+	VaultConfigDeps     *VaultConfigDeps
 	OperatorDeps        *OperatorDeps
 	MetadataAPIDeps     *MetadataAPIDeps
 	LogServiceDeps      *LogServiceDeps
@@ -62,9 +63,6 @@ func (cd *CoreDeps) Load(ctx context.Context, cl client.Client) (*CoreDepsLoadRe
 	}
 
 	cd.OwnerConfigMap = corev1obj.NewConfigMap(helper.SuffixObjectKey(cd.Core.Key, "owner"))
-	cd.OperatorDeps = NewOperatorDeps(cd.Core)
-	cd.MetadataAPIDeps = NewMetadataAPIDeps(cd.Core)
-	cd.LogServiceDeps = NewLogServiceDeps(cd.Core)
 
 	key := helper.SuffixObjectKey(cd.Core.Key, defaultJWTSigningKeySecretName)
 	if cd.JWTSigningKeySecret != nil {
@@ -76,9 +74,16 @@ func (cd *CoreDeps) Load(ctx context.Context, cl client.Client) (*CoreDepsLoadRe
 
 	cd.JWTSigningKeySecret = corev1obj.NewSecret(key)
 
+	cd.VaultConfigDeps = NewVaultConfigDeps(cd.Core, cd.JWTSigningKeySecret)
+
+	cd.OperatorDeps = NewOperatorDeps(cd.Core)
+	cd.MetadataAPIDeps = NewMetadataAPIDeps(cd.Core)
+	cd.LogServiceDeps = NewLogServiceDeps(cd.Core)
+
 	ok, err := lifecycle.Loaders{
 		lifecycle.RequiredLoader{Loader: cd.Namespace},
 		cd.OwnerConfigMap,
+		cd.VaultConfigDeps,
 		cd.OperatorDeps,
 		cd.MetadataAPIDeps,
 		cd.LogServiceDeps,
@@ -101,6 +106,7 @@ func (cd *CoreDeps) Persist(ctx context.Context, cl client.Client) error {
 	}
 
 	objs := []lifecycle.OwnablePersister{
+		cd.VaultConfigDeps,
 		cd.MetadataAPIDeps,
 		cd.OperatorDeps,
 		cd.LogServiceDeps,
@@ -172,6 +178,7 @@ func ApplyCoreDeps(ctx context.Context, cl client.Client, c *obj.Core) (*CoreDep
 	}
 
 	objs := []obj.Configurable{
+		cd.VaultConfigDeps,
 		cd.OperatorDeps,
 		cd.MetadataAPIDeps,
 		cd.LogServiceDeps,
