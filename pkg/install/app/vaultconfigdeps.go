@@ -49,10 +49,6 @@ type VaultConfigDeps struct {
 }
 
 func (vd *VaultConfigDeps) Load(ctx context.Context, cl client.Client) (bool, error) {
-	if _, err := vd.Core.Load(ctx, cl); err != nil {
-		return false, err
-	}
-
 	key := helper.SuffixObjectKey(vd.Core.Key, vaultInitializationIdentifier)
 
 	vd.OwnerConfigMap = corev1obj.NewConfigMap(helper.SuffixObjectKey(key, "owner"))

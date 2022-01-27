@@ -28,10 +28,6 @@ type MetadataAPIDeps struct {
 }
 
 func (md *MetadataAPIDeps) Load(ctx context.Context, cl client.Client) (bool, error) {
-	if _, err := md.Core.Load(ctx, cl); err != nil {
-		return false, err
-	}
-
 	if _, err := md.VaultAgentDeps.Load(ctx, cl); err != nil {
 		return false, err
 	}
