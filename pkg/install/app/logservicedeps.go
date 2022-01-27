@@ -26,10 +26,6 @@ type LogServiceDeps struct {
 }
 
 func (ld *LogServiceDeps) Load(ctx context.Context, cl client.Client) (bool, error) {
-	if _, err := ld.Core.Load(ctx, cl); err != nil {
-		return false, err
-	}
-
 	if _, err := ld.VaultAgentDeps.Load(ctx, cl); err != nil {
 		return false, err
 	}

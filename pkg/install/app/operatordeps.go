@@ -38,10 +38,6 @@ type OperatorDeps struct {
 }
 
 func (od *OperatorDeps) Load(ctx context.Context, cl client.Client) (bool, error) {
-	if _, err := od.Core.Load(ctx, cl); err != nil {
-		return false, err
-	}
-
 	key := helper.SuffixObjectKey(od.Core.Key, "operator")
 
 	if _, err := od.VaultAgentDeps.Load(ctx, cl); err != nil {
