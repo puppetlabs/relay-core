@@ -23,10 +23,14 @@ func TestHTTPAuthorizationHeaderIntermediary(t *testing.T) {
 		},
 		{
 			AuthorizationHeader: "Basic Zm9vOmJhcg==",
-			ExpectedError:       &authenticate.NotFoundError{Reason: "http: username not empty"},
+			ExpectedError:       &authenticate.NotFoundError{Reason: `http: username not empty or exactly "token"`},
 		},
 		{
 			AuthorizationHeader: "Basic Om15LXRva2Vu",
+			ExpectedRaw:         authenticate.Raw("my-token"),
+		},
+		{
+			AuthorizationHeader: "Basic dG9rZW46bXktdG9rZW4=",
 			ExpectedRaw:         authenticate.Raw("my-token"),
 		},
 		{
