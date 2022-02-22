@@ -61,9 +61,6 @@ spec:
                     type: string
                 type: object
               logService:
-                default:
-                  image: relaysh/relay-pls:latest
-                  imagePullPolicy: IfNotPresent
                 description: LogService is the configuration for the log service.
                 properties:
                   affinity:
@@ -854,9 +851,6 @@ spec:
                     type: string
                 type: object
               metadataAPI:
-                default:
-                  image: relaysh/relay-metadata-api:latest
-                  imagePullPolicy: IfNotPresent
                 description: MetadataAPI is the configuration for the step metadata-api
                   server.
                 properties:
@@ -2506,18 +2500,6 @@ spec:
                   MUST have a data field called "dsn".
                 type: string
               vault:
-                default:
-                  sidecar:
-                    image: vault:latest
-                    imagePullPolicy: IfNotPresent
-                    resources:
-                      limits:
-                        cpu: 50m
-                        memory: 64Mi
-                      requests:
-                        cpu: 25m
-                        memory: 32Mi
-                    serverAddr: http://vault:8200
                 description: Vault is the configuration for accessing vault from the
                   operator and metadata-api.
                 properties:
@@ -2597,37 +2579,109 @@ spec:
                             type: object
                         type: object
                     type: object
-                  authDelegatorServiceAccountName:
-                    description: AuthDelegatorServiceAccount is the name of the service
-                      account that should be used to give vault token review access
-                      for the kubernetes auth method.
-                    type: string
-                  configMapRef:
-                    description: ConfigMapRef is the reference to the config map that
-                      contains the scripts and policies to configure vault with.
+                  engine:
+                    description: Engine provides the configuration for the internal
+                      vault engine used by Relay Core.
                     properties:
-                      name:
-                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                          TODO: Add other useful fields. apiVersion, kind, uid?'
+                      authDelegatorServiceAccountName:
+                        description: AuthDelegatorServiceAccount is the name of the
+                          service account that should be used to give vault token
+                          review access for the kubernetes auth method.
+                        type: string
+                      logServicePath:
+                        default: pls
+                        type: string
+                      tenantPath:
+                        default: customers
+                        type: string
+                      transitKey:
+                        default: metadata-api
+                        type: string
+                      transitPath:
+                        default: transit-tenants
+                        type: string
+                      vaultInitializationImage:
+                        default: relaysh/relay-operator-vault-init:latest
+                        type: string
+                      vaultInitializationImagePullPolicy:
+                        default: IfNotPresent
+                        description: PullPolicy describes a policy for if/when to
+                          pull a container image
                         type: string
                     type: object
-                  logServicePath:
-                    default: pls
-                    type: string
+                  server:
+                    description: Server provides the configuration for the vault server.
+                    properties:
+                      builtIn:
+                        properties:
+                          configMapRef:
+                            description: ConfigMapRef is the reference to the config
+                              map that contains the scripts and policies to configure
+                              vault with.
+                            properties:
+                              name:
+                                description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                  TODO: Add other useful fields. apiVersion, kind,
+                                  uid?'
+                                type: string
+                            type: object
+                          image:
+                            default: vault:latest
+                            type: string
+                          imagePullPolicy:
+                            default: IfNotPresent
+                            description: PullPolicy describes a policy for if/when
+                              to pull a container image
+                            type: string
+                          resources:
+                            default:
+                              limits:
+                                cpu: 50m
+                                memory: 64Mi
+                              requests:
+                                cpu: 25m
+                                memory: 32Mi
+                            description: Resources sets the resource requirements
+                              for the vault sidecar containers.
+                            properties:
+                              limits:
+                                additionalProperties:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                                description: 'Limits describes the maximum amount
+                                  of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                                type: object
+                              requests:
+                                additionalProperties:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                                description: 'Requests describes the minimum amount
+                                  of compute resources required. If Requests is omitted
+                                  for a container, it defaults to Limits if that is
+                                  explicitly specified, otherwise to an implementation-defined
+                                  value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                                type: object
+                            type: object
+                        type: object
+                      external:
+                        properties:
+                          address:
+                            default: http://vault:8200
+                            description: Address is the address to the vault server.
+                            type: string
+                        type: object
+                    required:
+                    - external
+                    type: object
                   sidecar:
-                    default:
-                      image: vault:latest
-                      imagePullPolicy: IfNotPresent
-                      resources:
-                        limits:
-                          cpu: 50m
-                          memory: 64Mi
-                        requests:
-                          cpu: 25m
-                          memory: 32Mi
-                      serverAddr: http://vault:8200
                     description: Sidecar is the configuration for the vault sidecar
-                      containers used by the operator and the metadata-api.
+                      containers used by Relay Core.
                     properties:
                       image:
                         default: vault:latest
@@ -2672,61 +2726,16 @@ spec:
                               More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
                             type: object
                         type: object
-                      serverAddr:
-                        default: http://vault:8200
-                        description: ServerAddr is the address to the vault server
-                          the sidecar agent should connect to.
-                        type: string
-                    required:
-                    - serverAddr
                     type: object
-                  tenantPath:
-                    default: customers
-                    type: string
-                  transitKey:
-                    default: metadata-api
-                    type: string
-                  transitPath:
-                    default: transit-tenants
-                    type: string
-                  vaultInitializationImage:
-                    default: relaysh/relay-operator-vault-init:latest
-                    type: string
-                  vaultInitializationImagePullPolicy:
-                    default: IfNotPresent
-                    description: PullPolicy describes a policy for if/when to pull
-                      a container image
-                    type: string
+                required:
+                - engine
+                - server
+                - sidecar
                 type: object
-            type: object
-          status:
-            description: RelayCoreStatus defines the observed state of RelayCore
-            properties:
-              logServiceServiceAccount:
-                type: string
-              metadataAPIServiceAccount:
-                type: string
-              operatorServiceAccount:
-                type: string
-              status:
-                type: string
-              vault:
-                properties:
-                  jwtSigningKeySecret:
-                    type: string
-                  logServiceRole:
-                    type: string
-                  logServiceServiceAccount:
-                    type: string
-                  metadataAPIRole:
-                    type: string
-                  metadataAPIServiceAccount:
-                    type: string
-                  operatorRole:
-                    type: string
-                  operatorServiceAccount:
-                    type: string
-                type: object
+            required:
+            - metadataAPI
+            - operator
+            - vault
             type: object
         required:
         - spec

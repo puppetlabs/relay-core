@@ -78,7 +78,10 @@ func (cd *CoreDeps) Load(ctx context.Context, cl client.Client) (*CoreDepsLoadRe
 
 	cd.OperatorDeps = NewOperatorDeps(cd.Core)
 	cd.MetadataAPIDeps = NewMetadataAPIDeps(cd.Core)
-	cd.LogServiceDeps = NewLogServiceDeps(cd.Core)
+
+	if cd.Core.Object.Spec.LogService != nil {
+		cd.LogServiceDeps = NewLogServiceDeps(cd.Core)
+	}
 
 	ok, err := lifecycle.Loaders{
 		lifecycle.RequiredLoader{Loader: cd.Namespace},
@@ -86,7 +89,7 @@ func (cd *CoreDeps) Load(ctx context.Context, cl client.Client) (*CoreDepsLoadRe
 		cd.VaultConfigDeps,
 		cd.OperatorDeps,
 		cd.MetadataAPIDeps,
-		cd.LogServiceDeps,
+		lifecycle.IgnoreNilLoader{Loader: cd.LogServiceDeps},
 		cd.JWTSigningKeySecret,
 	}.Load(ctx, cl)
 	if err != nil {
@@ -109,7 +112,7 @@ func (cd *CoreDeps) Persist(ctx context.Context, cl client.Client) error {
 		cd.VaultConfigDeps,
 		cd.MetadataAPIDeps,
 		cd.OperatorDeps,
-		cd.LogServiceDeps,
+		lifecycle.IgnoreNilOwnablePersister{OwnablePersister: cd.LogServiceDeps},
 	}
 
 	// if we didn't load a secret managed outside the installer, we are
@@ -185,8 +188,10 @@ func ApplyCoreDeps(ctx context.Context, cl client.Client, c *obj.Core) (*CoreDep
 	}
 
 	for _, obj := range objs {
-		if err := obj.Configure(ctx); err != nil {
-			return nil, err
+		if obj != nil {
+			if err := obj.Configure(ctx); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -200,10 +205,6 @@ func ApplyCoreDeps(ctx context.Context, cl client.Client, c *obj.Core) (*CoreDep
 
 func ConfigureCoreDefaults(cd *CoreDeps) {
 	core := cd.Core
-
-	if core.Object.Spec.Operator == nil {
-		core.Object.Spec.Operator = &v1alpha1.OperatorConfig{}
-	}
 
 	if core.Object.Spec.Operator.ServiceAccountName == "" {
 		core.Object.Spec.Operator.ServiceAccountName = cd.OperatorDeps.ServiceAccount.Key.Name
@@ -219,10 +220,6 @@ func ConfigureCoreDefaults(cd *CoreDeps) {
 			PrivateKeyRef: defaultPrivateJWTSigningKeyName,
 			PublicKeyRef:  defaultPublicJWTSigningKeyName,
 		}
-	}
-
-	if core.Object.Spec.MetadataAPI == nil {
-		core.Object.Spec.MetadataAPI = &v1alpha1.MetadataAPIConfig{}
 	}
 
 	if core.Object.Spec.MetadataAPI.ServiceAccountName == "" {
@@ -242,10 +239,6 @@ func ConfigureCoreDefaults(cd *CoreDeps) {
 
 		us := u.String()
 		core.Object.Spec.MetadataAPI.URL = &us
-	}
-
-	if core.Object.Spec.LogService.ServiceAccountName == "" {
-		core.Object.Spec.LogService.ServiceAccountName = cd.LogServiceDeps.ServiceAccount.Key.Name
 	}
 }
 

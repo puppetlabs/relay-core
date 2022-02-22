@@ -77,8 +77,8 @@ func (d *metadataAPIDeployment) configureContainer(c *corev1.Container) {
 	env := []corev1.EnvVar{
 		{Name: "VAULT_ADDR", Value: "http://localhost:8200"},
 		{Name: "RELAY_METADATA_API_ENVIRONMENT", Value: core.Spec.Environment},
-		{Name: "RELAY_METADATA_API_VAULT_TRANSIT_PATH", Value: core.Spec.Vault.TransitPath},
-		{Name: "RELAY_METADATA_API_VAULT_TRANSIT_KEY", Value: core.Spec.Vault.TransitKey},
+		{Name: "RELAY_METADATA_API_VAULT_TRANSIT_PATH", Value: core.Spec.Vault.Engine.TransitPath},
+		{Name: "RELAY_METADATA_API_VAULT_TRANSIT_KEY", Value: core.Spec.Vault.Engine.TransitKey},
 		{Name: "RELAY_METADATA_API_VAULT_AUTH_PATH", Value: conf.VaultAuthPath},
 		{Name: "RELAY_METADATA_API_VAULT_AUTH_ROLE", Value: conf.VaultAuthRole},
 		{Name: "RELAY_METADATA_API_LOG_SERVICE_URL", Value: lsURL},
