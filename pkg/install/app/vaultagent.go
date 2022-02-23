@@ -42,7 +42,7 @@ func ConfigureVaultAgentConfigMap(core *obj.Core, role string, cm *corev1obj.Con
 			},
 		},
 		Vault: &VaultServer{
-			Address: core.Object.Spec.Vault.Server.External.Address,
+			Address: core.Object.Spec.Vault.Server.Address,
 		},
 	}
 

@@ -17,7 +17,6 @@ import (
 )
 
 const (
-	vaultAddr                     = "http://vault:8200"
 	vaultIdentifier               = "vault"
 	vaultInitializationIdentifier = "vault-init"
 
@@ -159,7 +158,7 @@ func ConfigureVaultConfigJob(
 		{Name: tenantPathEnvVar, Value: vaultConfig.Engine.TenantPath},
 		{Name: transitKeyEnvVar, Value: vaultConfig.Engine.TransitKey},
 		{Name: transitPathEnvVar, Value: vaultConfig.Engine.TransitPath},
-		{Name: vaultAddrEnvVar, Value: vaultAddr},
+		{Name: vaultAddrEnvVar, Value: vaultConfig.Server.Address},
 		{Name: vaultJWTAuthPathEnvVar, Value: metadataAPIConfig.VaultAuthPath},
 		{Name: vaultJWTMountEnvVar, Value: authPath[len(authPath)-1]},
 		{Name: vaultNameEnvVar, Value: vaultIdentifier},

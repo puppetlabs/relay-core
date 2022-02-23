@@ -42,8 +42,7 @@ type RelayCoreSpec struct {
 	// JWTSigningKeys is the secret and keys that hold a JWT signing key pair
 	// for the workflow run key signing operations with vault. This secret must
 	// have 2 fields for a public and private key pair. If this field is not
-	// set, then signings key will be generated when the relay core resources
-	// are being persisted.
+	// set, then signings key will be generated automatically.
 	//
 	// +optional
 	JWTSigningKeyRef *JWTSigningKeySource `json:"jwtSigningKeys,omitempty"`
@@ -54,17 +53,12 @@ type RelayCoreSpec struct {
 	LogService *LogServiceConfig `json:"logService,omitempty"`
 
 	// Operator is the configuration for the workflow run operator.
-	//
-	// +required
 	Operator OperatorConfig `json:"operator"`
 
 	// MetadataAPI is the configuration for the step metadata-api server.
-	//
-	// +required
 	MetadataAPI MetadataAPIConfig `json:"metadataAPI"`
-	// Vault is the configuration for accessing vault from the operator and metadata-api.
-	//
-	// +required
+
+	// Vault is the configuration for accessing vault.
 	Vault VaultConfig `json:"vault"`
 
 	// SentryDSNSecretName is the secret that holds the DSN address for Sentry
@@ -337,21 +331,13 @@ type VaultConfig struct {
 	// +optional
 	Auth *VaultAuthConfig `json:"auth"`
 
-	// Engine provides the configuration for the internal vault engine used by
-	// Relay Core.
-	//
-	// +required
+	// Engine provides the configuration for the internal vault engine.
 	Engine VaultEngineConfig `json:"engine"`
 
 	// Server provides the configuration for the vault server.
-	//
-	// +required
 	Server VaultServerConfig `json:"server"`
 
-	// Sidecar is the configuration for the vault sidecar containers used by
-	// Relay Core.
-	//
-	// +required
+	// Sidecar is the configuration for the vault sidecar containers.
 	Sidecar VaultSidecarConfig `json:"sidecar"`
 }
 
@@ -389,11 +375,16 @@ type VaultEngineConfig struct {
 }
 
 type VaultServerConfig struct {
+	// Address is the address to the vault server.
+	//
+	// +kubebuilder:default="http://vault:8200"
+	// +optional
+	Address string `json:"address,omitempty"`
+
+	// BuiltIn optionally instantiates an internal vault deployment for use.
+	//
 	// +optional
 	BuiltIn *VaultServerBuiltInConfig `json:"builtIn"`
-
-	// +required
-	External VaultServerExternalConfig `json:"external"`
 }
 
 type VaultServerBuiltInConfig struct {
@@ -416,14 +407,6 @@ type VaultServerBuiltInConfig struct {
 	//
 	// +optional
 	ConfigMapRef corev1.LocalObjectReference `json:"configMapRef,omitempty"`
-}
-
-type VaultServerExternalConfig struct {
-	// Address is the address to the vault server.
-	//
-	// +kubebuilder:default="http://vault:8200"
-	// +optional
-	Address string `json:"address,omitempty"`
 }
 
 type VaultSidecarConfig struct {
