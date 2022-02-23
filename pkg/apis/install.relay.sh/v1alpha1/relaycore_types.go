@@ -21,14 +21,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type Status string
-
-const (
-	StatusPending = "pending"
-	StatusCreated = "created"
-	StatusRunning = "running"
-)
-
 const (
 	StepLogStorageVolumeName = "step-log-storage"
 )
@@ -50,34 +42,24 @@ type RelayCoreSpec struct {
 	// JWTSigningKeys is the secret and keys that hold a JWT signing key pair
 	// for the workflow run key signing operations with vault. This secret must
 	// have 2 fields for a public and private key pair. If this field is not
-	// set, then signings key will be generated when the relay core resources
-	// are being persisted.
+	// set, then signings key will be generated automatically.
 	//
 	// +optional
 	JWTSigningKeyRef *JWTSigningKeySource `json:"jwtSigningKeys,omitempty"`
 
 	// LogService is the configuration for the log service.
 	//
-	// +kubebuilder:default={image: "relaysh/relay-pls:latest", imagePullPolicy: "IfNotPresent"}
 	// +optional
-	LogService LogServiceConfig `json:"logService,omitempty"`
+	LogService *LogServiceConfig `json:"logService,omitempty"`
 
 	// Operator is the configuration for the workflow run operator.
-	//
-	// +optional
-	Operator *OperatorConfig `json:"operator,omitempty"`
+	Operator OperatorConfig `json:"operator"`
 
 	// MetadataAPI is the configuration for the step metadata-api server.
-	//
-	// +kubebuilder:default={image: "relaysh/relay-metadata-api:latest", imagePullPolicy: "IfNotPresent"}
-	// +optional
-	MetadataAPI *MetadataAPIConfig `json:"metadataAPI,omitempty"`
+	MetadataAPI MetadataAPIConfig `json:"metadataAPI"`
 
-	// Vault is the configuration for accessing vault from the operator and metadata-api.
-	//
-	// +kubebuilder:default={sidecar: {image: "vault:latest", imagePullPolicy: "IfNotPresent", resources: {limits: {cpu: "50m", memory: "64Mi"}, requests: {cpu: "25m", memory: "32Mi"}}, serverAddr: "http://vault:8200"}}
-	// +optional
-	Vault *VaultConfig `json:"vault,omitempty"`
+	// Vault is the configuration for accessing vault.
+	Vault VaultConfig `json:"vault"`
 
 	// SentryDSNSecretName is the secret that holds the DSN address for Sentry
 	// error and stacktrace collection. The secret object MUST have a data
@@ -100,7 +82,7 @@ type LogServiceConfig struct {
 	//
 	// +kubebuilder:default="relaysh/relay-pls:latest"
 	// +optional
-	Image string `json:"image"`
+	Image string `json:"image,omitempty"`
 
 	// ImagePullPolicy instructs the cluster when it should attempt to pull the
 	// container image.
@@ -163,7 +145,7 @@ type LogServiceConfig struct {
 type OperatorConfig struct {
 	// +kubebuilder:default="relaysh/relay-operator:latest"
 	// +optional
-	Image string `json:"image"`
+	Image string `json:"image,omitempty"`
 
 	// +kubebuilder:default="IfNotPresent"
 	// +optional
@@ -344,9 +326,25 @@ type MetadataAPIConfig struct {
 }
 
 type VaultConfig struct {
+	// Auth provides credentials for vault server authentication.
+	//
+	// +optional
+	Auth *VaultAuthConfig `json:"auth"`
+
+	// Engine provides the configuration for the internal vault engine.
+	Engine VaultEngineConfig `json:"engine"`
+
+	// Server provides the configuration for the vault server.
+	Server VaultServerConfig `json:"server"`
+
+	// Sidecar is the configuration for the vault sidecar containers.
+	Sidecar VaultSidecarConfig `json:"sidecar"`
+}
+
+type VaultEngineConfig struct {
 	// +kubebuilder:default="relaysh/relay-operator-vault-init:latest"
 	// +optional
-	VaultInitializationImage string `json:"vaultInitializationImage"`
+	VaultInitializationImage string `json:"vaultInitializationImage,omitempty"`
 
 	// +kubebuilder:default="IfNotPresent"
 	// +optional
@@ -354,51 +352,80 @@ type VaultConfig struct {
 
 	// +kubebuilder:default="pls"
 	// +optional
-	LogServicePath string `json:"logServicePath"`
+	LogServicePath string `json:"logServicePath,omitempty"`
 
 	// +kubebuilder:default="metadata-api"
 	// +optional
-	TransitKey string `json:"transitKey"`
+	TransitKey string `json:"transitKey,omitempty"`
 
 	// +kubebuilder:default="transit-tenants"
 	// +optional
-	TransitPath string `json:"transitPath"`
+	TransitPath string `json:"transitPath,omitempty"`
 
 	// +kubebuilder:default="customers"
 	// +optional
-	TenantPath string `json:"tenantPath"`
-
-	// Auth provides credentials for vault server authentication.
-	//
-	// +optional
-	Auth *VaultConfigAuth `json:"auth"`
+	TenantPath string `json:"tenantPath,omitempty"`
 
 	// AuthDelegatorServiceAccount is the name of the service account that
 	// should be used to give vault token review access for the kubernetes auth
 	// method.
 	//
 	// +optional
-	AuthDelegatorServiceAccountName string `json:"authDelegatorServiceAccountName"`
+	AuthDelegatorServiceAccountName string `json:"authDelegatorServiceAccountName,omitempty"`
+}
+
+type VaultServerConfig struct {
+	// Address is the address to the vault server.
+	//
+	// +kubebuilder:default="http://vault:8200"
+	// +optional
+	Address string `json:"address,omitempty"`
+
+	// BuiltIn optionally instantiates an internal vault deployment for use.
+	//
+	// +optional
+	BuiltIn *VaultServerBuiltInConfig `json:"builtIn"`
+}
+
+type VaultServerBuiltInConfig struct {
+	// +kubebuilder:default="vault:latest"
+	// +optional
+	Image string `json:"image,omitempty"`
+
+	// +kubebuilder:default="IfNotPresent"
+	// +optional
+	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
+
+	// Resources sets the resource requirements for the vault sidecar containers.
+	//
+	// +kubebuilder:default={limits: {cpu: "50m", memory: "64Mi"}, requests: {cpu: "25m", memory: "32Mi"}}
+	// +optional
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 
 	// ConfigMapRef is the reference to the config map that contains the
 	// scripts and policies to configure vault with.
 	//
 	// +optional
-	ConfigMapRef *VaultConfigMapSource `json:"configMapRef"`
+	ConfigMapRef corev1.LocalObjectReference `json:"configMapRef,omitempty"`
+}
 
-	// Sidecar is the configuration for the vault sidecar containers used by
-	// the operator and the metadata-api.
-	//
-	// +kubebuilder:default={image: "vault:latest", imagePullPolicy: "IfNotPresent", resources: {limits: {cpu: "50m", memory: "64Mi"}, requests: {cpu: "25m", memory: "32Mi"}}, serverAddr: "http://vault:8200"}
+type VaultSidecarConfig struct {
+	// +kubebuilder:default="vault:latest"
 	// +optional
-	Sidecar *VaultSidecar `json:"sidecar"`
+	Image string `json:"image,omitempty"`
+
+	// +kubebuilder:default="IfNotPresent"
+	// +optional
+	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
+
+	// Resources sets the resource requirements for the vault sidecar containers.
+	//
+	// +kubebuilder:default={limits: {cpu: "50m", memory: "64Mi"}, requests: {cpu: "25m", memory: "32Mi"}}
+	// +optional
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
-type VaultConfigMapSource struct {
-	corev1.LocalObjectReference `json:",inline"`
-}
-
-type VaultConfigAuth struct {
+type VaultAuthConfig struct {
 	// Token is the token to use for vault server authentication when
 	// configuring engine mounts and policies for relay-core components.
 	//
@@ -433,61 +460,9 @@ type VaultAuthSource struct {
 	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
 }
 
-type VaultSidecar struct {
-	// +kubebuilder:default="vault:latest"
-	// +optional
-	Image string `json:"image"`
-
-	// +kubebuilder:default="IfNotPresent"
-	// +optional
-	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy"`
-
-	// Resources sets the resource requirements for the vault sidecar containers.
-	//
-	// +kubebuilder:default={limits: {cpu: "50m", memory: "64Mi"}, requests: {cpu: "25m", memory: "32Mi"}}
-	// +optional
-	Resources corev1.ResourceRequirements `json:"resources"`
-
-	// ServerAddr is the address to the vault server the sidecar agent should connect to.
-	//
-	// +kubebuilder:default="http://vault:8200"
-	ServerAddr string `json:"serverAddr"`
-}
-
 type ToolInjectionConfig struct {
 	// TriggerPoolName is the name of the tool injection pool for triggers.
 	TriggerPoolName string `json:"triggerPoolName"`
-}
-
-// RelayCoreStatus defines the observed state of RelayCore
-type RelayCoreStatus struct {
-	// +optional
-	Status Status `json:"status,omitempty"`
-	// +optional
-	LogServiceServiceAccount string `json:"logServiceServiceAccount,omitempty"`
-	// +optional
-	OperatorServiceAccount string `json:"operatorServiceAccount,omitempty"`
-	// +optional
-	MetadataAPIServiceAccount string `json:"metadataAPIServiceAccount,omitempty"`
-	// +optional
-	Vault VaultStatusSummary `json:"vault,omitempty"`
-}
-
-type VaultStatusSummary struct {
-	// +optional
-	JWTSigningKeySecret string `json:"jwtSigningKeySecret,omitempty"`
-	// +optional
-	LogServiceRole string `json:"logServiceRole,omitempty"`
-	// +optional
-	OperatorRole string `json:"operatorRole,omitempty"`
-	// +optional
-	MetadataAPIRole string `json:"metadataAPIRole,omitempty"`
-	// +optional
-	LogServiceServiceAccount string `json:"logServiceServiceAccount,omitempty"`
-	// +optional
-	OperatorServiceAccount string `json:"operatorServiceAccount,omitempty"`
-	// +optional
-	MetadataAPIServiceAccount string `json:"metadataAPIServiceAccount,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -498,9 +473,6 @@ type RelayCore struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec RelayCoreSpec `json:"spec"`
-
-	// +optional
-	Status RelayCoreStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
