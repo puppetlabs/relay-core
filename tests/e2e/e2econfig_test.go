@@ -496,7 +496,7 @@ func WithConfig(t *testing.T, ctx context.Context, opts []ConfigOption, fn func(
 	}
 	if cfg.withWebhookTriggerReconciler {
 		installers = append(installers,
-			testutil.EndToEndEnvironmentWithAmbassador, testutil.EndToEndEnvironmentWithKnative)
+			testutil.EndToEndEnvironmentWithKnative, testutil.EndToEndEnvironmentWithKourier)
 	}
 	if cfg.withTenantReconciler || cfg.withVolumeClaimAdmission {
 		installers = append(installers,

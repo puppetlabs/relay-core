@@ -20,20 +20,17 @@ import (
 )
 
 const (
-	AmbassadorIDAnnotation                      = "getambassador.io/ambassador-id"
 	ImmutableConfigMapResourceVersionAnnotation = "controller.relay.sh/immutable-config-map-resource-version"
 
 	KnativeServiceVisibilityLabel = "serving.knative.dev/visibility"
 )
 
 const (
-	AmbassadorID                         = "webhook"
 	KnativeServiceVisibilityClusterLocal = "cluster-local"
 )
 
 func ConfigureKnativeService(ctx context.Context, s *obj.KnativeService, wtd *WebhookTriggerDeps) error {
 	// FIXME This should be configurable
-	lifecycle.Annotate(ctx, s, AmbassadorIDAnnotation, AmbassadorID)
 	lifecycle.Label(ctx, s, KnativeServiceVisibilityLabel, KnativeServiceVisibilityClusterLocal)
 	s.LabelAnnotateFrom(ctx, wtd.WebhookTrigger.Object)
 

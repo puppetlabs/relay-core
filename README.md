@@ -12,10 +12,10 @@ help you out!
 
 ### Requirements
 
-* Kubernetes v1.19+
-* [Tekton](https://tekton.dev/) (v0.22.0+)
-* [Knative Serving](https://knative.dev/) (v0.21.0+)
-* [Ambassador API Gateway](https://www.getambassador.io/docs/latest/topics/install/install-ambassador-oss/) (v1.8.0+)
+* Kubernetes v1.20+
+* [Tekton](https://tekton.dev/) (v0.32.1+)
+* [Knative Serving](https://knative.dev/) (v1.1.2+)
+* [Kourier](https://github.com/knative-sandbox/net-kourier/) (v1.1.0+)
 
 ## Components
 
