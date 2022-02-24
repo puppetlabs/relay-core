@@ -55,13 +55,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 
 	err = app.ConfigureTenantDeps(ctx, deps)
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errmap.Wrap(err, "failed to configure Tenant dependencies")
 	}
 
 	tdr := app.AsTenantDepsResult(deps, deps.Persist(ctx, r.Client))
 
 	if tdr.Error != nil {
-		return ctrl.Result{}, tdr.Error
+		return ctrl.Result{}, errmap.Wrap(tdr.Error, "failed to persist Tenant dependencies")
 	}
 
 	app.ConfigureTenant(tn, tdr)

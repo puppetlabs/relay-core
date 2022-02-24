@@ -26,7 +26,7 @@ require (
 	github.com/puppetlabs/errawr-go/v2 v2.2.0
 	github.com/puppetlabs/leg/datastructure v0.1.0
 	github.com/puppetlabs/leg/encoding v0.1.0
-	github.com/puppetlabs/leg/errmap v0.1.0
+	github.com/puppetlabs/leg/errmap v0.1.1
 	github.com/puppetlabs/leg/gvalutil v0.2.0
 	github.com/puppetlabs/leg/hashutil v0.1.0
 	github.com/puppetlabs/leg/httputil v0.1.4

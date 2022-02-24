@@ -75,7 +75,7 @@ func main() {
 		log.Fatal("Error creating kubernetes config", err)
 	}
 
-	var alertsDelegate alerts.DelegateFunc
+	alertsDelegate, _ := alerts.DelegateToPassthrough()
 	if sentryDSN != "" {
 		var err error
 		alertsDelegate, err = alerts.DelegateToSentry(sentryDSN)
