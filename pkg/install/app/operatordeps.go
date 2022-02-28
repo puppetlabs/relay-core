@@ -30,6 +30,7 @@ type OperatorDeps struct {
 	ClusterRole                      *rbacv1.ClusterRole
 	ClusterRoleBinding               *rbacv1.ClusterRoleBinding
 	DelegateClusterRole              *rbacv1.ClusterRole
+	DelegateClusterRoleBinding       *rbacv1.ClusterRoleBinding
 	WebhookConfig                    *admissionregistrationv1.MutatingWebhookConfiguration
 	OwnerConfigMap                   *corev1.ConfigMap
 	WebhookCertificateControllerDeps *WebhookCertificateControllerDeps
@@ -58,6 +59,11 @@ func (od *OperatorDeps) Load(ctx context.Context, cl client.Client) (bool, error
 	od.ClusterRole = rbacv1.NewClusterRole(key.Name)
 	od.ClusterRoleBinding = rbacv1.NewClusterRoleBinding(key.Name)
 	od.DelegateClusterRole = rbacv1.NewClusterRole(helper.SuffixObjectKey(key, "delegate").Name)
+
+	if od.Core.Object.Spec.Operator.Standalone {
+		od.DelegateClusterRoleBinding = rbacv1.NewClusterRoleBinding(od.DelegateClusterRole.Name)
+	}
+
 	od.WebhookConfig = admissionregistrationv1.NewMutatingWebhookConfiguration(key.Name)
 
 	ok, err := lifecycle.Loaders{
@@ -68,6 +74,7 @@ func (od *OperatorDeps) Load(ctx context.Context, cl client.Client) (bool, error
 		od.ClusterRole,
 		od.ClusterRoleBinding,
 		od.DelegateClusterRole,
+		lifecycle.IgnoreNilLoader{Loader: od.DelegateClusterRoleBinding},
 		od.WebhookConfig,
 	}.Load(ctx, cl)
 	if err != nil {
@@ -110,6 +117,7 @@ func (od *OperatorDeps) Persist(ctx context.Context, cl client.Client) error {
 		od.ClusterRole,
 		od.ClusterRoleBinding,
 		od.DelegateClusterRole,
+		lifecycle.IgnoreNilPersister{Persister: od.DelegateClusterRoleBinding},
 	}
 
 	for _, obj := range objs {
@@ -140,6 +148,8 @@ func (od *OperatorDeps) Configure(ctx context.Context) error {
 		od.WebhookService,
 		od.ClusterRole,
 		od.ClusterRoleBinding,
+		od.DelegateClusterRole,
+		lifecycle.IgnoreNilLabelAnnotatableFrom{LabelAnnotatableFrom: od.DelegateClusterRoleBinding},
 		od.ServiceAccount,
 	}
 
@@ -164,8 +174,12 @@ func (od *OperatorDeps) Configure(ctx context.Context) error {
 
 	ConfigureOperatorWebhookConfiguration(od, od.WebhookConfig)
 	ConfigureOperatorClusterRole(od.ClusterRole)
-	ConfigureClusterRoleBinding(od.Core, od.ClusterRoleBinding)
+	ConfigureClusterRoleBinding(od.Core, od.ServiceAccount, od.ClusterRoleBinding)
 	ConfigureOperatorDelegateClusterRole(od.DelegateClusterRole)
+
+	if od.Core.Object.Spec.Operator.Standalone {
+		ConfigureClusterRoleBinding(od.Core, od.ServiceAccount, od.DelegateClusterRoleBinding)
+	}
 
 	return nil
 }
