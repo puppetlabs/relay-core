@@ -137,7 +137,7 @@ func (md *MetadataAPIDeps) Configure(ctx context.Context) error {
 	}
 
 	ConfigureMetadataAPIClusterRole(md.ClusterRole)
-	ConfigureClusterRoleBinding(md.Core, md.ClusterRoleBinding)
+	ConfigureClusterRoleBinding(md.Core, md.ServiceAccount, md.ClusterRoleBinding)
 
 	return nil
 }

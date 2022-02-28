@@ -1,6 +1,7 @@
 package app
 
 import (
+	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
 	rbacv1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/rbacv1"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -94,7 +95,7 @@ func ConfigureMetadataAPIClusterRole(cr *rbacv1obj.ClusterRole) {
 	}
 }
 
-func ConfigureClusterRoleBinding(coreobj *obj.Core, crb *rbacv1obj.ClusterRoleBinding) {
+func ConfigureClusterRoleBinding(coreobj *obj.Core, sa *corev1.ServiceAccount, crb *rbacv1obj.ClusterRoleBinding) {
 	crb.Object.RoleRef = rbacv1.RoleRef{
 		APIGroup: "rbac.authorization.k8s.io",
 		Kind:     "ClusterRole",
@@ -104,7 +105,7 @@ func ConfigureClusterRoleBinding(coreobj *obj.Core, crb *rbacv1obj.ClusterRoleBi
 	crb.Object.Subjects = []rbacv1.Subject{
 		{
 			Kind:      "ServiceAccount",
-			Name:      crb.Object.Name,
+			Name:      sa.Object.Name,
 			Namespace: coreobj.Object.Namespace,
 		},
 	}
