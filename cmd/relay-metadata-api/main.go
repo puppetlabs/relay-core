@@ -90,22 +90,27 @@ func main() {
 			serverOpts = append(serverOpts, server.WithErrorSensitivity(errawr.ErrorSensitivityAll))
 		}
 
+		alertsDelegate, _ := alerts.DelegateToPassthrough()
 		if cfg.SentryDSN != "" {
-			delegate, err := alerts.DelegateToSentry(cfg.SentryDSN)
+			var err error
+			alertsDelegate, err = alerts.DelegateToSentry(cfg.SentryDSN)
 			if err != nil {
 				return fmt.Errorf("failed to initialize Sentry: %+v", err)
 			}
-
-			a := alerts.NewAlerts(delegate, alerts.Options{
-				Environment: cfg.Environment,
-			})
-
-			capturer := a.NewCapturer().
-				WithNewTrace().
-				WithAppPackages([]string{"github.com/puppetlabs/relay-core"})
-
-			serverOpts = append(serverOpts, server.WithCapturer(capturer))
 		}
+
+		if alertsDelegate == nil {
+			alertsDelegate = alerts.NoDelegate
+		}
+		a := alerts.NewAlerts(alertsDelegate, alerts.Options{
+			Environment: cfg.Environment,
+		})
+
+		capturer := a.NewCapturer().
+			WithNewTrace().
+			WithAppPackages([]string{"github.com/puppetlabs/relay-core"})
+
+		serverOpts = append(serverOpts, server.WithCapturer(capturer))
 
 		if cfg.StepMetadataURL != "" {
 			u, err := url.Parse(cfg.StepMetadataURL)

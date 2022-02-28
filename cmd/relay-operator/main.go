@@ -145,7 +145,7 @@ func main() {
 		log.Fatal("Error creating signer for JWTs", err)
 	}
 
-	var alertsDelegate alerts.DelegateFunc
+	alertsDelegate, _ := alerts.DelegateToPassthrough()
 	if *sentryDSN != "" {
 		var err error
 		alertsDelegate, err = alerts.DelegateToSentry(*sentryDSN)

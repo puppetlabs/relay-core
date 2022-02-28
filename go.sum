@@ -1772,8 +1772,9 @@ github.com/puppetlabs/leg/datastructure v0.1.0 h1:0703wQJ71etqsPOr+vfiTBHkq0+tVV
 github.com/puppetlabs/leg/datastructure v0.1.0/go.mod h1:4Kwk/83hkiR1smN1gRsi0LJDgVDbD672JpWjRPBVka8=
 github.com/puppetlabs/leg/encoding v0.1.0 h1:9c3wfcc2qQu2WBOHLaCFzy9M5Ykx/LxInRMi6bB4YXA=
 github.com/puppetlabs/leg/encoding v0.1.0/go.mod h1:g0nlkWi36AWq6ldfjqSMjVgcqrSXekcsfVPPKh/+qdw=
-github.com/puppetlabs/leg/errmap v0.1.0 h1:1oH50d/sch1kB5JuIRrLf0hg9gSr5pfAmTUc6o8CtZQ=
 github.com/puppetlabs/leg/errmap v0.1.0/go.mod h1:8oVNaeaaprDjbMYWHj5lLHsD1nsnKZbv0Jw+SjoJ6hY=
+github.com/puppetlabs/leg/errmap v0.1.1 h1:TQrNiAoPTimTD79c/ELQ6luuE/Lc7AIc3TYoFTjcEVY=
+github.com/puppetlabs/leg/errmap v0.1.1/go.mod h1:8oVNaeaaprDjbMYWHj5lLHsD1nsnKZbv0Jw+SjoJ6hY=
 github.com/puppetlabs/leg/graph v0.1.1 h1:S1KCLhbhNcOHpK523mKx+TVN9FdStKE1KDJSNlNOTuo=
 github.com/puppetlabs/leg/graph v0.1.1/go.mod h1:NzQn1eyixNpRC3jW8g7WRLyWeGVlTVZdOUxfU4nS0iI=
 github.com/puppetlabs/leg/gvalutil v0.2.0 h1:fwGciIthyuM1IhjNantSMn2qLWnLXbsA2mTQMIJ1qzY=
