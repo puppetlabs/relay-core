@@ -1,4 +1,4 @@
-//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen crd:preserveUnknownFields=false object rbac:roleName=relay-install-operator-relaycores paths=./... output:crd:artifacts:config=../../manifests/resources
-//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen rbac:roleName=relay-install-operator paths=../install/controller/... output:dir=../../manifests/resources
+//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen crd object paths=../apis/relay.sh/... output:crd:artifacts:config=../../manifests/resources
+//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen crd object paths=../apis/install.relay.sh/... output:crd:artifacts:config=../../manifests/installer
 
 package apis

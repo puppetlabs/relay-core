@@ -111,7 +111,7 @@ func (wtd *WebhookTriggerDeps) Load(ctx context.Context, cl client.Client) (*Web
 		// this trigger already has resources created. If so, we add the stale
 		// config map at the current version.
 		if wtd.WebhookTrigger.Object.Status.Namespace != "" {
-			wtd.StaleOwnerConfigMap = corev1obj.NewConfigMap(SuffixObjectKey(client.ObjectKey{
+			wtd.StaleOwnerConfigMap = corev1obj.NewConfigMap(helper.SuffixObjectKey(client.ObjectKey{
 				Namespace: wtd.WebhookTrigger.Object.Status.Namespace,
 				Name:      wtd.WebhookTrigger.Key.Name,
 			}, "owner"))
@@ -138,12 +138,12 @@ func (wtd *WebhookTriggerDeps) Load(ctx context.Context, cl client.Client) (*Web
 		Name:      wtd.WebhookTrigger.Key.Name,
 	}
 
-	wtd.OwnerConfigMap = corev1obj.NewConfigMap(SuffixObjectKey(key, "owner"))
+	wtd.OwnerConfigMap = corev1obj.NewConfigMap(helper.SuffixObjectKey(key, "owner"))
 
 	if wtd.WebhookTrigger.Object.Status.Namespace != "" && wtd.OwnerConfigMap.Key.Namespace != wtd.WebhookTrigger.Object.Status.Namespace {
 		// In this case, the configuration of the tenant has changed. We'll
 		// delete the current owner map and replace it with the new one.
-		wtd.StaleOwnerConfigMap = corev1obj.NewConfigMap(SuffixObjectKey(client.ObjectKey{
+		wtd.StaleOwnerConfigMap = corev1obj.NewConfigMap(helper.SuffixObjectKey(client.ObjectKey{
 			Namespace: wtd.WebhookTrigger.Object.Status.Namespace,
 			Name:      wtd.WebhookTrigger.Key.Name,
 		}, "owner"))
@@ -153,7 +153,7 @@ func (wtd *WebhookTriggerDeps) Load(ctx context.Context, cl client.Client) (*Web
 
 	wtd.ToolInjectionCheckout = &PoolRefPredicatedCheckout{
 		Checkout: pvpoolv1alpha1obj.NewCheckout(
-			SuffixObjectKeyWithHashOfObjectKey(SuffixObjectKey(key, "tools"),
+			SuffixObjectKeyWithHashOfObjectKey(helper.SuffixObjectKey(key, "tools"),
 				client.ObjectKey{
 					Namespace: wtd.ToolInjectionPoolRef.Namespace,
 					Name:      wtd.ToolInjectionPoolRef.Name,
@@ -162,15 +162,15 @@ func (wtd *WebhookTriggerDeps) Load(ctx context.Context, cl client.Client) (*Web
 		),
 	}
 
-	wtd.ImmutableConfigMap = corev1obj.NewConfigMap(SuffixObjectKey(key, "immutable"))
-	wtd.MutableConfigMap = corev1obj.NewConfigMap(SuffixObjectKey(key, "mutable"))
+	wtd.ImmutableConfigMap = corev1obj.NewConfigMap(helper.SuffixObjectKey(key, "immutable"))
+	wtd.MutableConfigMap = corev1obj.NewConfigMap(helper.SuffixObjectKey(key, "mutable"))
 
-	wtd.MetadataAPIServiceAccount = corev1obj.NewServiceAccount(SuffixObjectKey(key, "metadata-api"))
+	wtd.MetadataAPIServiceAccount = corev1obj.NewServiceAccount(helper.SuffixObjectKey(key, "metadata-api"))
 	wtd.MetadataAPIServiceAccountTokenSecrets = corev1obj.NewServiceAccountTokenSecrets(wtd.MetadataAPIServiceAccount)
-	wtd.MetadataAPIRole = rbacv1obj.NewRole(SuffixObjectKey(key, "metadata-api"))
-	wtd.MetadataAPIRoleBinding = rbacv1obj.NewRoleBinding(SuffixObjectKey(key, "metadata-api"))
+	wtd.MetadataAPIRole = rbacv1obj.NewRole(helper.SuffixObjectKey(key, "metadata-api"))
+	wtd.MetadataAPIRoleBinding = rbacv1obj.NewRoleBinding(helper.SuffixObjectKey(key, "metadata-api"))
 
-	wtd.KnativeServiceAccount = corev1obj.NewServiceAccount(SuffixObjectKey(key, "knative"))
+	wtd.KnativeServiceAccount = corev1obj.NewServiceAccount(helper.SuffixObjectKey(key, "knative"))
 
 	ok, err := lifecycle.Loaders{
 		lifecycle.IgnoreNilLoader{Loader: wtd.StaleOwnerConfigMap},

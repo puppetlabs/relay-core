@@ -52,9 +52,9 @@ func EndToEndEnvironmentWithKnative(t *testing.T, ctx context.Context, e *EndToE
 	}))
 }
 
-func EndToEndEnvironmentWithAmbassador(t *testing.T, ctx context.Context, e *EndToEndEnvironment) {
-	require.NoError(t, WithExclusive(ctx, "ambassador", func() {
-		InstallAmbassador(t, ctx, e.ControllerClient, e.RESTMapper)
+func EndToEndEnvironmentWithKourier(t *testing.T, ctx context.Context, e *EndToEndEnvironment) {
+	require.NoError(t, WithExclusive(ctx, "kourier-system", func() {
+		InstallKourier(t, ctx, e.ControllerClient, e.RESTMapper)
 	}))
 }
 
@@ -72,7 +72,7 @@ func EndToEndEnvironmentWithPVPool(t *testing.T, ctx context.Context, e *EndToEn
 
 var _ EndToEndEnvironmentInstaller = EndToEndEnvironmentWithTekton
 var _ EndToEndEnvironmentInstaller = EndToEndEnvironmentWithKnative
-var _ EndToEndEnvironmentInstaller = EndToEndEnvironmentWithAmbassador
+var _ EndToEndEnvironmentInstaller = EndToEndEnvironmentWithKourier
 var _ EndToEndEnvironmentInstaller = EndToEndEnvironmentWithHostpathProvisioner
 var _ EndToEndEnvironmentInstaller = EndToEndEnvironmentWithPVPool
 

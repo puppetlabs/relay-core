@@ -104,13 +104,13 @@ func (rd *RunDeps) Load(ctx context.Context, cl client.Client) (*RunDepsLoadResu
 		Name:      rd.Run.Key.Name,
 	}
 
-	rd.OwnerConfigMap = corev1obj.NewConfigMap(SuffixObjectKey(key, "owner"))
+	rd.OwnerConfigMap = corev1obj.NewConfigMap(helper.SuffixObjectKey(key, "owner"))
 
 	rd.NetworkPolicy = networkingv1obj.NewNetworkPolicy(key)
 
 	rd.ToolInjectionCheckout = &PoolRefPredicatedCheckout{
 		Checkout: pvpoolv1alpha1obj.NewCheckout(
-			SuffixObjectKeyWithHashOfObjectKey(SuffixObjectKey(key, "tools"),
+			SuffixObjectKeyWithHashOfObjectKey(helper.SuffixObjectKey(key, "tools"),
 				client.ObjectKey{
 					Namespace: rd.ToolInjectionPoolRef.Namespace,
 					Name:      rd.ToolInjectionPoolRef.Name,
@@ -119,15 +119,15 @@ func (rd *RunDeps) Load(ctx context.Context, cl client.Client) (*RunDepsLoadResu
 		),
 	}
 
-	rd.ImmutableConfigMap = corev1obj.NewConfigMap(SuffixObjectKey(key, "immutable"))
-	rd.MutableConfigMap = corev1obj.NewConfigMap(SuffixObjectKey(key, "mutable"))
+	rd.ImmutableConfigMap = corev1obj.NewConfigMap(helper.SuffixObjectKey(key, "immutable"))
+	rd.MutableConfigMap = corev1obj.NewConfigMap(helper.SuffixObjectKey(key, "mutable"))
 
-	rd.MetadataAPIServiceAccount = corev1obj.NewServiceAccount(SuffixObjectKey(key, "metadata-api"))
-	rd.MetadataAPIRole = rbacv1obj.NewRole(SuffixObjectKey(key, "metadata-api"))
-	rd.MetadataAPIRoleBinding = rbacv1obj.NewRoleBinding(SuffixObjectKey(key, "metadata-api"))
+	rd.MetadataAPIServiceAccount = corev1obj.NewServiceAccount(helper.SuffixObjectKey(key, "metadata-api"))
+	rd.MetadataAPIRole = rbacv1obj.NewRole(helper.SuffixObjectKey(key, "metadata-api"))
+	rd.MetadataAPIRoleBinding = rbacv1obj.NewRoleBinding(helper.SuffixObjectKey(key, "metadata-api"))
 
-	rd.PipelineServiceAccount = corev1obj.NewServiceAccount(SuffixObjectKey(key, "pipeline"))
-	rd.UntrustedServiceAccount = corev1obj.NewServiceAccount(SuffixObjectKey(key, "untrusted"))
+	rd.PipelineServiceAccount = corev1obj.NewServiceAccount(helper.SuffixObjectKey(key, "pipeline"))
+	rd.UntrustedServiceAccount = corev1obj.NewServiceAccount(helper.SuffixObjectKey(key, "untrusted"))
 
 	rd.MetadataAPIServiceAccountTokenSecrets = corev1obj.NewServiceAccountTokenSecrets(rd.MetadataAPIServiceAccount)
 

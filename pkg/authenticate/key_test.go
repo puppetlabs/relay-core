@@ -40,6 +40,7 @@ func TestKeySignerIssuer(t *testing.T) {
 	require.NoError(t, err)
 
 	tok, err := jwt.ParseSigned(string(raw))
+	require.NoError(t, err)
 	require.Len(t, tok.Headers, 1)
 	require.Equal(t, string(jose.RS512), tok.Headers[0].Algorithm)
 

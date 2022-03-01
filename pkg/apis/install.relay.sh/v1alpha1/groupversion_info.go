@@ -26,7 +26,8 @@ import (
 
 var (
 	// GroupVersion is group version used to register these objects
-	GroupVersion = schema.GroupVersion{Group: "install.relay.sh", Version: "v1alpha1"}
+	GroupVersion  = schema.GroupVersion{Group: "install.relay.sh", Version: "v1alpha1"}
+	RelayCoreKind = GroupVersion.WithKind("RelayCore")
 
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
 	SchemeBuilder = &scheme.Builder{GroupVersion: GroupVersion}

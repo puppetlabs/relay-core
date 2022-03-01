@@ -6,6 +6,15 @@ cd "$(dirname "$0")"/..
 
 RELAY_CORE_REPO_BASE="${RELAY_CORE_REPO_BASE:-gcr.io/nebula-235818}"
 
+BUILD_TARGETS=(
+    relay-operator
+    relay-metadata-api
+    relay-metrics
+    relay-runtime-tools
+    relay-operator-webhook-certificate-controller
+    relay-installer
+)
+
 do_build() {
   TARGET="$1"
 
@@ -34,6 +43,6 @@ do_build() {
   fi
 }
 
-for TARGET in relay-operator relay-metadata-api relay-metrics relay-runtime-tools relay-installer; do
+for TARGET in ${BUILD_TARGETS[@]}; do
   do_build "${TARGET}"
 done
