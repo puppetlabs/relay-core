@@ -64,10 +64,6 @@ func (vi *VaultInitializer) InitializeVault(ctx context.Context) error {
 
 	secretEngines := []*model.VaultSecretEngine{
 		{
-			Name: vi.vaultCoreConfig.LogServicePath,
-			Type: model.VaultSecretEngineTypeKVV2,
-		},
-		{
 			Name: vi.vaultCoreConfig.TenantPath,
 			Type: model.VaultSecretEngineTypeKVV2,
 		},
@@ -75,6 +71,13 @@ func (vi *VaultInitializer) InitializeVault(ctx context.Context) error {
 			Name: vi.vaultCoreConfig.TransitPath,
 			Type: model.VaultSecretEngineTypeTransit,
 		},
+	}
+
+	if vi.vaultCoreConfig.LogServicePath != "" {
+		secretEngines = append(secretEngines, &model.VaultSecretEngine{
+			Name: vi.vaultCoreConfig.LogServicePath,
+			Type: model.VaultSecretEngineTypeKVV2,
+		})
 	}
 
 	policyGen := &vaultPolicyGenerator{
@@ -86,10 +89,6 @@ func (vi *VaultInitializer) InitializeVault(ctx context.Context) error {
 
 	policies := []*model.VaultPolicy{
 		{
-			Name:  vi.vaultCoreConfig.LogServiceVaultAgentRole,
-			Rules: string(policyGen.logServicePolicy()),
-		},
-		{
 			Name:  vi.vaultCoreConfig.MetadataAPIVaultAgentRole,
 			Rules: string(policyGen.metadataAPIPolicy()),
 		},
@@ -97,6 +96,13 @@ func (vi *VaultInitializer) InitializeVault(ctx context.Context) error {
 			Name:  vi.vaultCoreConfig.OperatorVaultAgentRole,
 			Rules: string(policyGen.operatorPolicy()),
 		},
+	}
+
+	if vi.vaultCoreConfig.LogServiceVaultAgentRole != "" {
+		policies = append(policies, &model.VaultPolicy{
+			Name:  vi.vaultCoreConfig.LogServiceVaultAgentRole,
+			Rules: string(policyGen.logServicePolicy()),
+		})
 	}
 
 	auth, err := vi.vaultSystemManager.GetAuthMethod(fmt.Sprintf("%s/", vi.vaultConfig.JWTMount))
@@ -117,13 +123,6 @@ func (vi *VaultInitializer) InitializeVault(ctx context.Context) error {
 	// TODO Do not hardcode the service account names
 	kubernetesRoles := []*model.VaultKubernetesRole{
 		{
-			Name:                          vi.vaultCoreConfig.LogServiceVaultAgentRole,
-			BoundServiceAccountNames:      []string{"relay-core-v1-log-service-vault-agent"},
-			BoundServiceAccountNamespaces: []string{vi.vaultConfig.Namespace},
-			Policies:                      []string{vi.vaultCoreConfig.LogServiceVaultAgentRole},
-			TTL:                           "24h",
-		},
-		{
 			Name:                          vi.vaultCoreConfig.MetadataAPIVaultAgentRole,
 			BoundServiceAccountNames:      []string{"relay-core-v1-metadata-api-vault-agent"},
 			BoundServiceAccountNamespaces: []string{vi.vaultConfig.Namespace},
@@ -137,6 +136,16 @@ func (vi *VaultInitializer) InitializeVault(ctx context.Context) error {
 			Policies:                      []string{vi.vaultCoreConfig.OperatorVaultAgentRole},
 			TTL:                           "24h",
 		},
+	}
+
+	if vi.vaultCoreConfig.LogServiceVaultAgentRole != "" {
+		kubernetesRoles = append(kubernetesRoles, &model.VaultKubernetesRole{
+			Name:                          vi.vaultCoreConfig.LogServiceVaultAgentRole,
+			BoundServiceAccountNames:      []string{"relay-core-v1-log-service-vault-agent"},
+			BoundServiceAccountNamespaces: []string{vi.vaultConfig.Namespace},
+			Policies:                      []string{vi.vaultCoreConfig.LogServiceVaultAgentRole},
+			TTL:                           "24h",
+		})
 	}
 
 	// TODO Add installer configuration for `metadata-api-tenant` name
