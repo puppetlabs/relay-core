@@ -184,14 +184,12 @@ func ApplyCoreDeps(ctx context.Context, cl client.Client, c *obj.Core) (*CoreDep
 		cd.VaultConfigDeps,
 		cd.OperatorDeps,
 		cd.MetadataAPIDeps,
-		cd.LogServiceDeps,
+		obj.IgnoreNilConfigurable{Configurable: cd.LogServiceDeps},
 	}
 
 	for _, obj := range objs {
-		if obj != nil {
-			if err := obj.Configure(ctx); err != nil {
-				return nil, err
-			}
+		if err := obj.Configure(ctx); err != nil {
+			return nil, err
 		}
 	}
 
