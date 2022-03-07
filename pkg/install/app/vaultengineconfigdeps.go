@@ -151,8 +151,6 @@ func ConfigureVaultConfigJob(
 	authPath := strings.Split(metadataAPIConfig.VaultAuthPath, "/")
 
 	env := []corev1.EnvVar{
-		{Name: logServicePathEnvVar, Value: vaultConfig.Engine.LogServicePath},
-		{Name: logServiceVaultAgentRoleEnvVar, Value: logServiceConfig.VaultAgentRole},
 		{Name: metadataAPIVaultAgentRoleEnvVar, Value: metadataAPIConfig.VaultAgentRole},
 		{Name: operatorVaultAgentRoleEnvVar, Value: operatorConfig.VaultAgentRole},
 		{Name: tenantPathEnvVar, Value: vaultConfig.Engine.TenantPath},
@@ -164,6 +162,12 @@ func ConfigureVaultConfigJob(
 		{Name: vaultNameEnvVar, Value: vaultIdentifier},
 		{Name: vaultNamespaceEnvVar, Value: coreKey.Namespace},
 		{Name: vaultServiceAccountEnvVar, Value: vaultConfig.Engine.AuthDelegatorServiceAccountName},
+	}
+
+	if logServiceConfig != nil {
+		env = append(env,
+			corev1.EnvVar{Name: logServicePathEnvVar, Value: vaultConfig.Engine.LogServicePath},
+			corev1.EnvVar{Name: logServiceVaultAgentRoleEnvVar, Value: logServiceConfig.VaultAgentRole})
 	}
 
 	if jwt != nil {
