@@ -1,94 +1,49 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: controller
+  name: relay-install-operator
 rules:
 - apiGroups:
-  - admissionregistration.k8s.io
-  resources:
-  - mutatingwebhookconfigurations
-  verbs:
-  - create
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - apps
-  resources:
-  - deployments
-  - statefulsets
-  verbs:
-  - create
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
   - ""
+  - apps
+  - rbac.authorization.k8s.io
+  - admissionregistration.k8s.io
+  - networking.k8s.io
+  - rbac.authorization.k8s.io
   resources:
+  - clusterroles
+  - clusterrolebindings
   - configmaps
+  - deployments
   - limitranges
+  - mutatingwebhookconfigurations
   - namespaces
   - secrets
   - serviceaccounts
   - services
+  - roles
+  - rolebindings
+  - statefulsets
+  verbs:
+  - '*'
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
   verbs:
   - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
 - apiGroups:
-  - ""
+  - authorization.k8s.io
   resources:
-  - pods
-  - pods/log
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - install.relay.sh
-  resources:
-  - relaycores
+  - subjectaccessreviews
   verbs:
   - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
 - apiGroups:
   - batch
   resources:
   - jobs
   verbs:
-  - get
-  - list
   - create
-  - update
-  - watch
-- apiGroups:
-  - install.relay.sh
-  resources:
-  - relaycores/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - networking.k8s.io
-  resources:
-  - networkpolicies
-  verbs:
-  - create
-  - delete
   - get
   - list
   - patch
@@ -104,25 +59,11 @@ rules:
   - list
   - watch
 - apiGroups:
-  - rbac.authorization.k8s.io
+  - install.relay.sh
   resources:
-  - clusterrolebindings
-  - clusterroles
+  - relaycores
+  - relaycores/status
   verbs:
-  - create
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - rbac.authorization.k8s.io
-  resources:
-  - rolebindings
-  - roles
-  verbs:
-  - create
-  - delete
   - get
   - list
   - patch

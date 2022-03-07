@@ -1,0 +1,17 @@
+apiVersion: v1
+data:
+  vault.hcl: |
+    disable_mlock = true
+    ui = true
+    log_level = "Debug"
+    listener "tcp" {
+      tls_disable = 1
+      address = "0.0.0.0:8200"
+    }
+    storage "file" {
+      path = "/vault/data"
+    }
+kind: ConfigMap
+metadata:
+  name: relay-install-operator
+  namespace: relay-system

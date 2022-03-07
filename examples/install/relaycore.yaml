@@ -2,20 +2,22 @@ apiVersion: install.relay.sh/v1alpha1
 kind: RelayCore
 metadata:
   name: relay-core-v1
+  namespace: relay-system
 spec:
-  environment: dev
-  debug: true
+  metadataAPI: {}
   operator:
-    standalone: true
-    storageAddr: file:///tmp
     admissionWebhookServer:
-      certificateControllerImage: relay-development:5000/relay-operator-webhook-certificate-controller:latest
-      certificateControllerImagePullPolicy: Always
       domain: admission.controller.relay.sh
       namespaceSelector:
         matchLabels:
           controller.relay.sh/tenant-workload: "true"
-    # jwtSigningKeySecretName: jwt-signing-keys
+    logStoragePVCName: relay-core-v1-operator
+    standalone: true
   vault:
-    sidecar:
-      serverAddr: http://vault.relay-system.svc.cluster.local:8200
+    engine:
+      authDelegatorServiceAccountName: vault
+    server:
+      builtIn:
+        configMapRef:
+          name: relay-install-operator
+    sidecar: {}

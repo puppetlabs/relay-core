@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- https://storage.googleapis.com/tekton-releases/pipeline/previous/v0.32.1/release.yaml
+patches:
+- target:
+    kind: ConfigMap
+    namespace: tekton-pipelines
+    name: feature-flags
+  patch: |-
+    - op: replace
+      path: /data/disable-affinity-assistant
+      value: 'true'
+    - op: replace
+      path: /data/enable-api-fields
+      value: 'alpha'
