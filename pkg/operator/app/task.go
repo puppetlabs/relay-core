@@ -2,9 +2,11 @@ package app
 
 import (
 	"context"
+	"path"
 
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
+	"github.com/puppetlabs/relay-core/pkg/entrypoint"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
@@ -25,6 +27,14 @@ func ConfigureTask(ctx context.Context, t *obj.Task, rd *RunDeps, ws *relayv1bet
 	if image == "" {
 		image = model.DefaultImage
 		command = model.DefaultCommand
+	}
+
+	toolsContainer := corev1.Container{
+		Name:       ToolsWorkspaceName,
+		Image:      rd.RuntimeToolsImage,
+		WorkingDir: "/",
+		Command:    []string{"cp"},
+		Args:       []string{"-r", model.ToolsSource, model.ToolsMountPath},
 	}
 
 	container := corev1.Container{
@@ -93,23 +103,27 @@ func ConfigureTask(ctx context.Context, t *obj.Task, rd *RunDeps, ws *relayv1bet
 		args = []string{}
 	}
 
+	ep, err := entrypoint.ImageEntrypoint(image, []string{command}, args)
+	if err != nil {
+		return err
+	}
+
 	t.SetWorkspace(tektonv1beta1.WorkspaceDeclaration{
 		Name:      ToolsWorkspaceName,
 		MountPath: model.ToolsMountPath,
 	})
-	if command != "" {
-		container.Command = []string{command}
-	}
 
-	if len(args) > 0 {
-		container.Args = args
-	}
+	container.Command = []string{path.Join(model.ToolsMountPath, ep.Entrypoint)}
+	container.Args = ep.Args
 
 	if err := rd.AnnotateStepToken(ctx, &t.Object.ObjectMeta, ws); err != nil {
 		return err
 	}
 
 	t.Object.Spec.Steps = []tektonv1beta1.Step{
+		{
+			Container: toolsContainer,
+		},
 		{
 			Container: container,
 		},

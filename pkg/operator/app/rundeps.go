@@ -35,7 +35,8 @@ type RunDeps struct {
 	Workflow     *obj.Workflow
 	WorkflowDeps *WorkflowDeps
 
-	Standalone bool
+	RuntimeToolsImage string
+	Standalone        bool
 
 	Issuer authenticate.Issuer
 
@@ -260,6 +261,12 @@ func (rd *RunDeps) AnnotateStepToken(ctx context.Context, target *metav1.ObjectM
 }
 
 type RunDepsOption func(rd *RunDeps)
+
+func RunDepsWithRuntimeToolsImage(image string) RunDepsOption {
+	return func(rd *RunDeps) {
+		rd.RuntimeToolsImage = image
+	}
+}
 
 func RunDepsWithStandaloneMode(standalone bool) RunDepsOption {
 	return func(rd *RunDeps) {

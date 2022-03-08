@@ -39,7 +39,6 @@ require (
 	github.com/puppetlabs/leg/storage v0.1.1
 	github.com/puppetlabs/leg/timeutil v0.4.2
 	github.com/puppetlabs/leg/vaultutil v0.1.0
-	github.com/puppetlabs/pvpool v0.3.0
 	github.com/puppetlabs/relay-client-go/client v0.4.4
 	github.com/puppetlabs/relay-pls v0.0.0-20201125074651-13575df50b51
 	github.com/spf13/viper v1.10.1

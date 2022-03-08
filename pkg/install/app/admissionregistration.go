@@ -10,7 +10,6 @@ import (
 func ConfigureOperatorWebhookConfiguration(od *OperatorDeps, mwc *admissionregistrationv1obj.MutatingWebhookConfiguration) {
 	var (
 		podEnforcementPath = "/mutate/pod-enforcement"
-		volumeClaimPath    = "/mutate/volume-claim"
 	)
 
 	oc := od.Core.Object.Spec.Operator
@@ -22,10 +21,8 @@ func ConfigureOperatorWebhookConfiguration(od *OperatorDeps, mwc *admissionregis
 	}
 
 	podEnforcementName := fmt.Sprintf("%s-pod-enforcement.%s", mwc.Name, aws.Domain)
-	volumeClaimName := fmt.Sprintf("%s-volume-claim.%s", mwc.Name, aws.Domain)
 	paths := map[string]*string{
 		podEnforcementName: &podEnforcementPath,
-		volumeClaimName:    &volumeClaimPath,
 	}
 
 	for name, path := range paths {
@@ -41,7 +38,6 @@ func ConfigureOperatorWebhookConfiguration(od *OperatorDeps, mwc *admissionregis
 
 	mwc.Object.Webhooks = []admissionv1.MutatingWebhook{
 		*mutatingWebhooks[podEnforcementName],
-		*mutatingWebhooks[volumeClaimName],
 	}
 }
 

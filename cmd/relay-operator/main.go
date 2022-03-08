@@ -9,7 +9,6 @@ import (
 	"log"
 	"net/url"
 	"os"
-	"strings"
 
 	vaultapi "github.com/hashicorp/vault/api"
 	"github.com/puppetlabs/leg/instrumentation/alerts"
@@ -19,6 +18,7 @@ import (
 	"github.com/puppetlabs/leg/storage"
 	_ "github.com/puppetlabs/leg/storage/file"
 	_ "github.com/puppetlabs/leg/storage/gcs"
+	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/operator/admission"
 	"github.com/puppetlabs/relay-core/pkg/operator/config"
 	"github.com/puppetlabs/relay-core/pkg/operator/controller/run"
@@ -26,11 +26,9 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/operator/controller/trigger"
 	"github.com/puppetlabs/relay-core/pkg/operator/dependency"
 	jose "gopkg.in/square/go-jose.v2"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
@@ -60,9 +58,15 @@ func main() {
 	tenantSandboxRuntimeClassName := fs.String("tenant-sandbox-runtime-class-name", "runsc", "name of the runtime class providing the gVisor containerd runtime")
 	sentryDSN := fs.String("sentry-dsn", "", "the Sentry DSN to use for error reporting")
 	dynamicRBACBinding := fs.Bool("dynamic-rbac-binding", false, "enable if RBAC rules are set up dynamically for the operator to reduce unhelpful reported errors")
-	triggerToolInjectionPool := fs.String("trigger-tool-injection-pool", "", "the name of a PVPool pool to use for injecting tools into trigger containers")
+	runtimeToolsImage := fs.String("runtime-tools-image", model.ToolsImage, "the image to use for the runtime tools")
 
-	fs.Parse(os.Args[1:])
+	// Deprecated: use --runtime-tools-image instead
+	fs.String("trigger-tool-injection-pool", "", "the name of a PVPool pool to use for injecting tools into trigger containers")
+
+	err := fs.Parse(os.Args[1:])
+	if err != nil {
+		log.Fatal("Error parsing flags", err)
+	}
 
 	klogFlags := flag.NewFlagSet("klog", flag.ExitOnError)
 	klog.InitFlags(klogFlags)
@@ -166,9 +170,8 @@ func main() {
 		WebhookServerKeyDir:     *webhookServerKeyDir,
 		AlertsDelegate:          alertsDelegate,
 		DynamicRBACBinding:      *dynamicRBACBinding,
+		RuntimeToolsImage:       *runtimeToolsImage,
 	}
-
-	cfg.TriggerToolInjectionPool = splitNamespacedName(triggerToolInjectionPool)
 
 	dm, err := dependency.NewDependencyManager(cfg, kcc, vc, jwtSigner, blobStore, mets)
 	if err != nil {
@@ -199,24 +202,7 @@ func main() {
 		Handler: admission.NewPodEnforcementHandler(podEnforcementHandlerOpts...),
 	})
 
-	dm.Manager.GetWebhookServer().Register("/mutate/volume-claim", &webhook.Admission{
-		Handler: admission.NewVolumeClaimHandler(),
-	})
-
 	if err := dm.Manager.Start(signals.SetupSignalHandler()); err != nil {
 		log.Fatal("Manager exited non-zero", err)
 	}
-}
-
-func splitNamespacedName(name *string) client.ObjectKey {
-	if nn := *name; nn != "" {
-		parts := strings.Split(nn, string(types.Separator))
-		if len(parts) != 2 {
-			return client.ObjectKey{}
-		}
-
-		return client.ObjectKey{Namespace: parts[0], Name: parts[1]}
-	}
-
-	return client.ObjectKey{}
 }

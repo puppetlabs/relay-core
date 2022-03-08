@@ -185,9 +185,7 @@ func TestRun(t *testing.T) {
 				Namespace: cfg.Namespace.GetName(),
 				Name:      "tenant-" + uuid.NewString(),
 			},
-			Spec: relayv1beta1.TenantSpec{
-				ToolInjection: relayv1beta1.ToolInjection{},
-			},
+			Spec: relayv1beta1.TenantSpec{},
 		}
 
 		CreateAndWaitForTenant(t, ctx, cfg, tenant)
@@ -477,9 +475,7 @@ func TestRunWithoutSteps(t *testing.T) {
 				Namespace: cfg.Namespace.GetName(),
 				Name:      "tenant-" + uuid.NewString(),
 			},
-			Spec: relayv1beta1.TenantSpec{
-				ToolInjection: relayv1beta1.ToolInjection{},
-			},
+			Spec: relayv1beta1.TenantSpec{},
 		}
 
 		CreateAndWaitForTenant(t, ctx, cfg, tenant)
@@ -566,9 +562,7 @@ func TestRunStepInitTime(t *testing.T) {
 				Namespace: cfg.Namespace.GetName(),
 				Name:      "tenant-" + uuid.NewString(),
 			},
-			Spec: relayv1beta1.TenantSpec{
-				ToolInjection: relayv1beta1.ToolInjection{},
-			},
+			Spec: relayv1beta1.TenantSpec{},
 		}
 
 		CreateAndWaitForTenant(t, ctx, cfg, tenant)
@@ -694,9 +688,7 @@ func TestRunInGVisor(t *testing.T) {
 						Namespace: cfg.Namespace.GetName(),
 						Name:      "tenant-" + uuid.NewString(),
 					},
-					Spec: relayv1beta1.TenantSpec{
-						ToolInjection: relayv1beta1.ToolInjection{},
-					},
+					Spec: relayv1beta1.TenantSpec{},
 				}
 
 				CreateAndWaitForTenant(t, ctx, cfg, tenant)
