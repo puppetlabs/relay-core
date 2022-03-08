@@ -74,6 +74,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		run,
 		r.issuer,
 		r.Config.MetadataAPIURL,
+		app.RunDepsWithRuntimeToolsImage(r.Config.RuntimeToolsImage),
 		app.RunDepsWithStandaloneMode(r.Config.Standalone),
 	)
 

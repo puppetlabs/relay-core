@@ -36,6 +36,13 @@ func TestVolumeClaimHandler(t *testing.T) {
 						},
 					},
 					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{
+							{
+								Name:    "setup",
+								Image:   "alpine:latest",
+								Command: []string{"sh", "-c", "trap : TERM INT; sleep 600 & wait"},
+							},
+						},
 						Containers: []corev1.Container{
 							{
 								Name:    "hide",
@@ -54,8 +61,7 @@ func TestVolumeClaimHandler(t *testing.T) {
 
 				volume := false
 				for _, v := range pod.Spec.Volumes {
-					if v.Name == admission.ToolsMountName &&
-						v.VolumeSource.PersistentVolumeClaim.ClaimName == "tools-volume-claim" {
+					if v.Name == admission.ToolsMountName {
 						volume = true
 					}
 				}
@@ -63,6 +69,17 @@ func TestVolumeClaimHandler(t *testing.T) {
 				assert.True(t, volume)
 
 				volumeMount := false
+				for _, c := range pod.Spec.InitContainers {
+					for _, vm := range c.VolumeMounts {
+						if vm.Name == admission.ToolsMountName {
+							volumeMount = true
+						}
+					}
+
+					assert.True(t, volumeMount)
+				}
+
+				volumeMount = false
 				for _, c := range pod.Spec.Containers {
 					for _, vm := range c.VolumeMounts {
 						if vm.Name == admission.ToolsMountName {

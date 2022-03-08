@@ -14,12 +14,11 @@ import (
 	"github.com/puppetlabs/leg/k8sutil/pkg/app/tunnel"
 	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
 	"github.com/puppetlabs/leg/storage"
-	pvpoolv1alpha1 "github.com/puppetlabs/pvpool/pkg/apis/pvpool.puppet.com/v1alpha1"
-	pvpoolv1alpha1obj "github.com/puppetlabs/pvpool/pkg/apis/pvpool.puppet.com/v1alpha1/obj"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/middleware"
+	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/operator/admission"
 	"github.com/puppetlabs/relay-core/pkg/operator/config"
 	"github.com/puppetlabs/relay-core/pkg/operator/controller/run"
@@ -29,26 +28,24 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/util/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 type Config struct {
-	Environment           *testutil.EndToEndEnvironment
-	Namespace             *corev1.Namespace
-	MetadataAPIURL        *url.URL
-	Vault                 *testutil.Vault
-	Manager               manager.Manager
-	ToolInjectionPoolName string
-	ControllerConfig      *config.WorkflowControllerConfig
+	Environment      *testutil.EndToEndEnvironment
+	Namespace        *corev1.Namespace
+	MetadataAPIURL   *url.URL
+	Vault            *testutil.Vault
+	Manager          manager.Manager
+	ControllerConfig *config.WorkflowControllerConfig
+
+	LabelSelector *metav1.LabelSelector
 
 	blobStore         storage.BlobStore
 	dependencyManager *dependency.DependencyManager
@@ -72,9 +69,9 @@ func ConfigInNamespace(ns *corev1.Namespace) ConfigOption {
 	}
 }
 
-func ConfigWithToolInjectionPoolName(name string) ConfigOption {
+func ConfigWithLabelSelector(selector *metav1.LabelSelector) ConfigOption {
 	return func(cfg *Config) {
-		cfg.ToolInjectionPoolName = name
+		cfg.LabelSelector = selector
 	}
 }
 
@@ -258,71 +255,9 @@ func doConfigDependencyManager(ctx context.Context) doConfigFunc {
 			ImagePullSecret:         imagePullSecret.Key.Name,
 			MaxConcurrentReconciles: 16,
 			MetadataAPIURL:          cfg.MetadataAPIURL,
+			RuntimeToolsImage:       model.ToolsImage,
 			VaultTransitPath:        cfg.Vault.TransitPath,
 			VaultTransitKey:         cfg.Vault.TransitKey,
-		}
-
-		if cfg.withTenantReconciler {
-			pool := pvpoolv1alpha1obj.NewPool(client.ObjectKey{
-				Namespace: cfg.Namespace.GetName(),
-				Name:      cfg.ToolInjectionPoolName,
-			})
-			_, err := pool.Load(ctx, cfg.Environment.ControllerClient)
-			require.NoError(t, err)
-			pool.Object.Spec = pvpoolv1alpha1.PoolSpec{
-				Selector: metav1.LabelSelector{
-					MatchLabels: map[string]string{
-						"testing.relay.sh/selector": cfg.ToolInjectionPoolName,
-					},
-				},
-				Template: pvpoolv1alpha1.PersistentVolumeClaimTemplate{
-					ObjectMeta: metav1.ObjectMeta{
-						Labels: map[string]string{
-							"testing.relay.sh/selector": cfg.ToolInjectionPoolName,
-						},
-					},
-					Spec: corev1.PersistentVolumeClaimSpec{
-						AccessModes: []corev1.PersistentVolumeAccessMode{
-							corev1.ReadWriteOnce,
-							corev1.ReadOnlyMany,
-						},
-						StorageClassName: pointer.StringPtr("relay-hostpath"),
-						Resources: corev1.ResourceRequirements{
-							Requests: corev1.ResourceList{
-								corev1.ResourceStorage: resource.MustParse("50Mi"),
-							},
-						},
-					},
-				},
-				InitJob: &pvpoolv1alpha1.MountJob{
-					Template: pvpoolv1alpha1.JobTemplate{
-						Spec: batchv1.JobSpec{
-							BackoffLimit:          pointer.Int32Ptr(2),
-							ActiveDeadlineSeconds: pointer.Int64Ptr(60),
-							Template: corev1.PodTemplateSpec{
-								Spec: corev1.PodSpec{
-									Containers: []corev1.Container{
-										{
-											Name: "init",
-											// XXX: TODO: This should come from ko!
-											Image:           "relaysh/relay-runtime-tools:latest",
-											ImagePullPolicy: corev1.PullAlways,
-											Command:         []string{"cp"},
-											Args:            []string{"-r", "/relay/runtime/tools/.", "/workspace"},
-											VolumeMounts: []corev1.VolumeMount{
-												{Name: "workspace", MountPath: "/workspace"},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			}
-			require.NoError(t, pool.Persist(ctx, cfg.Environment.ControllerClient))
-
-			wcc.TriggerToolInjectionPool = pool.Key
 		}
 
 		deps, err := dependency.NewDependencyManager(wcc, cfg.Environment.RESTConfig, cfg.Vault.Client, cfg.Vault.JWTSigner, cfg.blobStore, metrics)
@@ -386,7 +321,7 @@ func doConfigVolumeClaimAdmission(ctx context.Context) doConfigFunc {
 			return
 		}
 
-		testutil.WithVolumeClaimAdmissionRegistration(t, ctx, cfg.Environment, cfg.Manager, nil, nil, next)
+		testutil.WithVolumeClaimAdmissionRegistration(t, ctx, cfg.Environment, cfg.Manager, nil, cfg.LabelSelector, next)
 	}
 }
 
@@ -481,8 +416,7 @@ func doConfigCleanup(t *testing.T, cfg *Config, next func()) {
 
 func WithConfig(t *testing.T, ctx context.Context, opts []ConfigOption, fn func(cfg *Config)) {
 	cfg := &Config{
-		MetadataAPIURL:        &url.URL{Scheme: "http", Host: "stub.example.com"},
-		ToolInjectionPoolName: "tool-injection-pool",
+		MetadataAPIURL: &url.URL{Scheme: "http", Host: "stub.example.com"},
 	}
 
 	for _, opt := range opts {
@@ -496,10 +430,6 @@ func WithConfig(t *testing.T, ctx context.Context, opts []ConfigOption, fn func(
 	if cfg.withWebhookTriggerReconciler {
 		installers = append(installers,
 			testutil.EndToEndEnvironmentWithKnative, testutil.EndToEndEnvironmentWithKourier)
-	}
-	if cfg.withTenantReconciler || cfg.withVolumeClaimAdmission {
-		installers = append(installers,
-			testutil.EndToEndEnvironmentWithHostpathProvisioner, testutil.EndToEndEnvironmentWithPVPool)
 	}
 
 	testutil.WithEndToEndEnvironment(

@@ -20,6 +20,14 @@ patches:
       path: /data/ingress.class
       value: kourier.ingress.networking.knative.dev
 - target:
+    kind: ConfigMap
+    namespace: knative-serving
+    name: config-features
+  patch: |-
+    - op: replace
+      path: /data/kubernetes.podspec-init-containers
+      value: enabled
+- target:
     kind: Image
     name: queue-proxy
     namespace: knative-serving

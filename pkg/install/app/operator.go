@@ -166,13 +166,6 @@ func (d *operatorDeployment) container() corev1.Container {
 
 	cmd = append(cmd, "-metadata-api-url", *core.Spec.MetadataAPI.URL)
 
-	if conf.ToolInjection != nil {
-		cmd = append(cmd,
-			"-trigger-tool-injection-pool",
-			conf.ToolInjection.TriggerPoolName,
-		)
-	}
-
 	c := corev1.Container{
 		Name:            "operator",
 		Image:           conf.Image,

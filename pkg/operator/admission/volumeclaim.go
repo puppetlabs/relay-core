@@ -33,35 +33,18 @@ func (eh *VolumeClaimHandler) Handle(ctx context.Context, req admission.Request)
 		return admission.Errored(http.StatusBadRequest, err)
 	}
 
-	if claim, ok := pod.ObjectMeta.GetAnnotations()[ToolsVolumeClaimAnnotation]; ok {
-		cs := make([]corev1.Container, 0)
-
-		updated := false
-		for _, c := range pod.Spec.Containers {
-			hasVolumeMount := false
-			for _, vm := range c.VolumeMounts {
-				if vm.Name == ToolsMountName {
-					hasVolumeMount = true
-					break
-				}
-			}
-
-			if !hasVolumeMount {
-				c.VolumeMounts = append(c.VolumeMounts, corev1.VolumeMount{
-					Name:      ToolsMountName,
-					MountPath: model.ToolsMountPath,
-					ReadOnly:  true,
-				})
-
-				updated = true
-			}
-
-			cs = append(cs, c)
-		}
-
-		if updated {
+	if _, ok := pod.ObjectMeta.GetAnnotations()[ToolsVolumeClaimAnnotation]; ok {
+		cs, updatedContainers := appendVolumeMountToContainers(pod.Spec.Containers, true)
+		if updatedContainers {
 			pod.Spec.Containers = cs
 		}
+
+		ics, updatedInitContainers := appendVolumeMountToContainers(pod.Spec.InitContainers, false)
+		if updatedInitContainers {
+			pod.Spec.InitContainers = ics
+		}
+
+		updated := updatedContainers || updatedInitContainers
 
 		hasVolume := false
 		for _, volume := range pod.Spec.Volumes {
@@ -75,10 +58,7 @@ func (eh *VolumeClaimHandler) Handle(ctx context.Context, req admission.Request)
 			pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
 				Name: ToolsMountName,
 				VolumeSource: corev1.VolumeSource{
-					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-						ClaimName: claim,
-						ReadOnly:  true,
-					},
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
 				},
 			})
 
@@ -113,4 +93,33 @@ func NewVolumeClaimHandler(opts ...VolumeClaimHandlerOption) *VolumeClaimHandler
 	}
 
 	return eh
+}
+
+func appendVolumeMountToContainers(containers []corev1.Container, readOnly bool) ([]corev1.Container, bool) {
+	cs := make([]corev1.Container, 0)
+
+	updated := false
+	for _, c := range containers {
+		hasVolumeMount := false
+		for _, vm := range c.VolumeMounts {
+			if vm.Name == ToolsMountName {
+				hasVolumeMount = true
+				break
+			}
+		}
+
+		if !hasVolumeMount {
+			c.VolumeMounts = append(c.VolumeMounts, corev1.VolumeMount{
+				Name:      ToolsMountName,
+				MountPath: model.ToolsMountPath,
+				ReadOnly:  readOnly,
+			})
+
+			updated = true
+		}
+
+		cs = append(cs, c)
+	}
+
+	return cs, updated
 }

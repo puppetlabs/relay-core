@@ -82,7 +82,7 @@ func ConfigureKnativeService(ctx context.Context, s *obj.KnativeService, wtd *We
 	}
 
 	// The revisions will be marked with a dependency reference as well as we
-	// need to track them to clean up stale checkouts.
+	// need to track them to clean up stale resources.
 	if err := DependencyManager.SetDependencyOf(
 		&template.ObjectMeta,
 		lifecycle.TypedObject{
@@ -97,6 +97,14 @@ func ConfigureKnativeService(ctx context.Context, s *obj.KnativeService, wtd *We
 		// Theoretically someone could write some socat action and use the
 		// Alpine image, so we leave this here for consistency.
 		image = model.DefaultImage
+	}
+
+	toolsContainer := corev1.Container{
+		Name:       ToolsWorkspaceName,
+		Image:      wtd.RuntimeToolsImage,
+		WorkingDir: "/",
+		Command:    []string{"cp"},
+		Args:       []string{"-r", model.ToolsSource, model.ToolsMountPath},
 	}
 
 	container := corev1.Container{
@@ -166,26 +174,17 @@ func ConfigureKnativeService(ctx context.Context, s *obj.KnativeService, wtd *We
 		args = []string{}
 	}
 
-	if wtd.ToolInjectionCheckout.Satisfied() {
-		ep, err := entrypoint.ImageEntrypoint(image, []string{command}, args)
-		if err != nil {
-			return err
-		}
-
-		container.Command = []string{path.Join(model.ToolsMountPath, ep.Entrypoint)}
-		container.Args = ep.Args
-
-		helper.Annotate(&template.ObjectMeta, admission.ToolsVolumeClaimAnnotation, wtd.ToolInjectionCheckout.Object.Spec.ClaimName)
-	} else {
-		if command != "" {
-			container.Command = []string{command}
-		}
-
-		if len(args) > 0 {
-			container.Args = args
-		}
+	ep, err := entrypoint.ImageEntrypoint(image, []string{command}, args)
+	if err != nil {
+		return err
 	}
 
+	container.Command = []string{path.Join(model.ToolsMountPath, ep.Entrypoint)}
+	container.Args = ep.Args
+
+	helper.Annotate(&template.ObjectMeta, admission.ToolsVolumeClaimAnnotation, model.ToolsMountName)
+
+	template.Spec.PodSpec.InitContainers = []corev1.Container{toolsContainer}
 	template.Spec.PodSpec.Containers = []corev1.Container{container}
 
 	if err := wtd.AnnotateTriggerToken(ctx, &template.ObjectMeta); err != nil {
