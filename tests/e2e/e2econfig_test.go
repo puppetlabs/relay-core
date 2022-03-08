@@ -58,7 +58,6 @@ type Config struct {
 	withWebhookTriggerReconciler  bool
 	withRunReconciler             bool
 	withPodEnforcementAdmission   bool
-	withVolumeClaimAdmission      bool
 }
 
 type ConfigOption func(cfg *Config)
@@ -115,15 +114,10 @@ func ConfigWithPodEnforcementAdmission(cfg *Config) {
 	cfg.withPodEnforcementAdmission = true
 }
 
-func ConfigWithVolumeClaimAdmission(cfg *Config) {
-	cfg.withVolumeClaimAdmission = true
-}
-
 func ConfigWithEverything(cfg *Config) {
 	ConfigWithMetadataAPI(cfg)
 	ConfigWithAllReconcilers(cfg)
 	ConfigWithPodEnforcementAdmission(cfg)
-	ConfigWithVolumeClaimAdmission(cfg)
 }
 
 type doConfigFunc func(t *testing.T, cfg *Config, next func())
@@ -310,18 +304,7 @@ func doConfigPodEnforcementAdmission(ctx context.Context) doConfigFunc {
 			admission.PodEnforcementHandlerWithStandaloneMode(true),
 			admission.PodEnforcementHandlerWithRuntimeClassName(cfg.Environment.GVisorRuntimeClassName),
 		}
-		testutil.WithPodEnforcementAdmissionRegistration(t, ctx, cfg.Environment, cfg.Manager, opts, nil, next)
-	}
-}
-
-func doConfigVolumeClaimAdmission(ctx context.Context) doConfigFunc {
-	return func(t *testing.T, cfg *Config, next func()) {
-		if !cfg.withVolumeClaimAdmission {
-			next()
-			return
-		}
-
-		testutil.WithVolumeClaimAdmissionRegistration(t, ctx, cfg.Environment, cfg.Manager, nil, cfg.LabelSelector, next)
+		testutil.WithPodEnforcementAdmissionRegistration(t, ctx, cfg.Environment, cfg.Manager, opts, cfg.LabelSelector, next)
 	}
 }
 
@@ -454,7 +437,6 @@ func WithConfig(t *testing.T, ctx context.Context, opts []ConfigOption, fn func(
 				doConfigDependencyManager(ctx),
 				doConfigReconcilers,
 				doConfigPodEnforcementAdmission(ctx),
-				doConfigVolumeClaimAdmission(ctx),
 				doConfigLifecycle,
 				doConfigUser(fn),
 				doConfigCleanup,

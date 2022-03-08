@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/puppetlabs/leg/k8sutil/pkg/test/endtoend"
 	_ "github.com/puppetlabs/leg/storage/file"
 	"github.com/puppetlabs/leg/timeutil/pkg/backoff"
@@ -75,17 +74,8 @@ func TestWebhookTriggerServesResponse(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	labels := map[string]string{
-		"volume-claim-label-selector": uuid.New().String(),
-	}
 	WithConfig(t, ctx, []ConfigOption{
-		ConfigWithLabelSelector(
-			&metav1.LabelSelector{
-				MatchLabels: labels,
-			},
-		),
 		ConfigWithWebhookTriggerReconciler,
-		ConfigWithVolumeClaimAdmission,
 	}, func(cfg *Config) {
 		tn := &relayv1beta1.Tenant{
 			ObjectMeta: metav1.ObjectMeta{
@@ -95,8 +85,7 @@ func TestWebhookTriggerServesResponse(t *testing.T) {
 			Spec: relayv1beta1.TenantSpec{
 				NamespaceTemplate: relayv1beta1.NamespaceTemplate{
 					Metadata: metav1.ObjectMeta{
-						Labels: labels,
-						Name:   fmt.Sprintf("%s-child", cfg.Namespace.GetName()),
+						Name: fmt.Sprintf("%s-child", cfg.Namespace.GetName()),
 					},
 				},
 			},
@@ -132,17 +121,8 @@ func TestWebhookTriggerScript(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	labels := map[string]string{
-		"volume-claim-label-selector": uuid.New().String(),
-	}
 	WithConfig(t, ctx, []ConfigOption{
-		ConfigWithLabelSelector(
-			&metav1.LabelSelector{
-				MatchLabels: labels,
-			},
-		),
 		ConfigWithWebhookTriggerReconciler,
-		ConfigWithVolumeClaimAdmission,
 	}, func(cfg *Config) {
 		tn := &relayv1beta1.Tenant{
 			ObjectMeta: metav1.ObjectMeta{
@@ -152,8 +132,7 @@ func TestWebhookTriggerScript(t *testing.T) {
 			Spec: relayv1beta1.TenantSpec{
 				NamespaceTemplate: relayv1beta1.NamespaceTemplate{
 					Metadata: metav1.ObjectMeta{
-						Labels: labels,
-						Name:   fmt.Sprintf("%s-child", cfg.Namespace.GetName()),
+						Name: fmt.Sprintf("%s-child", cfg.Namespace.GetName()),
 					},
 				},
 			},
@@ -186,7 +165,7 @@ func TestWebhookTriggerScript(t *testing.T) {
 }
 
 func TestWebhookTriggerHasAccessToMetadataAPI(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
 	var reqs int
@@ -210,19 +189,10 @@ func TestWebhookTriggerHasAccessToMetadataAPI(t *testing.T) {
 	}))
 	defer s.Close()
 
-	labels := map[string]string{
-		"volume-claim-label-selector": uuid.New().String(),
-	}
 	WithConfig(t, ctx, []ConfigOption{
-		ConfigWithLabelSelector(
-			&metav1.LabelSelector{
-				MatchLabels: labels,
-			},
-		),
 		ConfigWithMetadataAPI,
 		ConfigWithTenantReconciler,
 		ConfigWithWebhookTriggerReconciler,
-		ConfigWithVolumeClaimAdmission,
 	}, func(cfg *Config) {
 		// Set a secret and connection for this webhook trigger to look up.
 		cfg.Vault.SetSecret(t, "my-tenant-id", "foo", "Hello")
@@ -247,8 +217,7 @@ func TestWebhookTriggerHasAccessToMetadataAPI(t *testing.T) {
 				},
 				NamespaceTemplate: relayv1beta1.NamespaceTemplate{
 					Metadata: metav1.ObjectMeta{
-						Labels: labels,
-						Name:   fmt.Sprintf("%s-child", cfg.Namespace.GetName()),
+						Name: fmt.Sprintf("%s-child", cfg.Namespace.GetName()),
 					},
 				},
 			},
@@ -406,17 +375,8 @@ func TestWebhookTriggerTenantUpdatePropagation(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
-	labels := map[string]string{
-		"volume-claim-label-selector": uuid.New().String(),
-	}
 	WithConfig(t, ctx, []ConfigOption{
-		ConfigWithLabelSelector(
-			&metav1.LabelSelector{
-				MatchLabels: labels,
-			},
-		),
 		ConfigWithWebhookTriggerReconciler,
-		ConfigWithVolumeClaimAdmission,
 	}, func(cfg *Config) {
 		child1 := fmt.Sprintf("%s-child-1", cfg.Namespace.GetName())
 		child2 := fmt.Sprintf("%s-child-2", cfg.Namespace.GetName())
@@ -429,8 +389,7 @@ func TestWebhookTriggerTenantUpdatePropagation(t *testing.T) {
 			Spec: relayv1beta1.TenantSpec{
 				NamespaceTemplate: relayv1beta1.NamespaceTemplate{
 					Metadata: metav1.ObjectMeta{
-						Labels: labels,
-						Name:   child1,
+						Name: child1,
 					},
 				},
 			},
@@ -476,8 +435,7 @@ func TestWebhookTriggerTenantUpdatePropagation(t *testing.T) {
 		Mutate(t, ctx, cfg, tn, func() {
 			tn.Spec.NamespaceTemplate = relayv1beta1.NamespaceTemplate{
 				Metadata: metav1.ObjectMeta{
-					Labels: labels,
-					Name:   child2,
+					Name: child2,
 				},
 			}
 		})
@@ -500,17 +458,8 @@ func TestWebhookTriggerDeletionAfterTenantDeletion(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
-	labels := map[string]string{
-		"volume-claim-label-selector": uuid.New().String(),
-	}
 	WithConfig(t, ctx, []ConfigOption{
-		ConfigWithLabelSelector(
-			&metav1.LabelSelector{
-				MatchLabels: labels,
-			},
-		),
 		ConfigWithWebhookTriggerReconciler,
-		ConfigWithVolumeClaimAdmission,
 	}, func(cfg *Config) {
 		tn := &relayv1beta1.Tenant{
 			ObjectMeta: metav1.ObjectMeta{
@@ -520,8 +469,7 @@ func TestWebhookTriggerDeletionAfterTenantDeletion(t *testing.T) {
 			Spec: relayv1beta1.TenantSpec{
 				NamespaceTemplate: relayv1beta1.NamespaceTemplate{
 					Metadata: metav1.ObjectMeta{
-						Labels: labels,
-						Name:   fmt.Sprintf("%s-child", cfg.Namespace.GetName()),
+						Name: fmt.Sprintf("%s-child", cfg.Namespace.GetName()),
 					},
 				},
 			},
@@ -562,17 +510,8 @@ func TestWebhookTriggerKnativeRevisions(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
-	labels := map[string]string{
-		"volume-claim-label-selector": uuid.New().String(),
-	}
 	WithConfig(t, ctx, []ConfigOption{
-		ConfigWithLabelSelector(
-			&metav1.LabelSelector{
-				MatchLabels: labels,
-			},
-		),
 		ConfigWithWebhookTriggerReconciler,
-		ConfigWithVolumeClaimAdmission,
 	}, func(cfg *Config) {
 		tn := &relayv1beta1.Tenant{
 			ObjectMeta: metav1.ObjectMeta{
@@ -582,8 +521,7 @@ func TestWebhookTriggerKnativeRevisions(t *testing.T) {
 			Spec: relayv1beta1.TenantSpec{
 				NamespaceTemplate: relayv1beta1.NamespaceTemplate{
 					Metadata: metav1.ObjectMeta{
-						Labels: labels,
-						Name:   fmt.Sprintf("%s-child", cfg.Namespace.GetName()),
+						Name: fmt.Sprintf("%s-child", cfg.Namespace.GetName()),
 					},
 				},
 			},
@@ -658,7 +596,6 @@ func TestWebhookTriggerInGVisor(t *testing.T) {
 	WithConfig(t, ctx, []ConfigOption{
 		ConfigWithWebhookTriggerReconciler,
 		ConfigWithPodEnforcementAdmission,
-		ConfigWithVolumeClaimAdmission,
 	}, func(cfg *Config) {
 		if cfg.Environment.GVisorRuntimeClassName == "" {
 			t.Skip("gVisor is not available on this platform")
