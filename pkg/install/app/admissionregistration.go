@@ -11,66 +11,73 @@ func ConfigureOperatorWebhookConfiguration(od *OperatorDeps, mwc *admissionregis
 	var (
 		podEnforcementPath = "/mutate/pod-enforcement"
 		volumeClaimPath    = "/mutate/volume-claim"
+	)
+
+	oc := od.Core.Object.Spec.Operator
+	aws := oc.AdmissionWebhookServer
+
+	mutatingWebhooks := make(map[string]*admissionv1.MutatingWebhook)
+	for _, mw := range mwc.Object.Webhooks {
+		mutatingWebhooks[mw.Name] = mw.DeepCopy()
+	}
+
+	podEnforcementName := fmt.Sprintf("%s-pod-enforcement.%s", mwc.Name, aws.Domain)
+	volumeClaimName := fmt.Sprintf("%s-volume-claim.%s", mwc.Name, aws.Domain)
+	paths := map[string]*string{
+		podEnforcementName: &podEnforcementPath,
+		volumeClaimName:    &volumeClaimPath,
+	}
+
+	for name, path := range paths {
+		mutatingWebhook, ok := mutatingWebhooks[name]
+		if !ok {
+			mutatingWebhook = &admissionv1.MutatingWebhook{}
+		}
+
+		ConfigureMutatingWebhook(od, mutatingWebhook, name, path)
+
+		mutatingWebhooks[name] = mutatingWebhook
+	}
+
+	mwc.Object.Webhooks = []admissionv1.MutatingWebhook{
+		*mutatingWebhooks[podEnforcementName],
+		*mutatingWebhooks[volumeClaimName],
+	}
+}
+
+func ConfigureMutatingWebhook(od *OperatorDeps, mw *admissionv1.MutatingWebhook, name string, path *string) {
+	var (
 		failurePolicy      = admissionv1.Fail
 		sideEffects        = admissionv1.SideEffectClassNone
 		reinvocationPolicy = admissionv1.IfNeededReinvocationPolicy
 	)
 
 	oc := od.Core.Object.Spec.Operator
-	aws := oc.AdmissionWebhookServer
 
-	mwc.Object.Webhooks = []admissionv1.MutatingWebhook{
+	mw.AdmissionReviewVersions = []string{"v1", "v1beta1"}
+	mw.Name = name
+
+	mw.ClientConfig.Service = &admissionv1.ServiceReference{
+		Name:      od.WebhookService.Key.Name,
+		Namespace: od.WebhookService.Key.Namespace,
+		Path:      path,
+	}
+
+	mw.Rules = []admissionv1.RuleWithOperations{
 		{
-			AdmissionReviewVersions: []string{"v1", "v1beta1"},
-			Name:                    fmt.Sprintf("%s-pod-enforcement.%s", mwc.Name, aws.Domain),
-			ClientConfig: admissionv1.WebhookClientConfig{
-				Service: &admissionv1.ServiceReference{
-					Name:      od.WebhookService.Key.Name,
-					Namespace: od.WebhookService.Key.Namespace,
-					Path:      &podEnforcementPath,
-				},
+			Operations: []admissionv1.OperationType{
+				admissionv1.Create, admissionv1.Update,
 			},
-			Rules: []admissionv1.RuleWithOperations{
-				{
-					Operations: []admissionv1.OperationType{
-						admissionv1.Create, admissionv1.Update,
-					},
-					Rule: admissionv1.Rule{
-						APIGroups:   []string{""},
-						APIVersions: []string{"v1"},
-						Resources:   []string{"pods"},
-					},
-				},
+			Rule: admissionv1.Rule{
+				APIGroups:   []string{""},
+				APIVersions: []string{"v1"},
+				Resources:   []string{"pods"},
 			},
-			FailurePolicy:      &failurePolicy,
-			SideEffects:        &sideEffects,
-			ReinvocationPolicy: &reinvocationPolicy,
-			NamespaceSelector:  oc.AdmissionWebhookServer.NamespaceSelector,
-		},
-		{
-			AdmissionReviewVersions: []string{"v1", "v1beta1"},
-			Name:                    fmt.Sprintf("%s-volume-claim.%s", mwc.Name, aws.Domain),
-			ClientConfig: admissionv1.WebhookClientConfig{
-				Service: &admissionv1.ServiceReference{
-					Name:      od.WebhookService.Key.Name,
-					Namespace: od.WebhookService.Key.Namespace,
-					Path:      &volumeClaimPath,
-				},
-			},
-			Rules: []admissionv1.RuleWithOperations{
-				{
-					Operations: []admissionv1.OperationType{admissionv1.Create, admissionv1.Update},
-					Rule: admissionv1.Rule{
-						APIGroups:   []string{""},
-						APIVersions: []string{"v1"},
-						Resources:   []string{"pods"},
-					},
-				},
-			},
-			FailurePolicy:      &failurePolicy,
-			SideEffects:        &sideEffects,
-			ReinvocationPolicy: &reinvocationPolicy,
-			NamespaceSelector:  oc.AdmissionWebhookServer.NamespaceSelector,
 		},
 	}
+
+	mw.FailurePolicy = &failurePolicy
+	mw.SideEffects = &sideEffects
+	mw.ReinvocationPolicy = &reinvocationPolicy
+	mw.NamespaceSelector = oc.AdmissionWebhookServer.NamespaceSelector
 }
