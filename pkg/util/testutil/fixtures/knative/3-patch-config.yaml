@@ -21,3 +21,4 @@ metadata:
   name: config-features
 data:
   kubernetes.podspec-init-containers: enabled
+  kubernetes.podspec-volumes-emptydir: enabled

@@ -27,6 +27,9 @@ patches:
     - op: replace
       path: /data/kubernetes.podspec-init-containers
       value: enabled
+    - op: replace
+      path: /data/kubernetes.podspec-volumes-emptydir
+      value: enabled
 - target:
     kind: Image
     name: queue-proxy
