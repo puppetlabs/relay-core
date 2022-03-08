@@ -100,11 +100,9 @@ func ConfigurePipelineParts(ctx context.Context, p *PipelineParts) error {
 		return err
 	}
 
-	if p.Deps.ToolInjectionCheckout.Satisfied() {
-		p.Pipeline.SetWorkspace(tektonv1beta1.PipelineWorkspaceDeclaration{
-			Name: ToolsWorkspaceName,
-		})
-	}
+	p.Pipeline.SetWorkspace(tektonv1beta1.PipelineWorkspaceDeclaration{
+		Name: ToolsWorkspaceName,
+	})
 
 	p.Pipeline.Object.Spec.Tasks = make([]tektonv1beta1.PipelineTask, 0, len(p.Tasks.List))
 
@@ -130,13 +128,11 @@ func ConfigurePipelineParts(ctx context.Context, p *PipelineParts) error {
 			}
 		}
 
-		if p.Deps.ToolInjectionCheckout.Satisfied() {
-			pt.Workspaces = []tektonv1beta1.WorkspacePipelineTaskBinding{
-				{
-					Name:      ToolsWorkspaceName,
-					Workspace: ToolsWorkspaceName,
-				},
-			}
+		pt.Workspaces = []tektonv1beta1.WorkspacePipelineTaskBinding{
+			{
+				Name:      ToolsWorkspaceName,
+				Workspace: ToolsWorkspaceName,
+			},
 		}
 
 		p.Pipeline.Object.Spec.Tasks = append(p.Pipeline.Object.Spec.Tasks, pt)
