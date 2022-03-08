@@ -61,7 +61,6 @@ func main() {
 	sentryDSN := fs.String("sentry-dsn", "", "the Sentry DSN to use for error reporting")
 	dynamicRBACBinding := fs.Bool("dynamic-rbac-binding", false, "enable if RBAC rules are set up dynamically for the operator to reduce unhelpful reported errors")
 	triggerToolInjectionPool := fs.String("trigger-tool-injection-pool", "", "the name of a PVPool pool to use for injecting tools into trigger containers")
-	workflowToolInjectionPool := fs.String("workflow-tool-injection-pool", "", "the name of a PVPool pool to use for injecting tools into workflow containers")
 
 	fs.Parse(os.Args[1:])
 
@@ -170,7 +169,6 @@ func main() {
 	}
 
 	cfg.TriggerToolInjectionPool = splitNamespacedName(triggerToolInjectionPool)
-	cfg.WorkflowToolInjectionPool = splitNamespacedName(workflowToolInjectionPool)
 
 	dm, err := dependency.NewDependencyManager(cfg, kcc, vc, jwtSigner, blobStore, mets)
 	if err != nil {

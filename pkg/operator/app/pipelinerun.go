@@ -47,16 +47,11 @@ func ConfigurePipelineRun(ctx context.Context, pr *obj.PipelineRun, pp *Pipeline
 		},
 	}
 
-	if pp.Deps.ToolInjectionCheckout.Satisfied() {
-		pr.Object.Spec.Workspaces = []tektonv1beta1.WorkspaceBinding{
-			{
-				Name: ToolsWorkspaceName,
-				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: pp.Deps.ToolInjectionCheckout.Object.Spec.ClaimName,
-					ReadOnly:  true,
-				},
-			},
-		}
+	pr.Object.Spec.Workspaces = []tektonv1beta1.WorkspaceBinding{
+		{
+			Name:     ToolsWorkspaceName,
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
 	}
 
 	if pp.Deps.Run.IsCancelled() {
