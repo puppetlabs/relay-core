@@ -3,14 +3,17 @@ package api
 import (
 	goerrors "errors"
 	"net/http"
+	"time"
 
+	"github.com/google/uuid"
 	utilapi "github.com/puppetlabs/leg/httputil/api"
 	"github.com/puppetlabs/leg/instrumentation/alerts/trackers"
 	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
-	"github.com/puppetlabs/relay-core/pkg/expr/model"
+	expression "github.com/puppetlabs/relay-core/pkg/expr/model"
 	"github.com/puppetlabs/relay-core/pkg/manager/resolve"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/errors"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/middleware"
+	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/util/image"
 	"github.com/puppetlabs/relay-core/pkg/workflow/validation"
 )
@@ -22,6 +25,7 @@ func (s *Server) PostValidate(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 
 		managers := middleware.Managers(r)
+		sm := managers.StepMessages()
 
 		spec, err := managers.Spec().Get(ctx)
 		if err != nil {
@@ -37,14 +41,14 @@ func (s *Server) PostValidate(w http.ResponseWriter, r *http.Request) {
 			evaluate.WithOutputTypeResolver{OutputTypeResolver: resolve.NewOutputTypeResolver(managers.StepOutputs())},
 		)
 
-		rv, err := model.EvaluateAll(ctx, ev, spec.Tree)
+		rv, err := expression.EvaluateAll(ctx, ev, spec.Tree)
 		if err != nil {
 			utilapi.WriteError(ctx, w, errors.NewExpressionEvaluationError(err.Error()))
 
 			return
 		}
 
-		env := model.NewJSONResultEnvelope(rv)
+		env := expression.NewJSONResultEnvelope(rv)
 
 		if env.Complete {
 			am, err := managers.ActionMetadata().Get(ctx)
@@ -68,7 +72,7 @@ func (s *Server) PostValidate(w http.ResponseWriter, r *http.Request) {
 				repo := repository.RepositoryStr()
 				capture = capture.WithTags(trackers.Tag{Key: "relay.spec.validation-error", Value: repo})
 
-				var captureErr error
+				var captureErr errors.Error
 
 				schema, err := s.schemaRegistry.GetByImage(ref)
 				if err != nil {
@@ -83,6 +87,17 @@ func (s *Server) PostValidate(w http.ResponseWriter, r *http.Request) {
 				}
 
 				if captureErr != nil {
+					stepMessage := &model.StepMessage{
+						ID:      uuid.NewString(),
+						Details: captureErr.Error(),
+						Time:    time.Now(),
+						SchemaValidationResult: &model.SchemaValidationResult{
+							Expression: spec.Tree,
+						},
+					}
+
+					_ = sm.Set(ctx, stepMessage)
+
 					report := capture.Capture(captureErr)
 					report.AsWarning().Report(ctx)
 				}
