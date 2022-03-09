@@ -17,6 +17,7 @@ type metadataManagers struct {
 	spec           model.SpecGetterManager
 	state          model.StateGetterManager
 	stepDecorators model.StepDecoratorManager
+	stepMessages   model.StepMessageManager
 	stepOutputs    model.StepOutputManager
 	workflowRuns   model.WorkflowRunManager
 	timers         model.TimerSetterManager
@@ -68,6 +69,10 @@ func (mm *metadataManagers) StepDecorators() model.StepDecoratorManager {
 	return mm.stepDecorators
 }
 
+func (mm *metadataManagers) StepMessages() model.StepMessageManager {
+	return mm.stepMessages
+}
+
 func (mm *metadataManagers) StepOutputs() model.StepOutputManager {
 	return mm.stepOutputs
 }
@@ -92,6 +97,7 @@ type MetadataBuilder struct {
 	spec           model.SpecGetterManager
 	state          model.StateGetterManager
 	stepDecorators model.StepDecoratorManager
+	stepMessages   model.StepMessageManager
 	stepOutputs    model.StepOutputManager
 	workflowRuns   model.WorkflowRunManager
 	timers         model.TimerSetterManager
@@ -152,6 +158,11 @@ func (mb *MetadataBuilder) SetStepDecorators(m model.StepDecoratorManager) *Meta
 	return mb
 }
 
+func (mb *MetadataBuilder) SetStepMessages(m model.StepMessageManager) *MetadataBuilder {
+	mb.stepMessages = m
+	return mb
+}
+
 func (mb *MetadataBuilder) SetStepOutputs(m model.StepOutputManager) *MetadataBuilder {
 	mb.stepOutputs = m
 	return mb
@@ -180,6 +191,7 @@ func (mb *MetadataBuilder) Build() model.MetadataManagers {
 		spec:           mb.spec,
 		state:          mb.state,
 		stepDecorators: mb.stepDecorators,
+		stepMessages:   mb.stepMessages,
 		stepOutputs:    mb.stepOutputs,
 		workflowRuns:   mb.workflowRuns,
 		timers:         mb.timers,
@@ -199,6 +211,7 @@ func NewMetadataBuilder() *MetadataBuilder {
 		spec:           reject.SpecManager,
 		state:          reject.StateManager,
 		stepDecorators: reject.StepDecoratorManager,
+		stepMessages:   reject.StepMessageManager,
 		stepOutputs:    reject.StepOutputManager,
 		workflowRuns:   reject.WorkflowRunManager,
 		timers:         reject.TimerManager,

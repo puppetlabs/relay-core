@@ -3,13 +3,17 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"time"
 
+	"github.com/google/uuid"
 	utilapi "github.com/puppetlabs/leg/httputil/api"
 	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
-	"github.com/puppetlabs/relay-core/pkg/expr/model"
+	expression "github.com/puppetlabs/relay-core/pkg/expr/model"
+	"github.com/puppetlabs/relay-core/pkg/expr/parse"
 	"github.com/puppetlabs/relay-core/pkg/manager/resolve"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/errors"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/middleware"
+	"github.com/puppetlabs/relay-core/pkg/model"
 )
 
 type GetConditionsResponseEnvelope struct {
@@ -24,7 +28,7 @@ func (s *Server) GetConditions(w http.ResponseWriter, r *http.Request) {
 	managers := middleware.Managers(r)
 	cm := managers.Conditions()
 
-	cond, err := cm.Get(ctx)
+	condition, err := cm.Get(ctx)
 	if err != nil {
 		utilapi.WriteError(ctx, w, ModelReadError(err))
 		return
@@ -38,9 +42,11 @@ func (s *Server) GetConditions(w http.ResponseWriter, r *http.Request) {
 		evaluate.WithAnswerTypeResolver{AnswerTypeResolver: resolve.NewAnswerTypeResolver(managers.State())},
 	)
 
-	rv, rerr := model.EvaluateAll(ctx, ev, cond.Tree)
+	rv, rerr := expression.EvaluateAll(ctx, ev, condition.Tree)
 	if rerr != nil {
-		utilapi.WriteError(ctx, w, errors.NewExpressionEvaluationError(rerr.Error()))
+		err := errors.NewExpressionEvaluationError(rerr.Error())
+		addStepMessage(r, err, condition.Tree)
+		utilapi.WriteError(ctx, w, err)
 		return
 	}
 
@@ -55,7 +61,9 @@ check:
 			result, ok := cond.(bool)
 			if !ok {
 				if rv.Complete() {
-					utilapi.WriteError(ctx, w, errors.NewConditionTypeError(fmt.Sprintf("%T", cond)))
+					err := errors.NewConditionTypeError(fmt.Sprintf("%T", cond))
+					addStepMessage(r, err, condition.Tree)
+					utilapi.WriteError(ctx, w, err)
 					return
 				}
 				continue
@@ -68,7 +76,9 @@ check:
 		}
 	default:
 		if rv.Complete() {
-			utilapi.WriteError(ctx, w, errors.NewConditionTypeError(fmt.Sprintf("%T", vt)))
+			err := errors.NewConditionTypeError(fmt.Sprintf("%T", vt))
+			addStepMessage(r, err, condition.Tree)
+			utilapi.WriteError(ctx, w, err)
 			return
 		}
 	}
@@ -89,7 +99,7 @@ check:
 	// Not being complete means there are unresolved "expressions" for this tree. These can include
 	// parameters, outputs, secrets, etc.
 	if !rv.Complete() {
-		uerr, ok := rv.Unresolvable.AsError().(*model.UnresolvableError)
+		uerr, ok := rv.Unresolvable.AsError().(*expression.UnresolvableError)
 		if !ok {
 			// This should never happen.
 			utilapi.WriteError(ctx, w, errors.NewModelReadError().WithCause(uerr).Bug())
@@ -109,4 +119,22 @@ check:
 	resp.Message = "all checks passed"
 
 	utilapi.WriteObjectOK(ctx, w, resp)
+}
+
+func addStepMessage(r *http.Request, err errors.Error, condition parse.Tree) {
+	ctx := r.Context()
+
+	managers := middleware.Managers(r)
+	sm := managers.StepMessages()
+
+	stepMessage := &model.StepMessage{
+		ID:      uuid.NewString(),
+		Details: err.Error(),
+		Time:    time.Now(),
+		ConditionEvaluationResult: &model.ConditionEvaluationResult{
+			Expression: condition,
+		},
+	}
+
+	_ = sm.Set(ctx, stepMessage)
 }
