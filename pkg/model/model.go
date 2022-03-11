@@ -4,9 +4,11 @@ const (
 	DefaultImage   = "alpine:latest"
 	DefaultCommand = "echo"
 
-	// TODO All tool injection settings should be fully configurable
-
+	// TODO Consider configuration options for runtime tools
+	ToolsImage     = "relaysh/relay-runtime-tools:latest"
+	ToolsMountName = "relay-tools"
 	ToolsMountPath = "/var/lib/puppet/relay"
+	ToolsSource    = "/relay/runtime/tools/."
 )
 
 const (
@@ -45,6 +47,7 @@ type MetadataManagers interface {
 	Timers() TimerSetterManager
 	ActionMetadata() ActionMetadataManager
 	StepDecorators() StepDecoratorManager
+	StepMessages() StepMessageManager
 	StepOutputs() StepOutputManager
 	WorkflowRuns() WorkflowRunManager
 }

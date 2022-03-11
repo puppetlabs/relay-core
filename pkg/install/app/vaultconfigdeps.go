@@ -79,15 +79,13 @@ func (vcd *VaultConfigDeps) Configure(ctx context.Context) error {
 	}
 
 	objs := []obj.Configurable{
-		vcd.VaultServerBuiltInConfigDeps,
+		obj.IgnoreNilConfigurable{Configurable: vcd.VaultServerBuiltInConfigDeps},
 		vcd.VaultEngineConfigDeps,
 	}
 
 	for _, obj := range objs {
-		if obj != nil {
-			if err := obj.Configure(ctx); err != nil {
-				return err
-			}
+		if err := obj.Configure(ctx); err != nil {
+			return err
 		}
 	}
 

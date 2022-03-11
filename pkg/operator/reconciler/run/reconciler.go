@@ -10,7 +10,6 @@ import (
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/errhandler"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	"github.com/puppetlabs/leg/storage"
-	pvpoolv1alpha1 "github.com/puppetlabs/pvpool/pkg/apis/pvpool.puppet.com/v1alpha1"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
 	"github.com/puppetlabs/relay-core/pkg/model"
@@ -75,11 +74,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		run,
 		r.issuer,
 		r.Config.MetadataAPIURL,
+		app.RunDepsWithRuntimeToolsImage(r.Config.RuntimeToolsImage),
 		app.RunDepsWithStandaloneMode(r.Config.Standalone),
-		app.RunDepsWithToolInjectionPool(pvpoolv1alpha1.PoolReference{
-			Namespace: r.Config.WorkflowToolInjectionPool.Namespace,
-			Name:      r.Config.WorkflowToolInjectionPool.Name,
-		}),
 	)
 
 	loaded, err := rd.Load(ctx, r.Client)

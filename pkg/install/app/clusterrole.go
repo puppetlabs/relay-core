@@ -35,11 +35,6 @@ func ConfigureOperatorClusterRole(cr *rbacv1obj.ClusterRole) {
 			Verbs:     []string{"get", "list", "watch"},
 		},
 		{
-			APIGroups: []string{"pvpool.puppet.com"},
-			Resources: []string{"checkouts"},
-			Verbs:     []string{"get", "list", "watch"},
-		},
-		{
 			APIGroups: []string{"relay.sh"},
 			Resources: []string{"runs", "runs/status", "tenants", "tenants/status", "webhooktriggers", "webhooktriggers/status", "workflows", "workflows/status"},
 			Verbs:     []string{"get", "list", "watch", "update", "patch"},

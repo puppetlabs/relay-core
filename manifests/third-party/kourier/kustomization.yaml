@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- https://github.com/knative-sandbox/net-kourier/releases/download/knative-v1.1.0/kourier.yaml
+
+patches:
+- target:
+    kind: Service
+    name: kourier
+    namespace: kourier-system
+  path: delete-service.yaml

@@ -138,138 +138,6 @@ func waitForStepPodIP(t *testing.T, ctx context.Context, cfg *Config, r *relayv1
 	return pod
 }
 
-func TestRunWithTenantToolInjection(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
-
-	WithConfig(t, ctx, []ConfigOption{
-		ConfigWithMetadataAPI,
-		ConfigWithTenantReconciler,
-		ConfigWithRunReconciler,
-		ConfigWithVolumeClaimAdmission,
-	}, func(cfg *Config) {
-
-		tests := []struct {
-			Name           string
-			StepDefinition *relayv1beta1.Step
-		}{
-			{
-				Name: "input",
-				StepDefinition: &relayv1beta1.Step{
-					Name: "my-test-step",
-					Container: relayv1beta1.Container{
-						Image: "alpine:latest",
-						Input: []string{
-							"ls -la " + model.ToolsMountPath,
-						},
-					},
-				},
-			},
-			{
-				Name: "command",
-				StepDefinition: &relayv1beta1.Step{
-					Name: "my-test-step",
-					Container: relayv1beta1.Container{
-						Image:   "alpine:latest",
-						Command: "ls",
-						Args:    []string{"-la", model.ToolsMountPath},
-					},
-				},
-			},
-		}
-
-		for _, test := range tests {
-			t.Run(test.Name, func(t *testing.T) {
-
-				tenant := &relayv1beta1.Tenant{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: cfg.Namespace.GetName(),
-						Name:      "tenant-" + uuid.NewString(),
-					},
-					Spec: relayv1beta1.TenantSpec{
-						ToolInjection: relayv1beta1.ToolInjection{
-							VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
-								Spec: corev1.PersistentVolumeClaimSpec{
-									AccessModes: []corev1.PersistentVolumeAccessMode{
-										corev1.ReadOnlyMany,
-									},
-								},
-							},
-						},
-					},
-				}
-
-				CreateAndWaitForTenant(t, ctx, cfg, tenant)
-
-				var ns corev1.Namespace
-				require.Equal(t, cfg.Namespace.GetName(), tenant.Status.Namespace)
-				require.NoError(t, cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: tenant.Status.Namespace}, &ns))
-
-				value := relayv1beta1.AsUnstructured("World!")
-				w := &relayv1beta1.Workflow{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      uuid.NewString(),
-						Namespace: ns.GetName(),
-					},
-					Spec: relayv1beta1.WorkflowSpec{
-						Parameters: []*relayv1beta1.Parameter{
-							{
-								Name:  "Hello",
-								Value: &value,
-							},
-						},
-						Steps: []*relayv1beta1.Step{test.StepDefinition},
-						TenantRef: corev1.LocalObjectReference{
-							Name: tenant.GetName(),
-						},
-					},
-				}
-				require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, w))
-
-				r := &relayv1beta1.Run{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: tenant.Status.Namespace,
-						Name:      uuid.NewString(),
-						Annotations: map[string]string{
-							model.RelayVaultEngineMountAnnotation:    cfg.Vault.SecretsPath,
-							model.RelayVaultConnectionPathAnnotation: "connections/my-domain-id",
-							model.RelayVaultSecretPathAnnotation:     "workflows/" + tenant.GetName(),
-							model.RelayDomainIDAnnotation:            "my-domain-id",
-							model.RelayTenantIDAnnotation:            tenant.GetName(),
-						},
-					},
-					Spec: relayv1beta1.RunSpec{
-						WorkflowRef: corev1.LocalObjectReference{
-							Name: w.GetName(),
-						},
-					},
-				}
-				require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, r))
-
-				pod := waitForStepPodToComplete(t, ctx, cfg, r, "my-test-step")
-				require.Equal(t, corev1.PodSucceeded, pod.Status.Phase)
-
-				podLogOptions := &corev1.PodLogOptions{
-					Container: "step-step",
-				}
-
-				logs := cfg.Environment.StaticClient.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, podLogOptions)
-				podLogs, err := logs.Stream(ctx)
-				require.NoError(t, err)
-				defer podLogs.Close()
-
-				buf := new(bytes.Buffer)
-				_, err = io.Copy(buf, podLogs)
-				require.NoError(t, err)
-
-				str := buf.String()
-
-				require.Contains(t, str, model.EntrypointCommand)
-			})
-		}
-	})
-}
-
 // TestRun tests that an instance of the controller, when given a run to
 // process, correctly sets up a Tekton pipeline and that the resulting pipeline
 // should be able to access a metadata API service.
@@ -317,9 +185,7 @@ func TestRun(t *testing.T) {
 				Namespace: cfg.Namespace.GetName(),
 				Name:      "tenant-" + uuid.NewString(),
 			},
-			Spec: relayv1beta1.TenantSpec{
-				ToolInjection: relayv1beta1.ToolInjection{},
-			},
+			Spec: relayv1beta1.TenantSpec{},
 		}
 
 		CreateAndWaitForTenant(t, ctx, cfg, tenant)
@@ -609,9 +475,7 @@ func TestRunWithoutSteps(t *testing.T) {
 				Namespace: cfg.Namespace.GetName(),
 				Name:      "tenant-" + uuid.NewString(),
 			},
-			Spec: relayv1beta1.TenantSpec{
-				ToolInjection: relayv1beta1.ToolInjection{},
-			},
+			Spec: relayv1beta1.TenantSpec{},
 		}
 
 		CreateAndWaitForTenant(t, ctx, cfg, tenant)
@@ -698,9 +562,7 @@ func TestRunStepInitTime(t *testing.T) {
 				Namespace: cfg.Namespace.GetName(),
 				Name:      "tenant-" + uuid.NewString(),
 			},
-			Spec: relayv1beta1.TenantSpec{
-				ToolInjection: relayv1beta1.ToolInjection{},
-			},
+			Spec: relayv1beta1.TenantSpec{},
 		}
 
 		CreateAndWaitForTenant(t, ctx, cfg, tenant)
@@ -826,9 +688,7 @@ func TestRunInGVisor(t *testing.T) {
 						Namespace: cfg.Namespace.GetName(),
 						Name:      "tenant-" + uuid.NewString(),
 					},
-					Spec: relayv1beta1.TenantSpec{
-						ToolInjection: relayv1beta1.ToolInjection{},
-					},
+					Spec: relayv1beta1.TenantSpec{},
 				}
 
 				CreateAndWaitForTenant(t, ctx, cfg, tenant)

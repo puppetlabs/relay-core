@@ -1,20 +1,29 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: controller
-  labels:
-    app.kubernetes.io/component: controller
+  name: relay-installer
+  namespace: relay-system
 spec:
   selector:
     matchLabels:
       app.kubernetes.io/component: controller
+      app.kubernetes.io/name: relay-installer
   template:
     metadata:
       labels:
         app.kubernetes.io/component: controller
+        app.kubernetes.io/name: relay-installer
     spec:
-      serviceAccountName: controller
       containers:
-      - name: controller
-        image: "relaysh/relay-install-operator:latest"
-        imagePullPolicy: Always
+      - image: relaysh/relay-installer:latest
+        imagePullPolicy: IfNotPresent
+        name: controller
+        resources:
+          limits:
+            cpu: 50m
+            memory: 64Mi
+          requests:
+            cpu: 25m
+            memory: 32Mi
+      serviceAccount: relay-install-operator
+      serviceAccountName: relay-install-operator

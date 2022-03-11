@@ -120,6 +120,33 @@ func ConfigureStepStatus(ctx context.Context, rd *RunDeps, stepName string, acti
 		step.InitializationTime = &metav1.Time{Time: timer.Time}
 	}
 
+	step.Messages = make([]*relayv1beta1.StepMessage, 0)
+	if messages, err := configmap.NewStepMessageManager(action, configMap).List(ctx); err == nil {
+		for _, message := range messages {
+			stepMessage := &relayv1beta1.StepMessage{
+				Details:         message.Details,
+				ObservationTime: metav1.Time{Time: message.Time},
+				Severity:        relayv1beta1.StepMessageSeverityError,
+			}
+
+			if message.ConditionEvaluationResult != nil {
+				expression := relayv1beta1.AsUnstructured(message.ConditionEvaluationResult.Expression)
+				stepMessage.Source.WhenEvaluation = &relayv1beta1.WhenEvaluationStepMessageSource{
+					Expression: &expression,
+				}
+			}
+
+			if message.SchemaValidationResult != nil {
+				expression := relayv1beta1.AsUnstructured(message.SchemaValidationResult.Expression)
+				stepMessage.Source.SpecValidation = &relayv1beta1.SpecValidationStepMessageSource{
+					Expression: &expression,
+				}
+			}
+
+			step.Messages = append(step.Messages, stepMessage)
+		}
+	}
+
 	step.Outputs = make([]*relayv1beta1.StepOutput, 0)
 	if outputs, err := configmap.NewStepOutputManager(action, configMap).ListSelf(ctx); err == nil {
 		for _, output := range outputs {

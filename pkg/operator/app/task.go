@@ -29,6 +29,14 @@ func ConfigureTask(ctx context.Context, t *obj.Task, rd *RunDeps, ws *relayv1bet
 		command = model.DefaultCommand
 	}
 
+	toolsContainer := corev1.Container{
+		Name:       ToolsWorkspaceName,
+		Image:      rd.RuntimeToolsImage,
+		WorkingDir: "/",
+		Command:    []string{"cp"},
+		Args:       []string{"-r", model.ToolsSource, model.ToolsMountPath},
+	}
+
 	container := corev1.Container{
 		Name:            "step",
 		Image:           image,
@@ -95,34 +103,27 @@ func ConfigureTask(ctx context.Context, t *obj.Task, rd *RunDeps, ws *relayv1bet
 		args = []string{}
 	}
 
-	if rd.ToolInjectionCheckout.Satisfied() {
-		ep, err := entrypoint.ImageEntrypoint(image, []string{command}, args)
-		if err != nil {
-			return err
-		}
-
-		t.SetWorkspace(tektonv1beta1.WorkspaceDeclaration{
-			Name:      ToolsWorkspaceName,
-			MountPath: model.ToolsMountPath,
-			ReadOnly:  true,
-		})
-		container.Command = []string{path.Join(model.ToolsMountPath, ep.Entrypoint)}
-		container.Args = ep.Args
-	} else {
-		if command != "" {
-			container.Command = []string{command}
-		}
-
-		if len(args) > 0 {
-			container.Args = args
-		}
+	ep, err := entrypoint.ImageEntrypoint(image, []string{command}, args)
+	if err != nil {
+		return err
 	}
+
+	t.SetWorkspace(tektonv1beta1.WorkspaceDeclaration{
+		Name:      ToolsWorkspaceName,
+		MountPath: model.ToolsMountPath,
+	})
+
+	container.Command = []string{path.Join(model.ToolsMountPath, ep.Entrypoint)}
+	container.Args = ep.Args
 
 	if err := rd.AnnotateStepToken(ctx, &t.Object.ObjectMeta, ws); err != nil {
 		return err
 	}
 
 	t.Object.Spec.Steps = []tektonv1beta1.Step{
+		{
+			Container: toolsContainer,
+		},
 		{
 			Container: container,
 		},

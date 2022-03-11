@@ -4,14 +4,12 @@ import (
 	"context"
 	"path"
 
-	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/helper"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
 	"github.com/puppetlabs/relay-core/pkg/entrypoint"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
-	"github.com/puppetlabs/relay-core/pkg/operator/admission"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
@@ -82,7 +80,7 @@ func ConfigureKnativeService(ctx context.Context, s *obj.KnativeService, wtd *We
 	}
 
 	// The revisions will be marked with a dependency reference as well as we
-	// need to track them to clean up stale checkouts.
+	// need to track them to clean up stale resources.
 	if err := DependencyManager.SetDependencyOf(
 		&template.ObjectMeta,
 		lifecycle.TypedObject{
@@ -97,6 +95,21 @@ func ConfigureKnativeService(ctx context.Context, s *obj.KnativeService, wtd *We
 		// Theoretically someone could write some socat action and use the
 		// Alpine image, so we leave this here for consistency.
 		image = model.DefaultImage
+	}
+
+	toolsContainer := corev1.Container{
+		Name:       ToolsWorkspaceName,
+		Image:      wtd.RuntimeToolsImage,
+		WorkingDir: "/",
+		Command:    []string{"cp"},
+		Args:       []string{"-r", model.ToolsSource, model.ToolsMountPath},
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      model.ToolsMountName,
+				MountPath: model.ToolsMountPath,
+				ReadOnly:  false,
+			},
+		},
 	}
 
 	container := corev1.Container{
@@ -117,10 +130,26 @@ func ConfigureKnativeService(ctx context.Context, s *obj.KnativeService, wtd *We
 				Value: wtd.MetadataAPIURL.String(),
 			},
 		},
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      model.ToolsMountName,
+				MountPath: model.ToolsMountPath,
+				ReadOnly:  true,
+			},
+		},
 	}
 
 	command := wtd.WebhookTrigger.Object.Spec.Command
 	args := wtd.WebhookTrigger.Object.Spec.Args
+
+	template.Spec.PodSpec.Volumes = append(template.Spec.PodSpec.Volumes,
+		corev1.Volume{
+			Name: model.ToolsMountName,
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
+	)
 
 	if len(wtd.WebhookTrigger.Object.Spec.Input) > 0 {
 		tm := ModelWebhookTrigger(wtd.WebhookTrigger)
@@ -154,38 +183,25 @@ func ConfigureKnativeService(ctx context.Context, s *obj.KnativeService, wtd *We
 			})
 		}
 
-		container.VolumeMounts = []corev1.VolumeMount{
-			{
-				Name:      config,
-				ReadOnly:  true,
-				MountPath: "/var/run/puppet/relay/config",
-			},
-		}
+		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+			Name:      config,
+			ReadOnly:  true,
+			MountPath: "/var/run/puppet/relay/config",
+		})
 
 		command = "/var/run/puppet/relay/config/input-script"
 		args = []string{}
 	}
 
-	if wtd.ToolInjectionCheckout.Satisfied() {
-		ep, err := entrypoint.ImageEntrypoint(image, []string{command}, args)
-		if err != nil {
-			return err
-		}
-
-		container.Command = []string{path.Join(model.ToolsMountPath, ep.Entrypoint)}
-		container.Args = ep.Args
-
-		helper.Annotate(&template.ObjectMeta, admission.ToolsVolumeClaimAnnotation, wtd.ToolInjectionCheckout.Object.Spec.ClaimName)
-	} else {
-		if command != "" {
-			container.Command = []string{command}
-		}
-
-		if len(args) > 0 {
-			container.Args = args
-		}
+	ep, err := entrypoint.ImageEntrypoint(image, []string{command}, args)
+	if err != nil {
+		return err
 	}
 
+	container.Command = []string{path.Join(model.ToolsMountPath, ep.Entrypoint)}
+	container.Args = ep.Args
+
+	template.Spec.PodSpec.InitContainers = []corev1.Container{toolsContainer}
 	template.Spec.PodSpec.Containers = []corev1.Container{container}
 
 	if err := wtd.AnnotateTriggerToken(ctx, &template.ObjectMeta); err != nil {

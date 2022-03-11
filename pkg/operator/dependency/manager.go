@@ -6,7 +6,6 @@ import (
 	vaultapi "github.com/hashicorp/vault/api"
 	"github.com/puppetlabs/leg/instrumentation/metrics"
 	"github.com/puppetlabs/leg/storage"
-	pvpoolv1alpha1 "github.com/puppetlabs/pvpool/pkg/apis/pvpool.puppet.com/v1alpha1"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/operator/config"
 	tektonv1alpha1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
@@ -28,7 +27,6 @@ var (
 		tektonv1alpha1.AddToScheme,
 		tektonv1beta1.AddToScheme,
 		servingv1.AddToScheme,
-		pvpoolv1alpha1.AddToScheme,
 	)
 	AddToScheme = SchemeBuilder.AddToScheme
 

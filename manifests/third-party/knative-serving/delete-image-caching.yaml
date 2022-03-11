@@ -1,0 +1,6 @@
+$patch: delete
+apiVersion: caching.internal.knative.dev/v1alpha1
+kind: Image
+metadata:
+  name: queue-proxy
+  namespace: knative-serving

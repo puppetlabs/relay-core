@@ -4,8 +4,13 @@ import (
 	"context"
 	"log"
 	"os"
+	"strings"
+	"time"
 
 	vaultapi "github.com/hashicorp/vault/api"
+	"github.com/puppetlabs/leg/errmap/pkg/errmark"
+	"github.com/puppetlabs/leg/timeutil/pkg/backoff"
+	"github.com/puppetlabs/leg/timeutil/pkg/retry"
 	vaultutil "github.com/puppetlabs/leg/vaultutil/pkg/vault"
 	"github.com/puppetlabs/relay-core/pkg/install/vault"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -30,6 +35,14 @@ var (
 	)
 	_ = schemeBuilder.AddToScheme(DefaultScheme)
 )
+
+var (
+	RuleIsConnectionRefused = errmark.RuleFunc(IsConnectionRefused)
+)
+
+func IsConnectionRefused(err error) bool {
+	return strings.Contains(err.Error(), "connect: connection refused")
+}
 
 type services struct {
 	vault *vaultapi.Client
@@ -56,7 +69,30 @@ func main() {
 
 	vc := vault.NewVaultInitializer(vsc, vaultConfig, vaultCoreConfig)
 
-	if err := vc.InitializeVault(ctx); err != nil {
+	err = retry.Wait(ctx, func(ctx context.Context) (bool, error) {
+		if err := vc.InitializeVault(ctx); err != nil {
+			retryOnError := false
+			errmark.If(err, RuleIsConnectionRefused, func(err error) {
+				retryOnError = true
+			})
+
+			if retryOnError {
+				return retry.Repeat(err)
+			}
+
+			return retry.Done(err)
+		}
+		return retry.Done(nil)
+	}, retry.WithBackoffFactory(
+		backoff.Build(
+			backoff.Exponential(500*time.Microsecond, 2),
+			backoff.MaxBound(30*time.Second),
+			backoff.FullJitter(),
+			backoff.MaxRetries(20),
+			backoff.NonSliding,
+		),
+	))
+	if err != nil {
 		log.Fatal(err)
 	}
 

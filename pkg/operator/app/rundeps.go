@@ -15,8 +15,6 @@ import (
 	rbacv1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/rbacv1"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/helper"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
-	pvpoolv1alpha1 "github.com/puppetlabs/pvpool/pkg/apis/pvpool.puppet.com/v1alpha1"
-	pvpoolv1alpha1obj "github.com/puppetlabs/pvpool/pkg/apis/pvpool.puppet.com/v1alpha1/obj"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
 	"github.com/puppetlabs/relay-core/pkg/model"
@@ -37,17 +35,14 @@ type RunDeps struct {
 	Workflow     *obj.Workflow
 	WorkflowDeps *WorkflowDeps
 
-	Standalone bool
+	RuntimeToolsImage string
+	Standalone        bool
 
 	Issuer authenticate.Issuer
-
-	ToolInjectionPoolRef pvpoolv1alpha1.PoolReference
 
 	OwnerConfigMap *corev1obj.ConfigMap
 
 	NetworkPolicy *networkingv1obj.NetworkPolicy
-
-	ToolInjectionCheckout *PoolRefPredicatedCheckout
 
 	ImmutableConfigMap *corev1obj.ConfigMap
 	MutableConfigMap   *corev1obj.ConfigMap
@@ -108,17 +103,6 @@ func (rd *RunDeps) Load(ctx context.Context, cl client.Client) (*RunDepsLoadResu
 
 	rd.NetworkPolicy = networkingv1obj.NewNetworkPolicy(key)
 
-	rd.ToolInjectionCheckout = &PoolRefPredicatedCheckout{
-		Checkout: pvpoolv1alpha1obj.NewCheckout(
-			SuffixObjectKeyWithHashOfObjectKey(helper.SuffixObjectKey(key, "tools"),
-				client.ObjectKey{
-					Namespace: rd.ToolInjectionPoolRef.Namespace,
-					Name:      rd.ToolInjectionPoolRef.Name,
-				},
-			),
-		),
-	}
-
 	rd.ImmutableConfigMap = corev1obj.NewConfigMap(helper.SuffixObjectKey(key, "immutable"))
 	rd.MutableConfigMap = corev1obj.NewConfigMap(helper.SuffixObjectKey(key, "mutable"))
 
@@ -134,7 +118,6 @@ func (rd *RunDeps) Load(ctx context.Context, cl client.Client) (*RunDepsLoadResu
 	ok, err := lifecycle.Loaders{
 		rd.OwnerConfigMap,
 		lifecycle.IgnoreNilLoader{Loader: rd.NetworkPolicy},
-		rd.ToolInjectionCheckout,
 		rd.ImmutableConfigMap,
 		rd.MutableConfigMap,
 		rd.MetadataAPIServiceAccount,
@@ -163,7 +146,6 @@ func (rd *RunDeps) Persist(ctx context.Context, cl client.Client) error {
 	}
 
 	os := []lifecycle.Ownable{
-		rd.ToolInjectionCheckout,
 		rd.ImmutableConfigMap,
 		rd.MutableConfigMap,
 		rd.MetadataAPIServiceAccount,
@@ -186,7 +168,6 @@ func (rd *RunDeps) Persist(ctx context.Context, cl client.Client) error {
 
 	ps := []lifecycle.Persister{
 		lifecycle.IgnoreNilPersister{Persister: rd.NetworkPolicy},
-		rd.ToolInjectionCheckout,
 		rd.ImmutableConfigMap,
 		rd.MutableConfigMap,
 		rd.MetadataAPIServiceAccount,
@@ -281,17 +262,17 @@ func (rd *RunDeps) AnnotateStepToken(ctx context.Context, target *metav1.ObjectM
 
 type RunDepsOption func(rd *RunDeps)
 
+func RunDepsWithRuntimeToolsImage(image string) RunDepsOption {
+	return func(rd *RunDeps) {
+		rd.RuntimeToolsImage = image
+	}
+}
+
 func RunDepsWithStandaloneMode(standalone bool) RunDepsOption {
 	return func(rd *RunDeps) {
 		if standalone {
 			rd.Standalone = true
 		}
-	}
-}
-
-func RunDepsWithToolInjectionPool(pr pvpoolv1alpha1.PoolReference) RunDepsOption {
-	return func(rd *RunDeps) {
-		rd.ToolInjectionPoolRef = pr
 	}
 }
 
@@ -326,7 +307,6 @@ func ConfigureRunDeps(ctx context.Context, rd *RunDeps) error {
 	}
 
 	lafs := []lifecycle.LabelAnnotatableFrom{
-		rd.ToolInjectionCheckout,
 		rd.ImmutableConfigMap,
 		rd.MutableConfigMap,
 		rd.MetadataAPIServiceAccount,
@@ -344,8 +324,6 @@ func ConfigureRunDeps(ctx context.Context, rd *RunDeps) error {
 	} else {
 		ConfigureNetworkPolicyForRun(rd.NetworkPolicy, rd.Run)
 	}
-
-	ConfigureToolInjectionCheckout(rd.ToolInjectionCheckout, rd.WorkflowDeps.TenantDeps.Tenant, rd.ToolInjectionPoolRef)
 
 	if err := ConfigureImmutableConfigMapForRun(ctx, rd.ImmutableConfigMap, rd); err != nil {
 		return err

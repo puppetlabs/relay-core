@@ -9,7 +9,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/puppetlabs/leg/k8sutil/pkg/manifest"
 	"github.com/puppetlabs/leg/timeutil/pkg/retry"
-	pvpoolv1alpha1 "github.com/puppetlabs/pvpool/pkg/apis/pvpool.puppet.com/v1alpha1"
 	"github.com/puppetlabs/relay-core/pkg/operator/dependency"
 	tekton "github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
 	tektonfake "github.com/tektoncd/pipeline/pkg/client/clientset/versioned/fake"
@@ -38,7 +37,6 @@ func init() {
 		apiextensionsv1.AddToScheme,
 		apiextensionsv1beta1.AddToScheme,
 		cachingv1alpha1.AddToScheme,
-		pvpoolv1alpha1.AddToScheme,
 	)
 
 	if err := schemeBuilder.AddToScheme(TestScheme); err != nil {
