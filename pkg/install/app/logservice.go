@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"path/filepath"
 
 	appsv1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/appsv1"
@@ -9,6 +10,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+)
+
+const (
+	DefaultLogServicePort = 7050
 )
 
 const (
@@ -39,16 +44,19 @@ func ConfigureLogServiceDeployment(ld *LogServiceDeps, dep *appsv1obj.Deployment
 	template.Affinity = core.Spec.LogService.Affinity
 
 	template.Volumes = ld.VaultAgentDeps.DeploymentVolumes()
-	template.Volumes = append(template.Volumes,
-		corev1.Volume{
-			Name: credentialsMountName,
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName: core.Spec.LogService.CredentialsSecretKeyRef.Name,
+
+	if core.Spec.LogService.CredentialsSecretKeyRef != nil {
+		template.Volumes = append(template.Volumes,
+			corev1.Volume{
+				Name: credentialsMountName,
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: core.Spec.LogService.CredentialsSecretKeyRef.Name,
+					},
 				},
 			},
-		},
-	)
+		)
+	}
 
 	template.NodeSelector = core.Spec.LogService.NodeSelector
 
@@ -72,15 +80,22 @@ func ConfigureLogServiceContainer(coreobj *obj.Core, c *corev1.Container) {
 	c.ImagePullPolicy = core.Spec.LogService.ImagePullPolicy
 
 	env := []corev1.EnvVar{
-		{Name: "GOOGLE_APPLICATION_CREDENTIALS", Value: filepath.Join(
-			credentialsMountPath,
-			core.Spec.LogService.CredentialsSecretKeyRef.Key,
-		)},
-		{Name: "RELAY_PLS_LISTEN_PORT", Value: "7050"},
+		{Name: "RELAY_PLS_LISTEN_PORT", Value: fmt.Sprintf("%d", DefaultLogServicePort)},
 		{Name: "RELAY_PLS_VAULT_ADDR", Value: "http://localhost:8200"},
+		{Name: "RELAY_PLS_VAULT_ENGINE_MOUNT", Value: core.Spec.Vault.Engine.LogServicePath},
 		{Name: "RELAY_PLS_PROJECT", Value: core.Spec.LogService.Project},
 		{Name: "RELAY_PLS_DATASET", Value: core.Spec.LogService.Dataset},
 		{Name: "RELAY_PLS_TABLE", Value: core.Spec.LogService.Table},
+	}
+
+	if core.Spec.LogService.CredentialsSecretKeyRef != nil {
+		env = append(env, corev1.EnvVar{
+			Name: "GOOGLE_APPLICATION_CREDENTIALS",
+			Value: filepath.Join(
+				credentialsMountPath,
+				core.Spec.LogService.CredentialsSecretKeyRef.Key,
+			),
+		})
 	}
 
 	if core.Spec.Debug {
@@ -91,31 +106,24 @@ func ConfigureLogServiceContainer(coreobj *obj.Core, c *corev1.Container) {
 		env = append(env, core.Spec.LogService.Env...)
 	}
 
-	// if core.Spec.Vault.LogServicePath != "" {
-	// 	env = append(env,
-	// 		corev1.EnvVar{
-	// 			Name:  "RELAY_PLS_VAULT_ENGINE_MOUNT",
-	// 			Value: core.Spec.Vault.LogServicePath,
-	// 		},
-	// 	)
-	// }
-
 	c.Env = env
 
 	c.Ports = []corev1.ContainerPort{
 		{
 			Name:          "http",
-			ContainerPort: int32(7050),
+			ContainerPort: int32(DefaultLogServicePort),
 			Protocol:      corev1.ProtocolTCP,
 		},
 	}
 
-	c.VolumeMounts = []corev1.VolumeMount{
-		{
-			Name:      credentialsMountName,
-			MountPath: credentialsMountPath,
-			ReadOnly:  true,
-		},
+	if core.Spec.LogService.CredentialsSecretKeyRef != nil {
+		c.VolumeMounts = []corev1.VolumeMount{
+			{
+				Name:      credentialsMountName,
+				MountPath: credentialsMountPath,
+				ReadOnly:  true,
+			},
+		}
 	}
 }
 
@@ -125,7 +133,7 @@ func ConfigureLogServiceService(ld *LogServiceDeps, svc *corev1obj.Service) {
 	svc.Object.Spec.Ports = []corev1.ServicePort{
 		{
 			Name:       "http",
-			Port:       int32(7050),
+			Port:       int32(DefaultLogServicePort),
 			Protocol:   corev1.ProtocolTCP,
 			TargetPort: intstr.FromString("http"),
 		},
