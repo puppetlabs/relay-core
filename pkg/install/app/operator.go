@@ -139,6 +139,10 @@ func (d *operatorDeployment) container() corev1.Container {
 		)
 	}
 
+	if conf.ToolInjection != nil {
+		cmd = append(cmd, "-runtime-tools-image", conf.ToolInjection.Image)
+	}
+
 	var storageAddr string
 	if conf.StorageAddr != nil {
 		storageAddr = *conf.StorageAddr

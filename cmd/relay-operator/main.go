@@ -60,9 +60,6 @@ func main() {
 	dynamicRBACBinding := fs.Bool("dynamic-rbac-binding", false, "enable if RBAC rules are set up dynamically for the operator to reduce unhelpful reported errors")
 	runtimeToolsImage := fs.String("runtime-tools-image", model.ToolsImage, "the image to use for the runtime tools")
 
-	// Deprecated: use --runtime-tools-image instead
-	fs.String("trigger-tool-injection-pool", "", "the name of a PVPool pool to use for injecting tools into trigger containers")
-
 	err := fs.Parse(os.Args[1:])
 	if err != nil {
 		log.Fatal("Error parsing flags", err)
