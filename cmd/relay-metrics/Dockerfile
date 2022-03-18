@@ -7,7 +7,7 @@ RUN go mod download
 COPY . ./
 RUN go build -a -installsuffix cgo -o /usr/bin/relay-metrics ./cmd/relay-metrics
 
-FROM alpine:latest
+FROM alpine:3.15
 COPY --from=builder /usr/bin/relay-metrics /usr/bin/relay-metrics
 RUN apk --no-cache add ca-certificates && update-ca-certificates
 CMD ["/usr/bin/relay-metrics"]
