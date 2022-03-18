@@ -7,7 +7,7 @@ RUN go mod download
 COPY . ./
 RUN go build -a -installsuffix cgo -o /usr/bin/relay-metadata-api ./cmd/relay-metadata-api
 
-FROM alpine:latest
+FROM alpine:3.15
 COPY --from=builder /usr/bin/relay-metadata-api /usr/bin/relay-metadata-api
 RUN apk --no-cache add ca-certificates && update-ca-certificates
 CMD ["/usr/bin/relay-metadata-api"]
