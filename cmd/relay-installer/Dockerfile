@@ -6,7 +6,7 @@ RUN go mod download
 COPY . ./
 RUN go build -a -installsuffix cgo -o /usr/bin/relay-installer ./cmd/relay-installer
 
-FROM alpine:latest
+FROM alpine:3.15
 COPY --from=builder /usr/bin/relay-installer /usr/bin/relay-installer
 RUN apk --no-cache add ca-certificates && update-ca-certificates
 CMD ["/usr/bin/relay-installer"]
