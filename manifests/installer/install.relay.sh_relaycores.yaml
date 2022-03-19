@@ -3223,8 +3223,8 @@ spec:
                     properties:
                       image:
                         default: relaysh/relay-runtime-tools:latest
-                        description: Image is the image to use for the relay runtime
-                          tools.
+                        description: Image is the image to use for the relay tool
+                          injection.
                         type: string
                     type: object
                   vaultAgentRole:
