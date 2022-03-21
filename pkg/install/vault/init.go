@@ -4,8 +4,13 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/google/wire"
 	"github.com/puppetlabs/leg/vaultutil/pkg/model"
 	vaultutil "github.com/puppetlabs/leg/vaultutil/pkg/vault"
+)
+
+var ProviderSet = wire.NewSet(
+	NewVaultInitializer,
 )
 
 type VaultInitializer struct {
