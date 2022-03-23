@@ -7,7 +7,6 @@ import (
 
 	"github.com/google/uuid"
 	utilapi "github.com/puppetlabs/leg/httputil/api"
-	"github.com/puppetlabs/leg/instrumentation/alerts/trackers"
 	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
 	expression "github.com/puppetlabs/relay-core/pkg/expr/model"
 	"github.com/puppetlabs/relay-core/pkg/manager/resolve"
@@ -65,41 +64,35 @@ func (s *Server) PostValidate(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			repository := ref.Context()
+			var captureErr errors.Error
 
-			capture, ok := trackers.CapturerFromContext(ctx)
-			if ok {
-				repo := repository.RepositoryStr()
-				capture = capture.WithTags(trackers.Tag{Key: "relay.spec.validation-error", Value: repo})
+			schema, err := s.schemaRegistry.GetByImage(ref)
+			if err != nil {
+				var noTrackCause *validation.SchemaDoesNotExistError
+				if !goerrors.As(err, &noTrackCause) {
+					captureErr = errors.NewValidationSchemaLookupError().WithCause(err)
+				}
+			} else {
+				if err := schema.ValidateGo(env.Value.Data); err != nil {
+					captureErr = errors.NewValidationSchemaValidationError().WithCause(err)
+				}
+			}
 
-				var captureErr errors.Error
-
-				schema, err := s.schemaRegistry.GetByImage(ref)
-				if err != nil {
-					var noTrackCause *validation.SchemaDoesNotExistError
-					if !goerrors.As(err, &noTrackCause) {
-						captureErr = errors.NewValidationSchemaLookupError().WithCause(err)
-					}
-				} else {
-					if err := schema.ValidateGo(env.Value.Data); err != nil {
-						captureErr = errors.NewValidationSchemaValidationError().WithCause(err)
-					}
+			if captureErr != nil {
+				stepMessage := &model.StepMessage{
+					ID:      uuid.NewString(),
+					Details: captureErr.Error(),
+					Time:    time.Now(),
+					SchemaValidationResult: &model.SchemaValidationResult{
+						Expression: spec.Tree,
+					},
 				}
 
-				if captureErr != nil {
-					stepMessage := &model.StepMessage{
-						ID:      uuid.NewString(),
-						Details: captureErr.Error(),
-						Time:    time.Now(),
-						SchemaValidationResult: &model.SchemaValidationResult{
-							Expression: spec.Tree,
-						},
-					}
+				err = sm.Set(ctx, stepMessage)
+				if err != nil {
+					utilapi.WriteError(ctx, w, ModelWriteError(err))
 
-					_ = sm.Set(ctx, stepMessage)
-
-					report := capture.Capture(captureErr)
-					report.AsWarning().Report(ctx)
+					return
 				}
 			}
 		}
