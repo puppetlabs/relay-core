@@ -14,23 +14,21 @@ import (
 	vaultinit "github.com/puppetlabs/relay-core/pkg/install/vault"
 )
 
-var VaultSystemManagerProviderSet = wire.NewSet(
-	vaultutil.NewVaultSystemManager,
-)
-
-func vaultConfig(vaultConfig *vaultutil.VaultConfig) vault.Config {
+func vaultConfigMapper(vaultConfig *vaultutil.VaultConfig) vault.Config {
 	return vault.Config{
 		Addr: vaultConfig.VaultAddr.String(),
 	}
 }
 
 func NewVaultInitializer(ctx context.Context,
-	config *vaultutil.VaultConfig, coreConfig *vaultinit.VaultCoreConfig) (*vaultinit.VaultInitializer, error) {
+	vaultConfig *vaultutil.VaultConfig, vaultCoreConfig *vaultinit.VaultCoreConfig) (*vaultinit.VaultInitializer, error) {
 	panic(wire.Build(
 		kube.ProviderSet,
-		vaultConfig,
+		vaultConfigMapper,
 		vault.ProviderSet,
-		VaultSystemManagerProviderSet,
+		vaultutil.VaultInitializationManagerProviderSet,
+		vaultutil.VaultSystemManagerProviderSet,
+		wire.Bind(new(model.VaultInitializationManager), new(*vaultutil.VaultInitializationManager)),
 		wire.Bind(new(model.VaultSystemManager), new(*vaultutil.VaultSystemManager)),
 		vaultinit.ProviderSet,
 	))
