@@ -14,75 +14,52 @@ var ProviderSet = wire.NewSet(
 )
 
 type VaultInitializer struct {
-	vaultConfig        *vaultutil.VaultConfig
-	vaultCoreConfig    *VaultCoreConfig
-	vaultSystemManager model.VaultSystemManager
+	vaultConfig                *vaultutil.VaultConfig
+	vaultCoreConfig            *VaultCoreConfig
+	vaultInitializationManager model.VaultInitializationManager
+	vaultSystemManager         model.VaultSystemManager
 }
 
 func (vi *VaultInitializer) InitializeVault(ctx context.Context) error {
-	credentials := &model.VaultKeys{
-		RootToken:  vi.vaultConfig.Token,
-		UnsealKeys: []string{vi.vaultConfig.UnsealKey},
-	}
-
-	var err error
-	if credentials.RootToken == "" || credentials.UnsealKeys[0] == "" {
-		credentials, err = vi.vaultSystemManager.GetCredentials(ctx)
-		if err != nil {
-			return err
-		}
-
-		if credentials == nil {
-			credentials, err = vi.vaultSystemManager.Initialize(ctx)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	err = vi.vaultSystemManager.Unseal(credentials)
-	if err != nil {
-		return err
-	}
-
-	vi.vaultSystemManager.SetToken(credentials)
-
-	err = vi.vaultSystemManager.EnableKubernetesAuth()
-	if err != nil {
-		return err
-	}
-
-	err = vi.vaultSystemManager.ConfigureKubernetesAuth(ctx)
-	if err != nil {
-		return err
-	}
-
-	err = vi.vaultSystemManager.EnableJWTAuth()
-	if err != nil {
-		return err
-	}
-
-	err = vi.vaultSystemManager.ConfigureJWTAuth(ctx)
-	if err != nil {
-		return err
-	}
-
 	secretEngines := []*model.VaultSecretEngine{
 		{
-			Name: vi.vaultCoreConfig.TenantPath,
-			Type: model.VaultSecretEngineTypeKVV2,
+			Path: vi.vaultCoreConfig.TenantPath,
+			Type: model.VaultSecretEngineTypeKVV2.String(),
 		},
 		{
-			Name: vi.vaultCoreConfig.TransitPath,
-			Type: model.VaultSecretEngineTypeTransit,
+			Path: vi.vaultCoreConfig.TransitPath,
+			Type: model.VaultSecretEngineTypeTransit.String(),
 		},
 	}
 
 	if vi.vaultCoreConfig.LogServicePath != "" {
 		secretEngines = append(secretEngines, &model.VaultSecretEngine{
-			Name: vi.vaultCoreConfig.LogServicePath,
-			Type: model.VaultSecretEngineTypeKVV2,
+			Path: vi.vaultCoreConfig.LogServicePath,
+			Type: model.VaultSecretEngineTypeKVV2.String(),
 		})
+	}
+
+	if err := vi.vaultInitializationManager.InitializeVault(ctx,
+		&model.VaultInitializationData{
+			SecretEngines: secretEngines,
+		}); err != nil {
+		return err
+	}
+
+	if err := vi.vaultSystemManager.EnableKubernetesAuth(); err != nil {
+		return err
+	}
+
+	if err := vi.vaultSystemManager.ConfigureKubernetesAuth(ctx); err != nil {
+		return err
+	}
+
+	if err := vi.vaultSystemManager.EnableJWTAuth(); err != nil {
+		return err
+	}
+
+	if err := vi.vaultSystemManager.ConfigureJWTAuth(ctx); err != nil {
+		return err
 	}
 
 	policyGen := &vaultPolicyGenerator{
@@ -169,28 +146,17 @@ func (vi *VaultInitializer) InitializeVault(ctx context.Context) error {
 		},
 	}
 
-	err = vi.vaultSystemManager.EnableSecretEngines(secretEngines)
-	if err != nil {
-		return err
-	}
-
 	err = vi.vaultSystemManager.CreateTransitKey(vi.vaultCoreConfig.TransitPath, vi.vaultCoreConfig.TransitKey)
 	if err != nil {
 		return err
 	}
 
-	err = vi.vaultSystemManager.PutPolicies(policies)
-	if err != nil {
-		return err
-	}
-
-	err = vi.vaultSystemManager.ConfigureJWTAuthRoles(jwtRoles)
-	if err != nil {
-		return err
-	}
-
-	err = vi.vaultSystemManager.ConfigureKubernetesAuthRoles(kubernetesRoles)
-	if err != nil {
+	if err := vi.vaultInitializationManager.InitializeVault(ctx,
+		&model.VaultInitializationData{
+			JWTRoles:        jwtRoles,
+			KubernetesRoles: kubernetesRoles,
+			Policies:        policies,
+		}); err != nil {
 		return err
 	}
 
@@ -198,12 +164,14 @@ func (vi *VaultInitializer) InitializeVault(ctx context.Context) error {
 }
 
 func NewVaultInitializer(
-	vaultSystemManager model.VaultSystemManager,
-	vaultConfig *vaultutil.VaultConfig, vaultCoreConfig *VaultCoreConfig) *VaultInitializer {
+	vaultConfig *vaultutil.VaultConfig, vaultCoreConfig *VaultCoreConfig,
+	vaultInitializationManager model.VaultInitializationManager,
+	vaultSystemManager model.VaultSystemManager) *VaultInitializer {
 
 	return &VaultInitializer{
-		vaultConfig:        vaultConfig,
-		vaultCoreConfig:    vaultCoreConfig,
-		vaultSystemManager: vaultSystemManager,
+		vaultConfig:                vaultConfig,
+		vaultCoreConfig:            vaultCoreConfig,
+		vaultInitializationManager: vaultInitializationManager,
+		vaultSystemManager:         vaultSystemManager,
 	}
 }
