@@ -25,20 +25,20 @@ require (
 	github.com/puppetlabs/errawr-gen v1.0.1
 	github.com/puppetlabs/errawr-go/v2 v2.2.0
 	github.com/puppetlabs/leg/datastructure v0.1.0
-	github.com/puppetlabs/leg/encoding v0.1.0
+	github.com/puppetlabs/leg/encoding v0.2.0
 	github.com/puppetlabs/leg/errmap v0.1.1
 	github.com/puppetlabs/leg/gvalutil v0.2.0
 	github.com/puppetlabs/leg/hashutil v0.1.0
 	github.com/puppetlabs/leg/httputil v0.1.4
 	github.com/puppetlabs/leg/instrumentation v0.1.4
 	github.com/puppetlabs/leg/jsonutil v0.2.2
-	github.com/puppetlabs/leg/k8sutil v0.6.6
+	github.com/puppetlabs/leg/k8sutil v0.6.7
 	github.com/puppetlabs/leg/logging v0.1.0
 	github.com/puppetlabs/leg/mainutil v0.1.2
 	github.com/puppetlabs/leg/scheduler v0.1.4
 	github.com/puppetlabs/leg/storage v0.1.1
 	github.com/puppetlabs/leg/timeutil v0.4.2
-	github.com/puppetlabs/leg/vaultutil v0.1.0
+	github.com/puppetlabs/leg/vaultutil v0.1.1
 	github.com/puppetlabs/relay-client-go/client v0.4.4
 	github.com/puppetlabs/relay-pls v0.0.0-20201125074651-13575df50b51
 	github.com/spf13/viper v1.10.1
@@ -215,7 +215,7 @@ require (
 	github.com/mitchellh/cli v1.1.2 // indirect
 	github.com/mitchellh/copystructure v1.0.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
-	github.com/mitchellh/go-testing-interface v1.14.0 // indirect
+	github.com/mitchellh/go-testing-interface v1.14.2-0.20210821155943-2d9075ca8770 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.0 // indirect
 	github.com/mitchellh/pointerstructure v1.2.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect

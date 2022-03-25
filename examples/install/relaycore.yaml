@@ -4,6 +4,7 @@ metadata:
   name: relay-core-v1
   namespace: relay-system
 spec:
+  logService: {}
   metadataAPI: {}
   operator:
     admissionWebhookServer:

@@ -1,3 +1,4 @@
+//go:build wireinject
 // +build wireinject
 
 package main
@@ -6,22 +7,29 @@ import (
 	"context"
 
 	"github.com/google/wire"
+	"github.com/puppetlabs/leg/vaultutil/pkg/model"
 	vaultutil "github.com/puppetlabs/leg/vaultutil/pkg/vault"
+	"github.com/puppetlabs/relay-core/pkg/install/op/kube"
 	"github.com/puppetlabs/relay-core/pkg/install/op/vault"
+	vaultinit "github.com/puppetlabs/relay-core/pkg/install/vault"
 )
 
-func vaultConfig(cfg *vaultutil.VaultConfig) vault.Config {
+func vaultConfigMapper(vaultConfig *vaultutil.VaultConfig) vault.Config {
 	return vault.Config{
-		Addr: cfg.VaultAddr.String(),
+		Addr: vaultConfig.VaultAddr.String(),
 	}
 }
 
-func InitializeServices(ctx context.Context, cfg *vaultutil.VaultConfig) (services, error) {
-	wire.Build(
-		vaultConfig,
+func NewVaultInitializer(ctx context.Context,
+	vaultConfig *vaultutil.VaultConfig, vaultCoreConfig *vaultinit.VaultCoreConfig) (*vaultinit.VaultInitializer, error) {
+	panic(wire.Build(
+		kube.ProviderSet,
+		vaultConfigMapper,
 		vault.ProviderSet,
-		wire.Struct(new(services), "*"),
-	)
-
-	return services{}, nil
+		vaultutil.VaultInitializationManagerProviderSet,
+		vaultutil.VaultSystemManagerProviderSet,
+		wire.Bind(new(model.VaultInitializationManager), new(*vaultutil.VaultInitializationManager)),
+		wire.Bind(new(model.VaultSystemManager), new(*vaultutil.VaultSystemManager)),
+		vaultinit.ProviderSet,
+	))
 }

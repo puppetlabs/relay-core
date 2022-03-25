@@ -129,7 +129,7 @@ type LogServiceConfig struct {
 
 	// CredentialsSecretKeyRef is the secret and key to use for the log service
 	// cloud credentials
-	CredentialsSecretKeyRef corev1.SecretKeySelector `json:"credentialsSecretKeyRef,omitempty"`
+	CredentialsSecretKeyRef *corev1.SecretKeySelector `json:"credentialsSecretKeyRef,omitempty"`
 
 	// Project is the BigQuery project to use for logging.
 	Project string `json:"project,omitempty"`
@@ -461,8 +461,11 @@ type VaultAuthSource struct {
 }
 
 type ToolInjectionConfig struct {
-	// TriggerPoolName is the name of the tool injection pool for triggers.
-	TriggerPoolName string `json:"triggerPoolName"`
+	// Image is the image to use for the relay tool injection.
+	//
+	// +kubebuilder:default="relaysh/relay-runtime-tools:latest"
+	// +optional
+	Image string `json:"image"`
 }
 
 // +kubebuilder:object:root=true

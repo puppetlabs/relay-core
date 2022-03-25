@@ -9,7 +9,9 @@ package main
 import (
 	"context"
 	"github.com/puppetlabs/leg/vaultutil/pkg/vault"
-	vault2 "github.com/puppetlabs/relay-core/pkg/install/op/vault"
+	"github.com/puppetlabs/relay-core/pkg/install/op/kube"
+	vault3 "github.com/puppetlabs/relay-core/pkg/install/op/vault"
+	vault2 "github.com/puppetlabs/relay-core/pkg/install/vault"
 )
 
 import (
@@ -18,22 +20,27 @@ import (
 
 // Injectors from wire.go:
 
-func InitializeServices(ctx context.Context, cfg *vault.VaultConfig) (services, error) {
-	config := vaultConfig(cfg)
-	client, err := vault2.NewClient(ctx, config)
+func NewVaultInitializer(ctx context.Context, vaultConfig *vault.VaultConfig, vaultCoreConfig *vault2.VaultCoreConfig) (*vault2.VaultInitializer, error) {
+	config := vaultConfigMapper(vaultConfig)
+	client, err := vault3.NewClient(ctx, config)
 	if err != nil {
-		return services{}, err
+		return nil, err
 	}
-	mainServices := services{
-		vault: client,
+	scheme := kube.NewKubeScheme()
+	clientClient, err := kube.NewKubeClient(scheme)
+	if err != nil {
+		return nil, err
 	}
-	return mainServices, nil
+	vaultSystemManager := vault.NewVaultSystemManager(client, clientClient, vaultConfig)
+	vaultInitializationManager := vault.NewVaultInitializationManager(vaultSystemManager, vaultConfig)
+	vaultInitializer := vault2.NewVaultInitializer(vaultConfig, vaultCoreConfig, vaultInitializationManager, vaultSystemManager)
+	return vaultInitializer, nil
 }
 
 // wire.go:
 
-func vaultConfig(cfg *vault.VaultConfig) vault2.Config {
-	return vault2.Config{
-		Addr: cfg.VaultAddr.String(),
+func vaultConfigMapper(vaultConfig *vault.VaultConfig) vault3.Config {
+	return vault3.Config{
+		Addr: vaultConfig.VaultAddr.String(),
 	}
 }

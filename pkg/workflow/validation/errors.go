@@ -19,7 +19,13 @@ func (e *SchemaValidationError) Unwrap() error {
 }
 
 func (e *SchemaValidationError) Error() string {
-	return "data for the schema failed to validate"
+	message := "data for the schema failed to validate"
+
+	if e.Cause != nil {
+		message += fmt.Sprintf("\n%s", e.Cause.Error())
+	}
+
+	return message
 }
 
 type StepMetadataFetchError struct {

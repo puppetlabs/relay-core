@@ -238,6 +238,15 @@ func ConfigureCoreDefaults(cd *CoreDeps) {
 		us := u.String()
 		core.Object.Spec.MetadataAPI.URL = &us
 	}
+
+	if core.Object.Spec.LogService != nil {
+		if core.Object.Spec.MetadataAPI.LogServiceURL == nil {
+			logServiceURL := fmt.Sprintf("%s.%s:%d",
+				cd.LogServiceDeps.Service.Key.Name, cd.LogServiceDeps.Service.Key.Namespace,
+				DefaultLogServicePort)
+			core.Object.Spec.MetadataAPI.LogServiceURL = &logServiceURL
+		}
+	}
 }
 
 func ConfigureJWTSigningKeys(sec *corev1obj.Secret) error {
