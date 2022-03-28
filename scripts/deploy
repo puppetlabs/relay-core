@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [ -z "${RELAY_EMAIL:-}" ] || [ -z "${RELAY_PASSWORD:-}" ] || [ -z "${RELAY_WORKFLOW:-}" ] || [ -z "${VERSION:-}" ] || [ "${NO_DOCKER_PUSH:-}" == "yes" ]; then
-    echo "Branch ${TRAVIS_BRANCH} has no workflow configuration. Skipping deploy."
+if [ -z "${RELAY_OPERATIONS_API_TOKEN:-}" ] || [ -z "${RELAY_WORKFLOW:-}" ] || [ -z "${VERSION:-}" ] || [ "${NO_DOCKER_PUSH:-}" == "yes" ]; then
+    echo "Commit has no workflow configuration. Skipping deploy."
     exit 0
 fi
 

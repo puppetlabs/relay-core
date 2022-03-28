@@ -15,7 +15,7 @@ spec:
         app.kubernetes.io/name: relay-installer
     spec:
       containers:
-      - image: relaysh/relay-installer:latest
+      - image: us-docker.pkg.dev/puppet-relay-contrib-oss/relay-core/relay-installer:latest
         imagePullPolicy: IfNotPresent
         name: controller
         resources:

@@ -143,7 +143,7 @@ type LogServiceConfig struct {
 
 // OperatorConfig is the configuration for the relay-operator deployment
 type OperatorConfig struct {
-	// +kubebuilder:default="relaysh/relay-operator:latest"
+	// +kubebuilder:default="us-docker.pkg.dev/puppet-relay-contrib-oss/relay-core/relay-operator:latest"
 	// +optional
 	Image string `json:"image,omitempty"`
 
@@ -235,7 +235,7 @@ type AdmissionWebhookServerConfig struct {
 	// controller that managers the TLS certificates for the operator's webhook
 	// server
 	//
-	// +kubebuilder:default="relaysh/relay-operator-webhook-certificate-controller:latest"
+	// +kubebuilder:default="us-docker.pkg.dev/puppet-relay-contrib-oss/relay-core/relay-operator-webhook-certificate-controller:latest"
 	// +optional
 	CertificateControllerImage string `json:"certificateControllerImage,omitempty"`
 
@@ -254,7 +254,7 @@ type AdmissionWebhookServerConfig struct {
 
 // MetadataAPIConfig is the configuration for the relay-metadata-api deployment
 type MetadataAPIConfig struct {
-	// +kubebuilder:default="relaysh/relay-metadata-api:latest"
+	// +kubebuilder:default="us-docker.pkg.dev/puppet-relay-contrib-oss/relay-core/relay-metadata-api:latest"
 	// +optional
 	Image string `json:"image"`
 
@@ -342,7 +342,7 @@ type VaultConfig struct {
 }
 
 type VaultEngineConfig struct {
-	// +kubebuilder:default="relaysh/relay-operator-vault-init:latest"
+	// +kubebuilder:default="us-docker.pkg.dev/puppet-relay-contrib-oss/relay-core/relay-operator-vault-init:latest"
 	// +optional
 	VaultInitializationImage string `json:"vaultInitializationImage,omitempty"`
 
@@ -463,7 +463,7 @@ type VaultAuthSource struct {
 type ToolInjectionConfig struct {
 	// Image is the image to use for the relay tool injection.
 	//
-	// +kubebuilder:default="relaysh/relay-runtime-tools:latest"
+	// +kubebuilder:default="us-docker.pkg.dev/puppet-relay-contrib-oss/relay-core/relay-runtime-tools:latest"
 	// +optional
 	Image string `json:"image"`
 }

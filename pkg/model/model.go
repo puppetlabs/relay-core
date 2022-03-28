@@ -5,7 +5,7 @@ const (
 	DefaultCommand = "echo"
 
 	// TODO Consider configuration options for runtime tools
-	ToolsImage     = "relaysh/relay-runtime-tools:latest"
+	ToolsImage     = "us-docker.pkg.dev/puppet-relay-contrib-oss/relay-core/relay-runtime-tools:latest"
 	ToolsMountName = "relay-tools"
 	ToolsMountPath = "/var/lib/puppet/relay"
 	ToolsSource    = "/relay/runtime/tools/."
