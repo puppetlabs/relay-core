@@ -1,0 +1,2 @@
+baseImageOverrides:
+  github.com/puppetlabs/relay-core/cmd/relay-operator: gcr.io/distroless/static:latest
