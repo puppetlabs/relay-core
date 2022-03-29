@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-RELAY_CORE_REPO_BASE="${RELAY_CORE_REPO_BASE:-gcr.io/nebula-235818}"
+RELAY_CORE_REPO_BASE="${RELAY_CORE_REPO_BASE:-us-docker.pkg.dev/puppet-relay-contrib-oss/relay-core}"
 RELAY_CORE_RELEASE_REPOS=(
     "${RELAY_CORE_REPO_BASE}/relay-operator"
     "${RELAY_CORE_REPO_BASE}/relay-metadata-api"
@@ -12,7 +12,7 @@ RELAY_CORE_RELEASE_REPOS=(
 
 release_docker_images() {
     if [ "${NO_DOCKER_PUSH}" != "yes" ]; then
-        gcloud auth configure-docker || fail "gcloud authentication was not configured correctly"
+        gcloud -q auth configure-docker us-docker.pkg.dev || fail "gcloud authentication was not configured correctly"
 
         for REPO in "${RELAY_CORE_RELEASE_REPOS[@]}"; do
             docker push "${REPO}:${VERSION}" || fail "failed to push to the docker repository"

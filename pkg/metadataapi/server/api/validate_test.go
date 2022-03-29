@@ -9,7 +9,6 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/expr/serialize"
 	sdktestutil "github.com/puppetlabs/relay-core/pkg/expr/testutil"
 	"github.com/puppetlabs/relay-core/pkg/manager/memory"
-	"github.com/puppetlabs/relay-core/pkg/metadataapi/errors"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/opt"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/sample"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/api"
@@ -28,7 +27,7 @@ func TestValidationCapture(t *testing.T) {
 	var cases = []struct {
 		description string
 		sc          *opt.SampleConfig
-		err         errors.Error
+		err         error
 	}{
 		{
 			description: "missing spec schema",
@@ -98,13 +97,11 @@ func TestValidationCapture(t *testing.T) {
 					},
 				},
 			},
-			err: errors.NewValidationSchemaValidationError().WithCause(&validation.SchemaValidationError{
-				Cause: &typeutil.ValidationError{
-					FieldErrors: []*typeutil.FieldValidationError{
-						{Context: "(root)", Field: "(root)", Description: "command is required", Type: "required"},
-					},
+			err: &typeutil.ValidationError{
+				FieldErrors: []*typeutil.FieldValidationError{
+					{Context: "(root)", Field: "(root)", Description: "command is required", Type: "required"},
 				},
-			}),
+			},
 		},
 		{
 			description: "valid spec schema",

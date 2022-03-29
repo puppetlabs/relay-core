@@ -1,12 +1,17 @@
 #!/usr/bin/env bash
 
-export TRAVIS_BRANCH="${TRAVIS_BRANCH:-$(git branch | grep \* | cut -d ' ' -f2)}"
-export TRAVIS_PULL_REQUEST="${TRAVIS_PULL_REQUEST:-}"
-export RELAY_CORE_BUILD_DIR="${RELAY_CORE_BUILD_DIR:-.build}"
+export GITHUB_REF="${GITHUB_REF:-$(git symbolic-ref HEAD)}"
+export GITHUB_EVENT_NAME="${GITHUB_EVENT_NAME:-}"
 export NO_DOCKER_PUSH="${NO_DOCKER_PUSH:-yes}"
 
+RELAY_CORE_BRANCH=
+if [[ "${GITHUB_REF}" == refs/heads/* ]]; then
+    RELAY_CORE_BRANCH="${GITHUB_REF#refs/heads/}"
+fi
+export RELAY_CORE_BRANCH
+
 export RELAY_CORE_RELEASE_LATEST=
-[ "${TRAVIS_BRANCH}" = "master" ] && [ "${TRAVIS_PULL_REQUEST}" = "false" ] && export RELAY_CORE_RELEASE_LATEST=true
+[ "${RELAY_CORE_BRANCH}" = "master" ] && [ "${GITHUB_EVENT_NAME}" = "push" ] && export RELAY_CORE_RELEASE_LATEST=true
 
 DIRTY=
 [ -n "$(git status --porcelain --untracked-files=no)" ] && DIRTY="-dirty"
@@ -18,7 +23,7 @@ if [ -n "${TAG}" ]; then
         export VERSION="$(git rev-parse --short HEAD)${DIRTY}"
 fi
 
-if [[ "$TRAVIS_PULL_REQUEST" == "false" ]]; then
+if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
         export NO_DOCKER_PUSH=
 fi
 
@@ -29,11 +34,15 @@ declare -A RELAY_WORKFLOWS
 RELAY_WORKFLOWS[master]=nebula-prod-1
 RELAY_WORKFLOWS[development]=nebula-stage-1
 
-RELAY_WORKFLOW=${RELAY_WORKFLOWS["$TRAVIS_BRANCH"]:-}
-if [ -z "${RELAY_WORKFLOW}" ]; then
-    export NO_DOCKER_PUSH=yes
+if [ -n "${RELAY_CORE_BRANCH}" ]; then
+    RELAY_WORKFLOW=${RELAY_WORKFLOWS["$RELAY_CORE_BRANCH"]:-}
+    if [ -z "${RELAY_WORKFLOW}" ]; then
+        export NO_DOCKER_PUSH=yes
+    else
+        export RELAY_WORKFLOW
+    fi
 else
-    export RELAY_WORKFLOW
+    export NO_DOCKER_PUSH=yes
 fi
 
 if [ -n "${DIRTY}" ]; then

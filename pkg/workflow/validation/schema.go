@@ -43,14 +43,13 @@ func (j *JSONSchema) ValidateGo(data interface{}) error {
 }
 
 func (j *JSONSchema) validate(loader gojsonschema.JSONLoader) error {
-	//	result, err := j.schema.Validate()
 	result, err := j.schema.Validate(loader)
 	if err != nil {
-		return &SchemaValidationError{Cause: err}
+		return err
 	}
 
 	if err := typeutil.ValidationErrorFromResult(result); err != nil {
-		return &SchemaValidationError{Cause: err}
+		return err
 	}
 
 	return nil

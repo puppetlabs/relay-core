@@ -9,7 +9,6 @@ import (
 	utilapi "github.com/puppetlabs/leg/httputil/api"
 	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
 	expression "github.com/puppetlabs/relay-core/pkg/expr/model"
-	"github.com/puppetlabs/relay-core/pkg/expr/parse"
 	"github.com/puppetlabs/relay-core/pkg/manager/resolve"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/errors"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/middleware"
@@ -42,11 +41,14 @@ func (s *Server) GetConditions(w http.ResponseWriter, r *http.Request) {
 		evaluate.WithAnswerTypeResolver{AnswerTypeResolver: resolve.NewAnswerTypeResolver(managers.State())},
 	)
 
-	rv, rerr := expression.EvaluateAll(ctx, ev, condition.Tree)
-	if rerr != nil {
-		err := errors.NewExpressionEvaluationError(rerr.Error())
-		addStepMessage(r, err, condition.Tree)
-		utilapi.WriteError(ctx, w, err)
+	rv, err := expression.EvaluateAll(ctx, ev, condition.Tree)
+	if err != nil {
+		message := err.Error()
+		addStepMessage(r, message,
+			&model.ConditionEvaluationResult{
+				Expression: condition.Tree,
+			}, nil)
+		utilapi.WriteError(ctx, w, errors.NewExpressionEvaluationError(message))
 		return
 	}
 
@@ -62,7 +64,10 @@ check:
 			if !ok {
 				if rv.Complete() {
 					err := errors.NewConditionTypeError(fmt.Sprintf("%T", cond))
-					addStepMessage(r, err, condition.Tree)
+					addStepMessage(r, err.Error(),
+						&model.ConditionEvaluationResult{
+							Expression: condition.Tree,
+						}, nil)
 					utilapi.WriteError(ctx, w, err)
 					return
 				}
@@ -77,7 +82,10 @@ check:
 	default:
 		if rv.Complete() {
 			err := errors.NewConditionTypeError(fmt.Sprintf("%T", vt))
-			addStepMessage(r, err, condition.Tree)
+			addStepMessage(r, err.Error(),
+				&model.ConditionEvaluationResult{
+					Expression: condition.Tree,
+				}, nil)
 			utilapi.WriteError(ctx, w, err)
 			return
 		}
@@ -121,19 +129,27 @@ check:
 	utilapi.WriteObjectOK(ctx, w, resp)
 }
 
-func addStepMessage(r *http.Request, err errors.Error, condition parse.Tree) {
+func addStepMessage(r *http.Request, message string,
+	conditionEvaluationResult *model.ConditionEvaluationResult,
+	schemaValidationResult *model.SchemaValidationResult) {
+
 	ctx := r.Context()
 
 	managers := middleware.Managers(r)
 	sm := managers.StepMessages()
 
+	// TODO This needs better handling
+	details := message
+	if len(details) > 1024 {
+		details = details[:1024]
+	}
+
 	stepMessage := &model.StepMessage{
-		ID:      uuid.NewString(),
-		Details: err.Error(),
-		Time:    time.Now(),
-		ConditionEvaluationResult: &model.ConditionEvaluationResult{
-			Expression: condition,
-		},
+		ID:                        uuid.NewString(),
+		Details:                   details,
+		Time:                      time.Now(),
+		ConditionEvaluationResult: conditionEvaluationResult,
+		SchemaValidationResult:    schemaValidationResult,
 	}
 
 	_ = sm.Set(ctx, stepMessage)
