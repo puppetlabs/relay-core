@@ -1,2 +1,3 @@
 baseImageOverrides:
   github.com/puppetlabs/relay-core/cmd/relay-operator: gcr.io/distroless/static:latest
+  github.com/puppetlabs/relay-core/cmd/relay-runtime-tools: relaysh/relay-runtime-tools:latest

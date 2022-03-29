@@ -7,51 +7,15 @@ cd "$(dirname "$0")"/..
 RELAY_CORE_REPO_BASE="${RELAY_CORE_REPO_BASE:-us-docker.pkg.dev/puppet-relay-contrib-oss/relay-core}"
 export KO_DOCKER_REPO="${RELAY_CORE_REPO_BASE}"
 
-DOCKER_BUILD_TARGETS=(
-  relay-runtime-tools
-)
-
 KO_BUILD_TARGETS=(
   ./cmd/relay-installer
   ./cmd/relay-metadata-api
   ./cmd/relay-metrics
   ./cmd/relay-operator
+  ./cmd/relay-runtime-tools
   ./cmd/relay-operator-vault-init
   ./cmd/relay-operator-webhook-certificate-controller
 )
-
-do_build_docker() {
-  TARGET="$1"
-
-  BUILD_IMAGE="${RELAY_CORE_REPO_BASE}/${TARGET}:${VERSION}"
-  BUILD_ARGS=( -f "./cmd/${TARGET}/Dockerfile" -t "${BUILD_IMAGE}" )
-
-  if ! command -v buildah >/dev/null 2>&1; then
-    echo 'WARNING: You do not seem to have buildah installed. We will fall back to ' >&2
-    echo '`docker build`, and you will not be able to take advantage of the host Go module cache.' >&2
-
-    (
-      set -x
-      docker build "${BUILD_ARGS[@]}" .
-    )
-  else
-    (
-      set -x
-      GO_PKG_DIR=$(go env GOPATH)/pkg
-      [ ! -d "$GO_PKG_DIR" ] && mkdir -p "$GO_PKG_DIR"
-      buildah bud \
-        "${BUILD_ARGS[@]}" \
-        -v "$GO_PKG_DIR:/go/pkg:O" \
-        .
-      buildah push "${BUILD_IMAGE}" "docker-daemon:${BUILD_IMAGE}"
-    )
-  fi
-}
-
-# Build Docker targets.
-for TARGET in ${DOCKER_BUILD_TARGETS[@]}; do
-  do_build_docker "${TARGET}"
-done
 
 # Build ko targets.
 {
