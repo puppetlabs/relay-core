@@ -1,7 +1,20 @@
 name: CI
 on: [push, pull_request]
 jobs:
+  init:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+    - id: test-gha-token-available
+      uses: actions/github-script@v6
+      with:
+        script: return 'ACTIONS_ID_TOKEN_REQUEST_URL' in process.env
+    outputs:
+      gha-token-available: ${{ steps.test-gha-token-available.outputs.result }}
   build:
+    needs:
+    - init
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -26,7 +39,7 @@ jobs:
     - name: Build
       run: scripts/ci build
     - name: Authenticate to Google Cloud
-      if: github.repository_owner == 'puppetlabs'
+      if: github.repository_owner == 'puppetlabs' && needs.init.outputs.gha-token-available == 'true'
       uses: google-github-actions/auth@v0
       with:
         workload_identity_provider: projects/3502833910/locations/global/workloadIdentityPools/github-actions/providers/puppetlabs
@@ -110,9 +123,10 @@ jobs:
       run: scripts/ci test
   deploy:
     needs:
+    - init
     - build
     - test
-    if: github.repository_owner == 'puppetlabs'
+    if: github.repository_owner == 'puppetlabs' && needs.init.outputs.gha-token-available == 'true'
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
