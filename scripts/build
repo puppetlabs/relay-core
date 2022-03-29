@@ -5,17 +5,22 @@ set -euo pipefail
 cd "$(dirname "$0")"/..
 
 RELAY_CORE_REPO_BASE="${RELAY_CORE_REPO_BASE:-us-docker.pkg.dev/puppet-relay-contrib-oss/relay-core}"
+export KO_DOCKER_REPO="${RELAY_CORE_REPO_BASE}"
 
-BUILD_TARGETS=(
-    relay-operator
-    relay-metadata-api
-    relay-metrics
-    relay-runtime-tools
-    relay-operator-webhook-certificate-controller
-    relay-installer
+DOCKER_BUILD_TARGETS=(
+  relay-runtime-tools
 )
 
-do_build() {
+KO_BUILD_TARGETS=(
+  ./cmd/relay-installer
+  ./cmd/relay-metadata-api
+  ./cmd/relay-metrics
+  ./cmd/relay-operator
+  ./cmd/relay-operator-vault-init
+  ./cmd/relay-operator-webhook-certificate-controller
+)
+
+do_build_docker() {
   TARGET="$1"
 
   BUILD_IMAGE="${RELAY_CORE_REPO_BASE}/${TARGET}:${VERSION}"
@@ -43,6 +48,24 @@ do_build() {
   fi
 }
 
-for TARGET in ${BUILD_TARGETS[@]}; do
-  do_build "${TARGET}"
+# Build Docker targets.
+for TARGET in ${DOCKER_BUILD_TARGETS[@]}; do
+  do_build_docker "${TARGET}"
 done
+
+# Build ko targets.
+{
+  # It's not possible to have ko both name the image how we want (i.e., with the
+  # repo name intact) and also only store the image in the local Docker daemon
+  # without pushing it, so this hack saves the images to a pipe and immediately
+  # passes them to `docker load`... without disturbing stdin/stdout of ko
+  # itself.
+  go run \
+    github.com/google/ko build \
+    --base-import-paths \
+    --push=false \
+    --tarball=/dev/fd/3 \
+    --tags "${VERSION}" \
+    "${KO_BUILD_TARGETS[@]}" \
+    3>&1 >&4 4>&- | docker load 4>&-
+} 4>&1
