@@ -139,16 +139,3 @@ sections:
       image_parse_error:
         title: Image parse error
         description: failed to parse the image and tag string for the container action.
-
-  validation:
-    title: Validation errors
-    errors:
-      schema_lookup_error:
-        title: Schema lookup error
-        description: failed to lookup schema
-      schema_validation_error:
-        title: Schema validation error
-        description: could not validate schema
-        metadata:
-          http:
-            status: 422

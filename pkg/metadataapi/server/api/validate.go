@@ -3,9 +3,7 @@ package api
 import (
 	goerrors "errors"
 	"net/http"
-	"time"
 
-	"github.com/google/uuid"
 	utilapi "github.com/puppetlabs/leg/httputil/api"
 	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
 	expression "github.com/puppetlabs/relay-core/pkg/expr/model"
@@ -24,7 +22,6 @@ func (s *Server) PostValidate(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 
 		managers := middleware.Managers(r)
-		sm := managers.StepMessages()
 
 		spec, err := managers.Spec().Get(ctx)
 		if err != nil {
@@ -64,35 +61,23 @@ func (s *Server) PostValidate(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			var captureErr errors.Error
-
 			schema, err := s.schemaRegistry.GetByImage(ref)
 			if err != nil {
 				var noTrackCause *validation.SchemaDoesNotExistError
 				if !goerrors.As(err, &noTrackCause) {
-					captureErr = errors.NewValidationSchemaLookupError().WithCause(err)
+					addStepMessage(r, err.Error(),
+						nil,
+						&model.SchemaValidationResult{
+							Expression: spec.Tree,
+						})
 				}
 			} else {
 				if err := schema.ValidateGo(env.Value.Data); err != nil {
-					captureErr = errors.NewValidationSchemaValidationError().WithCause(err)
-				}
-			}
-
-			if captureErr != nil {
-				stepMessage := &model.StepMessage{
-					ID:      uuid.NewString(),
-					Details: captureErr.Error(),
-					Time:    time.Now(),
-					SchemaValidationResult: &model.SchemaValidationResult{
-						Expression: spec.Tree,
-					},
-				}
-
-				err = sm.Set(ctx, stepMessage)
-				if err != nil {
-					utilapi.WriteError(ctx, w, ModelWriteError(err))
-
-					return
+					addStepMessage(r, err.Error(),
+						nil,
+						&model.SchemaValidationResult{
+							Expression: spec.Tree,
+						})
 				}
 			}
 		}
