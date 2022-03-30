@@ -5,44 +5,31 @@ set -euo pipefail
 cd "$(dirname "$0")"/..
 
 RELAY_CORE_REPO_BASE="${RELAY_CORE_REPO_BASE:-us-docker.pkg.dev/puppet-relay-contrib-oss/relay-core}"
+export KO_DOCKER_REPO="${RELAY_CORE_REPO_BASE}"
 
-BUILD_TARGETS=(
-    relay-operator
-    relay-metadata-api
-    relay-metrics
-    relay-runtime-tools
-    relay-operator-webhook-certificate-controller
-    relay-installer
+KO_BUILD_TARGETS=(
+  ./cmd/relay-installer
+  ./cmd/relay-metadata-api
+  ./cmd/relay-metrics
+  ./cmd/relay-operator
+  ./cmd/relay-runtime-tools
+  ./cmd/relay-operator-vault-init
+  ./cmd/relay-operator-webhook-certificate-controller
 )
 
-do_build() {
-  TARGET="$1"
-
-  BUILD_IMAGE="${RELAY_CORE_REPO_BASE}/${TARGET}:${VERSION}"
-  BUILD_ARGS=( -f "./cmd/${TARGET}/Dockerfile" -t "${BUILD_IMAGE}" )
-
-  if ! command -v buildah >/dev/null 2>&1; then
-    echo 'WARNING: You do not seem to have buildah installed. We will fall back to ' >&2
-    echo '`docker build`, and you will not be able to take advantage of the host Go module cache.' >&2
-
-    (
-      set -x
-      docker build "${BUILD_ARGS[@]}" .
-    )
-  else
-    (
-      set -x
-      GO_PKG_DIR=$(go env GOPATH)/pkg
-      [ ! -d "$GO_PKG_DIR" ] && mkdir -p "$GO_PKG_DIR"
-      buildah bud \
-        "${BUILD_ARGS[@]}" \
-        -v "$GO_PKG_DIR:/go/pkg:O" \
-        .
-      buildah push "${BUILD_IMAGE}" "docker-daemon:${BUILD_IMAGE}"
-    )
-  fi
-}
-
-for TARGET in ${BUILD_TARGETS[@]}; do
-  do_build "${TARGET}"
-done
+# Build ko targets.
+{
+  # It's not possible to have ko both name the image how we want (i.e., with the
+  # repo name intact) and also only store the image in the local Docker daemon
+  # without pushing it, so this hack saves the images to a pipe and immediately
+  # passes them to `docker load`... without disturbing stdin/stdout of ko
+  # itself.
+  go run \
+    github.com/google/ko build \
+    --base-import-paths \
+    --push=false \
+    --tarball=/dev/fd/3 \
+    --tags "${VERSION}" \
+    "${KO_BUILD_TARGETS[@]}" \
+    3>&1 >&4 4>&- | docker load 4>&-
+} 4>&1
