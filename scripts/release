@@ -3,11 +3,13 @@ set -euo pipefail
 
 RELAY_CORE_REPO_BASE="${RELAY_CORE_REPO_BASE:-us-docker.pkg.dev/puppet-relay-contrib-oss/relay-core}"
 RELAY_CORE_RELEASE_REPOS=(
-    "${RELAY_CORE_REPO_BASE}/relay-operator"
+    "${RELAY_CORE_REPO_BASE}/relay-installer"
     "${RELAY_CORE_REPO_BASE}/relay-metadata-api"
     "${RELAY_CORE_REPO_BASE}/relay-metrics"
-    "${RELAY_CORE_REPO_BASE}/relay-runtime-tools"
+    "${RELAY_CORE_REPO_BASE}/relay-operator"
+    "${RELAY_CORE_REPO_BASE}/relay-operator-vault-init"
     "${RELAY_CORE_REPO_BASE}/relay-operator-webhook-certificate-controller"
+    "${RELAY_CORE_REPO_BASE}/relay-runtime-tools"
 )
 
 release_docker_images() {
