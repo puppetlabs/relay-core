@@ -8,7 +8,7 @@ const (
 	ToolsImage     = "us-docker.pkg.dev/puppet-relay-contrib-oss/relay-core/relay-runtime-tools:latest"
 	ToolsMountName = "relay-tools"
 	ToolsMountPath = "/var/lib/puppet/relay"
-	ToolsSource    = "/relay/runtime/tools/."
+	ToolsSource    = "/ko-app/relay-runtime-tools"
 )
 
 const (

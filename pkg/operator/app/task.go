@@ -34,7 +34,7 @@ func ConfigureTask(ctx context.Context, t *obj.Task, rd *RunDeps, ws *relayv1bet
 		Image:      rd.RuntimeToolsImage,
 		WorkingDir: "/",
 		Command:    []string{"cp"},
-		Args:       []string{"-r", model.ToolsSource, model.ToolsMountPath},
+		Args:       []string{model.ToolsSource, path.Join(model.ToolsMountPath, model.EntrypointCommand)},
 	}
 
 	container := corev1.Container{
