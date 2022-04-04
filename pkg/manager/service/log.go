@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"time"
 
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-pls/pkg/plspb"
@@ -17,9 +16,6 @@ type LogManager struct {
 var _ model.LogManager = &LogManager{}
 
 func (m *LogManager) PostLog(ctx context.Context, value interface{}) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-
 	incoming, ok := value.(string)
 	if ok {
 		request := &plspb.LogCreateRequest{}
@@ -47,9 +43,6 @@ func (m *LogManager) PostLog(ctx context.Context, value interface{}) ([]byte, er
 }
 
 func (m *LogManager) PostLogMessage(ctx context.Context, logID string, value interface{}) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-
 	incoming, ok := value.(string)
 	if ok {
 		request := &plspb.LogMessageAppendRequest{}
