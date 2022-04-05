@@ -232,23 +232,16 @@ func (r *Reconciler) uploadLogs(ctx context.Context, run *obj.Run, plr *obj.Pipe
 
 		klog.Infof("Run %s step %q is complete, uploading logs for pod %s", run.Key, step.Name, podName)
 
-		annotations := run.Object.GetAnnotations()
-		domainID := annotations[model.RelayDomainIDAnnotation]
-
-		err := r.metrics.trackDurationWithOutcome(metricWorkflowRunLogUploadDuration, func() error {
-			logKey, err := r.uploadLog(ctx, plr.Key.Namespace, podName, "step-step")
-
-			run.Object.Status.Steps[i].Logs = []*relayv1beta1.Log{
-				{
-					Name:    podName,
-					Context: logKey,
-				},
-			}
-
-			return err
-		}, withAccountIDTrackDurationOption(domainID))
+		logKey, err := r.uploadLog(ctx, plr.Key.Namespace, podName, "step-step")
 		if err != nil {
 			klog.Warningf("failed to upload log for Run %s step %q: %+v", run.Key, step.Name, err)
+		}
+
+		run.Object.Status.Steps[i].Logs = []*relayv1beta1.Log{
+			{
+				Name:    podName,
+				Context: logKey,
+			},
 		}
 	}
 }
