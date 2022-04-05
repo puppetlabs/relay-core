@@ -22,11 +22,13 @@ var (
 func main() {
 	flag.Parse()
 
-	if len(flag.Args()) > 0 {
-		commands := cmd.NewMap()
-		if command, ok := commands[flag.Args()[0]]; ok {
-			if err := command.Execute(flag.Args()); err != nil {
-				log.Fatal(err)
+	if ep == nil {
+		if len(flag.Args()) > 0 {
+			commands := cmd.NewMap()
+			if command, ok := commands[flag.Args()[0]]; ok {
+				if err := command.Execute(flag.Args()); err != nil {
+					log.Fatal(err)
+				}
 			}
 		}
 
