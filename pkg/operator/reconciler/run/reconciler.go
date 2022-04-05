@@ -179,13 +179,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 
 	app.ConfigureRun(ctx, rd, pr)
 
-	err = r.metrics.trackDurationWithOutcome(metricWorkflowRunLogUploadDuration, func() error {
-		r.uploadLogs(ctx, run, pr)
-		return nil
-	}, withAccountIDTrackDurationOption(domainID))
-	if err != nil {
-		klog.Warning(err)
-	}
+	r.uploadLogs(ctx, run, pr)
 
 	if err := run.PersistStatus(ctx, r.Client); err != nil {
 		return ctrl.Result{}, errmap.Wrap(err, "failed to persist Run status")
@@ -238,16 +232,23 @@ func (r *Reconciler) uploadLogs(ctx context.Context, run *obj.Run, plr *obj.Pipe
 
 		klog.Infof("Run %s step %q is complete, uploading logs for pod %s", run.Key, step.Name, podName)
 
-		logKey, err := r.uploadLog(ctx, plr.Key.Namespace, podName, "step-step")
+		annotations := run.Object.GetAnnotations()
+		domainID := annotations[model.RelayDomainIDAnnotation]
+
+		err := r.metrics.trackDurationWithOutcome(metricWorkflowRunLogUploadDuration, func() error {
+			logKey, err := r.uploadLog(ctx, plr.Key.Namespace, podName, "step-step")
+
+			run.Object.Status.Steps[i].Logs = []*relayv1beta1.Log{
+				{
+					Name:    podName,
+					Context: logKey,
+				},
+			}
+
+			return err
+		}, withAccountIDTrackDurationOption(domainID))
 		if err != nil {
 			klog.Warningf("failed to upload log for Run %s step %q: %+v", run.Key, step.Name, err)
-		}
-
-		run.Object.Status.Steps[i].Logs = []*relayv1beta1.Log{
-			{
-				Name:    podName,
-				Context: logKey,
-			},
 		}
 	}
 }
