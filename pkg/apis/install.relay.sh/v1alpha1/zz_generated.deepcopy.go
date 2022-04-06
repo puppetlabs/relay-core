@@ -167,6 +167,11 @@ func (in *OperatorConfig) DeepCopyInto(out *OperatorConfig) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.TenantNamespace != nil {
+		in, out := &in.TenantNamespace, &out.TenantNamespace
+		*out = new(string)
+		**out = **in
+	}
 	if in.LogStoragePVCName != nil {
 		in, out := &in.LogStoragePVCName, &out.LogStoragePVCName
 		*out = new(string)

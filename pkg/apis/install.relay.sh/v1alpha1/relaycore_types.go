@@ -193,6 +193,13 @@ type OperatorConfig struct {
 	// +optional
 	StorageAddr *string `json:"storageAddr,omitempty"`
 
+	// TenantNamespace is the kubernetes namesapce the workflow controller
+	// should look for tenant workloads on. This currently translates into the
+	// -kube-namespace flag, which could be renamed at a later date.
+	//
+	// +optional
+	TenantNamespace *string `json:"tenantNamespace,omitempty"`
+
 	// LogStoragePVCName is the name of a PVC to store logs in. This field is
 	// here to support the development environment and may be removed at a
 	// later date when the PLS implementation is rolled in.
