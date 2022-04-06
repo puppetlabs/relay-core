@@ -123,8 +123,8 @@ func ConfigureKnativeService(ctx context.Context, s *obj.KnativeService, wtd *We
 		Name:       ToolsWorkspaceName,
 		Image:      wtd.RuntimeToolsImage,
 		WorkingDir: "/",
-		Command:    []string{"cp"},
-		Args:       []string{model.ToolsSource, path.Join(model.ToolsMountPath, model.EntrypointCommand)},
+		Command:    []string{model.ToolsSource},
+		Args:       []string{model.ToolsCommandInitialize},
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      model.ToolsMountName,
