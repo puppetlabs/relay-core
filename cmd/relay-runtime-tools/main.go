@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/puppetlabs/relay-core/pkg/entrypoint"
+	"github.com/puppetlabs/relay-core/pkg/entrypoint/cmd"
 )
 
 var (
@@ -20,6 +21,19 @@ var (
 
 func main() {
 	flag.Parse()
+
+	if ep == nil {
+		if len(flag.Args()) > 0 {
+			commands := cmd.NewMap()
+			if command, ok := commands[flag.Args()[0]]; ok {
+				if err := command.Execute(flag.Args()); err != nil {
+					log.Fatal(err)
+				}
+			}
+		}
+
+		os.Exit(0)
+	}
 
 	// FIXME Implement configurable timeouts
 	e := entrypoint.Entrypointer{

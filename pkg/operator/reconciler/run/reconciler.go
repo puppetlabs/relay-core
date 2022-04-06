@@ -179,13 +179,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 
 	app.ConfigureRun(ctx, rd, pr)
 
-	err = r.metrics.trackDurationWithOutcome(metricWorkflowRunLogUploadDuration, func() error {
-		r.uploadLogs(ctx, run, pr)
-		return nil
-	}, withAccountIDTrackDurationOption(domainID))
-	if err != nil {
-		klog.Warning(err)
-	}
+	r.uploadLogs(ctx, run, pr)
 
 	if err := run.PersistStatus(ctx, r.Client); err != nil {
 		return ctrl.Result{}, errmap.Wrap(err, "failed to persist Run status")
