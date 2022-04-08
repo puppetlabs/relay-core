@@ -142,6 +142,15 @@ func (rr *RealRunner) Run(args ...string) error {
 		return err
 	}
 
+	if cmd.ProcessState != nil && mu != nil {
+		if err := rr.putStatus(ctx, mu,
+			&model.ActionStatus{
+				ExitCode: cmd.ProcessState.ExitCode(),
+			}); err != nil {
+			log.Println(err)
+		}
+	}
+
 	return nil
 }
 
@@ -284,6 +293,29 @@ func (rr *RealRunner) postLogMessage(ctx context.Context, mu *url.URL, request *
 	}
 
 	return nil, nil
+}
+
+func (rr *RealRunner) putStatus(ctx context.Context, mu *url.URL, status *model.ActionStatus) error {
+	le := &url.URL{Path: "/status"}
+
+	buf, err := json.Marshal(status)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequestWithContext(ctx,
+		http.MethodPut, mu.ResolveReference(le).String(), bytes.NewBuffer(buf))
+	if err != nil {
+		return err
+	}
+
+	resp, err := rr.getResponse(ctx, req, []retry.WaitOption{})
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	return nil
 }
 
 // validateSchemas calls validation endpoints on the metadata-api to validate

@@ -79,6 +79,7 @@ var (
 // MetadataManagers are the managers used by actions accessing the metadata
 // service.
 type MetadataManagers interface {
+	ActionStatus() ActionStatusManager
 	Conditions() ConditionGetterManager
 	Connections() ConnectionManager
 	Events() EventManager
