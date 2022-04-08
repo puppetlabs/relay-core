@@ -44,6 +44,7 @@ type WebhookTriggerDeps struct {
 	Tenant         *obj.Tenant
 	TenantDeps     *TenantDeps
 
+	Environment       string
 	RuntimeToolsImage string
 	Standalone        bool
 
@@ -323,6 +324,12 @@ func (wtd *WebhookTriggerDeps) AnnotateTriggerToken(ctx context.Context, target 
 }
 
 type WebhookTriggerDepsOption func(wtd *WebhookTriggerDeps)
+
+func WebhookTriggerDepsWithEnvironment(environment string) WebhookTriggerDepsOption {
+	return func(wtd *WebhookTriggerDeps) {
+		wtd.Environment = environment
+	}
+}
 
 func WebhookTriggerDepsWithRuntimeToolsImage(image string) WebhookTriggerDepsOption {
 	return func(wtd *WebhookTriggerDeps) {

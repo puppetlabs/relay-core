@@ -26,6 +26,7 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/operator/controller/trigger"
 	"github.com/puppetlabs/relay-core/pkg/operator/dependency"
 	"github.com/puppetlabs/relay-core/pkg/util/testutil"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -37,13 +38,20 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
+type InternalEnvironmentConfig struct {
+	Environment       string
+	RuntimeToolsImage string
+	Standalone        bool
+}
+
 type Config struct {
-	Environment      *testutil.EndToEndEnvironment
-	Namespace        *corev1.Namespace
-	MetadataAPIURL   *url.URL
-	Vault            *testutil.Vault
-	Manager          manager.Manager
-	ControllerConfig *config.WorkflowControllerConfig
+	Environment               *testutil.EndToEndEnvironment
+	Namespace                 *corev1.Namespace
+	MetadataAPIURL            *url.URL
+	Vault                     *testutil.Vault
+	Manager                   manager.Manager
+	ControllerConfig          *config.WorkflowControllerConfig
+	InternalEnvironmentConfig *InternalEnvironmentConfig
 
 	LabelSelector *metav1.LabelSelector
 
@@ -140,6 +148,23 @@ func doConfigNamespace(ctx context.Context) doConfigFunc {
 	}
 }
 
+func doConfigInternalEnvironment(t *testing.T, cfg *Config, next func()) {
+	viper.SetEnvPrefix("relay_test_internal")
+	viper.AutomaticEnv()
+
+	viper.SetDefault("environment", model.DeploymentEnvironmentTest.Name())
+	viper.SetDefault("runtime_tools_image", model.ToolsImage)
+	viper.SetDefault("standalone", true)
+
+	cfg.InternalEnvironmentConfig = &InternalEnvironmentConfig{
+		Environment:       viper.GetString("environment"),
+		RuntimeToolsImage: viper.GetString("runtime_tools_image"),
+		Standalone:        viper.GetBool("standalone"),
+	}
+
+	next()
+}
+
 func doConfigInit(t *testing.T, cfg *Config, next func()) {
 	if !cfg.withTenantReconciler && !cfg.withWebhookTriggerReconciler && !cfg.withRunReconciler {
 		next()
@@ -228,6 +253,7 @@ func doConfigDependencyManager(ctx context.Context) doConfigFunc {
 			return
 		}
 
+		require.NotNil(t, cfg.InternalEnvironmentConfig)
 		require.NotNil(t, cfg.Namespace)
 		require.NotNil(t, cfg.Vault)
 		require.NotNil(t, cfg.blobStore)
@@ -244,12 +270,14 @@ func doConfigDependencyManager(ctx context.Context) doConfigFunc {
 		require.NoError(t, imagePullSecret.Persist(ctx, cfg.Environment.ControllerClient))
 
 		wcc := &config.WorkflowControllerConfig{
-			Standalone:              true,
+			Environment:       cfg.InternalEnvironmentConfig.Environment,
+			RuntimeToolsImage: cfg.InternalEnvironmentConfig.RuntimeToolsImage,
+			Standalone:        cfg.InternalEnvironmentConfig.Standalone,
+
 			Namespace:               cfg.Namespace.GetName(),
 			ImagePullSecret:         imagePullSecret.Key.Name,
 			MaxConcurrentReconciles: 16,
 			MetadataAPIURL:          cfg.MetadataAPIURL,
-			RuntimeToolsImage:       model.ToolsImage,
 			VaultTransitPath:        cfg.Vault.TransitPath,
 			VaultTransitKey:         cfg.Vault.TransitKey,
 		}
@@ -430,6 +458,7 @@ func WithConfig(t *testing.T, ctx context.Context, opts []ConfigOption, fn func(
 			cfg.Manager = mgr
 
 			chain := []doConfigFunc{
+				doConfigInternalEnvironment,
 				doConfigNamespace(ctx),
 				doConfigInit,
 				doConfigVault,

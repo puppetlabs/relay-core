@@ -6,7 +6,6 @@ require (
 	github.com/PaesslerAG/gval v1.1.1-0.20210429131240-4f5f9c091d78
 	github.com/generikvault/gvalstrings v0.0.0-20180926130504-471f38f0112a
 	github.com/gofrs/flock v0.8.1
-	github.com/golang/protobuf v1.5.2
 	github.com/gomarkdown/markdown v0.0.0-20200513213024-62c5e2c608cc
 	github.com/google/go-containerregistry v0.8.1-0.20220209165246-a44adc326839
 	github.com/google/ko v0.11.2
@@ -173,6 +172,7 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt/v4 v4.2.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
+	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/go-cmp v0.5.7 // indirect
 	github.com/google/go-metrics-stackdriver v0.2.0 // indirect

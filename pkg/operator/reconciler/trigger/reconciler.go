@@ -71,6 +71,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		wt,
 		r.issuer,
 		r.Config.MetadataAPIURL,
+		app.WebhookTriggerDepsWithEnvironment(r.Config.Environment),
 		app.WebhookTriggerDepsWithRuntimeToolsImage(r.Config.RuntimeToolsImage),
 		app.WebhookTriggerDepsWithStandaloneMode(r.Config.Standalone),
 	)

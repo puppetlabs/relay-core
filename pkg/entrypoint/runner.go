@@ -9,7 +9,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -17,29 +17,21 @@ import (
 	"os/exec"
 	"os/signal"
 	"path"
-	"strings"
 	"syscall"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/puppetlabs/leg/timeutil/pkg/retry"
 	exprmodel "github.com/puppetlabs/relay-core/pkg/expr/model"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-pls/pkg/plspb"
 	"google.golang.org/protobuf/proto"
-)
-
-const (
-	// FIXME This should be in a common location
-	MetadataAPIURLEnvName    = "METADATA_API_URL"
-	MetadataAPIURLTestDomain = "example.com"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type RealRunner struct {
 	signals chan os.Signal
 
-	TimeoutLong  time.Duration
-	TimeoutShort time.Duration
+	Config *Config
 }
 
 var _ Runner = (*RealRunner)(nil)
@@ -55,49 +47,43 @@ func (rr *RealRunner) Run(args ...string) error {
 		return nil
 	}
 
+	ctx := context.Background()
+
 	if err := updatePath(); err != nil {
 		log.Println(err)
 	}
 
-	mu, err := getMetadataAPIURL()
-	if err != nil {
-		log.Println(err)
-	}
-
+	var err error
 	var logOut *plspb.LogCreateResponse
 	var logErr *plspb.LogCreateResponse
 
-	// FIXME Avoid contacting the MetadataAPI repeatedly if we had previous failures (for now)
-	// NOTE This does not currently differentiate between comms errors and other failures
+	// TODO Move the bulk of this logic into the "initialization" command/phase
+	mu := rr.Config.MetadataAPIURL
 	if mu != nil {
-		cerr := rr.getEnvironmentVariables(mu)
-		if cerr != nil {
-			log.Println(cerr)
+		if err := rr.getEnvironmentVariables(ctx, mu); err != nil {
+			log.Println(err)
 		}
 
-		if cerr == nil {
-			cerr = rr.validateSchemas(mu)
-			if cerr != nil {
-				log.Println(cerr)
-			}
+		if err := rr.validateSchemas(ctx, mu); err != nil {
+			log.Println(err)
 		}
 
-		if cerr == nil {
-			logOut, cerr = rr.postLog(mu, &plspb.LogCreateRequest{
-				Name: "stdout",
-			})
-			if cerr != nil {
-				log.Println(cerr)
-			}
+		logOut, err = rr.postLog(ctx, mu, &plspb.LogCreateRequest{
+			Name: "stdout",
+		})
+		if err != nil {
+			log.Println(err)
 		}
 
-		if cerr == nil {
-			logErr, cerr = rr.postLog(mu, &plspb.LogCreateRequest{
-				Name: "stderr",
-			})
-			if cerr != nil {
-				log.Println(cerr)
-			}
+		logErr, err = rr.postLog(ctx, mu, &plspb.LogCreateRequest{
+			Name: "stderr",
+		})
+		if err != nil {
+			log.Println(err)
+		}
+
+		if err := rr.setStepInitTimer(ctx, mu); err != nil {
+			log.Println(err)
 		}
 	}
 
@@ -132,8 +118,7 @@ func (rr *RealRunner) Run(args ...string) error {
 	scannerOut := bufio.NewScanner(stdoutPipe)
 	scannerErr := bufio.NewScanner(stderrPipe)
 
-	// Start defined command
-	if err := rr.startCommand(mu, cmd); err != nil {
+	if err := cmd.Start(); err != nil {
 		return err
 	}
 
@@ -147,13 +132,12 @@ func (rr *RealRunner) Run(args ...string) error {
 		}
 	}()
 
-	go rr.scan(mu, scannerOut, os.Stdout, logOut, doneOut)
-	go rr.scan(mu, scannerErr, os.Stderr, logErr, doneErr)
+	go rr.scan(ctx, mu, scannerOut, os.Stdout, logOut, doneOut)
+	go rr.scan(ctx, mu, scannerErr, os.Stderr, logErr, doneErr)
 
 	<-doneOut
 	<-doneErr
 
-	// Wait for command to exit
 	if err := cmd.Wait(); err != nil {
 		return err
 	}
@@ -161,75 +145,58 @@ func (rr *RealRunner) Run(args ...string) error {
 	return nil
 }
 
-func (rr *RealRunner) scan(mu *url.URL, scanner *bufio.Scanner, out *os.File, lcr *plspb.LogCreateResponse, done chan<- bool) {
+func (rr *RealRunner) scan(ctx context.Context, mu *url.URL, scanner *bufio.Scanner, out *os.File, lcr *plspb.LogCreateResponse, done chan<- bool) {
 	for scanner.Scan() {
 		line := scanner.Text()
 
 		if mu != nil && lcr != nil {
 			message := &plspb.LogMessageAppendRequest{
-				LogId:   lcr.GetLogId(),
-				Payload: []byte(line),
+				LogId:     lcr.GetLogId(),
+				Payload:   []byte(line),
+				Timestamp: timestamppb.New(time.Now().UTC()),
 			}
 
-			if ts, err := ptypes.TimestampProto(time.Now().UTC()); err == nil {
-				message.Timestamp = ts
-			}
-
-			_, err := rr.postLogMessage(mu, message)
-			if err != nil {
+			if _, err := rr.postLogMessage(ctx, mu, message); err != nil {
 				log.Println(err)
 			}
 		}
 
-		out.WriteString(line)
-		out.WriteString("\n")
+		_, _ = out.WriteString(line)
+		_, _ = out.WriteString("\n")
 	}
 	done <- true
 }
 
 func updatePath() error {
-	path := os.Getenv("PATH")
-	return os.Setenv("PATH", path+":/var/lib/puppet/relay")
+	currentPath := os.Getenv("PATH")
+	return os.Setenv("PATH", currentPath+":/var/lib/puppet/relay")
 }
 
-func getMetadataAPIURL() (*url.URL, error) {
-	metadataAPIURL := os.Getenv(MetadataAPIURLEnvName)
-	if metadataAPIURL == "" {
-		return nil, nil
-	}
-
-	// FIXME Implement a better solution for testing
-	// This is partly to avoid unnecessary delays in the current testing suite
-	if strings.HasSuffix(metadataAPIURL, MetadataAPIURLTestDomain) {
-		return nil, nil
-	}
-
-	return url.Parse(metadataAPIURL)
-}
-
-func (rr *RealRunner) getEnvironmentVariables(mu *url.URL) error {
+func (rr *RealRunner) getEnvironmentVariables(ctx context.Context, mu *url.URL) error {
 	ee := &url.URL{Path: "/environment"}
 
-	req, err := http.NewRequest(http.MethodGet, mu.ResolveReference(ee).String(), nil)
+	req, err := http.NewRequestWithContext(
+		ctx, http.MethodGet, mu.ResolveReference(ee).String(), http.NoBody)
 	if err != nil {
 		return err
 	}
 
-	resp, err := getResponse(req, rr.TimeoutLong, []retry.WaitOption{})
+	resp, err := rr.getResponse(ctx, req, []retry.WaitOption{})
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
 
-	if resp != nil && resp.Body != nil {
-		var r exprmodel.JSONResultEnvelope
-		json.NewDecoder(resp.Body).Decode(&r)
+	var r exprmodel.JSONResultEnvelope
+	if err := json.NewDecoder(resp.Body).Decode(&r); err != nil {
+		return err
+	}
 
-		if r.Value.Data != nil {
-			switch t := r.Value.Data.(type) {
-			case map[string]interface{}:
-				for name, value := range t {
-					os.Setenv(name, fmt.Sprintf("%v", value))
-				}
+	if r.Value.Data != nil {
+		switch t := r.Value.Data.(type) {
+		case map[string]interface{}:
+			for name, value := range t {
+				os.Setenv(name, fmt.Sprintf("%v", value))
 			}
 		}
 	}
@@ -237,7 +204,7 @@ func (rr *RealRunner) getEnvironmentVariables(mu *url.URL) error {
 	return nil
 }
 
-func (rr *RealRunner) postLog(mu *url.URL, request *plspb.LogCreateRequest) (*plspb.LogCreateResponse, error) {
+func (rr *RealRunner) postLog(ctx context.Context, mu *url.URL, request *plspb.LogCreateRequest) (*plspb.LogCreateResponse, error) {
 	le := &url.URL{Path: "/logs"}
 
 	buf, err := proto.Marshal(request)
@@ -245,33 +212,40 @@ func (rr *RealRunner) postLog(mu *url.URL, request *plspb.LogCreateRequest) (*pl
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, mu.ResolveReference(le).String(), bytes.NewBuffer(buf))
+	req, err := http.NewRequestWithContext(
+		ctx, http.MethodPost, mu.ResolveReference(le).String(), bytes.NewBuffer(buf))
 	if err != nil {
 		return nil, err
 	}
 
 	req.Header.Set("Content-Type", "application/octet-stream")
 
-	resp, err := getResponse(req, rr.TimeoutLong, []retry.WaitOption{})
+	resp, err := rr.getResponse(ctx, req, []retry.WaitOption{})
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
+	switch resp.Header.Get("content-type") {
+	case "application/octet-stream":
+		response := &plspb.LogCreateResponse{}
+		err = proto.Unmarshal(body, response)
+		if err != nil {
+			return nil, err
+		}
+
+		return response, nil
 	}
 
-	response := &plspb.LogCreateResponse{}
-	err = proto.Unmarshal(body, response)
-	if err != nil {
-		return nil, err
-	}
-
-	return response, nil
+	return nil, nil
 }
 
-func (rr *RealRunner) postLogMessage(mu *url.URL, request *plspb.LogMessageAppendRequest) (*plspb.LogMessageAppendResponse, error) {
+func (rr *RealRunner) postLogMessage(ctx context.Context, mu *url.URL, request *plspb.LogMessageAppendRequest) (*plspb.LogMessageAppendResponse, error) {
 	lme := &url.URL{Path: fmt.Sprintf("/logs/%s/messages", request.GetLogId())}
 
 	buf, err := proto.Marshal(request)
@@ -279,92 +253,88 @@ func (rr *RealRunner) postLogMessage(mu *url.URL, request *plspb.LogMessageAppen
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, mu.ResolveReference(lme).String(), bytes.NewBuffer(buf))
+	req, err := http.NewRequestWithContext(
+		ctx, http.MethodPost, mu.ResolveReference(lme).String(), bytes.NewBuffer(buf))
 	if err != nil {
 		return nil, err
 	}
 
 	req.Header.Set("Content-Type", "application/octet-stream")
 
-	resp, err := getResponse(req, rr.TimeoutShort, []retry.WaitOption{})
+	resp, err := rr.getResponse(ctx, req, []retry.WaitOption{})
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
+	switch resp.Header.Get("content-type") {
+	case "application/octet-stream":
+		response := &plspb.LogMessageAppendResponse{}
+		err = proto.Unmarshal(body, response)
+		if err != nil {
+			return nil, err
+		}
+
+		return response, nil
 	}
 
-	response := &plspb.LogMessageAppendResponse{}
-	err = proto.Unmarshal(body, response)
-	if err != nil {
-		return nil, err
-	}
-
-	return response, nil
+	return nil, nil
 }
 
 // validateSchemas calls validation endpoints on the metadata-api to validate
 // step schemas.
-//
-// TODO: as part of our effort to catch early schema and documentation errors
-// in core steps, we are just capturing errors to a logging service and fixing
-// the step repos. This means a simple http call to the validate endpoint is
-// fired off and the response is ignored.
-//
-// Once we have determined that things are stable, we will
-// begin propagating these errors to the frontend and stopping the steps from
-// running if they don't validate.
-func (rr *RealRunner) validateSchemas(mu *url.URL) error {
+func (rr *RealRunner) validateSchemas(ctx context.Context, mu *url.URL) error {
 	ve := &url.URL{Path: "/validate"}
 
-	req, err := http.NewRequest(http.MethodPost, mu.ResolveReference(ve).String(), nil)
+	req, err := http.NewRequestWithContext(
+		ctx, http.MethodPost, mu.ResolveReference(ve).String(), http.NoBody)
 	if err != nil {
 		return err
 	}
 
-	// We are ignoring the response for now because this endpoint just sends
-	// all validation errors to the error capturing system.
-	_, err = getResponse(req, rr.TimeoutLong, []retry.WaitOption{})
+	resp, err := rr.getResponse(ctx, req, []retry.WaitOption{})
 	if err != nil {
 		return err
+	}
+	defer resp.Body.Close()
+
+	return nil
+}
+
+// FIXME This should send the explicit start time to the endpoint
+func (rr *RealRunner) setStepInitTimer(ctx context.Context, mu *url.URL) error {
+	te := &url.URL{Path: path.Join("/timers", url.PathEscape(model.TimerStepInit))}
+
+	req, err := http.NewRequestWithContext(
+		ctx, http.MethodPut, mu.ResolveReference(te).String(), http.NoBody)
+	if err != nil {
+		return err
+	} else {
+		resp, err := rr.getResponse(ctx, req, []retry.WaitOption{})
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
 	}
 
 	return nil
 }
 
-// startCommand wrapps cmd.Start() with a timing call to inform the metadata API
-// what our actual start time is.
-func (rr *RealRunner) startCommand(mu *url.URL, cmd *exec.Cmd) error {
-	if mu != nil {
-		te := &url.URL{Path: path.Join("/timers", url.PathEscape(model.TimerStepInit))}
-
-		req, err := http.NewRequest(http.MethodPut, mu.ResolveReference(te).String(), nil)
-		if err != nil {
-			log.Println(err)
-		} else {
-			_, err := getResponse(req, rr.TimeoutShort, []retry.WaitOption{})
-			if err != nil {
-				log.Println(err)
-			}
-		}
-	}
-
-	return cmd.Start()
-}
-
-func getResponse(request *http.Request, timeout time.Duration, waitOptions []retry.WaitOption) (*http.Response, error) {
-	ctx := context.Background()
-	ctx, cancel := context.WithTimeout(ctx, timeout)
+func (rr *RealRunner) getResponse(ctx context.Context, request *http.Request, waitOptions []retry.WaitOption) (*http.Response, error) {
+	contextWithTimeout, cancel := context.WithTimeout(ctx, rr.Config.DeploymentEnvironment.Timeout())
 	defer cancel()
 
 	var response *http.Response
-	err := retry.Wait(ctx, func(ctx context.Context) (bool, error) {
+	err := retry.Wait(contextWithTimeout, func(ctx context.Context) (bool, error) {
 		var rerr error
 		response, rerr = http.DefaultClient.Do(request)
 		if rerr != nil {
-			return false, rerr
+			return retry.Repeat(rerr)
 		}
 
 		if response != nil {
@@ -372,11 +342,11 @@ func getResponse(request *http.Request, timeout time.Duration, waitOptions []ret
 			switch response.StatusCode {
 			case http.StatusInternalServerError, http.StatusBadGateway,
 				http.StatusServiceUnavailable, http.StatusGatewayTimeout:
-				return false, nil
+				return retry.Repeat(fmt.Errorf("unexpected status code %d", response.StatusCode))
 			}
 		}
 
-		return true, nil
+		return retry.Done(nil)
 	}, waitOptions...)
 	if err != nil {
 		return nil, err
