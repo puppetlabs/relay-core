@@ -3,13 +3,14 @@ package entrypoint_test
 import (
 	"net/http"
 	"net/http/httptest"
-	"os"
+	"net/url"
 	"path"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/puppetlabs/relay-core/pkg/entrypoint"
+	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,7 +23,7 @@ func withMockMetadataAPI(t *testing.T, fn func(ts *httptest.Server), opts mockMe
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		handler, _ := shiftPath(r.URL.Path)
 		switch handler {
-		case "environment", "validate", "logs":
+		case "environment", "validate", "logs", "timers":
 			if _, ok := seed[handler]; !ok {
 				seed[handler] = time.Now()
 			}
@@ -61,8 +62,9 @@ func TestEntrypointRunnerWithoutMetadataAPIURL(t *testing.T) {
 		Entrypoint: "ls",
 		Args:       []string{"-la"},
 		Runner: &entrypoint.RealRunner{
-			TimeoutLong:  10 * time.Second,
-			TimeoutShort: 2 * time.Second,
+			Config: &entrypoint.Config{
+				DeploymentEnvironment: &model.DeploymentEnvironmentTest,
+			},
 		},
 	}
 
@@ -71,14 +73,14 @@ func TestEntrypointRunnerWithoutMetadataAPIURL(t *testing.T) {
 }
 
 func TestEntrypointRunnerWithInvalidMetadataAPIURL(t *testing.T) {
-	os.Setenv(entrypoint.MetadataAPIURLEnvName, "http://hi")
-
 	e := entrypoint.Entrypointer{
 		Entrypoint: "ls",
 		Args:       []string{"-la"},
 		Runner: &entrypoint.RealRunner{
-			TimeoutLong:  10 * time.Second,
-			TimeoutShort: 2 * time.Second,
+			Config: &entrypoint.Config{
+				DeploymentEnvironment: &model.DeploymentEnvironmentTest,
+				MetadataAPIURL:        &url.URL{Scheme: "http", Host: "invalid"},
+			},
 		},
 	}
 
@@ -92,18 +94,21 @@ func TestEntrypointRunnerWithMockMetadataAPIURL(t *testing.T) {
 	}
 
 	withMockMetadataAPI(t, func(ts *httptest.Server) {
-		os.Setenv(entrypoint.MetadataAPIURLEnvName, ts.URL)
+		u, err := url.Parse(ts.URL)
+		require.NoError(t, err)
 
 		e := entrypoint.Entrypointer{
 			Entrypoint: "ls",
 			Args:       []string{"-la"},
 			Runner: &entrypoint.RealRunner{
-				TimeoutLong:  10 * time.Second,
-				TimeoutShort: 2 * time.Second,
+				Config: &entrypoint.Config{
+					DeploymentEnvironment: &model.DeploymentEnvironmentTest,
+					MetadataAPIURL:        u,
+				},
 			},
 		}
 
-		err := e.Go()
+		err = e.Go()
 		require.NoError(t, err)
 	}, opts)
 }

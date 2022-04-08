@@ -82,33 +82,6 @@ func waitForStepToSucceed(t *testing.T, ctx context.Context, cfg *Config, r *rel
 	}))
 }
 
-func waitForStepPodToComplete(t *testing.T, ctx context.Context, cfg *Config, r *relayv1beta1.Run, stepName string) *corev1.Pod {
-	waitForStepToStart(t, ctx, cfg, r, stepName)
-
-	pod := &corev1.Pod{}
-	require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
-		pods := &corev1.PodList{}
-		if err := cfg.Environment.ControllerClient.List(ctx, pods, client.InNamespace(r.GetNamespace()), client.MatchingLabels{
-			"tekton.dev/task": stepTaskLabelValue(r, stepName),
-		}); err != nil {
-			return true, err
-		}
-
-		if len(pods.Items) == 0 {
-			return false, fmt.Errorf("waiting for step %q pod with label tekton.dev/task=%s", stepName, stepTaskLabelValue(r, stepName))
-		}
-
-		pod = &pods.Items[0]
-		if pod.Status.Phase != corev1.PodSucceeded && pod.Status.Phase != corev1.PodFailed {
-			return false, fmt.Errorf("waiting for step %q pod to complete", stepName)
-		}
-
-		return true, nil
-	}))
-
-	return pod
-}
-
 func waitForStepPodIP(t *testing.T, ctx context.Context, cfg *Config, r *relayv1beta1.Run, stepName string) *corev1.Pod {
 	waitForStepToStart(t, ctx, cfg, r, stepName)
 
@@ -316,7 +289,7 @@ func TestRun(t *testing.T) {
 
 		var result exprmodel.JSONResultEnvelope
 		evaluateRequest := func(url string) exprmodel.JSONResultEnvelope {
-			req, err := http.NewRequest(http.MethodGet, url, nil)
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 			require.NoError(t, err)
 			req.Header.Set("X-Forwarded-For", pod.Status.PodIP)
 
@@ -583,7 +556,8 @@ func TestRunStepInitTime(t *testing.T) {
 							Image: "alpine:latest",
 							Input: []string{
 								"apk --no-cache add curl",
-								fmt.Sprintf(`curl -X PUT "${METADATA_API_URL}/timers/%s"`, model.TimerStepInit),
+								fmt.Sprintf(`curl -X PUT "${%s}/timers/%s"`,
+									model.EnvironmentVariableMetadataAPIURL, model.TimerStepInit),
 							},
 						},
 					},

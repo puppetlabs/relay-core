@@ -97,6 +97,28 @@ func ConfigureKnativeService(ctx context.Context, s *obj.KnativeService, wtd *We
 		image = model.DefaultImage
 	}
 
+	envVars := []corev1.EnvVar{
+		{
+			Name:  "CI",
+			Value: "true",
+		},
+		{
+			Name:  "RELAY",
+			Value: "true",
+		},
+		{
+			Name:  model.EnvironmentVariableMetadataAPIURL.String(),
+			Value: wtd.MetadataAPIURL.String(),
+		},
+	}
+
+	if environment, ok := model.DeploymentEnvironments[wtd.Environment]; ok {
+		envVars = append(envVars, corev1.EnvVar{
+			Name:  model.EnvironmentVariableDeploymentEnvironment.String(),
+			Value: environment.Name(),
+		})
+	}
+
 	toolsContainer := corev1.Container{
 		Name:       ToolsWorkspaceName,
 		Image:      wtd.RuntimeToolsImage,
@@ -110,26 +132,14 @@ func ConfigureKnativeService(ctx context.Context, s *obj.KnativeService, wtd *We
 				ReadOnly:  false,
 			},
 		},
+		Env: envVars,
 	}
 
 	container := corev1.Container{
 		Name:            wtd.WebhookTrigger.Object.Name,
 		Image:           image,
 		ImagePullPolicy: corev1.PullAlways,
-		Env: []corev1.EnvVar{
-			{
-				Name:  "CI",
-				Value: "true",
-			},
-			{
-				Name:  "RELAY",
-				Value: "true",
-			},
-			{
-				Name:  "METADATA_API_URL",
-				Value: wtd.MetadataAPIURL.String(),
-			},
-		},
+		Env:             envVars,
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      model.ToolsMountName,
