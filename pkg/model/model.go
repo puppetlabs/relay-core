@@ -1,5 +1,9 @@
 package model
 
+import (
+	"time"
+)
+
 const (
 	DefaultImage   = "alpine:latest"
 	DefaultCommand = "echo"
@@ -33,9 +37,49 @@ const (
 	RelayAppManagedByLabel  = "app.kubernetes.io/managed-by"
 )
 
+type EnvironmentVariable string
+
+const (
+	EnvironmentVariableDeploymentEnvironment EnvironmentVariable = "RELAY_DEPLOYMENT_ENVIRONMENT"
+	EnvironmentVariableMetadataAPIURL        EnvironmentVariable = "METADATA_API_URL"
+)
+
+func (ev EnvironmentVariable) String() string {
+	return string(ev)
+}
+
+type DeploymentEnvironment struct {
+	name    string
+	timeout time.Duration
+}
+
+func (e DeploymentEnvironment) Name() string {
+	return e.name
+}
+
+func (e DeploymentEnvironment) Timeout() time.Duration {
+	return e.timeout
+}
+
+var (
+	DeploymentEnvironmentDefault = DeploymentEnvironment{
+		name:    "default",
+		timeout: 1 * time.Minute,
+	}
+	DeploymentEnvironmentTest = DeploymentEnvironment{
+		name:    "test",
+		timeout: 5 * time.Second,
+	}
+
+	DeploymentEnvironments = map[string]DeploymentEnvironment{
+		DeploymentEnvironmentTest.Name(): DeploymentEnvironmentTest,
+	}
+)
+
 // MetadataManagers are the managers used by actions accessing the metadata
 // service.
 type MetadataManagers interface {
+	ActionStatus() ActionStatusManager
 	Conditions() ConditionGetterManager
 	Connections() ConnectionManager
 	Events() EventManager

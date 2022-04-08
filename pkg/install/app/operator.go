@@ -127,6 +127,10 @@ func (d *operatorDeployment) container() corev1.Container {
 		cmd = append(cmd, "-standalone")
 	}
 
+	if conf.TenantNamespace != nil {
+		cmd = append(cmd, "-kube-namespace", *conf.TenantNamespace)
+	}
+
 	if conf.MetricsEnabled {
 		cmd = append(cmd, "-metrics-enabled", "-metrics-server-bind-addr", "0.0.0.0:3050")
 	}

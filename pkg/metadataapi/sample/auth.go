@@ -86,6 +86,8 @@ func NewAuthenticator(sc *opt.SampleConfig, key interface{}) *Authenticator {
 				Name: name,
 			}
 
+			actionStatusManager := memory.NewActionStatusManager(step, memory.NewActionStatusMap())
+
 			var conditionOpts []memory.ConditionManagerOption
 			if sc.Conditions.Tree != nil {
 				conditionOpts = append(conditionOpts, memory.ConditionManagerWithInitialCondition(sc.Conditions.Tree))
@@ -134,6 +136,7 @@ func NewAuthenticator(sc *opt.SampleConfig, key interface{}) *Authenticator {
 			stepDecoratorManager := memory.NewStepDecoratorManager(step, memory.NewStepDecoratorMap())
 
 			a.mgrs[step.Hash()] = func(mgrs *builder.MetadataBuilder) {
+				mgrs.SetActionStatus(actionStatusManager)
 				mgrs.SetConditions(conditionManager)
 				mgrs.SetEnvironment(environmentManager)
 				mgrs.SetLogs(logManager)

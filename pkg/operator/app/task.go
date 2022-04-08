@@ -29,32 +29,42 @@ func ConfigureTask(ctx context.Context, t *obj.Task, rd *RunDeps, ws *relayv1bet
 		command = model.DefaultCommand
 	}
 
+	envVars := []corev1.EnvVar{
+		{
+			Name:  "CI",
+			Value: "true",
+		},
+		{
+			Name:  "RELAY",
+			Value: "true",
+		},
+		{
+			Name:  model.EnvironmentVariableMetadataAPIURL.String(),
+			Value: rd.MetadataAPIURL.String(),
+		},
+	}
+
+	if environment, ok := model.DeploymentEnvironments[rd.Environment]; ok {
+		envVars = append(envVars, corev1.EnvVar{
+			Name:  model.EnvironmentVariableDeploymentEnvironment.String(),
+			Value: environment.Name(),
+		})
+	}
+
 	toolsContainer := corev1.Container{
 		Name:       ToolsWorkspaceName,
 		Image:      rd.RuntimeToolsImage,
 		WorkingDir: "/",
 		Command:    []string{"cp"},
 		Args:       []string{model.ToolsSource, path.Join(model.ToolsMountPath, model.EntrypointCommand)},
+		Env:        envVars,
 	}
 
 	container := corev1.Container{
 		Name:            "step",
 		Image:           image,
 		ImagePullPolicy: corev1.PullAlways,
-		Env: []corev1.EnvVar{
-			{
-				Name:  "CI",
-				Value: "true",
-			},
-			{
-				Name:  "RELAY",
-				Value: "true",
-			},
-			{
-				Name:  "METADATA_API_URL",
-				Value: rd.MetadataAPIURL.String(),
-			},
-		},
+		Env:             envVars,
 		SecurityContext: &corev1.SecurityContext{
 			AllowPrivilegeEscalation: func(b bool) *bool { return &b }(false),
 		},

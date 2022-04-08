@@ -91,6 +91,7 @@ jobs:
       run: curl -s https://raw.githubusercontent.com/rancher/k3d/main/install.sh | bash
     - name: Set up Kubernetes cluster
       run: |
+        k3d registry create registry.localhost --port 5000
         k3d cluster create relay-core-test \
           --image ${{ matrix.k3s-image }} \
           --volume ${{ runner.temp }}/gvisor/runsc:/sbin/runsc \
@@ -99,7 +100,9 @@ jobs:
           --volume ${{ github.workspace }}/hack/k3s/config-v1.19.toml.tmpl:/var/lib/rancher/k3s/agent/etc/containerd/config.toml.tmpl \
           --k3s-arg '--flannel-backend=none@server:*' \
           --k3s-arg '--no-deploy=traefik@server:*' \
-          --k3s-arg '--disable-network-policy@server:*'
+          --k3s-arg '--disable-network-policy@server:*' \
+          --registry-use k3d-registry.localhost:5000 \
+          --registry-config ${{ github.workspace }}/hack/k3d/registry-config.yaml
     - name: Install Calico
       run: |
         kubectl create -f https://docs.projectcalico.org/archive/v3.20/manifests/tigera-operator.yaml
@@ -120,7 +123,15 @@ jobs:
       env:
         RELAY_TEST_E2E_KUBECONFIG: ${{ env.KUBECONFIG }}
         RELAY_TEST_E2E_GVISOR_HANDLER: runsc
-      run: scripts/ci test
+      run: |
+        export KO_DOCKER_REPO=localhost:5000
+        go run \
+          github.com/google/ko build \
+            --base-import-paths \
+            --image-refs ${{ runner.temp }}/runtime-tools-image-refs \
+            ./cmd/relay-runtime-tools
+        export RELAY_TEST_INTERNAL_RUNTIME_TOOLS_IMAGE=$(cat ${{ runner.temp }}/runtime-tools-image-refs)
+        scripts/ci test
   deploy:
     needs:
     - init

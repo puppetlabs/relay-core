@@ -35,6 +35,7 @@ type RunDeps struct {
 	Workflow     *obj.Workflow
 	WorkflowDeps *WorkflowDeps
 
+	Environment       string
 	RuntimeToolsImage string
 	Standalone        bool
 
@@ -261,6 +262,12 @@ func (rd *RunDeps) AnnotateStepToken(ctx context.Context, target *metav1.ObjectM
 }
 
 type RunDepsOption func(rd *RunDeps)
+
+func RunDepsWithEnvironment(environment string) RunDepsOption {
+	return func(rd *RunDeps) {
+		rd.Environment = environment
+	}
+}
 
 func RunDepsWithRuntimeToolsImage(image string) RunDepsOption {
 	return func(rd *RunDeps) {

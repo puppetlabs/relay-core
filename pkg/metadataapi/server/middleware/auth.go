@@ -173,6 +173,7 @@ func (ka *KubernetesAuthenticator) injector(mgrs *builder.MetadataBuilder, tags 
 			mgrs.SetWorkflowRuns(wrm)
 		}
 
+		mgrs.SetActionStatus(configmap.NewActionStatusManager(action, mutableMap))
 		mgrs.SetConditions(configmap.NewConditionManager(action, immutableMap))
 		mgrs.SetEnvironment(configmap.NewEnvironmentManager(action, immutableMap))
 		mgrs.SetSpec(configmap.NewSpecManager(action, immutableMap))
