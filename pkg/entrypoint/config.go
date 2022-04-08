@@ -24,7 +24,7 @@ func NewConfig() *Config {
 	}
 
 	if env := os.Getenv(model.EnvironmentVariableMetadataAPIURL.String()); env != "" {
-		if u, err := url.Parse(env); err != nil {
+		if u, err := url.Parse(env); err == nil {
 			conf.MetadataAPIURL = u
 		}
 	}
