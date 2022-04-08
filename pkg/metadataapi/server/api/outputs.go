@@ -19,7 +19,7 @@ type GetOutputResponseEnvelope struct {
 	Metadata *model.StepOutputMetadata `json:"metadata"`
 }
 
-type PostOutputMetadataRequestEnvelope struct {
+type PutOutputMetadataRequestEnvelope struct {
 	Sensitive bool `json:"sensitive"`
 }
 
@@ -93,7 +93,7 @@ func (s *Server) PutOutputMetadata(w http.ResponseWriter, r *http.Request) {
 
 	name, _ := middleware.Var(r, "name")
 
-	var env PostOutputMetadataRequestEnvelope
+	var env PutOutputMetadataRequestEnvelope
 	if err := json.NewDecoder(r.Body).Decode(&env); err != nil {
 		utilapi.WriteError(ctx, w, errors.NewAPIMalformedRequestError().WithCause(err))
 		return

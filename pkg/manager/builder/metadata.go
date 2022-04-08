@@ -7,6 +7,7 @@ import (
 
 type metadataManagers struct {
 	actionMetadata model.ActionMetadataManager
+	actionStatus   model.ActionStatusManager
 	connections    model.ConnectionManager
 	conditions     model.ConditionGetterManager
 	events         model.EventManager
@@ -27,6 +28,10 @@ var _ model.MetadataManagers = &metadataManagers{}
 
 func (mm *metadataManagers) ActionMetadata() model.ActionMetadataManager {
 	return mm.actionMetadata
+}
+
+func (mm *metadataManagers) ActionStatus() model.ActionStatusManager {
+	return mm.actionStatus
 }
 
 func (mm *metadataManagers) Connections() model.ConnectionManager {
@@ -87,6 +92,7 @@ func (mm *metadataManagers) Timers() model.TimerSetterManager {
 
 type MetadataBuilder struct {
 	actionMetadata model.ActionMetadataManager
+	actionStatus   model.ActionStatusManager
 	connections    model.ConnectionManager
 	conditions     model.ConditionGetterManager
 	events         model.EventManager
@@ -105,6 +111,11 @@ type MetadataBuilder struct {
 
 func (mb *MetadataBuilder) SetActionMetadata(m model.ActionMetadataManager) *MetadataBuilder {
 	mb.actionMetadata = m
+	return mb
+}
+
+func (mb *MetadataBuilder) SetActionStatus(m model.ActionStatusManager) *MetadataBuilder {
+	mb.actionStatus = m
 	return mb
 }
 
@@ -181,6 +192,7 @@ func (mb *MetadataBuilder) SetTimers(m model.TimerSetterManager) *MetadataBuilde
 func (mb *MetadataBuilder) Build() model.MetadataManagers {
 	return &metadataManagers{
 		actionMetadata: mb.actionMetadata,
+		actionStatus:   mb.actionStatus,
 		connections:    mb.connections,
 		conditions:     mb.conditions,
 		events:         mb.events,
@@ -200,6 +212,7 @@ func (mb *MetadataBuilder) Build() model.MetadataManagers {
 
 func NewMetadataBuilder() *MetadataBuilder {
 	return &MetadataBuilder{
+		actionStatus:   reject.ActionStatusManager,
 		actionMetadata: reject.ActionMetadataManager,
 		connections:    reject.ConnectionManager,
 		conditions:     reject.ConditionManager,
