@@ -61,8 +61,8 @@ func NewActionStatusManager(action model.Action, cm ConfigMap) *ActionStatusMana
 }
 
 func actionStatusKey(action model.Action) string {
-	switch action.Type().Singular {
-	case model.ActionTypeStep.Singular:
+	switch action.Type() {
+	case model.ActionTypeStep:
 		return fmt.Sprintf("%s.%s.status", action.Type().Plural, action.Hash())
 	}
 

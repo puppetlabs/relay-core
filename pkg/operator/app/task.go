@@ -55,8 +55,8 @@ func ConfigureTask(ctx context.Context, t *obj.Task, rd *RunDeps, ws *relayv1bet
 		Name:       ToolsWorkspaceName,
 		Image:      rd.RuntimeToolsImage,
 		WorkingDir: "/",
-		Command:    []string{"cp"},
-		Args:       []string{model.ToolsSource, path.Join(model.ToolsMountPath, model.EntrypointCommand)},
+		Command:    []string{model.ToolsSource},
+		Args:       []string{model.ToolsCommandInitialize},
 		Env:        envVars,
 	}
 
