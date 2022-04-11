@@ -52,11 +52,13 @@ func TestActionStatusManager(t *testing.T) {
 			actual, err := am.Get(ctx, test.Action)
 			require.NoError(t, err)
 
-			switch test.Action.Type().Singular {
-			case model.ActionTypeStep.Singular:
+			switch test.Action.Type() {
+			case model.ActionTypeStep:
 				require.Equal(t, test.ActionStatus, actual)
-			case model.ActionTypeTrigger.Singular:
+			case model.ActionTypeTrigger:
 				require.Nil(t, actual)
+			default:
+				require.Fail(t, "unexpected action type")
 			}
 		})
 	}
