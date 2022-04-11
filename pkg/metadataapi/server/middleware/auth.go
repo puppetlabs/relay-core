@@ -181,14 +181,16 @@ func (ka *KubernetesAuthenticator) injector(mgrs *builder.MetadataBuilder, tags 
 		mgrs.SetTimers(configmap.NewTimerManager(action, mutableMap))
 
 		logContext := ""
-		switch action.Type().Singular {
-		case model.ActionTypeTrigger.Singular:
+		switch action.Type() {
+		case model.ActionTypeTrigger:
 			logContext = fmt.Sprintf("tenants/%s/triggers/%s", claims.RelayTenantID, claims.RelayName)
-		case model.ActionTypeStep.Singular:
+		case model.ActionTypeStep:
 			logContext = fmt.Sprintf("tenants/%s/runs/%s/steps/%s", claims.RelayTenantID, claims.RelayRunID, claims.RelayName)
 		}
 
-		if ka.logServiceClient != nil && logContext != "" {
+		// HACK Temporarily disable the logging of steps, pending the next phase of logging improvements.
+		if action.Type() == model.ActionTypeTrigger &&
+			ka.logServiceClient != nil && logContext != "" {
 			mgrs.SetLogs(service.NewLogManager(ka.logServiceClient, logContext))
 		} else {
 			mgrs.SetLogs(reject.LogManager)
