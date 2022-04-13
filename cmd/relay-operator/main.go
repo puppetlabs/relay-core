@@ -68,9 +68,12 @@ func main() {
 	klogFlags := flag.NewFlagSet("klog", flag.ExitOnError)
 	klog.InitFlags(klogFlags)
 
-	storageUrl, err := url.Parse(*storageAddr)
-	if err != nil {
-		log.Fatal("Error parsing the -storage-addr", err)
+	var storageUrl *url.URL
+	if *storageAddr != "" {
+		storageUrl, err = url.Parse(*storageAddr)
+		if err != nil {
+			log.Fatal("Error parsing the -storage-addr", err)
+		}
 	}
 
 	metadataAPIURL, err := url.Parse(*metadataAPIURLStr)
@@ -78,9 +81,12 @@ func main() {
 		log.Fatal("Error parsing -metadata-api-url", err)
 	}
 
-	blobStore, err := storage.NewBlobStore(*storageUrl)
-	if err != nil {
-		log.Fatal("Error initializing the storage client from the -storage-addr", err)
+	var blobStore storage.BlobStore
+	if storageUrl != nil {
+		blobStore, err = storage.NewBlobStore(*storageUrl)
+		if err != nil {
+			log.Fatal("Error initializing the storage client from the -storage-addr", err)
+		}
 	}
 
 	if *webhookServerKeyDir == "" {
