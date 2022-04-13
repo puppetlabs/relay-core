@@ -184,7 +184,7 @@ func ConfigureKnativeService(ctx context.Context, s *obj.KnativeService, wtd *We
 						Items: []corev1.KeyToPath{
 							{
 								Key:  scriptConfigMapKey(tm),
-								Path: "input-script",
+								Path: model.InputScriptName,
 								Mode: func(i int32) *int32 { return &i }(0755),
 							},
 						},
@@ -196,10 +196,10 @@ func ConfigureKnativeService(ctx context.Context, s *obj.KnativeService, wtd *We
 		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
 			Name:      config,
 			ReadOnly:  true,
-			MountPath: "/var/run/puppet/relay/config",
+			MountPath: model.InputScriptMountPath,
 		})
 
-		command = "/var/run/puppet/relay/config/input-script"
+		command = path.Join(model.InputScriptMountPath, model.InputScriptName)
 		args = []string{}
 	}
 
