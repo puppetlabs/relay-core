@@ -21,10 +21,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	StepLogStorageVolumeName = "step-log-storage"
-)
-
 // RelayCoreSpec defines the desired state of RelayCore
 type RelayCoreSpec struct {
 	// Environment is the environment this instance is running in.
@@ -199,15 +195,6 @@ type OperatorConfig struct {
 	//
 	// +optional
 	TenantNamespace *string `json:"tenantNamespace,omitempty"`
-
-	// LogStoragePVCName is the name of a PVC to store logs in. This field is
-	// here to support the development environment and may be removed at a
-	// later date when the PLS implementation is rolled in.
-	//
-	// DEPRECATED
-	//
-	// +optional
-	LogStoragePVCName *string `json:"logStoragePVCName,omitempty"`
 
 	// Workers is the number of workers the operator should run to process
 	// workflows

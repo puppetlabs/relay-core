@@ -2,14 +2,12 @@ package app
 
 import (
 	"context"
-	"net/url"
 	"path/filepath"
 	"strconv"
 
 	appsv1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/appsv1"
 	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/helper"
-	"github.com/puppetlabs/relay-core/pkg/apis/install.relay.sh/v1alpha1"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -49,17 +47,6 @@ func (d *operatorDeployment) Configure(_ context.Context) error {
 			},
 		},
 	})
-
-	if conf.LogStoragePVCName != nil {
-		template.Volumes = append(template.Volumes, corev1.Volume{
-			Name: v1alpha1.StepLogStorageVolumeName,
-			VolumeSource: corev1.VolumeSource{
-				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: *conf.LogStoragePVCName,
-				},
-			},
-		})
-	}
 
 	template.Volumes = append(template.Volumes, corev1.Volume{
 		Name: "jwt-signing-key",
@@ -150,15 +137,6 @@ func (d *operatorDeployment) container() corev1.Container {
 	var storageAddr string
 	if conf.StorageAddr != nil {
 		storageAddr = *conf.StorageAddr
-	} else {
-		if conf.LogStoragePVCName != nil {
-			addr := url.URL{
-				Scheme: "file",
-				Path:   filepath.Join("/", v1alpha1.StepLogStorageVolumeName),
-			}
-
-			storageAddr = addr.String()
-		}
 	}
 
 	if storageAddr != "" {
@@ -199,13 +177,6 @@ func (d *operatorDeployment) container() corev1.Container {
 				Protocol:      corev1.ProtocolTCP,
 			},
 		},
-	}
-
-	if conf.LogStoragePVCName != nil {
-		c.VolumeMounts = append(c.VolumeMounts, corev1.VolumeMount{
-			Name:      v1alpha1.StepLogStorageVolumeName,
-			MountPath: filepath.Join("/", v1alpha1.StepLogStorageVolumeName),
-		})
 	}
 
 	return c

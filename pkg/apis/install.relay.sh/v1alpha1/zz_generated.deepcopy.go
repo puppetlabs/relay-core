@@ -172,11 +172,6 @@ func (in *OperatorConfig) DeepCopyInto(out *OperatorConfig) {
 		*out = new(string)
 		**out = **in
 	}
-	if in.LogStoragePVCName != nil {
-		in, out := &in.LogStoragePVCName, &out.LogStoragePVCName
-		*out = new(string)
-		**out = **in
-	}
 	if in.ToolInjection != nil {
 		in, out := &in.ToolInjection, &out.ToolInjection
 		*out = new(ToolInjectionConfig)
