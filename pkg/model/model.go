@@ -8,6 +8,9 @@ const (
 	DefaultImage   = "alpine:latest"
 	DefaultCommand = "echo"
 
+	InputScriptMountPath = "/var/run/puppet/relay/config"
+	InputScriptName      = "input-script"
+
 	// TODO Consider configuration options for runtime tools
 	ToolsCommandInitialize = "initialize"
 	ToolsImage             = "us-docker.pkg.dev/puppet-relay-contrib-oss/relay-core/relay-runtime-tools:latest"

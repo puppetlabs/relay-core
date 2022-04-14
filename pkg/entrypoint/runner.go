@@ -57,6 +57,8 @@ func (rr *RealRunner) Run(args ...string) error {
 	var logOut *plspb.LogCreateResponse
 	var logErr *plspb.LogCreateResponse
 
+	name, args := args[0], args[1:]
+
 	// TODO Move the bulk of this logic into the "initialization" command/phase
 	mu := rr.Config.MetadataAPIURL
 	if mu != nil {
@@ -64,8 +66,10 @@ func (rr *RealRunner) Run(args ...string) error {
 			log.Println(err)
 		}
 
-		if err := rr.validateSchemas(ctx, mu); err != nil {
-			log.Println(err)
+		if name != path.Join(model.InputScriptMountPath, model.InputScriptName) {
+			if err := rr.validateSchemas(ctx, mu); err != nil {
+				log.Println(err)
+			}
 		}
 
 		logOut, err = rr.postLog(ctx, mu, &plspb.LogCreateRequest{
@@ -86,8 +90,6 @@ func (rr *RealRunner) Run(args ...string) error {
 			log.Println(err)
 		}
 	}
-
-	name, args := args[0], args[1:]
 
 	// Receive system signals on "rr.signals"
 	if rr.signals == nil {
