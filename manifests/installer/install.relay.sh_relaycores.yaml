@@ -3211,10 +3211,8 @@ spec:
                     description: StorageAddr is the storage address URI for log storage.
                     type: string
                   tenantNamespace:
-                    description: TenantNamespace is the kubernetes namesapce the workflow
-                      controller should look for tenant workloads on. This currently
-                      translates into the -kube-namespace flag, which could be renamed
-                      at a later date.
+                    description: TenantNamespace is the Kubernetes namespace the operator
+                      should look for tenant workloads on.
                     type: string
                   tenantSandboxingRuntimeClassName:
                     description: 'TenantSandboxingRuntimeClassName sets the class

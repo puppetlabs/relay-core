@@ -4,14 +4,15 @@ import (
 	"context"
 
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/admissionregistrationv1"
-	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
-	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/rbacv1"
+	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
+	rbacv1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/rbacv1"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/helper"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	"github.com/puppetlabs/leg/k8sutil/pkg/norm"
 	"github.com/puppetlabs/relay-core/pkg/apis/install.relay.sh/v1alpha1"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -26,13 +27,14 @@ type OperatorDeps struct {
 	Core                             *obj.Core
 	Deployment                       *operatorDeployment
 	WebhookService                   *operatorWebhookService
-	ServiceAccount                   *corev1.ServiceAccount
-	ClusterRole                      *rbacv1.ClusterRole
-	ClusterRoleBinding               *rbacv1.ClusterRoleBinding
-	DelegateClusterRole              *rbacv1.ClusterRole
-	DelegateClusterRoleBinding       *rbacv1.ClusterRoleBinding
+	ServiceAccount                   *corev1obj.ServiceAccount
+	TenantNamespace                  *corev1obj.Namespace
+	ClusterRole                      *rbacv1obj.ClusterRole
+	ClusterRoleBinding               *rbacv1obj.ClusterRoleBinding
+	DelegateClusterRole              *rbacv1obj.ClusterRole
+	DelegateClusterRoleBinding       *rbacv1obj.ClusterRoleBinding
 	WebhookConfig                    *admissionregistrationv1.MutatingWebhookConfiguration
-	OwnerConfigMap                   *corev1.ConfigMap
+	OwnerConfigMap                   *corev1obj.ConfigMap
 	WebhookCertificateControllerDeps *WebhookCertificateControllerDeps
 	VaultAgentDeps                   *VaultAgentDeps
 	Labels                           map[string]string
@@ -51,22 +53,28 @@ func (od *OperatorDeps) Load(ctx context.Context, cl client.Client) (bool, error
 		return false, err
 	}
 
-	od.OwnerConfigMap = corev1.NewConfigMap(helper.SuffixObjectKey(key, "owner"))
+	od.OwnerConfigMap = corev1obj.NewConfigMap(helper.SuffixObjectKey(key, "owner"))
+
+	tn := od.Core.Object.Spec.Operator.TenantNamespace
+	if tn != nil {
+		od.TenantNamespace = corev1obj.NewNamespace(*tn)
+	}
 
 	od.Deployment = newOperatorDeployment(key, od.Core, od.VaultAgentDeps)
 	od.WebhookService = newOperatorWebhookService(od.Deployment)
-	od.ServiceAccount = corev1.NewServiceAccount(key)
-	od.ClusterRole = rbacv1.NewClusterRole(key.Name)
-	od.ClusterRoleBinding = rbacv1.NewClusterRoleBinding(key.Name)
-	od.DelegateClusterRole = rbacv1.NewClusterRole(helper.SuffixObjectKey(key, "delegate").Name)
+	od.ServiceAccount = corev1obj.NewServiceAccount(key)
+	od.ClusterRole = rbacv1obj.NewClusterRole(key.Name)
+	od.ClusterRoleBinding = rbacv1obj.NewClusterRoleBinding(key.Name)
+	od.DelegateClusterRole = rbacv1obj.NewClusterRole(helper.SuffixObjectKey(key, "delegate").Name)
 
 	if od.Core.Object.Spec.Operator.Standalone {
-		od.DelegateClusterRoleBinding = rbacv1.NewClusterRoleBinding(od.DelegateClusterRole.Name)
+		od.DelegateClusterRoleBinding = rbacv1obj.NewClusterRoleBinding(od.DelegateClusterRole.Name)
 	}
 
 	od.WebhookConfig = admissionregistrationv1.NewMutatingWebhookConfiguration(key.Name)
 
 	ok, err := lifecycle.Loaders{
+		lifecycle.IgnoreNilLoader{Loader: od.TenantNamespace},
 		od.OwnerConfigMap,
 		od.Deployment,
 		od.WebhookService,
@@ -91,6 +99,13 @@ func (od *OperatorDeps) Owned(ctx context.Context, owner lifecycle.TypedObject) 
 func (od *OperatorDeps) Persist(ctx context.Context, cl client.Client) error {
 	if err := od.OwnerConfigMap.Persist(ctx, cl); err != nil {
 		return err
+	}
+
+	// TODO Consider a Persister that does not error if the object already exists
+	if od.TenantNamespace != nil {
+		if err := od.TenantNamespace.Persist(ctx, cl); err != nil && !errors.IsAlreadyExists(err) {
+			return err
+		}
 	}
 
 	os := []lifecycle.Ownable{
