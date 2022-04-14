@@ -12,7 +12,6 @@ spec:
       namespaceSelector:
         matchLabels:
           controller.relay.sh/tenant-workload: "true"
-    logStoragePVCName: relay-core-v1-operator
     standalone: true
   vault:
     engine:
