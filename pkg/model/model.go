@@ -43,8 +43,9 @@ const (
 type EnvironmentVariable string
 
 const (
-	EnvironmentVariableDeploymentEnvironment EnvironmentVariable = "RELAY_DEPLOYMENT_ENVIRONMENT"
-	EnvironmentVariableMetadataAPIURL        EnvironmentVariable = "METADATA_API_URL"
+	EnvironmentVariableDefaultTimeout      EnvironmentVariable = "RELAY_DEFAULT_TIMEOUT"
+	EnvironmentVariableEnableSecureLogging EnvironmentVariable = "RELAY_ENABLE_SECURE_LOGGING"
+	EnvironmentVariableMetadataAPIURL      EnvironmentVariable = "METADATA_API_URL"
 )
 
 func (ev EnvironmentVariable) String() string {
@@ -52,12 +53,17 @@ func (ev EnvironmentVariable) String() string {
 }
 
 type DeploymentEnvironment struct {
-	name    string
-	timeout time.Duration
+	name          string
+	secureLogging bool
+	timeout       time.Duration
 }
 
 func (e DeploymentEnvironment) Name() string {
 	return e.name
+}
+
+func (e DeploymentEnvironment) SecureLogging() bool {
+	return e.secureLogging
 }
 
 func (e DeploymentEnvironment) Timeout() time.Duration {
@@ -65,13 +71,15 @@ func (e DeploymentEnvironment) Timeout() time.Duration {
 }
 
 var (
-	DeploymentEnvironmentDefault = DeploymentEnvironment{
-		name:    "default",
-		timeout: 1 * time.Minute,
+	DeploymentEnvironmentDevelopment = DeploymentEnvironment{
+		name:          "dev",
+		secureLogging: true,
+		timeout:       1 * time.Minute,
 	}
 	DeploymentEnvironmentTest = DeploymentEnvironment{
-		name:    "test",
-		timeout: 5 * time.Second,
+		name:          "test",
+		secureLogging: false,
+		timeout:       5 * time.Second,
 	}
 
 	DeploymentEnvironments = map[string]DeploymentEnvironment{

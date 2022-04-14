@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"path"
 
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
@@ -113,10 +114,16 @@ func ConfigureKnativeService(ctx context.Context, s *obj.KnativeService, wtd *We
 	}
 
 	if environment, ok := model.DeploymentEnvironments[wtd.Environment]; ok {
-		envVars = append(envVars, corev1.EnvVar{
-			Name:  model.EnvironmentVariableDeploymentEnvironment.String(),
-			Value: environment.Name(),
-		})
+		envVars = append(envVars,
+			corev1.EnvVar{
+				Name:  model.EnvironmentVariableDefaultTimeout.String(),
+				Value: environment.Timeout().String(),
+			},
+			corev1.EnvVar{
+				Name:  model.EnvironmentVariableEnableSecureLogging.String(),
+				Value: fmt.Sprintf("%t", environment.SecureLogging()),
+			},
+		)
 	}
 
 	toolsContainer := corev1.Container{

@@ -72,18 +72,20 @@ func (rr *RealRunner) Run(args ...string) error {
 			}
 		}
 
-		logOut, err = rr.postLog(ctx, mu, &plspb.LogCreateRequest{
-			Name: "stdout",
-		})
-		if err != nil {
-			log.Println(err)
-		}
+		if rr.Config.SecureLogging {
+			logOut, err = rr.postLog(ctx, mu, &plspb.LogCreateRequest{
+				Name: "stdout",
+			})
+			if err != nil {
+				log.Println(err)
+			}
 
-		logErr, err = rr.postLog(ctx, mu, &plspb.LogCreateRequest{
-			Name: "stderr",
-		})
-		if err != nil {
-			log.Println(err)
+			logErr, err = rr.postLog(ctx, mu, &plspb.LogCreateRequest{
+				Name: "stderr",
+			})
+			if err != nil {
+				log.Println(err)
+			}
 		}
 
 		if err := rr.setStepInitTimer(ctx, mu); err != nil {
@@ -360,7 +362,7 @@ func (rr *RealRunner) setStepInitTimer(ctx context.Context, mu *url.URL) error {
 }
 
 func (rr *RealRunner) getResponse(ctx context.Context, request *http.Request, waitOptions []retry.WaitOption) (*http.Response, error) {
-	contextWithTimeout, cancel := context.WithTimeout(ctx, rr.Config.DeploymentEnvironment.Timeout())
+	contextWithTimeout, cancel := context.WithTimeout(ctx, rr.Config.DefaultTimeout)
 	defer cancel()
 
 	var response *http.Response
