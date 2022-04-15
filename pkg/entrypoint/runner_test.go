@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/puppetlabs/relay-core/pkg/entrypoint"
-	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/stretchr/testify/require"
 )
 
@@ -63,7 +62,8 @@ func TestEntrypointRunnerWithoutMetadataAPIURL(t *testing.T) {
 		Args:       []string{"-la"},
 		Runner: &entrypoint.RealRunner{
 			Config: &entrypoint.Config{
-				DeploymentEnvironment: &model.DeploymentEnvironmentTest,
+				DefaultTimeout: 3 * time.Second,
+				SecureLogging:  false,
 			},
 		},
 	}
@@ -78,8 +78,9 @@ func TestEntrypointRunnerWithInvalidMetadataAPIURL(t *testing.T) {
 		Args:       []string{"-la"},
 		Runner: &entrypoint.RealRunner{
 			Config: &entrypoint.Config{
-				DeploymentEnvironment: &model.DeploymentEnvironmentTest,
-				MetadataAPIURL:        &url.URL{Scheme: "http", Host: "invalid"},
+				DefaultTimeout: 3 * time.Second,
+				MetadataAPIURL: &url.URL{Scheme: "http", Host: "invalid"},
+				SecureLogging:  false,
 			},
 		},
 	}
@@ -102,8 +103,9 @@ func TestEntrypointRunnerWithMockMetadataAPIURL(t *testing.T) {
 			Args:       []string{"-la"},
 			Runner: &entrypoint.RealRunner{
 				Config: &entrypoint.Config{
-					DeploymentEnvironment: &model.DeploymentEnvironmentTest,
-					MetadataAPIURL:        u,
+					DefaultTimeout: 3 * time.Second,
+					MetadataAPIURL: u,
+					SecureLogging:  false,
 				},
 			},
 		}

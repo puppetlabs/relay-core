@@ -188,9 +188,7 @@ func (ka *KubernetesAuthenticator) injector(mgrs *builder.MetadataBuilder, tags 
 			logContext = fmt.Sprintf("tenants/%s/runs/%s/steps/%s", claims.RelayTenantID, claims.RelayRunID, claims.RelayName)
 		}
 
-		// HACK Temporarily disable the logging of steps, pending the next phase of logging improvements.
-		if action.Type() == model.ActionTypeTrigger &&
-			ka.logServiceClient != nil && logContext != "" {
+		if ka.logServiceClient != nil && logContext != "" {
 			mgrs.SetLogs(service.NewLogManager(ka.logServiceClient, logContext))
 		} else {
 			mgrs.SetLogs(reject.LogManager)
