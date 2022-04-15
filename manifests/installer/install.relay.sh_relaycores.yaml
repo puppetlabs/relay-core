@@ -3183,12 +3183,6 @@ spec:
                     description: PullPolicy describes a policy for if/when to pull
                       a container image
                     type: string
-                  logStoragePVCName:
-                    description: "LogStoragePVCName is the name of a PVC to store
-                      logs in. This field is here to support the development environment
-                      and may be removed at a later date when the PLS implementation
-                      is rolled in. \n DEPRECATED"
-                    type: string
                   metricsEnabled:
                     default: false
                     description: MetricsEnabled enables the metrics server for the
