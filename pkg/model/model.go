@@ -83,7 +83,8 @@ var (
 	}
 
 	DeploymentEnvironments = map[string]DeploymentEnvironment{
-		DeploymentEnvironmentTest.Name(): DeploymentEnvironmentTest,
+		DeploymentEnvironmentDevelopment.Name(): DeploymentEnvironmentDevelopment,
+		DeploymentEnvironmentTest.Name():        DeploymentEnvironmentTest,
 	}
 )
 
