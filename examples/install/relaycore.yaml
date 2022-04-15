@@ -14,6 +14,7 @@ spec:
           controller.relay.sh/tenant-workload: "true"
     logStoragePVCName: relay-core-v1-operator
     standalone: true
+    tenantNamespace: relay-tenants
   vault:
     engine:
       authDelegatorServiceAccountName: vault

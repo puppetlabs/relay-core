@@ -193,9 +193,8 @@ type OperatorConfig struct {
 	// +optional
 	StorageAddr *string `json:"storageAddr,omitempty"`
 
-	// TenantNamespace is the kubernetes namesapce the workflow controller
-	// should look for tenant workloads on. This currently translates into the
-	// -kube-namespace flag, which could be renamed at a later date.
+	// TenantNamespace is the Kubernetes namespace the operator should look for
+	// tenant workloads on.
 	//
 	// +optional
 	TenantNamespace *string `json:"tenantNamespace,omitempty"`
