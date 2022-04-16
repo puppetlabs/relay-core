@@ -249,7 +249,7 @@ type AdmissionWebhookServerConfig struct {
 type MetadataAPIConfig struct {
 	// +kubebuilder:default="us-docker.pkg.dev/puppet-relay-contrib-oss/relay-core/relay-metadata-api:latest"
 	// +optional
-	Image string `json:"image"`
+	Image string `json:"image,omitempty"`
 
 	// +kubebuilder:default="IfNotPresent"
 	// +optional
@@ -458,7 +458,7 @@ type ToolInjectionConfig struct {
 	//
 	// +kubebuilder:default="us-docker.pkg.dev/puppet-relay-contrib-oss/relay-core/relay-runtime-tools:latest"
 	// +optional
-	Image string `json:"image"`
+	Image string `json:"image,omitempty"`
 }
 
 // +kubebuilder:object:root=true
