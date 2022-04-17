@@ -189,11 +189,11 @@ func (od *OperatorDeps) Configure(ctx context.Context) error {
 
 	ConfigureOperatorWebhookConfiguration(od, od.WebhookConfig)
 	ConfigureOperatorClusterRole(od.ClusterRole)
-	ConfigureClusterRoleBinding(od.Core, od.ServiceAccount, od.ClusterRoleBinding)
+	ConfigureClusterRoleBinding(od.ServiceAccount, od.ClusterRoleBinding)
 	ConfigureOperatorDelegateClusterRole(od.DelegateClusterRole)
 
 	if od.Core.Object.Spec.Operator.Standalone {
-		ConfigureClusterRoleBinding(od.Core, od.ServiceAccount, od.DelegateClusterRoleBinding)
+		ConfigureClusterRoleBinding(od.ServiceAccount, od.DelegateClusterRoleBinding)
 	}
 
 	return nil
@@ -208,7 +208,7 @@ func NewOperatorDeps(c *obj.Core) *OperatorDeps {
 			model.RelayAppNameLabel:       "operator",
 			model.RelayAppInstanceLabel:   norm.AnyDNSLabelNameSuffixed("operator-", c.Key.Name),
 			model.RelayAppComponentLabel:  "server",
-			model.RelayAppManagedByLabel:  "relay-install-operator",
+			model.RelayAppManagedByLabel:  "relay-installer",
 		},
 	}
 }

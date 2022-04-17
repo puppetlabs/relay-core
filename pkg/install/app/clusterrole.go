@@ -1,9 +1,8 @@
 package app
 
 import (
-	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
+	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
 	rbacv1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/rbacv1"
-	"github.com/puppetlabs/relay-core/pkg/obj"
 	rbacv1 "k8s.io/api/rbac/v1"
 )
 
@@ -90,19 +89,36 @@ func ConfigureMetadataAPIClusterRole(cr *rbacv1obj.ClusterRole) {
 	}
 }
 
-func ConfigureClusterRoleBinding(coreobj *obj.Core, sa *corev1.ServiceAccount, crb *rbacv1obj.ClusterRoleBinding) {
-	crb.Object.RoleRef = rbacv1.RoleRef{
-		APIGroup: "rbac.authorization.k8s.io",
-		Kind:     "ClusterRole",
-		Name:     crb.Name,
+func ConfigureClusterRoleBinding(sa *corev1obj.ServiceAccount, crb *rbacv1obj.ClusterRoleBinding) {
+	ConfigureClusterRoleBindingWithRoleRef(sa, crb,
+		rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     rbacv1obj.ClusterRoleKind.Kind,
+			Name:     crb.Name,
+		},
+	)
+}
+
+func ConfigureClusterRoleBindingWithRoleRef(sa *corev1obj.ServiceAccount, crb *rbacv1obj.ClusterRoleBinding, rr rbacv1.RoleRef) {
+	crb.Object.RoleRef = rr
+
+	found := false
+	for _, subject := range crb.Object.Subjects {
+		if subject.Kind == corev1obj.ServiceAccountKind.Kind &&
+			subject.Name == sa.Key.Name &&
+			subject.Namespace == sa.Key.Namespace {
+			found = true
+		}
 	}
 
-	crb.Object.Subjects = []rbacv1.Subject{
-		{
-			Kind:      "ServiceAccount",
-			Name:      sa.Object.Name,
-			Namespace: coreobj.Object.Namespace,
-		},
+	if !found {
+		crb.Object.Subjects = append(crb.Object.Subjects,
+			rbacv1.Subject{
+				Kind:      corev1obj.ServiceAccountKind.Kind,
+				Name:      sa.Key.Name,
+				Namespace: sa.Key.Namespace,
+			},
+		)
 	}
 }
 
@@ -117,22 +133,6 @@ func ConfigureWebhookCertificateControllerClusterRole(cr *rbacv1obj.ClusterRole)
 			APIGroups: []string{"admissionregistration.k8s.io"},
 			Resources: []string{"mutatingwebhookconfigurations"},
 			Verbs:     []string{"get", "list", "watch", "update"},
-		},
-	}
-}
-
-func ConfigureWebhookCertificateControllerClusterRoleBinding(coreobj *obj.Core, crb *rbacv1obj.ClusterRoleBinding) {
-	crb.Object.RoleRef = rbacv1.RoleRef{
-		APIGroup: "rbac.authorization.k8s.io",
-		Kind:     "ClusterRole",
-		Name:     crb.Name,
-	}
-
-	crb.Object.Subjects = []rbacv1.Subject{
-		{
-			Kind:      "ServiceAccount",
-			Name:      crb.Object.Name,
-			Namespace: coreobj.Object.Namespace,
 		},
 	}
 }

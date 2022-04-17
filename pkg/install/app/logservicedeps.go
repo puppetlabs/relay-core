@@ -129,7 +129,7 @@ func NewLogServiceDeps(c *obj.Core) *LogServiceDeps {
 			model.RelayAppNameLabel:       "log-service",
 			model.RelayAppInstanceLabel:   norm.AnyDNSLabelNameSuffixed("log-service-", c.Key.Name),
 			model.RelayAppComponentLabel:  "server",
-			model.RelayAppManagedByLabel:  "relay-install-operator",
+			model.RelayAppManagedByLabel:  "relay-installer",
 		},
 	}
 }

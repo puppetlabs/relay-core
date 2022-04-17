@@ -114,7 +114,7 @@ func (wd *WebhookCertificateControllerDeps) Configure(ctx context.Context) error
 
 	ConfigureWebhookCertificateControllerDeployment(wd, wd.Deployment)
 	ConfigureWebhookCertificateControllerClusterRole(wd.ClusterRole)
-	ConfigureWebhookCertificateControllerClusterRoleBinding(wd.Core, wd.ClusterRoleBinding)
+	ConfigureClusterRoleBinding(wd.ServiceAccount, wd.ClusterRoleBinding)
 
 	return nil
 }
@@ -128,7 +128,7 @@ func NewWebhookCertificateControllerDeps(target types.NamespacedName, c *obj.Cor
 			model.RelayAppNameLabel:       "operator",
 			model.RelayAppInstanceLabel:   "operator-" + c.Key.Name,
 			model.RelayAppComponentLabel:  "webhook-certificate-server",
-			model.RelayAppManagedByLabel:  "relay-install-operator",
+			model.RelayAppManagedByLabel:  "relay-installer",
 		},
 	}
 }
