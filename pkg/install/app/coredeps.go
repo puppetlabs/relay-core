@@ -65,7 +65,7 @@ func (cd *CoreDeps) Load(ctx context.Context, cl client.Client) (*CoreDepsLoadRe
 	cd.OwnerConfigMap = corev1obj.NewConfigMap(helper.SuffixObjectKey(cd.Core.Key, "owner"))
 
 	key := helper.SuffixObjectKey(cd.Core.Key, defaultJWTSigningKeySecretName)
-	if cd.JWTSigningKeySecret != nil {
+	if cd.Core.Object.Spec.JWTSigningKeyRef != nil {
 		key = client.ObjectKey{
 			Name:      cd.Core.Object.Spec.JWTSigningKeyRef.Name,
 			Namespace: cd.Core.Key.Namespace,
