@@ -91,6 +91,10 @@ func (g *vaultPolicyGenerator) metadataAPITenantPolicy() []byte {
 	policy := vaultPolicy{
 		Paths: []vaultPolicyPath{
 			{
+				Name:         path.Join(g.TenantPath, "metadata", "workflows", tenantEntity, "*"),
+				Capabilities: []string{"list"},
+			},
+			{
 				Name:         path.Join(g.TenantPath, "data", "workflows", tenantEntity, "*"),
 				Capabilities: []string{"read"},
 			},
