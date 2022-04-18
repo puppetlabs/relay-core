@@ -130,7 +130,14 @@ func (vd *VaultServerBuiltInConfigDeps) Configure(ctx context.Context) error {
 		}
 	}
 
-	ConfigureVaultClusterRoleBinding(vd.Core, vd.ClusterRoleBinding, vd.ServiceAccount)
+	ConfigureClusterRoleBindingWithRoleRef(vd.ServiceAccount, vd.ClusterRoleBinding,
+		rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     rbacv1obj.ClusterRoleKind.Kind,
+			Name:     "system:auth-delegator",
+		},
+	)
+
 	ConfigureVaultService(vd, vd.Service)
 	ConfigureVaultStatefulSet(vd, vd.StatefulSet)
 
@@ -158,23 +165,7 @@ func NewVaultServerBuiltInConfigDeps(c *obj.Core) *VaultServerBuiltInConfigDeps 
 			model.RelayAppNameLabel:       "vault",
 			model.RelayAppInstanceLabel:   norm.AnyDNSLabelNameSuffixed("vault-", c.Key.Name),
 			model.RelayAppComponentLabel:  "server",
-			model.RelayAppManagedByLabel:  "relay-install-operator",
-		},
-	}
-}
-
-func ConfigureVaultClusterRoleBinding(coreobj *obj.Core, crb *rbacv1obj.ClusterRoleBinding, sa *corev1obj.ServiceAccount) {
-	crb.Object.RoleRef = rbacv1.RoleRef{
-		APIGroup: "rbac.authorization.k8s.io",
-		Kind:     "ClusterRole",
-		Name:     "system:auth-delegator",
-	}
-
-	crb.Object.Subjects = []rbacv1.Subject{
-		{
-			Kind:      "ServiceAccount",
-			Name:      sa.Key.Name,
-			Namespace: sa.Key.Namespace,
+			model.RelayAppManagedByLabel:  "relay-installer",
 		},
 	}
 }

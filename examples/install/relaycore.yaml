@@ -20,5 +20,5 @@ spec:
     server:
       builtIn:
         configMapRef:
-          name: relay-install-operator
+          name: vault-config
     sidecar: {}

@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: relay-installer
-  namespace: relay-system
+  namespace: relay-installer
 spec:
   selector:
     matchLabels:
@@ -25,5 +25,4 @@ spec:
           requests:
             cpu: 25m
             memory: 32Mi
-      serviceAccount: relay-install-operator
-      serviceAccountName: relay-install-operator
+      serviceAccountName: relay-installer

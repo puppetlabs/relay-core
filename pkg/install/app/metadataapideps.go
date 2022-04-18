@@ -137,7 +137,7 @@ func (md *MetadataAPIDeps) Configure(ctx context.Context) error {
 	}
 
 	ConfigureMetadataAPIClusterRole(md.ClusterRole)
-	ConfigureClusterRoleBinding(md.Core, md.ServiceAccount, md.ClusterRoleBinding)
+	ConfigureClusterRoleBinding(md.ServiceAccount, md.ClusterRoleBinding)
 
 	return nil
 }
@@ -151,7 +151,7 @@ func NewMetadataAPIDeps(c *obj.Core) *MetadataAPIDeps {
 			model.RelayAppNameLabel:       "metadata-api",
 			model.RelayAppInstanceLabel:   norm.AnyDNSLabelNameSuffixed("metadata-api-", c.Key.Name),
 			model.RelayAppComponentLabel:  "server",
-			model.RelayAppManagedByLabel:  "relay-install-operator",
+			model.RelayAppManagedByLabel:  "relay-installer",
 		},
 	}
 }

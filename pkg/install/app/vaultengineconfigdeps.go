@@ -6,12 +6,14 @@ import (
 
 	batchv1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/batchv1"
 	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
+	rbacv1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/rbacv1"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/helper"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	"github.com/puppetlabs/relay-core/pkg/apis/install.relay.sh/v1alpha1"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -44,6 +46,9 @@ type VaultEngineConfigDeps struct {
 	ConfigJob           *batchv1obj.Job
 	JWTSigningKeySecret *corev1obj.Secret
 	OwnerConfigMap      *corev1obj.ConfigMap
+	Role                *rbacv1obj.Role
+	RoleBinding         *rbacv1obj.RoleBinding
+	ServiceAccount      *corev1obj.ServiceAccount
 	Labels              map[string]string
 }
 
@@ -54,10 +59,17 @@ func (vd *VaultEngineConfigDeps) Load(ctx context.Context, cl client.Client) (bo
 
 	vd.ConfigJob = batchv1obj.NewJob(key)
 
+	vd.Role = rbacv1obj.NewRole(key)
+	vd.RoleBinding = rbacv1obj.NewRoleBinding(key)
+	vd.ServiceAccount = corev1obj.NewServiceAccount(key)
+
 	loaders := lifecycle.Loaders{
 		vd.OwnerConfigMap,
 		vd.ConfigJob,
 		vd.JWTSigningKeySecret,
+		vd.Role,
+		vd.RoleBinding,
+		vd.ServiceAccount,
 	}
 
 	if _, err := loaders.Load(ctx, cl); err != nil {
@@ -78,6 +90,9 @@ func (vd *VaultEngineConfigDeps) Persist(ctx context.Context, cl client.Client) 
 
 	objs := []lifecycle.OwnablePersister{
 		vd.ConfigJob,
+		vd.Role,
+		vd.RoleBinding,
+		vd.ServiceAccount,
 	}
 
 	for _, obj := range objs {
@@ -107,6 +122,9 @@ func (vd *VaultEngineConfigDeps) Configure(ctx context.Context) error {
 
 	lafs := []lifecycle.LabelAnnotatableFrom{
 		vd.ConfigJob,
+		vd.Role,
+		vd.RoleBinding,
+		vd.ServiceAccount,
 	}
 
 	for _, laf := range lafs {
@@ -115,13 +133,16 @@ func (vd *VaultEngineConfigDeps) Configure(ctx context.Context) error {
 		}
 	}
 
+	ConfigureVaultConfigRole(vd.Role)
+	ConfigureRoleBinding(vd.ServiceAccount, vd.RoleBinding)
+
 	ConfigureVaultConfigJob(
 		vd.Core.Key,
 		vd.Core.Object.Spec.LogService,
 		vd.Core.Object.Spec.MetadataAPI,
 		vd.Core.Object.Spec.Operator,
 		vd.Core.Object.Spec.Vault,
-		vd.ConfigJob, vd.JWTSigningKeySecret)
+		vd.ConfigJob, vd.JWTSigningKeySecret, vd.ServiceAccount)
 
 	return nil
 }
@@ -132,11 +153,26 @@ func NewVaultSystemConfigDeps(c *obj.Core, jwt *corev1obj.Secret) *VaultEngineCo
 		JWTSigningKeySecret: jwt,
 		Labels: map[string]string{
 			model.RelayInstallerNameLabel: c.Key.Name,
-			model.RelayAppManagedByLabel:  "relay-install-operator",
+			model.RelayAppManagedByLabel:  "relay-installer",
 		},
 	}
 
 	return vd
+}
+
+func ConfigureVaultConfigRole(r *rbacv1obj.Role) {
+	r.Object.Rules = []rbacv1.PolicyRule{
+		{
+			APIGroups: []string{""},
+			Resources: []string{"serviceaccounts"},
+			Verbs:     []string{"get", "list", "watch"},
+		},
+		{
+			APIGroups: []string{""},
+			Resources: []string{"secrets"},
+			Verbs:     []string{"get", "list", "watch", "create", "update", "patch", "delete"},
+		},
+	}
 }
 
 func ConfigureVaultConfigJob(
@@ -145,7 +181,7 @@ func ConfigureVaultConfigJob(
 	metadataAPIConfig v1alpha1.MetadataAPIConfig,
 	operatorConfig v1alpha1.OperatorConfig,
 	vaultConfig v1alpha1.VaultConfig,
-	job *batchv1obj.Job, jwt *corev1obj.Secret) {
+	job *batchv1obj.Job, jwt *corev1obj.Secret, sa *corev1obj.ServiceAccount) {
 
 	// TODO Determine best approach to handling slight variations in configuration data
 	authPath := strings.Split(metadataAPIConfig.VaultAuthPath, "/")
@@ -206,9 +242,7 @@ func ConfigureVaultConfigJob(
 	}
 
 	job.Object.Spec.Template.Spec.RestartPolicy = corev1.RestartPolicyNever
-
-	// TODO Consider supporting separate RBAC for use with this container (or at the very least, should not be hardcoded here)
-	job.Object.Spec.Template.Spec.ServiceAccountName = "relay-install-operator"
+	job.Object.Spec.Template.Spec.ServiceAccountName = sa.Key.Name
 }
 
 func VaultAuthDataEnvVar(name string, vad *v1alpha1.VaultAuthData) (corev1.EnvVar, bool) {
