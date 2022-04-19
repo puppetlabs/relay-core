@@ -211,8 +211,6 @@ type OperatorConfig struct {
 	// AdmissionWebhookServer is the configuration for the
 	// admissionregistration webhook server.
 	//
-	//
-	// +kubebuilder:default={certificateControllerImagePullPolicy: "IfNotPresent"}
 	// +optional
 	AdmissionWebhookServer *AdmissionWebhookServerConfig `json:"admissionWebhookServer,omitempty"`
 
@@ -434,20 +432,20 @@ type VaultAuthConfig struct {
 }
 
 type VaultAuthData struct {
-	// Value provides vault server authentication data.
+	// Value allows data to be provided directly.
 	//
 	// +optional
-	Value string `json:"token,omitempty"`
+	Value string `json:"value,omitempty"`
 
-	// ValueFrom allows vault server auth data to be provided by another source
+	// ValueFrom allows data to be provided by another source
 	// such as a Secret.
 	//
 	// +optional
-	ValueFrom *VaultAuthSource `json:"tokenFrom,omitempty"`
+	ValueFrom *VaultAuthSource `json:"valueFrom,omitempty"`
 }
 
 type VaultAuthSource struct {
-	// SecretKeyRef selects an API token by looking up the value in a secret.
+	// SecretKeyRef selects data by looking up the value in a secret.
 	//
 	// +optional
 	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
