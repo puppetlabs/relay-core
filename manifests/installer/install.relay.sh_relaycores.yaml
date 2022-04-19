@@ -2133,8 +2133,6 @@ spec:
                 description: Operator is the configuration for the workflow run operator.
                 properties:
                   admissionWebhookServer:
-                    default:
-                      certificateControllerImagePullPolicy: IfNotPresent
                     description: AdmissionWebhookServer is the configuration for the
                       admissionregistration webhook server.
                     properties:
@@ -3253,17 +3251,16 @@ spec:
                           when configuring engine mounts and policies for relay-core
                           components.
                         properties:
-                          token:
-                            description: Value provides vault server authentication
-                              data.
+                          value:
+                            description: Value allows data to be provided directly.
                             type: string
-                          tokenFrom:
-                            description: ValueFrom allows vault server auth data to
-                              be provided by another source such as a Secret.
+                          valueFrom:
+                            description: ValueFrom allows data to be provided by another
+                              source such as a Secret.
                             properties:
                               secretKeyRef:
-                                description: SecretKeyRef selects an API token by
-                                  looking up the value in a secret.
+                                description: SecretKeyRef selects data by looking
+                                  up the value in a secret.
                                 properties:
                                   key:
                                     description: The key of the secret to select from.  Must
@@ -3289,17 +3286,16 @@ spec:
                           This Job only supports a singular unseal key, so servers
                           that require multiple keys will not be unsealed.
                         properties:
-                          token:
-                            description: Value provides vault server authentication
-                              data.
+                          value:
+                            description: Value allows data to be provided directly.
                             type: string
-                          tokenFrom:
-                            description: ValueFrom allows vault server auth data to
-                              be provided by another source such as a Secret.
+                          valueFrom:
+                            description: ValueFrom allows data to be provided by another
+                              source such as a Secret.
                             properties:
                               secretKeyRef:
-                                description: SecretKeyRef selects an API token by
-                                  looking up the value in a secret.
+                                description: SecretKeyRef selects data by looking
+                                  up the value in a secret.
                                 properties:
                                   key:
                                     description: The key of the secret to select from.  Must
