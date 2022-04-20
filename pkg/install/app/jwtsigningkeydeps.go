@@ -51,7 +51,7 @@ func (d *JWTSigningKeyDeps) Load(ctx context.Context, cl client.Client) (bool, e
 
 	d.OwnerConfigMap = corev1obj.NewConfigMap(helper.SuffixObjectKey(key, "owner"))
 
-	if d.Core.Object.Spec.Vault.JWTSigningKeyRef == nil {
+	if d.Core.Object.Spec.Vault.JWTSigningKeys == nil {
 		d.ManagedJWTSigningKeySecret = corev1obj.NewSecret(key)
 	}
 
@@ -122,7 +122,7 @@ func (d *JWTSigningKeyDeps) PrivateKey() corev1.SecretKeySelector {
 		}
 	}
 
-	return d.Core.Object.Spec.Vault.JWTSigningKeyRef.PrivateKeyRef
+	return d.Core.Object.Spec.Vault.JWTSigningKeys.PrivateKeyRef
 }
 
 func (d *JWTSigningKeyDeps) PublicKey() corev1.SecretKeySelector {
@@ -135,7 +135,7 @@ func (d *JWTSigningKeyDeps) PublicKey() corev1.SecretKeySelector {
 		}
 	}
 
-	return d.Core.Object.Spec.Vault.JWTSigningKeyRef.PublicKeyRef
+	return d.Core.Object.Spec.Vault.JWTSigningKeys.PublicKeyRef
 }
 
 func NewJWTSigningKeyDeps(c *obj.Core) *JWTSigningKeyDeps {

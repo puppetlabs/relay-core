@@ -370,8 +370,8 @@ func (in *VaultConfig) DeepCopyInto(out *VaultConfig) {
 		(*in).DeepCopyInto(*out)
 	}
 	out.Engine = in.Engine
-	if in.JWTSigningKeyRef != nil {
-		in, out := &in.JWTSigningKeyRef, &out.JWTSigningKeyRef
+	if in.JWTSigningKeys != nil {
+		in, out := &in.JWTSigningKeys, &out.JWTSigningKeys
 		*out = new(JWTSigningKeySource)
 		(*in).DeepCopyInto(*out)
 	}
