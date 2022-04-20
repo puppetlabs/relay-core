@@ -37,6 +37,7 @@ type OperatorDeps struct {
 	OwnerConfigMap                   *corev1obj.ConfigMap
 	WebhookCertificateControllerDeps *WebhookCertificateControllerDeps
 	VaultAgentDeps                   *VaultAgentDeps
+	VaultConfigDeps                  *VaultConfigDeps
 	Labels                           map[string]string
 }
 
@@ -60,7 +61,7 @@ func (od *OperatorDeps) Load(ctx context.Context, cl client.Client) (bool, error
 		od.TenantNamespace = corev1obj.NewNamespace(*tn)
 	}
 
-	od.Deployment = newOperatorDeployment(key, od.Core, od.VaultAgentDeps)
+	od.Deployment = newOperatorDeployment(key, od.Core, od.VaultAgentDeps, od.VaultConfigDeps)
 	od.WebhookService = newOperatorWebhookService(od.Deployment)
 	od.ServiceAccount = corev1obj.NewServiceAccount(key)
 	od.ClusterRole = rbacv1obj.NewClusterRole(key.Name)
@@ -199,10 +200,11 @@ func (od *OperatorDeps) Configure(ctx context.Context) error {
 	return nil
 }
 
-func NewOperatorDeps(c *obj.Core) *OperatorDeps {
+func NewOperatorDeps(c *obj.Core, vcd *VaultConfigDeps) *OperatorDeps {
 	return &OperatorDeps{
-		Core:           c,
-		VaultAgentDeps: NewVaultAgentDepsForRole(c.Object.Spec.Operator.VaultAgentRole, c),
+		Core:            c,
+		VaultConfigDeps: vcd,
+		VaultAgentDeps:  NewVaultAgentDepsForRole(c.Object.Spec.Operator.VaultAgentRole, c),
 		Labels: map[string]string{
 			model.RelayInstallerNameLabel: c.Key.Name,
 			model.RelayAppNameLabel:       "operator",

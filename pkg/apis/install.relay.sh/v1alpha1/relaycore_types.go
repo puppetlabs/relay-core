@@ -35,14 +35,6 @@ type RelayCoreSpec struct {
 	// +optional
 	Debug bool `json:"debug"`
 
-	// JWTSigningKeys is the secret and keys that hold a JWT signing key pair
-	// for the workflow run key signing operations with vault. This secret must
-	// have 2 fields for a public and private key pair. If this field is not
-	// set, then signings key will be generated automatically.
-	//
-	// +optional
-	JWTSigningKeyRef *JWTSigningKeySource `json:"jwtSigningKeys,omitempty"`
-
 	// LogService is the configuration for the log service.
 	//
 	// +optional
@@ -66,10 +58,8 @@ type RelayCoreSpec struct {
 }
 
 type JWTSigningKeySource struct {
-	corev1.LocalObjectReference `json:",inline"`
-
-	PrivateKeyRef string `json:"privateKeyRef,omitempty"`
-	PublicKeyRef  string `json:"publicKeyRef,omitempty"`
+	PrivateKeyRef corev1.SecretKeySelector `json:"privateKeyRef,omitempty"`
+	PublicKeyRef  corev1.SecretKeySelector `json:"publicKeyRef,omitempty"`
 }
 
 // LogServiceConfig is the configuration for the relay-log-service deployment
@@ -324,6 +314,14 @@ type VaultConfig struct {
 
 	// Engine provides the configuration for the internal vault engine.
 	Engine VaultEngineConfig `json:"engine"`
+
+	// JWTSigningKeys is the secret and keys that hold a JWT signing key pair
+	// for the workflow run key signing operations with vault. This secret must
+	// have 2 fields for a public and private key pair. If this field is not
+	// set, then signings key will be generated automatically.
+	//
+	// +optional
+	JWTSigningKeyRef *JWTSigningKeySource `json:"jwtSigningKeys,omitempty"`
 
 	// Server provides the configuration for the vault server.
 	Server VaultServerConfig `json:"server"`

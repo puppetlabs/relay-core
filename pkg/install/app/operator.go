@@ -20,8 +20,9 @@ const jwtSigningKeyDirPath = "/var/run/secrets/puppet/relay/jwt"
 type operatorDeployment struct {
 	*appsv1obj.Deployment
 
-	core           *obj.Core
-	vaultAgentDeps *VaultAgentDeps
+	core            *obj.Core
+	vaultAgentDeps  *VaultAgentDeps
+	vaultConfigDeps *VaultConfigDeps
 }
 
 func (d *operatorDeployment) Configure(_ context.Context) error {
@@ -39,23 +40,24 @@ func (d *operatorDeployment) Configure(_ context.Context) error {
 	template.Affinity = conf.Affinity
 	template.Volumes = d.vaultAgentDeps.DeploymentVolumes()
 
-	template.Volumes = append(template.Volumes, corev1.Volume{
-		Name: "webhook-tls",
-		VolumeSource: corev1.VolumeSource{
-			Secret: &corev1.SecretVolumeSource{
-				SecretName: helper.SuffixObjectKey(d.Key, "certificate").Name,
+	template.Volumes = append(template.Volumes,
+		corev1.Volume{
+			Name: "webhook-tls",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: helper.SuffixObjectKey(d.Key, "certificate").Name,
+				},
 			},
 		},
-	})
-
-	template.Volumes = append(template.Volumes, corev1.Volume{
-		Name: "jwt-signing-key",
-		VolumeSource: corev1.VolumeSource{
-			Secret: &corev1.SecretVolumeSource{
-				SecretName: core.Spec.JWTSigningKeyRef.Name,
+		corev1.Volume{
+			Name: "jwt-signing-key",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: d.vaultConfigDeps.JWTSigningKeyDeps.PrivateKey().Name,
+				},
 			},
 		},
-	})
+	)
 
 	template.NodeSelector = conf.NodeSelector
 
@@ -100,7 +102,7 @@ func (d *operatorDeployment) container() corev1.Container {
 		"-num-workers",
 		strconv.Itoa(int(conf.Workers)),
 		"-jwt-signing-key-file",
-		filepath.Join(jwtSigningKeyDirPath, core.Spec.JWTSigningKeyRef.PrivateKeyRef),
+		filepath.Join(jwtSigningKeyDirPath, d.vaultConfigDeps.JWTSigningKeyDeps.PrivateKey().Key),
 		"-vault-transit-path",
 		core.Spec.Vault.Engine.TransitPath,
 		"-vault-transit-key",
@@ -182,11 +184,12 @@ func (d *operatorDeployment) container() corev1.Container {
 	return c
 }
 
-func newOperatorDeployment(key client.ObjectKey, core *obj.Core, vad *VaultAgentDeps) *operatorDeployment {
+func newOperatorDeployment(key client.ObjectKey, core *obj.Core, vad *VaultAgentDeps, vcd *VaultConfigDeps) *operatorDeployment {
 	return &operatorDeployment{
-		Deployment:     appsv1obj.NewDeployment(key),
-		core:           core,
-		vaultAgentDeps: vad,
+		Deployment:      appsv1obj.NewDeployment(key),
+		core:            core,
+		vaultAgentDeps:  vad,
+		vaultConfigDeps: vcd,
 	}
 }
 

@@ -43,22 +43,6 @@ spec:
                 description: Environment is the environment this instance is running
                   in.
                 type: string
-              jwtSigningKeys:
-                description: JWTSigningKeys is the secret and keys that hold a JWT
-                  signing key pair for the workflow run key signing operations with
-                  vault. This secret must have 2 fields for a public and private key
-                  pair. If this field is not set, then signings key will be generated
-                  automatically.
-                properties:
-                  name:
-                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                      TODO: Add other useful fields. apiVersion, kind, uid?'
-                    type: string
-                  privateKeyRef:
-                    type: string
-                  publicKeyRef:
-                    type: string
-                type: object
               logService:
                 description: LogService is the configuration for the log service.
                 properties:
@@ -3346,6 +3330,50 @@ spec:
                         description: PullPolicy describes a policy for if/when to
                           pull a container image
                         type: string
+                    type: object
+                  jwtSigningKeys:
+                    description: JWTSigningKeys is the secret and keys that hold a
+                      JWT signing key pair for the workflow run key signing operations
+                      with vault. This secret must have 2 fields for a public and
+                      private key pair. If this field is not set, then signings key
+                      will be generated automatically.
+                    properties:
+                      privateKeyRef:
+                        description: SecretKeySelector selects a key of a Secret.
+                        properties:
+                          key:
+                            description: The key of the secret to select from.  Must
+                              be a valid secret key.
+                            type: string
+                          name:
+                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              TODO: Add other useful fields. apiVersion, kind, uid?'
+                            type: string
+                          optional:
+                            description: Specify whether the Secret or its key must
+                              be defined
+                            type: boolean
+                        required:
+                        - key
+                        type: object
+                      publicKeyRef:
+                        description: SecretKeySelector selects a key of a Secret.
+                        properties:
+                          key:
+                            description: The key of the secret to select from.  Must
+                              be a valid secret key.
+                            type: string
+                          name:
+                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              TODO: Add other useful fields. apiVersion, kind, uid?'
+                            type: string
+                          optional:
+                            description: Specify whether the Secret or its key must
+                              be defined
+                            type: boolean
+                        required:
+                        - key
+                        type: object
                     type: object
                   server:
                     description: Server provides the configuration for the vault server.

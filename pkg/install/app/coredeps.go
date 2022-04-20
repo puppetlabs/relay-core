@@ -9,18 +9,10 @@ import (
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/helper"
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	"github.com/puppetlabs/relay-core/pkg/apis/install.relay.sh/v1alpha1"
-	"github.com/puppetlabs/relay-core/pkg/install/jwt"
 	"github.com/puppetlabs/relay-core/pkg/obj"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-)
-
-const (
-	defaultJWTSigningKeySecretName  = "jwt-signing-keys"
-	defaultPrivateJWTSigningKeyName = "private-key.pem"
-	defaultPublicJWTSigningKeyName  = "public-key.pem"
 )
 
 type CoreDepsLoadResult struct {
@@ -28,14 +20,13 @@ type CoreDepsLoadResult struct {
 }
 
 type CoreDeps struct {
-	Core                *obj.Core
-	OwnerConfigMap      *corev1obj.ConfigMap
-	Namespace           *corev1obj.Namespace
-	VaultConfigDeps     *VaultConfigDeps
-	OperatorDeps        *OperatorDeps
-	MetadataAPIDeps     *MetadataAPIDeps
-	LogServiceDeps      *LogServiceDeps
-	JWTSigningKeySecret *corev1obj.Secret
+	Core            *obj.Core
+	OwnerConfigMap  *corev1obj.ConfigMap
+	Namespace       *corev1obj.Namespace
+	VaultConfigDeps *VaultConfigDeps
+	OperatorDeps    *OperatorDeps
+	MetadataAPIDeps *MetadataAPIDeps
+	LogServiceDeps  *LogServiceDeps
 }
 
 func (cd *CoreDeps) Delete(ctx context.Context, cl client.Client, opts ...lifecycle.DeleteOption) (bool, error) {
@@ -64,19 +55,9 @@ func (cd *CoreDeps) Load(ctx context.Context, cl client.Client) (*CoreDepsLoadRe
 
 	cd.OwnerConfigMap = corev1obj.NewConfigMap(helper.SuffixObjectKey(cd.Core.Key, "owner"))
 
-	key := helper.SuffixObjectKey(cd.Core.Key, defaultJWTSigningKeySecretName)
-	if cd.Core.Object.Spec.JWTSigningKeyRef != nil {
-		key = client.ObjectKey{
-			Name:      cd.Core.Object.Spec.JWTSigningKeyRef.Name,
-			Namespace: cd.Core.Key.Namespace,
-		}
-	}
+	cd.VaultConfigDeps = NewVaultConfigDeps(cd.Core)
 
-	cd.JWTSigningKeySecret = corev1obj.NewSecret(key)
-
-	cd.VaultConfigDeps = NewVaultConfigDeps(cd.Core, cd.JWTSigningKeySecret)
-
-	cd.OperatorDeps = NewOperatorDeps(cd.Core)
+	cd.OperatorDeps = NewOperatorDeps(cd.Core, cd.VaultConfigDeps)
 	cd.MetadataAPIDeps = NewMetadataAPIDeps(cd.Core)
 
 	if cd.Core.Object.Spec.LogService != nil {
@@ -90,7 +71,6 @@ func (cd *CoreDeps) Load(ctx context.Context, cl client.Client) (*CoreDepsLoadRe
 		cd.OperatorDeps,
 		cd.MetadataAPIDeps,
 		lifecycle.IgnoreNilLoader{Loader: cd.LogServiceDeps},
-		cd.JWTSigningKeySecret,
 	}.Load(ctx, cl)
 	if err != nil {
 		return nil, err
@@ -115,13 +95,6 @@ func (cd *CoreDeps) Persist(ctx context.Context, cl client.Client) error {
 		lifecycle.IgnoreNilOwnablePersister{OwnablePersister: cd.LogServiceDeps},
 	}
 
-	// if we didn't load a secret managed outside the installer, we are
-	// generating keys here and therefore want to fully manage the secret
-	// object by owning and persisting it.
-	if cd.JWTSigningKeySecret.Object.GetUID() == "" {
-		objs = append(objs, cd.JWTSigningKeySecret)
-	}
-
 	for _, obj := range objs {
 		if err := cd.OwnerConfigMap.Own(ctx, obj); err != nil {
 			return err
@@ -144,12 +117,6 @@ func (cd *CoreDeps) Configure(_ context.Context) error {
 		}); err != nil {
 
 		return err
-	}
-
-	if cd.JWTSigningKeySecret.Object.GetUID() == "" {
-		if err := ConfigureJWTSigningKeys(cd.JWTSigningKeySecret); err != nil {
-			return err
-		}
 	}
 
 	ConfigureCoreDefaults(cd)
@@ -208,18 +175,6 @@ func ConfigureCoreDefaults(cd *CoreDeps) {
 		core.Object.Spec.Operator.ServiceAccountName = cd.OperatorDeps.ServiceAccount.Key.Name
 	}
 
-	if core.Object.Spec.JWTSigningKeyRef == nil {
-		resourceKey := helper.SuffixObjectKey(core.Key, defaultJWTSigningKeySecretName)
-
-		core.Object.Spec.JWTSigningKeyRef = &v1alpha1.JWTSigningKeySource{
-			LocalObjectReference: corev1.LocalObjectReference{
-				Name: resourceKey.Name,
-			},
-			PrivateKeyRef: defaultPrivateJWTSigningKeyName,
-			PublicKeyRef:  defaultPublicJWTSigningKeyName,
-		}
-	}
-
 	if core.Object.Spec.MetadataAPI.ServiceAccountName == "" {
 		core.Object.Spec.MetadataAPI.ServiceAccountName = cd.MetadataAPIDeps.ServiceAccount.Key.Name
 	}
@@ -247,20 +202,4 @@ func ConfigureCoreDefaults(cd *CoreDeps) {
 			core.Object.Spec.MetadataAPI.LogServiceURL = &logServiceURL
 		}
 	}
-}
-
-func ConfigureJWTSigningKeys(sec *corev1obj.Secret) error {
-	pair, err := jwt.GenerateSigningKeys()
-	if err != nil {
-		return err
-	}
-
-	if sec.Object.Data == nil {
-		sec.Object.Data = make(map[string][]byte)
-	}
-
-	sec.Object.Data[defaultPrivateJWTSigningKeyName] = pair.PrivateKey
-	sec.Object.Data[defaultPublicJWTSigningKeyName] = pair.PublicKey
-
-	return nil
 }
