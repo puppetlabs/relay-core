@@ -42,14 +42,14 @@ const (
 )
 
 type VaultEngineConfigDeps struct {
-	Core                *obj.Core
-	ConfigJob           *batchv1obj.Job
-	JWTSigningKeySecret *corev1obj.Secret
-	OwnerConfigMap      *corev1obj.ConfigMap
-	Role                *rbacv1obj.Role
-	RoleBinding         *rbacv1obj.RoleBinding
-	ServiceAccount      *corev1obj.ServiceAccount
-	Labels              map[string]string
+	Core              *obj.Core
+	ConfigJob         *batchv1obj.Job
+	OwnerConfigMap    *corev1obj.ConfigMap
+	Role              *rbacv1obj.Role
+	RoleBinding       *rbacv1obj.RoleBinding
+	ServiceAccount    *corev1obj.ServiceAccount
+	JWTSigningKeyDeps *JWTSigningKeyDeps
+	Labels            map[string]string
 }
 
 func (vd *VaultEngineConfigDeps) Load(ctx context.Context, cl client.Client) (bool, error) {
@@ -66,7 +66,6 @@ func (vd *VaultEngineConfigDeps) Load(ctx context.Context, cl client.Client) (bo
 	loaders := lifecycle.Loaders{
 		vd.OwnerConfigMap,
 		vd.ConfigJob,
-		vd.JWTSigningKeySecret,
 		vd.Role,
 		vd.RoleBinding,
 		vd.ServiceAccount,
@@ -142,15 +141,16 @@ func (vd *VaultEngineConfigDeps) Configure(ctx context.Context) error {
 		vd.Core.Object.Spec.MetadataAPI,
 		vd.Core.Object.Spec.Operator,
 		vd.Core.Object.Spec.Vault,
-		vd.ConfigJob, vd.JWTSigningKeySecret, vd.ServiceAccount)
+		vd.ConfigJob, vd.ServiceAccount,
+		vd.JWTSigningKeyDeps)
 
 	return nil
 }
 
-func NewVaultSystemConfigDeps(c *obj.Core, jwt *corev1obj.Secret) *VaultEngineConfigDeps {
+func NewVaultSystemConfigDeps(c *obj.Core, jskd *JWTSigningKeyDeps) *VaultEngineConfigDeps {
 	vd := &VaultEngineConfigDeps{
-		Core:                c,
-		JWTSigningKeySecret: jwt,
+		Core:              c,
+		JWTSigningKeyDeps: jskd,
 		Labels: map[string]string{
 			model.RelayInstallerNameLabel: c.Key.Name,
 			model.RelayAppManagedByLabel:  "relay-installer",
@@ -181,7 +181,8 @@ func ConfigureVaultConfigJob(
 	metadataAPIConfig v1alpha1.MetadataAPIConfig,
 	operatorConfig v1alpha1.OperatorConfig,
 	vaultConfig v1alpha1.VaultConfig,
-	job *batchv1obj.Job, jwt *corev1obj.Secret, sa *corev1obj.ServiceAccount) {
+	job *batchv1obj.Job, sa *corev1obj.ServiceAccount,
+	jskd *JWTSigningKeyDeps) {
 
 	// TODO Determine best approach to handling slight variations in configuration data
 	authPath := strings.Split(metadataAPIConfig.VaultAuthPath, "/")
@@ -206,17 +207,13 @@ func ConfigureVaultConfigJob(
 			corev1.EnvVar{Name: logServiceVaultAgentRoleEnvVar, Value: logServiceConfig.VaultAgentRole})
 	}
 
-	if jwt != nil {
+	if jskd != nil {
+		publicKey := jskd.PublicKey()
 		env = append(env,
 			corev1.EnvVar{
 				Name: vaultJWTPublicKeyEnvVar,
 				ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: &corev1.SecretKeySelector{
-						Key: defaultPublicJWTSigningKeyName,
-						LocalObjectReference: corev1.LocalObjectReference{
-							Name: jwt.Key.Name,
-						},
-					},
+					SecretKeyRef: &publicKey,
 				},
 			},
 		)
