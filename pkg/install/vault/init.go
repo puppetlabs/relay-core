@@ -142,7 +142,7 @@ func (vi *VaultInitializer) InitializeVault(ctx context.Context) error {
 			RoleType:      "jwt",
 			TokenPolicies: []string{"metadata-api-tenant"},
 			TokenType:     "batch",
-			UserClaim:     "sub",
+			UserClaim:     "relay.sh/tenant-id",
 		},
 	}
 

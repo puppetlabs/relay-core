@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"path"
 
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
@@ -45,10 +46,24 @@ func ConfigureTask(ctx context.Context, t *obj.Task, rd *RunDeps, ws *relayv1bet
 	}
 
 	if environment, ok := model.DeploymentEnvironments[rd.Environment]; ok {
-		envVars = append(envVars, corev1.EnvVar{
-			Name:  model.EnvironmentVariableDeploymentEnvironment.String(),
-			Value: environment.Name(),
-		})
+		envVars = append(envVars,
+			corev1.EnvVar{
+				Name:  model.EnvironmentVariableDefaultTimeout.String(),
+				Value: environment.Timeout().String(),
+			},
+			corev1.EnvVar{
+				Name:  model.EnvironmentVariableEnableSecureLogging.String(),
+				Value: fmt.Sprintf("%t", environment.SecureLogging()),
+			},
+		)
+	} else {
+		// HACK Temporarily disable the logging of steps, pending the next phase of logging improvements.
+		envVars = append(envVars,
+			corev1.EnvVar{
+				Name:  model.EnvironmentVariableEnableSecureLogging.String(),
+				Value: "false",
+			},
+		)
 	}
 
 	toolsContainer := corev1.Container{
@@ -94,7 +109,7 @@ func ConfigureTask(ctx context.Context, t *obj.Task, rd *RunDeps, ws *relayv1bet
 					Items: []corev1.KeyToPath{
 						{
 							Key:  scriptConfigMapKey(sm),
-							Path: "input-script",
+							Path: model.InputScriptName,
 							Mode: func(i int32) *int32 { return &i }(0755),
 						},
 					},
@@ -106,10 +121,10 @@ func ConfigureTask(ctx context.Context, t *obj.Task, rd *RunDeps, ws *relayv1bet
 		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
 			Name:      vol.Name,
 			ReadOnly:  true,
-			MountPath: "/var/run/puppet/relay/config",
+			MountPath: model.InputScriptMountPath,
 		})
 
-		command = "/var/run/puppet/relay/config/input-script"
+		command = path.Join(model.InputScriptMountPath, model.InputScriptName)
 		args = []string{}
 	}
 

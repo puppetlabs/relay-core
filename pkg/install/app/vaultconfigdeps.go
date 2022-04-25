@@ -14,7 +14,7 @@ import (
 type VaultConfigDeps struct {
 	Core                         *obj.Core
 	OwnerConfigMap               *corev1obj.ConfigMap
-	JWTSigningKeySecret          *corev1obj.Secret
+	JWTSigningKeyDeps            *JWTSigningKeyDeps
 	VaultEngineConfigDeps        *VaultEngineConfigDeps
 	VaultServerBuiltInConfigDeps *VaultServerBuiltInConfigDeps
 }
@@ -22,14 +22,17 @@ type VaultConfigDeps struct {
 func (vcd *VaultConfigDeps) Load(ctx context.Context, cl client.Client) (bool, error) {
 	vcd.OwnerConfigMap = corev1obj.NewConfigMap(helper.SuffixObjectKey(vcd.Core.Key, "owner"))
 
+	vcd.JWTSigningKeyDeps = NewJWTSigningKeyDeps(vcd.Core)
+
 	if vcd.Core.Object.Spec.Vault.Server.BuiltIn != nil {
 		vcd.VaultServerBuiltInConfigDeps = NewVaultServerBuiltInConfigDeps(vcd.Core)
 	}
 
-	vcd.VaultEngineConfigDeps = NewVaultSystemConfigDeps(vcd.Core, vcd.JWTSigningKeySecret)
+	vcd.VaultEngineConfigDeps = NewVaultSystemConfigDeps(vcd.Core, vcd.JWTSigningKeyDeps)
 
 	ok, err := lifecycle.Loaders{
 		vcd.OwnerConfigMap,
+		vcd.JWTSigningKeyDeps,
 		lifecycle.IgnoreNilLoader{Loader: vcd.VaultServerBuiltInConfigDeps},
 		vcd.VaultEngineConfigDeps,
 	}.Load(ctx, cl)
@@ -50,6 +53,7 @@ func (vcd *VaultConfigDeps) Persist(ctx context.Context, cl client.Client) error
 	}
 
 	objs := []lifecycle.OwnablePersister{
+		vcd.JWTSigningKeyDeps,
 		lifecycle.IgnoreNilOwnablePersister{OwnablePersister: vcd.VaultServerBuiltInConfigDeps},
 		vcd.VaultEngineConfigDeps,
 	}
@@ -79,6 +83,7 @@ func (vcd *VaultConfigDeps) Configure(ctx context.Context) error {
 	}
 
 	objs := []obj.Configurable{
+		vcd.JWTSigningKeyDeps,
 		obj.IgnoreNilConfigurable{Configurable: vcd.VaultServerBuiltInConfigDeps},
 		vcd.VaultEngineConfigDeps,
 	}
@@ -92,9 +97,8 @@ func (vcd *VaultConfigDeps) Configure(ctx context.Context) error {
 	return nil
 }
 
-func NewVaultConfigDeps(c *obj.Core, jwt *corev1obj.Secret) *VaultConfigDeps {
+func NewVaultConfigDeps(c *obj.Core) *VaultConfigDeps {
 	return &VaultConfigDeps{
-		Core:                c,
-		JWTSigningKeySecret: jwt,
+		Core: c,
 	}
 }

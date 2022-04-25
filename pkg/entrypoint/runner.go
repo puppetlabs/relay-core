@@ -57,6 +57,8 @@ func (rr *RealRunner) Run(args ...string) error {
 	var logOut *plspb.LogCreateResponse
 	var logErr *plspb.LogCreateResponse
 
+	name, args := args[0], args[1:]
+
 	// TODO Move the bulk of this logic into the "initialization" command/phase
 	mu := rr.Config.MetadataAPIURL
 	if mu != nil {
@@ -64,30 +66,32 @@ func (rr *RealRunner) Run(args ...string) error {
 			log.Println(err)
 		}
 
-		if err := rr.validateSchemas(ctx, mu); err != nil {
-			log.Println(err)
+		if name != path.Join(model.InputScriptMountPath, model.InputScriptName) {
+			if err := rr.validateSchemas(ctx, mu); err != nil {
+				log.Println(err)
+			}
 		}
 
-		logOut, err = rr.postLog(ctx, mu, &plspb.LogCreateRequest{
-			Name: "stdout",
-		})
-		if err != nil {
-			log.Println(err)
-		}
+		if rr.Config.SecureLogging {
+			logOut, err = rr.postLog(ctx, mu, &plspb.LogCreateRequest{
+				Name: "stdout",
+			})
+			if err != nil {
+				log.Println(err)
+			}
 
-		logErr, err = rr.postLog(ctx, mu, &plspb.LogCreateRequest{
-			Name: "stderr",
-		})
-		if err != nil {
-			log.Println(err)
+			logErr, err = rr.postLog(ctx, mu, &plspb.LogCreateRequest{
+				Name: "stderr",
+			})
+			if err != nil {
+				log.Println(err)
+			}
 		}
 
 		if err := rr.setStepInitTimer(ctx, mu); err != nil {
 			log.Println(err)
 		}
 	}
-
-	name, args := args[0], args[1:]
 
 	// Receive system signals on "rr.signals"
 	if rr.signals == nil {
@@ -358,7 +362,7 @@ func (rr *RealRunner) setStepInitTimer(ctx context.Context, mu *url.URL) error {
 }
 
 func (rr *RealRunner) getResponse(ctx context.Context, request *http.Request, waitOptions []retry.WaitOption) (*http.Response, error) {
-	contextWithTimeout, cancel := context.WithTimeout(ctx, rr.Config.DeploymentEnvironment.Timeout())
+	contextWithTimeout, cancel := context.WithTimeout(ctx, rr.Config.DefaultTimeout)
 	defer cancel()
 
 	var response *http.Response

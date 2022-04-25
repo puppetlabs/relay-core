@@ -248,6 +248,10 @@ func (r *Reconciler) uploadLogs(ctx context.Context, run *obj.Run, plr *obj.Pipe
 }
 
 func (r *Reconciler) uploadLog(ctx context.Context, namespace, podName, containerName string) (string, error) {
+	if r.StorageClient == nil {
+		return "", nil
+	}
+
 	key := fmt.Sprintf("%s/%s/%s", namespace, podName, containerName)
 
 	// XXX: We can't do this with the dynamic client yet.

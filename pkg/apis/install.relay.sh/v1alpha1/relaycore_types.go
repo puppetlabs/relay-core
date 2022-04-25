@@ -21,10 +21,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	StepLogStorageVolumeName = "step-log-storage"
-)
-
 // RelayCoreSpec defines the desired state of RelayCore
 type RelayCoreSpec struct {
 	// Environment is the environment this instance is running in.
@@ -38,14 +34,6 @@ type RelayCoreSpec struct {
 	// +kubebuilder:default=false
 	// +optional
 	Debug bool `json:"debug"`
-
-	// JWTSigningKeys is the secret and keys that hold a JWT signing key pair
-	// for the workflow run key signing operations with vault. This secret must
-	// have 2 fields for a public and private key pair. If this field is not
-	// set, then signings key will be generated automatically.
-	//
-	// +optional
-	JWTSigningKeyRef *JWTSigningKeySource `json:"jwtSigningKeys,omitempty"`
 
 	// LogService is the configuration for the log service.
 	//
@@ -70,10 +58,11 @@ type RelayCoreSpec struct {
 }
 
 type JWTSigningKeySource struct {
-	corev1.LocalObjectReference `json:",inline"`
+	// PrivateKeyRef is a reference to a secret containing the private key.
+	PrivateKeyRef corev1.SecretKeySelector `json:"privateKeyRef,omitempty"`
 
-	PrivateKeyRef string `json:"privateKeyRef,omitempty"`
-	PublicKeyRef  string `json:"publicKeyRef,omitempty"`
+	// PublicKeyRef is a reference to a secret containing the public key.
+	PublicKeyRef corev1.SecretKeySelector `json:"publicKeyRef,omitempty"`
 }
 
 // LogServiceConfig is the configuration for the relay-log-service deployment
@@ -193,21 +182,11 @@ type OperatorConfig struct {
 	// +optional
 	StorageAddr *string `json:"storageAddr,omitempty"`
 
-	// TenantNamespace is the kubernetes namesapce the workflow controller
-	// should look for tenant workloads on. This currently translates into the
-	// -kube-namespace flag, which could be renamed at a later date.
+	// TenantNamespace is the Kubernetes namespace the operator should look for
+	// tenant workloads on.
 	//
 	// +optional
 	TenantNamespace *string `json:"tenantNamespace,omitempty"`
-
-	// LogStoragePVCName is the name of a PVC to store logs in. This field is
-	// here to support the development environment and may be removed at a
-	// later date when the PLS implementation is rolled in.
-	//
-	// DEPRECATED
-	//
-	// +optional
-	LogStoragePVCName *string `json:"logStoragePVCName,omitempty"`
 
 	// Workers is the number of workers the operator should run to process
 	// workflows
@@ -225,8 +204,6 @@ type OperatorConfig struct {
 	// AdmissionWebhookServer is the configuration for the
 	// admissionregistration webhook server.
 	//
-	//
-	// +kubebuilder:default={certificateControllerImagePullPolicy: "IfNotPresent"}
 	// +optional
 	AdmissionWebhookServer *AdmissionWebhookServerConfig `json:"admissionWebhookServer,omitempty"`
 
@@ -263,7 +240,7 @@ type AdmissionWebhookServerConfig struct {
 type MetadataAPIConfig struct {
 	// +kubebuilder:default="us-docker.pkg.dev/puppet-relay-contrib-oss/relay-core/relay-metadata-api:latest"
 	// +optional
-	Image string `json:"image"`
+	Image string `json:"image,omitempty"`
 
 	// +kubebuilder:default="IfNotPresent"
 	// +optional
@@ -340,6 +317,13 @@ type VaultConfig struct {
 
 	// Engine provides the configuration for the internal vault engine.
 	Engine VaultEngineConfig `json:"engine"`
+
+	// JWTSigningKeys provides the JWT signing keys used for operations with
+	// vault. If this field is not set, signing keys will be generated
+	// automatically.
+	//
+	// +optional
+	JWTSigningKeys *JWTSigningKeySource `json:"jwtSigningKeys,omitempty"`
 
 	// Server provides the configuration for the vault server.
 	Server VaultServerConfig `json:"server"`
@@ -448,20 +432,20 @@ type VaultAuthConfig struct {
 }
 
 type VaultAuthData struct {
-	// Value provides vault server authentication data.
+	// Value allows data to be provided directly.
 	//
 	// +optional
-	Value string `json:"token,omitempty"`
+	Value string `json:"value,omitempty"`
 
-	// ValueFrom allows vault server auth data to be provided by another source
+	// ValueFrom allows data to be provided by another source
 	// such as a Secret.
 	//
 	// +optional
-	ValueFrom *VaultAuthSource `json:"tokenFrom,omitempty"`
+	ValueFrom *VaultAuthSource `json:"valueFrom,omitempty"`
 }
 
 type VaultAuthSource struct {
-	// SecretKeyRef selects an API token by looking up the value in a secret.
+	// SecretKeyRef selects data by looking up the value in a secret.
 	//
 	// +optional
 	SecretKeyRef *corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
@@ -472,7 +456,7 @@ type ToolInjectionConfig struct {
 	//
 	// +kubebuilder:default="us-docker.pkg.dev/puppet-relay-contrib-oss/relay-core/relay-runtime-tools:latest"
 	// +optional
-	Image string `json:"image"`
+	Image string `json:"image,omitempty"`
 }
 
 // +kubebuilder:object:root=true
