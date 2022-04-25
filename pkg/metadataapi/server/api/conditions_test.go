@@ -142,6 +142,12 @@ func TestGetConditions(t *testing.T) {
 			ExpectedResolved: true,
 			ExpectedSuccess:  false,
 		},
+		{
+			Name:             "No conditions are defined",
+			Conditions:       nil,
+			ExpectedResolved: true,
+			ExpectedSuccess:  true,
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
@@ -170,7 +176,6 @@ func TestGetConditions(t *testing.T) {
 
 			h := api.NewHandler(sample.NewAuthenticator(sc, tokenGenerator.Key()))
 
-			// Set the output so the condition can succeed.
 			req, err := http.NewRequest(http.MethodPut, "/outputs/output1", strings.NewReader("foobar"))
 			require.NoError(t, err)
 			req.Header.Set("Authorization", "Bearer "+previousTaskToken)
@@ -179,8 +184,7 @@ func TestGetConditions(t *testing.T) {
 			h.ServeHTTP(resp, req)
 			require.Equal(t, http.StatusCreated, resp.Result().StatusCode)
 
-			// Query the condition to find out whether it succeeded.
-			req, err = http.NewRequest(http.MethodGet, "/conditions", nil)
+			req, err = http.NewRequest(http.MethodGet, "/conditions", http.NoBody)
 			require.NoError(t, err)
 			req.Header.Set("Authorization", "Bearer "+currentTaskToken)
 
