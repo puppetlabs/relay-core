@@ -28,8 +28,17 @@ func (s *Server) GetConditions(w http.ResponseWriter, r *http.Request) {
 	cm := managers.Conditions()
 
 	condition, err := cm.Get(ctx)
-	if err != nil {
+	if err != nil && err != model.ErrNotFound {
 		utilapi.WriteError(ctx, w, ModelReadError(err))
+		return
+	}
+
+	if condition == nil || condition.Tree == nil {
+		utilapi.WriteObjectOK(ctx, w,
+			GetConditionsResponseEnvelope{
+				Resolved: true,
+				Success:  true,
+			})
 		return
 	}
 
