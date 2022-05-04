@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -17,15 +18,21 @@ import (
 	"os/exec"
 	"os/signal"
 	"path"
+	"strconv"
 	"syscall"
 	"time"
 
 	"github.com/puppetlabs/leg/timeutil/pkg/retry"
 	exprmodel "github.com/puppetlabs/relay-core/pkg/expr/model"
+	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/api"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-pls/pkg/plspb"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
+)
+
+const (
+	DefaultResultsPath = "/tekton/results"
 )
 
 type RealRunner struct {
@@ -93,6 +100,18 @@ func (rr *RealRunner) Run(args ...string) error {
 		}
 	}
 
+	whenConditionStatus := model.WhenConditionStatusUnknown
+	if mu != nil {
+		whenConditionStatus, err = rr.processWhenConditions(ctx, mu)
+		if err != nil {
+			// FIXME Prematurely exit if a system error occurred
+			// This is a temporary solution to handle testing issues
+			log.Println(err)
+		} else if whenConditionStatus != model.WhenConditionStatusSatisfied {
+			return nil
+		}
+	}
+
 	// Receive system signals on "rr.signals"
 	if rr.signals == nil {
 		rr.signals = make(chan os.Signal, 1)
@@ -143,17 +162,15 @@ func (rr *RealRunner) Run(args ...string) error {
 	<-doneErr
 
 	if err := cmd.Wait(); err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			rr.handleProcessState(ctx, mu, exitErr.ProcessState, whenConditionStatus)
+		}
+
+		// FIXME Consider how to represent system errors
 		return err
 	}
 
-	if cmd.ProcessState != nil && mu != nil {
-		if err := rr.putStatus(ctx, mu,
-			&model.ActionStatus{
-				ExitCode: cmd.ProcessState.ExitCode(),
-			}); err != nil {
-			log.Println(err)
-		}
-	}
+	rr.handleProcessState(ctx, mu, cmd.ProcessState, whenConditionStatus)
 
 	return nil
 }
@@ -183,6 +200,95 @@ func (rr *RealRunner) scan(ctx context.Context, mu *url.URL, scanner *bufio.Scan
 func updatePath() error {
 	currentPath := os.Getenv("PATH")
 	return os.Setenv("PATH", currentPath+":/var/lib/puppet/relay")
+}
+
+func (rr *RealRunner) handleProcessState(ctx context.Context, mu *url.URL, ps *os.ProcessState, wcs model.WhenConditionStatus) {
+	if ps != nil && mu != nil {
+		_ = rr.putStatus(ctx, mu,
+			&model.ActionStatus{
+				ProcessState: &model.ActionStatusProcessState{
+					ExitCode: ps.ExitCode(),
+				},
+				WhenCondition: &model.ActionStatusWhenCondition{
+					WhenConditionStatus: wcs,
+				},
+			},
+		)
+	}
+}
+
+func (rr *RealRunner) processWhenConditions(ctx context.Context, mu *url.URL) (model.WhenConditionStatus, error) {
+	_ = rr.putStatus(ctx, mu,
+		&model.ActionStatus{
+			WhenCondition: &model.ActionStatusWhenCondition{
+				WhenConditionStatus: model.WhenConditionStatusEvaluating,
+			},
+		})
+
+	whenConditionStatus, err := rr.evaluateConditions(ctx, mu)
+
+	_ = rr.putStatus(ctx, mu,
+		&model.ActionStatus{
+			WhenCondition: &model.ActionStatusWhenCondition{
+				WhenConditionStatus: whenConditionStatus,
+			},
+		})
+
+	return whenConditionStatus, err
+}
+
+func (rr *RealRunner) evaluateConditions(ctx context.Context, mu *url.URL) (model.WhenConditionStatus, error) {
+	ee := &url.URL{Path: "/conditions"}
+
+	req, err := http.NewRequestWithContext(
+		ctx, http.MethodGet, mu.ResolveReference(ee).String(), http.NoBody)
+	if err != nil {
+		return model.WhenConditionStatusFailure, err
+	}
+
+	// TODO This needs to be configurable
+	contextWithTimeout, cancel := context.WithTimeout(ctx, 60*time.Minute)
+	defer cancel()
+
+	success := false
+	err = retry.Wait(contextWithTimeout, func(ctx context.Context) (bool, error) {
+		resp, err := rr.getResponse(ctx, req, []retry.WaitOption{})
+		if err != nil {
+			return retry.Done(err)
+		}
+		defer resp.Body.Close()
+
+		switch resp.StatusCode {
+		case http.StatusOK:
+			var env api.GetConditionsResponseEnvelope
+			if err := json.NewDecoder(resp.Body).Decode(&env); err != nil {
+				if err == io.EOF {
+					success = true
+					return retry.Done(nil)
+				}
+
+				return retry.Done(err)
+			}
+
+			if !env.Resolved {
+				return retry.Repeat(errors.New("conditions not resolved"))
+			}
+
+			success = env.Success
+			return retry.Done(nil)
+		default:
+			return retry.Done(nil)
+		}
+	})
+	if err != nil {
+		return model.WhenConditionStatusFailure, err
+	}
+
+	if !success {
+		return model.WhenConditionStatusNotSatisfied, nil
+	}
+
+	return model.WhenConditionStatusSatisfied, nil
 }
 
 func (rr *RealRunner) getEnvironmentVariables(ctx context.Context, mu *url.URL) error {
@@ -300,9 +406,21 @@ func (rr *RealRunner) postLogMessage(ctx context.Context, mu *url.URL, request *
 }
 
 func (rr *RealRunner) putStatus(ctx context.Context, mu *url.URL, status *model.ActionStatus) error {
+	if err := os.MkdirAll(DefaultResultsPath, 0755); err == nil {
+		for _, property := range []model.StatusProperty{
+			model.StatusPropertyFailed, model.StatusPropertySkipped, model.StatusPropertySucceeded} {
+			if value, err := status.IsStatusProperty(property); err != nil {
+				_ = os.WriteFile(path.Join(DefaultResultsPath, property.String()),
+					[]byte(strconv.FormatBool(value)), 0600)
+			}
+		}
+	}
+
 	le := &url.URL{Path: "/status"}
 
-	buf, err := json.Marshal(status)
+	env := mapActionStatusRequest(status)
+
+	buf, err := json.Marshal(env)
 	if err != nil {
 		return err
 	}
@@ -320,6 +438,24 @@ func (rr *RealRunner) putStatus(ctx context.Context, mu *url.URL, status *model.
 	defer resp.Body.Close()
 
 	return nil
+}
+
+func mapActionStatusRequest(as *model.ActionStatus) *api.PutActionStatusRequestEnvelope {
+	env := &api.PutActionStatusRequestEnvelope{}
+
+	if as.ProcessState != nil {
+		env.ProcessState = &api.ActionStatusProcessState{
+			ExitCode: as.ProcessState.ExitCode,
+		}
+	}
+
+	if as.WhenCondition != nil {
+		env.WhenCondition = &api.ActionStatusWhenCondition{
+			WhenConditionStatus: as.WhenCondition.WhenConditionStatus,
+		}
+	}
+
+	return env
 }
 
 // validateSchemas calls validation endpoints on the metadata-api to validate

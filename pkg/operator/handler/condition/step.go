@@ -2,19 +2,13 @@ package condition
 
 import (
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
+	"github.com/puppetlabs/relay-core/pkg/model"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/apis"
 )
 
-const (
-	StepSkippedReasonWhenConditionEvaluating   = "WhenConditionEvaluating"
-	StepSkippedReasonWhenConditionFailure      = "WhenConditionFailure"
-	StepSkippedReasonWhenConditionNotSatisfied = "WhenConditionNotSatisfied"
-	StepSkippedReasonWhenConditionSatisfied    = "WhenConditionSatisfied"
-)
-
-type StepConditionHandlerFunc func(status *tektonv1beta1.PipelineRunTaskRunStatus) relayv1beta1.Condition
+type StepConditionHandlerFunc func(status *tektonv1beta1.PipelineRunTaskRunStatus, actionStatus *model.ActionStatus) relayv1beta1.Condition
 
 var (
 	StepConditionHandlers = map[relayv1beta1.StepConditionType]StepConditionHandlerFunc{
@@ -24,7 +18,7 @@ var (
 	}
 )
 
-var stepCompletedHandler = StepConditionHandlerFunc(func(status *tektonv1beta1.PipelineRunTaskRunStatus) relayv1beta1.Condition {
+var stepCompletedHandler = StepConditionHandlerFunc(func(status *tektonv1beta1.PipelineRunTaskRunStatus, actionStatus *model.ActionStatus) relayv1beta1.Condition {
 	stepStatus := &apis.Condition{}
 	if status.Status != nil {
 		stepStatus = status.Status.GetCondition(apis.ConditionSucceeded)
@@ -48,54 +42,39 @@ var stepCompletedHandler = StepConditionHandlerFunc(func(status *tektonv1beta1.P
 	}
 })
 
-var stepSkippedHandler = StepConditionHandlerFunc(func(status *tektonv1beta1.PipelineRunTaskRunStatus) relayv1beta1.Condition {
-	for _, cond := range status.ConditionChecks {
-		if cond == nil || cond.Status == nil {
-			continue
-		}
-
-		conditionStatus := cond.Status.GetCondition(apis.ConditionSucceeded)
-
-		if conditionStatus != nil {
-			switch conditionStatus.Status {
-			case corev1.ConditionFalse:
-				if cond.Status.Check.Terminated != nil {
-					if cond.Status.Check.Terminated.ExitCode >= 2 {
-						return relayv1beta1.Condition{
-							Status: corev1.ConditionTrue,
-							Reason: StepSkippedReasonWhenConditionFailure,
-						}
-					}
-
-					return relayv1beta1.Condition{
-						Status: corev1.ConditionTrue,
-						Reason: StepSkippedReasonWhenConditionNotSatisfied,
-					}
-				}
-
-				return relayv1beta1.Condition{
-					Status: corev1.ConditionTrue,
-				}
-			case corev1.ConditionTrue:
-				return relayv1beta1.Condition{
-					Status: corev1.ConditionFalse,
-					Reason: StepSkippedReasonWhenConditionSatisfied,
-				}
-			case corev1.ConditionUnknown:
-				return relayv1beta1.Condition{
-					Status: corev1.ConditionUnknown,
-					Reason: StepSkippedReasonWhenConditionEvaluating,
-				}
+var stepSkippedHandler = StepConditionHandlerFunc(func(status *tektonv1beta1.PipelineRunTaskRunStatus, actionStatus *model.ActionStatus) relayv1beta1.Condition {
+	if actionStatus != nil && actionStatus.WhenCondition != nil {
+		switch actionStatus.WhenCondition.WhenConditionStatus {
+		case model.WhenConditionStatusEvaluating:
+			return relayv1beta1.Condition{
+				Status: corev1.ConditionUnknown,
+				Reason: model.WhenConditionStatusEvaluating.String(),
+			}
+		case model.WhenConditionStatusFailure:
+			return relayv1beta1.Condition{
+				Status: corev1.ConditionTrue,
+				Reason: model.WhenConditionStatusFailure.String(),
+			}
+		case model.WhenConditionStatusNotSatisfied:
+			return relayv1beta1.Condition{
+				Status: corev1.ConditionTrue,
+				Reason: model.WhenConditionStatusNotSatisfied.String(),
+			}
+		case model.WhenConditionStatusSatisfied:
+			return relayv1beta1.Condition{
+				Status: corev1.ConditionFalse,
+				Reason: model.WhenConditionStatusSatisfied.String(),
 			}
 		}
 	}
 
 	return relayv1beta1.Condition{
 		Status: corev1.ConditionUnknown,
+		Reason: model.WhenConditionStatusUnknown.String(),
 	}
 })
 
-var stepSucceededHandler = StepConditionHandlerFunc(func(status *tektonv1beta1.PipelineRunTaskRunStatus) relayv1beta1.Condition {
+var stepSucceededHandler = StepConditionHandlerFunc(func(status *tektonv1beta1.PipelineRunTaskRunStatus, actionStatus *model.ActionStatus) relayv1beta1.Condition {
 	stepStatus := &apis.Condition{}
 	if status.Status != nil {
 		stepStatus = status.Status.GetCondition(apis.ConditionSucceeded)

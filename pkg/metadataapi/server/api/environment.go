@@ -35,6 +35,7 @@ func (s *Server) GetEnvironmentVariable(w http.ResponseWriter, r *http.Request) 
 		evaluate.WithSecretTypeResolver{SecretTypeResolver: resolve.NewSecretTypeResolver(managers.Secrets())},
 		evaluate.WithParameterTypeResolver{ParameterTypeResolver: resolve.NewParameterTypeResolver(managers.Parameters())},
 		evaluate.WithOutputTypeResolver{OutputTypeResolver: resolve.NewOutputTypeResolver(managers.StepOutputs())},
+		evaluate.WithStatusTypeResolver{StatusTypeResolver: resolve.NewStatusTypeResolver(managers.ActionStatus())},
 	)
 
 	rv, rerr := model.EvaluateAll(ctx, eval, value)
@@ -62,6 +63,7 @@ func (s *Server) GetEnvironment(w http.ResponseWriter, r *http.Request) {
 		evaluate.WithSecretTypeResolver{SecretTypeResolver: resolve.NewSecretTypeResolver(managers.Secrets())},
 		evaluate.WithParameterTypeResolver{ParameterTypeResolver: resolve.NewParameterTypeResolver(managers.Parameters())},
 		evaluate.WithOutputTypeResolver{OutputTypeResolver: resolve.NewOutputTypeResolver(managers.StepOutputs())},
+		evaluate.WithStatusTypeResolver{StatusTypeResolver: resolve.NewStatusTypeResolver(managers.ActionStatus())},
 	)
 
 	complete := true

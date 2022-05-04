@@ -43,7 +43,9 @@ func TestPutActionStatus(t *testing.T) {
 	h := api.NewHandler(sample.NewAuthenticator(sc, tokenGenerator.Key()))
 
 	as := &model.ActionStatus{
-		ExitCode: 1,
+		ProcessState: &model.ActionStatusProcessState{
+			ExitCode: 1,
+		},
 	}
 
 	buf := new(bytes.Buffer)

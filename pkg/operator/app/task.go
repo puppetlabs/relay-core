@@ -138,6 +138,12 @@ func ConfigureTask(ctx context.Context, t *obj.Task, rd *RunDeps, ws *relayv1bet
 		MountPath: model.ToolsMountPath,
 	})
 
+	t.Object.Spec.Results = []tektonv1beta1.TaskResult{
+		{
+			Name: model.StatusPropertySucceeded.String(),
+		},
+	}
+
 	container.Command = []string{path.Join(model.ToolsMountPath, ep.Entrypoint)}
 	container.Args = ep.Args
 

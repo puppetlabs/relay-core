@@ -209,3 +209,27 @@ func (mr *MemoryAnswerTypeResolver) ResolveAnswer(ctx context.Context, askRef, n
 func NewMemoryAnswerTypeResolver(m map[MemoryAnswerKey]interface{}) *MemoryAnswerTypeResolver {
 	return &MemoryAnswerTypeResolver{m: m}
 }
+
+type MemoryStatusKey struct {
+	Name     string
+	Property string
+}
+
+type MemoryStatusTypeResolver struct {
+	m map[MemoryStatusKey]bool
+}
+
+var _ StatusTypeResolver = &MemoryStatusTypeResolver{}
+
+func (mr *MemoryStatusTypeResolver) ResolveStatus(ctx context.Context, name, property string) (bool, error) {
+	o, ok := mr.m[MemoryStatusKey{Name: name, Property: property}]
+	if !ok {
+		return false, &model.StatusNotFoundError{Name: name, Property: property}
+	}
+
+	return o, nil
+}
+
+func NewMemoryStatusTypeResolver(m map[MemoryStatusKey]bool) *MemoryStatusTypeResolver {
+	return &MemoryStatusTypeResolver{m: m}
+}

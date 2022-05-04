@@ -328,7 +328,10 @@ func (b *ConditionTypeErrorBuilder) Build() Error {
 		ErrorCode:        "type_error",
 		ErrorDescription: description,
 		ErrorDomain:      Domain,
-		ErrorMetadata:    &impl.ErrorMetadata{},
+		ErrorMetadata: &impl.ErrorMetadata{HTTPErrorMetadata: &impl.HTTPErrorMetadata{
+			ErrorHeaders: impl.HTTPErrorMetadataHeaders{},
+			ErrorStatus:  422,
+		}},
 		ErrorSection:     ConditionSection,
 		ErrorSensitivity: errawr.ErrorSensitivityNone,
 		ErrorTitle:       "Type error",

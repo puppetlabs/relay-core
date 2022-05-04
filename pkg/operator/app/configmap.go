@@ -6,6 +6,8 @@ import (
 
 	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
+	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
+	exprmodel "github.com/puppetlabs/relay-core/pkg/expr/model"
 	"github.com/puppetlabs/relay-core/pkg/manager/configmap"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
@@ -101,11 +103,10 @@ func ConfigureImmutableConfigMapForRun(ctx context.Context, cm *corev1obj.Config
 			}
 		}
 
-		if step.When != nil {
-			if when := step.When.Value(); when != nil {
-				if _, err := configmap.NewConditionManager(sm, lcm).Set(ctx, when); err != nil {
-					return err
-				}
+		when := enrichWhenConditions(ctx, step)
+		if len(when) > 0 {
+			if _, err := configmap.NewConditionManager(sm, lcm).Set(ctx, when); err != nil {
+				return err
 			}
 		}
 
@@ -149,4 +150,38 @@ func configVolumeKey(action model.Action) string {
 
 func scriptConfigMapKey(action model.Action) string {
 	return fmt.Sprintf("%s.%s.script", action.Type().Plural, action.Hash())
+}
+
+func enrichWhenConditions(ctx context.Context, step *relayv1beta1.Step) []interface{} {
+	when := make([]interface{}, 0)
+
+	useDefaultDependencyFlow := map[string]bool{}
+	for _, dependency := range step.DependsOn {
+		useDefaultDependencyFlow[dependency] = true
+	}
+
+	if step.When != nil && step.When.Value() != nil {
+		existing, ok := step.When.Value().([]interface{})
+		if ok {
+			when = append(when, existing...)
+		} else {
+			when = append(when, step.When.Value())
+		}
+
+		if r, err := exprmodel.EvaluateAll(ctx, evaluate.NewEvaluator(), step.When.Value()); err == nil {
+			for _, v := range r.Unresolvable.Status {
+				useDefaultDependencyFlow[v.Name] = false
+			}
+		}
+	}
+
+	for dependency, useDefault := range useDefaultDependencyFlow {
+		if useDefault {
+			when = append(when,
+				fmt.Sprintf("${status.%s.%s}",
+					dependency, model.StatusPropertySucceeded.String()))
+		}
+	}
+
+	return when
 }
