@@ -409,7 +409,7 @@ func (rr *RealRunner) putStatus(ctx context.Context, mu *url.URL, status *model.
 	if err := os.MkdirAll(DefaultResultsPath, 0755); err == nil {
 		for _, property := range []model.StatusProperty{
 			model.StatusPropertyFailed, model.StatusPropertySkipped, model.StatusPropertySucceeded} {
-			if value, err := status.IsStatusProperty(property); err != nil {
+			if value, err := status.IsStatusProperty(property); err == nil {
 				_ = os.WriteFile(path.Join(DefaultResultsPath, property.String()),
 					[]byte(strconv.FormatBool(value)), 0600)
 			}
