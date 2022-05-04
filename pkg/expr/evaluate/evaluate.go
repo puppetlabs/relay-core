@@ -15,6 +15,7 @@ type Options struct {
 	OutputTypeResolver     resolve.OutputTypeResolver
 	ParameterTypeResolver  resolve.ParameterTypeResolver
 	AnswerTypeResolver     resolve.AnswerTypeResolver
+	StatusTypeResolver     resolve.StatusTypeResolver
 }
 
 type Option interface {
@@ -36,6 +37,7 @@ func NewEvaluator(opts ...Option) model.Evaluator {
 		OutputTypeResolver:     resolve.NoOpOutputTypeResolver,
 		ParameterTypeResolver:  resolve.NoOpParameterTypeResolver,
 		AnswerTypeResolver:     resolve.NoOpAnswerTypeResolver,
+		StatusTypeResolver:     resolve.NoOpStatusTypeResolver,
 	}
 	o.ApplyOptions(opts)
 

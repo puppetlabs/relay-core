@@ -2,12 +2,17 @@ package app
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
+	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
+	exprmodel "github.com/puppetlabs/relay-core/pkg/expr/model"
+	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/selection"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -16,9 +21,8 @@ const ToolsWorkspaceName = "tools"
 type PipelineParts struct {
 	Deps *RunDeps
 
-	Tasks      *TaskSet
-	Conditions *ConditionSet
-	Pipeline   *obj.Pipeline
+	Tasks    *TaskSet
+	Pipeline *obj.Pipeline
 }
 
 var _ lifecycle.LabelAnnotatableFrom = &PipelineParts{}
@@ -29,7 +33,6 @@ var _ lifecycle.Persister = &PipelineParts{}
 func (pp *PipelineParts) LabelAnnotateFrom(ctx context.Context, from metav1.Object) {
 	lafs := []lifecycle.LabelAnnotatableFrom{
 		pp.Tasks,
-		pp.Conditions,
 		pp.Pipeline,
 	}
 	for _, laf := range lafs {
@@ -40,7 +43,6 @@ func (pp *PipelineParts) LabelAnnotateFrom(ctx context.Context, from metav1.Obje
 func (pp *PipelineParts) Load(ctx context.Context, cl client.Client) (bool, error) {
 	return lifecycle.Loaders{
 		pp.Tasks,
-		pp.Conditions,
 		pp.Pipeline,
 	}.Load(ctx, cl)
 }
@@ -48,7 +50,6 @@ func (pp *PipelineParts) Load(ctx context.Context, cl client.Client) (bool, erro
 func (pp *PipelineParts) Owned(ctx context.Context, owner lifecycle.TypedObject) error {
 	return lifecycle.OwnablePersisters{
 		pp.Tasks,
-		pp.Conditions,
 		pp.Pipeline,
 	}.Owned(ctx, owner)
 }
@@ -56,7 +57,6 @@ func (pp *PipelineParts) Owned(ctx context.Context, owner lifecycle.TypedObject)
 func (pp *PipelineParts) Persist(ctx context.Context, cl client.Client) error {
 	return lifecycle.OwnablePersisters{
 		pp.Tasks,
-		pp.Conditions,
 		pp.Pipeline,
 	}.Persist(ctx, cl)
 }
@@ -65,8 +65,7 @@ func NewPipelineParts(deps *RunDeps) *PipelineParts {
 	return &PipelineParts{
 		Deps: deps,
 
-		Tasks:      NewTaskSet(deps),
-		Conditions: NewConditionSet(deps),
+		Tasks: NewTaskSet(deps),
 		Pipeline: obj.NewPipeline(
 			client.ObjectKey{
 				Namespace: deps.WorkflowDeps.TenantDeps.Namespace.Name,
@@ -89,10 +88,6 @@ func ConfigurePipelineParts(ctx context.Context, p *PipelineParts) error {
 			Object: p.Deps.Run.Object,
 			GVK:    relayv1beta1.RunKind,
 		}); err != nil {
-		return err
-	}
-
-	if err := ConfigureConditionSet(ctx, p.Conditions); err != nil {
 		return err
 	}
 
@@ -122,9 +117,29 @@ func ConfigurePipelineParts(ctx context.Context, p *PipelineParts) error {
 			pt.RunAfter[i] = ModelStepFromName(p.Deps.Run, dep).Hash().HexEncoding()
 		}
 
-		if cond, ok := p.Conditions.GetByStepName(ws.Name); ok {
-			pt.Conditions = []tektonv1beta1.PipelineTaskCondition{
-				{ConditionRef: cond.Key.Name},
+		if len(ws.DependsOn) > 0 {
+			simplifiedDependencyProcessing := true
+
+			if ws.When != nil && ws.When.Value() != nil {
+				r, err := exprmodel.EvaluateAll(ctx, evaluate.NewEvaluator(), ws.When.Value())
+				if err != nil {
+					return err
+				}
+				if len(r.Unresolvable.Status) > 0 {
+					simplifiedDependencyProcessing = false
+				}
+			}
+
+			if simplifiedDependencyProcessing {
+				for _, dep := range ws.DependsOn {
+					pt.WhenExpressions = append(pt.WhenExpressions, tektonv1beta1.WhenExpression{
+						Input: fmt.Sprintf("$(tasks.%s.results.%s)",
+							ModelStepFromName(p.Deps.Run, dep).Hash().HexEncoding(),
+							model.StatusPropertySucceeded.String()),
+						Operator: selection.In,
+						Values:   []string{"true"},
+					})
+				}
 			}
 		}
 

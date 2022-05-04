@@ -41,6 +41,7 @@ func (s *Server) GetSpec(w http.ResponseWriter, r *http.Request) {
 		evaluate.WithSecretTypeResolver{SecretTypeResolver: resolve.NewSecretTypeResolver(managers.Secrets())},
 		evaluate.WithParameterTypeResolver{ParameterTypeResolver: resolve.NewParameterTypeResolver(managers.Parameters())},
 		evaluate.WithOutputTypeResolver{OutputTypeResolver: resolve.NewOutputTypeResolver(managers.StepOutputs())},
+		evaluate.WithStatusTypeResolver{StatusTypeResolver: resolve.NewStatusTypeResolver(managers.ActionStatus())},
 	)
 
 	var rv *model.Result

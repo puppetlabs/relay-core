@@ -288,3 +288,60 @@ func (ptra *ParameterTypeResolverAdapter) Expand(ctx context.Context, depth int)
 
 	return &model.Result{Value: m}, nil
 }
+
+type statusTypeResolverAdapter struct {
+	r    resolve.StatusTypeResolver
+	name string
+}
+
+var (
+	_ eval.Indexable   = &statusTypeResolverAdapter{}
+	_ model.Expandable = &statusTypeResolverAdapter{}
+)
+
+func (stra *statusTypeResolverAdapter) Index(ctx context.Context, idx interface{}) (interface{}, error) {
+	property, err := eval.StringValue(idx)
+	if err != nil {
+		return nil, err
+	}
+
+	value, err := stra.r.ResolveStatus(ctx, stra.name, property)
+	if errmark.Matches(err, errmark.RuleType(&model.StatusNotFoundError{})) {
+		return model.StaticExpandable(nil, model.Unresolvable{
+			Status: []model.UnresolvableStatus{{Name: stra.name, Property: property}},
+		}), nil
+	} else if err != nil {
+		return nil, err
+	}
+
+	return value, nil
+}
+
+func (stra *statusTypeResolverAdapter) Expand(ctx context.Context, depth int) (*model.Result, error) {
+	return nil, nil
+}
+
+type StatusTypeResolverAdapter struct {
+	resolve.StatusTypeResolver
+}
+
+var (
+	_ eval.Indexable   = &StatusTypeResolverAdapter{}
+	_ model.Expandable = &StatusTypeResolverAdapter{}
+)
+
+func (stra *StatusTypeResolverAdapter) Index(ctx context.Context, idx interface{}) (interface{}, error) {
+	name, err := eval.StringValue(idx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &statusTypeResolverAdapter{
+		r:    stra.StatusTypeResolver,
+		name: name,
+	}, nil
+}
+
+func (stra *StatusTypeResolverAdapter) Expand(ctx context.Context, depth int) (*model.Result, error) {
+	return nil, nil
+}

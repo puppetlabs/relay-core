@@ -67,6 +67,8 @@ func evaluateTemplate(o *Options) func(ctx context.Context, s string, depth int,
 	env["connections"] = &pathlang.ConnectionTypeResolverAdapter{ConnectionTypeResolver: o.ConnectionTypeResolver}
 	env["outputs"] = &pathlang.OutputTypeResolverAdapter{OutputTypeResolver: o.OutputTypeResolver}
 	env["parameters"] = &pathlang.ParameterTypeResolverAdapter{ParameterTypeResolver: o.ParameterTypeResolver}
+	env["status"] = &pathlang.StatusTypeResolverAdapter{StatusTypeResolver: o.StatusTypeResolver}
+	env["statuses"] = &pathlang.StatusTypeResolverAdapter{StatusTypeResolver: o.StatusTypeResolver}
 
 	return func(ctx context.Context, s string, depth int, next model.Evaluator) (*model.Result, error) {
 		r, err := query.EvaluateQuery(ctx, model.DefaultEvaluator, query.PathTemplateLanguage(pathlang.WithFunctionMap{Map: o.FunctionMap}), env, s)

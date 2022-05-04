@@ -1,7 +1,6 @@
 package entrypoint_test
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/puppetlabs/relay-core/pkg/entrypoint"
@@ -106,9 +105,7 @@ func TestImageEntrypoint(t *testing.T) {
 	}
 
 	for _, test := range tcs {
-		t.Run(fmt.Sprintf("%s", test.Name), func(t *testing.T) {
-			t.Parallel()
-
+		t.Run(test.Name, func(t *testing.T) {
 			ep, err := entrypoint.ImageEntrypoint(test.Image, test.Command, test.Args)
 			require.NoError(t, err)
 

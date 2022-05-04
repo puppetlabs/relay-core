@@ -67,3 +67,11 @@ var _ Option = WithAnswerTypeResolver{}
 func (watr WithAnswerTypeResolver) ApplyToOptions(target *Options) {
 	target.AnswerTypeResolver = watr.AnswerTypeResolver
 }
+
+type WithStatusTypeResolver struct{ resolve.StatusTypeResolver }
+
+var _ Option = WithStatusTypeResolver{}
+
+func (wstr WithStatusTypeResolver) ApplyToOptions(target *Options) {
+	target.StatusTypeResolver = wstr.StatusTypeResolver
+}

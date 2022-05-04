@@ -71,9 +71,23 @@ type unresolvableAnswerSort []UnresolvableAnswer
 
 func (s unresolvableAnswerSort) Len() int { return len(s) }
 func (s unresolvableAnswerSort) Less(i, j int) bool {
-	return s[i].AskRef < s[j].AskRef || (s[i].Name == s[j].Name && s[i].Name < s[j].Name)
+	return s[i].AskRef < s[j].AskRef || (s[i].AskRef == s[j].AskRef && s[i].Name < s[j].Name)
 }
 func (s unresolvableAnswerSort) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+
+type UnresolvableStatus struct {
+	Name     string
+	Property string
+}
+
+type unresolvableStatusSort []UnresolvableStatus
+
+func (s unresolvableStatusSort) Len() int { return len(s) }
+func (s unresolvableStatusSort) Less(i, j int) bool {
+	return s[i].Name < s[j].Name || (s[i].Name == s[j].Name && s[i].Property < s[j].Property)
+}
+
+func (s unresolvableStatusSort) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
 
 type UnresolvableInvocation struct {
 	Name  string
@@ -95,6 +109,7 @@ type Unresolvable struct {
 	Outputs     []UnresolvableOutput
 	Parameters  []UnresolvableParameter
 	Answers     []UnresolvableAnswer
+	Status      []UnresolvableStatus
 	Invocations []UnresolvableInvocation
 }
 
@@ -123,6 +138,10 @@ func (u *Unresolvable) AsError() error {
 
 	for _, a := range u.Answers {
 		err.Causes = append(err.Causes, &AnswerNotFoundError{AskRef: a.AskRef, Name: a.Name})
+	}
+
+	for _, a := range u.Status {
+		err.Causes = append(err.Causes, &StatusNotFoundError{Name: a.Name, Property: a.Property})
 	}
 
 	for _, i := range u.Invocations {
@@ -231,6 +250,22 @@ func (u *Unresolvable) Extends(other Unresolvable) {
 		u.Answers = nil
 		set.ValuesInto(&u.Answers)
 		sort.Sort(unresolvableAnswerSort(u.Answers))
+	}
+
+	// Status
+	if len(u.Status) == 0 {
+		u.Status = append(u.Status, other.Status...)
+	} else if len(other.Status) != 0 {
+		set := datastructure.NewHashSet()
+		for _, p := range u.Status {
+			set.Add(p)
+		}
+		for _, p := range other.Status {
+			set.Add(p)
+		}
+		u.Status = nil
+		set.ValuesInto(&u.Status)
+		sort.Sort(unresolvableStatusSort(u.Status))
 	}
 
 	// Invocations

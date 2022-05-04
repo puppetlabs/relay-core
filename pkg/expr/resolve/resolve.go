@@ -33,3 +33,7 @@ type ParameterTypeResolver interface {
 type AnswerTypeResolver interface {
 	ResolveAnswer(ctx context.Context, askRef, name string) (interface{}, error)
 }
+
+type StatusTypeResolver interface {
+	ResolveStatus(ctx context.Context, name, property string) (bool, error)
+}

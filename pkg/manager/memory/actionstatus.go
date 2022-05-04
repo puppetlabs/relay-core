@@ -16,18 +16,33 @@ type ActionStatusMap struct {
 	status map[ActionStatusKey]*model.ActionStatus
 }
 
-func (s *ActionStatusMap) Get(key ActionStatusKey) (*model.ActionStatus, error) {
-	s.mut.Lock()
-	defer s.mut.Unlock()
+func (m *ActionStatusMap) Keys() []ActionStatusKey {
+	m.mut.RLock()
+	defer m.mut.RUnlock()
 
-	return s.status[key], nil
+	var l []ActionStatusKey
+
+	for k := range m.status {
+		l = append(l, k)
+	}
+
+	return l
 }
 
-func (s *ActionStatusMap) Set(key ActionStatusKey, message *model.ActionStatus) {
-	s.mut.Lock()
-	defer s.mut.Unlock()
+func (m *ActionStatusMap) Get(key ActionStatusKey) (*model.ActionStatus, bool) {
+	m.mut.Lock()
+	defer m.mut.Unlock()
 
-	s.status[key] = message
+	value, found := m.status[key]
+
+	return value, found
+}
+
+func (m *ActionStatusMap) Set(key ActionStatusKey, message *model.ActionStatus) {
+	m.mut.Lock()
+	defer m.mut.Unlock()
+
+	m.status[key] = message
 }
 
 func NewActionStatusMap() *ActionStatusMap {
@@ -42,12 +57,41 @@ type ActionStatusManager struct {
 	m  *ActionStatusMap
 }
 
-func (s *ActionStatusManager) Get(ctx context.Context, action model.Action) (*model.ActionStatus, error) {
-	return s.m.Get(ActionStatusKey{ActionHash: action.Hash().String()})
+func (m *ActionStatusManager) List(ctx context.Context) ([]*model.ActionStatus, error) {
+	var l []*model.ActionStatus
+
+	for _, key := range m.m.Keys() {
+		value, found := m.m.Get(key)
+		if !found {
+			continue
+		}
+
+		switch t := m.me.(type) {
+		case *model.Step:
+			as := &model.ActionStatus{
+				Name:          t.Name,
+				ProcessState:  value.ProcessState,
+				WhenCondition: value.WhenCondition,
+			}
+
+			l = append(l, as)
+		}
+	}
+
+	return l, nil
 }
 
-func (s *ActionStatusManager) Set(ctx context.Context, sm *model.ActionStatus) error {
-	s.m.Set(ActionStatusKey{ActionHash: s.me.Hash().String()}, sm)
+func (m *ActionStatusManager) Get(ctx context.Context, action model.Action) (*model.ActionStatus, error) {
+	value, found := m.m.Get(ActionStatusKey{ActionHash: action.Hash().String()})
+	if !found {
+		return nil, model.ErrNotFound
+	}
+
+	return value, nil
+}
+
+func (m *ActionStatusManager) Set(ctx context.Context, sm *model.ActionStatus) error {
+	m.m.Set(ActionStatusKey{ActionHash: m.me.Hash().String()}, sm)
 	return nil
 }
 

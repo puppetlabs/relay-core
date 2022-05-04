@@ -132,6 +132,9 @@ sections:
         arguments:
           type:
             description: the unexpected type
+        metadata:
+          http:
+            status: 422
 
   action:
     title: Action errors

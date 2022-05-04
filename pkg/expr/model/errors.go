@@ -76,6 +76,15 @@ func (e *AnswerNotFoundError) Error() string {
 	return fmt.Sprintf("model: answer %q of ask %q could not be found", e.Name, e.AskRef)
 }
 
+type StatusNotFoundError struct {
+	Name     string
+	Property string
+}
+
+func (e *StatusNotFoundError) Error() string {
+	return fmt.Sprintf("model: status property %q of step %q could not be found", e.Property, e.Name)
+}
+
 type FunctionResolutionError struct {
 	Name  string
 	Cause error

@@ -19,4 +19,5 @@ var (
 	NoOpOutputTypeResolver     OutputTypeResolver     = NewMemoryOutputTypeResolver(map[MemoryOutputKey]interface{}{})
 	NoOpParameterTypeResolver  ParameterTypeResolver  = NewMemoryParameterTypeResolver(map[string]interface{}{})
 	NoOpAnswerTypeResolver     AnswerTypeResolver     = NewMemoryAnswerTypeResolver(map[MemoryAnswerKey]interface{}{})
+	NoOpStatusTypeResolver     StatusTypeResolver     = NewMemoryStatusTypeResolver(map[MemoryStatusKey]bool{})
 )

@@ -114,7 +114,9 @@ func ConfigureStepStatus(ctx context.Context, rd *RunDeps, stepName string, acti
 
 	step.Logs = configureStepLogs(status, currentStepStatus)
 
-	step.Conditions = ConfigureRunStepStatusConditions(ctx, status, currentStepStatus)
+	actionStatus, _ := configmap.NewActionStatusManager(action, configMap).Get(ctx, action)
+
+	step.Conditions = ConfigureRunStepStatusConditions(ctx, status, currentStepStatus, actionStatus)
 
 	if timer, err := configmap.NewTimerManager(action, configMap).Get(ctx, model.TimerStepInit); err == nil {
 		step.InitializationTime = &metav1.Time{Time: timer.Time}
@@ -182,7 +184,8 @@ func ConfigureStepStatus(ctx context.Context, rd *RunDeps, stepName string, acti
 }
 
 func ConfigureRunStepStatusConditions(ctx context.Context,
-	status *tektonv1beta1.PipelineRunTaskRunStatus, currentStepStatus *relayv1beta1.StepStatus) []relayv1beta1.StepCondition {
+	status *tektonv1beta1.PipelineRunTaskRunStatus, currentStepStatus *relayv1beta1.StepStatus,
+	actionStatus *model.ActionStatus) []relayv1beta1.StepCondition {
 	conds := map[relayv1beta1.StepConditionType]*relayv1beta1.Condition{
 		relayv1beta1.StepCompleted: {},
 		relayv1beta1.StepSkipped:   {},
@@ -199,7 +202,7 @@ func ConfigureRunStepStatusConditions(ctx context.Context,
 
 	for stepConditionType, stepCondition := range conds {
 		UpdateStatusConditionIfTransitioned(stepCondition, func() relayv1beta1.Condition {
-			return condition.StepConditionHandlers[stepConditionType](status)
+			return condition.StepConditionHandlers[stepConditionType](status, actionStatus)
 		})
 	}
 
