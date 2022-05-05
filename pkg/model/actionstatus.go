@@ -47,22 +47,52 @@ type ActionStatus struct {
 func (as *ActionStatus) IsStatusProperty(property StatusProperty) (bool, error) {
 	switch property {
 	case StatusPropertyFailed:
-		if as.ProcessState != nil && as.ProcessState.ExitCode != 0 {
-			return true, nil
-		}
+		return as.Failed()
 	case StatusPropertySkipped:
-		if as.WhenCondition != nil {
-			switch as.WhenCondition.WhenConditionStatus {
-			case WhenConditionStatusFailure, WhenConditionStatusNotSatisfied:
-				return true, nil
-			case WhenConditionStatusSatisfied:
-				return false, nil
-			}
-		}
+		return as.Skipped()
 	case StatusPropertySucceeded:
-		if as.ProcessState != nil && as.ProcessState.ExitCode == 0 {
+		return as.Succeeded()
+	default:
+		return false, ErrNotFound
+	}
+}
+
+func (as *ActionStatus) Failed() (bool, error) {
+	if ok, err := as.Skipped(); ok && err == nil {
+		return false, nil
+	}
+
+	if as.ProcessState != nil {
+		if as.ProcessState.ExitCode != 0 {
 			return true, nil
 		}
+
+		return false, nil
+	}
+
+	return false, ErrNotFound
+}
+
+func (as *ActionStatus) Skipped() (bool, error) {
+	if as.WhenCondition != nil {
+		switch as.WhenCondition.WhenConditionStatus {
+		case WhenConditionStatusFailure, WhenConditionStatusNotSatisfied:
+			return true, nil
+		case WhenConditionStatusSatisfied:
+			return false, nil
+		}
+	}
+
+	return false, ErrNotFound
+}
+
+func (as *ActionStatus) Succeeded() (bool, error) {
+	if skipped, err := as.Skipped(); skipped && err == nil {
+		return false, nil
+	}
+
+	if failed, err := as.Failed(); err == nil {
+		return !failed, nil
 	}
 
 	return false, ErrNotFound

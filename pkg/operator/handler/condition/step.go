@@ -81,10 +81,24 @@ var stepSucceededHandler = StepConditionHandlerFunc(func(status *tektonv1beta1.P
 	}
 
 	if stepStatus != nil {
+		if actionStatus != nil {
+			if succeeded, err := actionStatus.Succeeded(); err == nil {
+				if succeeded {
+					return relayv1beta1.Condition{
+						Status: corev1.ConditionTrue,
+					}
+				}
+
+				return relayv1beta1.Condition{
+					Status: corev1.ConditionFalse,
+				}
+			}
+		}
+
 		switch stepStatus.Status {
-		case corev1.ConditionTrue, corev1.ConditionFalse:
+		case corev1.ConditionFalse:
 			return relayv1beta1.Condition{
-				Status: stepStatus.Status,
+				Status: corev1.ConditionFalse,
 			}
 		}
 	}
