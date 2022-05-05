@@ -178,7 +178,7 @@ func enrichWhenConditions(ctx context.Context, step *relayv1beta1.Step) []interf
 	for dependency, useDefault := range useDefaultDependencyFlow {
 		if useDefault {
 			when = append(when,
-				fmt.Sprintf("${status.%s.%s}",
+				fmt.Sprintf("${status.'%s'.%s}",
 					dependency, model.StatusPropertySucceeded.String()))
 		}
 	}
