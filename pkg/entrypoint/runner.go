@@ -47,8 +47,6 @@ var _ Runner = (*RealRunner)(nil)
 // Many errors that might occur should not necessarily abort the basic command processing
 // Logging these errors should potentially not occur either, as it adds internal information
 // Logging command outputs should default more cleanly to the standard streams
-// Additionally, integration tests will not (currently) have access to the Metadata API
-// and can cause multiple issues...
 func (rr *RealRunner) Run(args ...string) error {
 	if len(args) == 0 {
 		return nil
@@ -104,9 +102,7 @@ func (rr *RealRunner) Run(args ...string) error {
 	if mu != nil {
 		whenConditionStatus, err = rr.processWhenConditions(ctx, mu)
 		if err != nil {
-			// FIXME Prematurely exit if a system error occurred
-			// This is a temporary solution to handle testing issues
-			log.Println(err)
+			return err
 		} else if whenConditionStatus != model.WhenConditionStatusSatisfied {
 			return nil
 		}

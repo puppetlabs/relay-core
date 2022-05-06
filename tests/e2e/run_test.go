@@ -1,21 +1,19 @@
 package e2e_test
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/puppetlabs/leg/k8sutil/pkg/app/exec"
+	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
 	"github.com/puppetlabs/leg/timeutil/pkg/backoff"
 	"github.com/puppetlabs/leg/timeutil/pkg/retry"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	exprmodel "github.com/puppetlabs/relay-core/pkg/expr/model"
-	"github.com/puppetlabs/relay-core/pkg/expr/testutil"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/operator/app"
 	"github.com/stretchr/testify/assert"
@@ -30,9 +28,9 @@ func stepTaskLabelValue(r *relayv1beta1.Run, stepName string) string {
 	return app.ModelStepObjectKey(client.ObjectKeyFromObject(r), &model.Step{Run: model.Run{ID: r.GetName()}, Name: stepName}).Name
 }
 
-func waitForStepToStart(t *testing.T, ctx context.Context, cfg *Config, r *relayv1beta1.Run, stepName string) {
+func waitForStepToStart(t *testing.T, ctx context.Context, eit *EnvironmentInTest, r *relayv1beta1.Run, stepName string) {
 	require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
-		if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{
+		if err := eit.ControllerClient.Get(ctx, client.ObjectKey{
 			Namespace: r.GetNamespace(),
 			Name:      r.GetName(),
 		}, r); err != nil {
@@ -54,9 +52,9 @@ func waitForStepToStart(t *testing.T, ctx context.Context, cfg *Config, r *relay
 	}))
 }
 
-func waitForStepToSucceed(t *testing.T, ctx context.Context, cfg *Config, r *relayv1beta1.Run, stepName string) {
+func waitForStepToSucceed(t *testing.T, ctx context.Context, eit *EnvironmentInTest, r *relayv1beta1.Run, stepName string) {
 	require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
-		if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{
+		if err := eit.ControllerClient.Get(ctx, client.ObjectKey{
 			Namespace: r.GetNamespace(),
 			Name:      r.GetName(),
 		}, r); err != nil {
@@ -82,13 +80,13 @@ func waitForStepToSucceed(t *testing.T, ctx context.Context, cfg *Config, r *rel
 	}))
 }
 
-func waitForStepPodIP(t *testing.T, ctx context.Context, cfg *Config, r *relayv1beta1.Run, stepName string) *corev1.Pod {
-	waitForStepToStart(t, ctx, cfg, r, stepName)
+func waitForStepPodIP(t *testing.T, ctx context.Context, eit *EnvironmentInTest, r *relayv1beta1.Run, stepName string) *corev1.Pod {
+	waitForStepToStart(t, ctx, eit, r, stepName)
 
 	pod := &corev1.Pod{}
 	require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
 		pods := &corev1.PodList{}
-		if err := cfg.Environment.ControllerClient.List(ctx, pods, client.InNamespace(r.GetNamespace()), client.MatchingLabels{
+		if err := eit.ControllerClient.List(ctx, pods, client.InNamespace(r.GetNamespace()), client.MatchingLabels{
 			"tekton.dev/task": stepTaskLabelValue(r, stepName),
 		}); err != nil {
 			return true, err
@@ -140,28 +138,26 @@ func TestRun(t *testing.T) {
 		environment:     uuid.NewString(),
 	}
 
-	WithConfig(t, ctx, []ConfigOption{
-		ConfigWithMetadataAPI,
-		ConfigWithTenantReconciler,
-		ConfigWithRunReconciler,
-	}, func(cfg *Config) {
-		cfg.Vault.SetSecret(t, "my-tenant-id", "foo", "Hello")
-		cfg.Vault.SetSecret(t, "my-tenant-id", "accessKeyId", data.accessKeyID)
-		cfg.Vault.SetSecret(t, "my-tenant-id", "secretAccessKey", data.secretAccessKey)
-		cfg.Vault.SetConnection(t, "my-domain-id", "aws", "test", map[string]string{
-			"accessKeyID":     data.accessKeyID,
-			"secretAccessKey": data.secretAccessKey,
-		})
-
+	WithNamespacedEnvironmentInTest(t, ctx, func(eit *EnvironmentInTest, ns *corev1.Namespace) {
 		tenant := &relayv1beta1.Tenant{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: cfg.Namespace.GetName(),
+				Namespace: ns.GetName(),
 				Name:      "tenant-" + uuid.NewString(),
 			},
 			Spec: relayv1beta1.TenantSpec{},
 		}
 
-		CreateAndWaitForTenant(t, ctx, cfg, tenant)
+		WithVault(t, ctx, eit, func(v *Vault) {
+			v.SetSecret(t, ctx, tenant.GetName(), "foo", "Hello")
+			v.SetSecret(t, ctx, tenant.GetName(), "accessKeyId", data.accessKeyID)
+			v.SetSecret(t, ctx, tenant.GetName(), "secretAccessKey", data.secretAccessKey)
+			v.SetConnection(t, ctx, ns.GetName(), "aws", "test", map[string]string{
+				"accessKeyID":     data.accessKeyID,
+				"secretAccessKey": data.secretAccessKey,
+			})
+		})
+
+		CreateAndWaitForTenant(t, ctx, eit, tenant)
 
 		value1 := relayv1beta1.AsUnstructured(data.repository)
 		value2 := relayv1beta1.AsUnstructured("latest")
@@ -173,7 +169,7 @@ func TestRun(t *testing.T) {
 		w := &relayv1beta1.Workflow{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      uuid.NewString(),
-				Namespace: cfg.Namespace.GetName(),
+				Namespace: ns.GetName(),
 			},
 			Spec: relayv1beta1.WorkflowSpec{
 				Parameters: []*relayv1beta1.Parameter{
@@ -259,18 +255,18 @@ func TestRun(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, w))
+		require.NoError(t, eit.ControllerClient.Create(ctx, w))
 
 		r := &relayv1beta1.Run{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      uuid.NewString(),
-				Namespace: cfg.Namespace.GetName(),
+				Namespace: ns.GetName(),
 				Annotations: map[string]string{
-					model.RelayVaultEngineMountAnnotation:    cfg.Vault.SecretsPath,
-					model.RelayVaultConnectionPathAnnotation: "connections/my-domain-id",
-					model.RelayVaultSecretPathAnnotation:     "workflows/my-tenant-id",
-					model.RelayDomainIDAnnotation:            "my-domain-id",
-					model.RelayTenantIDAnnotation:            "my-tenant-id",
+					model.RelayVaultEngineMountAnnotation:    TestVaultEngineTenantPath,
+					model.RelayVaultConnectionPathAnnotation: "connections/" + ns.GetName(),
+					model.RelayVaultSecretPathAnnotation:     "workflows/" + tenant.GetName(),
+					model.RelayDomainIDAnnotation:            ns.GetName(),
+					model.RelayTenantIDAnnotation:            tenant.GetName(),
 				},
 			},
 			Spec: relayv1beta1.RunSpec{
@@ -283,36 +279,32 @@ func TestRun(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, r))
+		require.NoError(t, eit.ControllerClient.Create(ctx, r))
 
-		pod := waitForStepPodIP(t, ctx, cfg, r, stepName)
+		pod := waitForStepPodIP(t, ctx, eit, r, stepName)
 
 		var result exprmodel.JSONResultEnvelope
 		evaluateRequest := func(url string) exprmodel.JSONResultEnvelope {
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
+			r, err := exec.ShellScript(ctx, eit.RESTConfig, corev1obj.NewPodFromObject(pod), fmt.Sprintf("exec wget -q -O - %s", url), exec.WithContainer(model.ActionPodStepContainerName))
 			require.NoError(t, err)
-			req.Header.Set("X-Forwarded-For", pod.Status.PodIP)
+			require.Equal(t, 0, r.ExitCode, "unexpected error from script: standard output:\n%s\n\nstandard error:\n%s", r.Stdout, r.Stderr)
 
-			resp, err := http.DefaultClient.Do(req)
-			require.NoError(t, err)
-			require.Equal(t, http.StatusOK, resp.StatusCode)
-
-			require.NoError(t, json.NewDecoder(resp.Body).Decode(&result))
+			require.NoError(t, json.Unmarshal([]byte(r.Stdout), &result))
 			assert.True(t, result.Complete)
 
 			return result
 		}
 
 		specUrl := func() string {
-			return fmt.Sprintf("%s/spec", cfg.MetadataAPIURL)
+			return fmt.Sprintf("$%s/spec", model.EnvironmentVariableMetadataAPIURL)
 		}
 
 		envUrl := func() string {
-			return fmt.Sprintf("%s/environment", cfg.MetadataAPIURL)
+			return fmt.Sprintf("$%s/environment", model.EnvironmentVariableMetadataAPIURL)
 		}
 
 		envNameUrl := func(environmentName string) string {
-			return fmt.Sprintf("%s/environment/%s", cfg.MetadataAPIURL, environmentName)
+			return fmt.Sprintf("$%s/environment/%s", model.EnvironmentVariableMetadataAPIURL, environmentName)
 		}
 
 		result = evaluateRequest(specUrl())
@@ -359,9 +351,7 @@ func TestInvalidRuns(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	WithConfig(t, ctx, []ConfigOption{
-		ConfigWithRunReconciler,
-	}, func(cfg *Config) {
+	WithNamespacedEnvironmentInTest(t, ctx, func(eit *EnvironmentInTest, ns *corev1.Namespace) {
 		tests := []struct {
 			Name string
 			Run  *relayv1beta1.Run
@@ -371,14 +361,7 @@ func TestInvalidRuns(t *testing.T) {
 				Run: &relayv1beta1.Run{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      uuid.NewString(),
-						Namespace: cfg.Namespace.GetName(),
-						Annotations: map[string]string{
-							model.RelayVaultEngineMountAnnotation:    cfg.Vault.SecretsPath,
-							model.RelayVaultConnectionPathAnnotation: "connections/my-domain-id",
-							model.RelayVaultSecretPathAnnotation:     "workflows/my-tenant-id",
-							model.RelayDomainIDAnnotation:            "my-domain-id",
-							model.RelayTenantIDAnnotation:            "my-tenant-id",
-						},
+						Namespace: ns.GetName(),
 					},
 					Spec: relayv1beta1.RunSpec{},
 				},
@@ -388,14 +371,7 @@ func TestInvalidRuns(t *testing.T) {
 				Run: &relayv1beta1.Run{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      uuid.NewString(),
-						Namespace: cfg.Namespace.GetName(),
-						Annotations: map[string]string{
-							model.RelayVaultEngineMountAnnotation:    cfg.Vault.SecretsPath,
-							model.RelayVaultConnectionPathAnnotation: "connections/my-domain-id",
-							model.RelayVaultSecretPathAnnotation:     "workflows/my-tenant-id",
-							model.RelayDomainIDAnnotation:            "my-domain-id",
-							model.RelayTenantIDAnnotation:            "my-tenant-id",
-						},
+						Namespace: ns.GetName(),
 					},
 					Spec: relayv1beta1.RunSpec{
 						WorkflowRef: corev1.LocalObjectReference{
@@ -408,10 +384,10 @@ func TestInvalidRuns(t *testing.T) {
 		for _, test := range tests {
 			t.Run(test.Name, func(t *testing.T) {
 				r := test.Run
-				require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, r))
+				require.NoError(t, eit.ControllerClient.Create(ctx, r))
 
 				require.Error(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
-					if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: r.GetName(), Namespace: r.GetNamespace()}, r); err != nil {
+					if err := eit.ControllerClient.Get(ctx, client.ObjectKey{Name: r.GetName(), Namespace: r.GetNamespace()}, r); err != nil {
 						if k8serrors.IsNotFound(err) {
 							return retry.Repeat(fmt.Errorf("waiting for initial run"))
 						}
@@ -439,24 +415,21 @@ func TestRunWithoutSteps(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	WithConfig(t, ctx, []ConfigOption{
-		ConfigWithTenantReconciler,
-		ConfigWithRunReconciler,
-	}, func(cfg *Config) {
+	WithNamespacedEnvironmentInTest(t, ctx, func(eit *EnvironmentInTest, ns *corev1.Namespace) {
 		tenant := &relayv1beta1.Tenant{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: cfg.Namespace.GetName(),
+				Namespace: ns.GetName(),
 				Name:      "tenant-" + uuid.NewString(),
 			},
 			Spec: relayv1beta1.TenantSpec{},
 		}
 
-		CreateAndWaitForTenant(t, ctx, cfg, tenant)
+		CreateAndWaitForTenant(t, ctx, eit, tenant)
 
 		w := &relayv1beta1.Workflow{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      uuid.NewString(),
-				Namespace: cfg.Namespace.GetName(),
+				Namespace: ns.GetName(),
 			},
 			Spec: relayv1beta1.WorkflowSpec{
 				Steps: []*relayv1beta1.Step{},
@@ -465,18 +438,15 @@ func TestRunWithoutSteps(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, w))
+		require.NoError(t, eit.ControllerClient.Create(ctx, w))
 
 		r := &relayv1beta1.Run{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      uuid.NewString(),
-				Namespace: cfg.Namespace.GetName(),
+				Namespace: ns.GetName(),
 				Annotations: map[string]string{
-					model.RelayVaultEngineMountAnnotation:    cfg.Vault.SecretsPath,
-					model.RelayVaultConnectionPathAnnotation: "connections/my-domain-id",
-					model.RelayVaultSecretPathAnnotation:     "workflows/my-tenant-id",
-					model.RelayDomainIDAnnotation:            "my-domain-id",
-					model.RelayTenantIDAnnotation:            "my-tenant-id",
+					model.RelayDomainIDAnnotation: ns.GetName(),
+					model.RelayTenantIDAnnotation: tenant.GetName(),
 				},
 			},
 			Spec: relayv1beta1.RunSpec{
@@ -485,10 +455,10 @@ func TestRunWithoutSteps(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, r))
+		require.NoError(t, eit.ControllerClient.Create(ctx, r))
 
 		require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
-			if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: r.GetName(), Namespace: r.GetNamespace()}, r); err != nil {
+			if err := eit.ControllerClient.Get(ctx, client.ObjectKey{Name: r.GetName(), Namespace: r.GetNamespace()}, r); err != nil {
 				if k8serrors.IsNotFound(err) {
 					return retry.Repeat(fmt.Errorf("waiting for initial run"))
 				}
@@ -525,39 +495,31 @@ func TestRunStepInitTime(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	WithConfig(t, ctx, []ConfigOption{
-		ConfigWithMetadataAPIBoundInCluster,
-		ConfigWithTenantReconciler,
-		ConfigWithRunReconciler,
-	}, func(cfg *Config) {
+	WithNamespacedEnvironmentInTest(t, ctx, func(eit *EnvironmentInTest, ns *corev1.Namespace) {
 		tenant := &relayv1beta1.Tenant{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: cfg.Namespace.GetName(),
+				Namespace: ns.GetName(),
 				Name:      "tenant-" + uuid.NewString(),
 			},
 			Spec: relayv1beta1.TenantSpec{},
 		}
 
-		CreateAndWaitForTenant(t, ctx, cfg, tenant)
+		CreateAndWaitForTenant(t, ctx, eit, tenant)
 
 		stepName := uuid.NewString()
 		w := &relayv1beta1.Workflow{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      uuid.NewString(),
-				Namespace: cfg.Namespace.GetName(),
+				Namespace: ns.GetName(),
 			},
 			Spec: relayv1beta1.WorkflowSpec{
 				Steps: []*relayv1beta1.Step{
 					{
-						// TODO: Once we have the entrypointer image in
-						// test, we could just end-to-end test it here.
 						Name: stepName,
 						Container: relayv1beta1.Container{
 							Image: "alpine:latest",
 							Input: []string{
-								"apk --no-cache add curl",
-								fmt.Sprintf(`curl -X PUT "${%s}/timers/%s"`,
-									model.EnvironmentVariableMetadataAPIURL, model.TimerStepInit),
+								"exit 0",
 							},
 						},
 					},
@@ -567,18 +529,17 @@ func TestRunStepInitTime(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, w))
+		require.NoError(t, eit.ControllerClient.Create(ctx, w))
+
+		start := time.Now()
 
 		r := &relayv1beta1.Run{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: cfg.Namespace.GetName(),
+				Namespace: ns.GetName(),
 				Name:      uuid.NewString(),
 				Annotations: map[string]string{
-					model.RelayVaultEngineMountAnnotation:    cfg.Vault.SecretsPath,
-					model.RelayVaultConnectionPathAnnotation: "connections/my-domain-id",
-					model.RelayVaultSecretPathAnnotation:     "workflows/my-tenant-id",
-					model.RelayDomainIDAnnotation:            "my-domain-id",
-					model.RelayTenantIDAnnotation:            "my-tenant-id",
+					model.RelayDomainIDAnnotation: ns.GetName(),
+					model.RelayTenantIDAnnotation: tenant.GetName(),
 				},
 			},
 			Spec: relayv1beta1.RunSpec{
@@ -587,153 +548,15 @@ func TestRunStepInitTime(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, r))
+		require.NoError(t, eit.ControllerClient.Create(ctx, r))
 
-		waitForStepToSucceed(t, ctx, cfg, r, stepName)
+		waitForStepToSucceed(t, ctx, eit, r, stepName)
 
 		for _, step := range r.Status.Steps {
 			if step.Name == stepName {
-				require.NotEmpty(t, step.InitializationTime)
+				require.NotNil(t, step.InitializationTime)
+				require.True(t, step.InitializationTime.After(start), "step initialization time %s is before start time", step.InitializationTime)
 			}
-		}
-	})
-}
-
-func TestRunInGVisor(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 6*time.Minute)
-	defer cancel()
-
-	WithConfig(t, ctx, []ConfigOption{
-		ConfigWithMetadataAPIBoundInCluster,
-		ConfigWithTenantReconciler,
-		ConfigWithRunReconciler,
-		ConfigWithPodEnforcementAdmission,
-	}, func(cfg *Config) {
-		if cfg.Environment.GVisorRuntimeClassName == "" {
-			t.Skip("gVisor is not available on this platform")
-		}
-
-		when := relayv1beta1.AsUnstructured(
-			testutil.JSONInvocation("equals", []interface{}{
-				testutil.JSONParameter("Hello"),
-				"World!",
-			}))
-
-		tests := []struct {
-			Name           string
-			StepDefinition *relayv1beta1.Step
-		}{
-			{
-				Name: "command",
-				StepDefinition: &relayv1beta1.Step{
-					Name: "my-test-step",
-					Container: relayv1beta1.Container{
-						Image:   "alpine:latest",
-						Command: "dmesg",
-					},
-				},
-			},
-			{
-				Name: "input",
-				StepDefinition: &relayv1beta1.Step{
-					Name: "my-test-step",
-					Container: relayv1beta1.Container{
-						Image: "alpine:latest",
-						Input: []string{"dmesg"},
-					},
-				},
-			},
-			{
-				Name: "command-with-condition",
-				StepDefinition: &relayv1beta1.Step{
-					Name: "my-test-step",
-					Container: relayv1beta1.Container{
-						Image:   "alpine:latest",
-						Command: "dmesg",
-					},
-					When: &when,
-				},
-			},
-		}
-		for _, test := range tests {
-			t.Run(test.Name, func(t *testing.T) {
-				tenant := &relayv1beta1.Tenant{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: cfg.Namespace.GetName(),
-						Name:      "tenant-" + uuid.NewString(),
-					},
-					Spec: relayv1beta1.TenantSpec{},
-				}
-
-				CreateAndWaitForTenant(t, ctx, cfg, tenant)
-
-				value := relayv1beta1.AsUnstructured("World!")
-				w := &relayv1beta1.Workflow{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      uuid.NewString(),
-						Namespace: cfg.Namespace.GetName(),
-					},
-					Spec: relayv1beta1.WorkflowSpec{
-						Parameters: []*relayv1beta1.Parameter{
-							{
-								Name:  "Hello",
-								Value: &value,
-							},
-						},
-						Steps: []*relayv1beta1.Step{test.StepDefinition},
-						TenantRef: corev1.LocalObjectReference{
-							Name: tenant.GetName(),
-						},
-					},
-				}
-				require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, w))
-
-				r := &relayv1beta1.Run{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: cfg.Namespace.GetName(),
-						Name:      fmt.Sprintf("my-test-run-%s", test.Name),
-					},
-					Spec: relayv1beta1.RunSpec{
-						WorkflowRef: corev1.LocalObjectReference{
-							Name: w.GetName(),
-						},
-					},
-				}
-				require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, r))
-
-				waitForStepToSucceed(t, ctx, cfg, r, "my-test-step")
-
-				pod := &corev1.Pod{}
-				require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
-					pods := &corev1.PodList{}
-					if err := cfg.Environment.ControllerClient.List(ctx, pods, client.InNamespace(r.GetNamespace()), client.MatchingLabels{
-						"tekton.dev/task": stepTaskLabelValue(r, "my-test-step"),
-					}); err != nil {
-						return true, err
-					}
-
-					if len(pods.Items) == 0 {
-						return false, fmt.Errorf("waiting for pod")
-					}
-
-					pod = &pods.Items[0]
-					return true, nil
-				}))
-
-				podLogOptions := &corev1.PodLogOptions{
-					Container: "step-step",
-				}
-
-				logs := cfg.Environment.StaticClient.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, podLogOptions)
-				podLogs, err := logs.Stream(ctx)
-				require.NoError(t, err)
-				defer podLogs.Close()
-
-				buf := new(bytes.Buffer)
-				_, err = io.Copy(buf, podLogs)
-				require.NoError(t, err)
-				require.Contains(t, buf.String(), "gVisor")
-			})
 		}
 	})
 }

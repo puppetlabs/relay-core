@@ -72,23 +72,6 @@ func TestEntrypointRunnerWithoutMetadataAPIURL(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestEntrypointRunnerWithInvalidMetadataAPIURL(t *testing.T) {
-	e := entrypoint.Entrypointer{
-		Entrypoint: "ls",
-		Args:       []string{"-la"},
-		Runner: &entrypoint.RealRunner{
-			Config: &entrypoint.Config{
-				DefaultTimeout: 3 * time.Second,
-				MetadataAPIURL: &url.URL{Scheme: "http", Host: "invalid"},
-				SecureLogging:  false,
-			},
-		},
-	}
-
-	err := e.Go()
-	require.NoError(t, err)
-}
-
 func TestEntrypointRunnerWithMockMetadataAPIURL(t *testing.T) {
 	opts := mockMetadataAPIOptions{
 		Delay: 250 * time.Millisecond,

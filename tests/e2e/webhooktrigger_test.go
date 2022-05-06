@@ -1,16 +1,18 @@
 package e2e_test
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/puppetlabs/leg/k8sutil/pkg/app/exec"
+	"github.com/puppetlabs/leg/k8sutil/pkg/app/tunnel"
+	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
 	"github.com/puppetlabs/leg/k8sutil/pkg/test/endtoend"
 	_ "github.com/puppetlabs/leg/storage/file"
 	"github.com/puppetlabs/leg/timeutil/pkg/backoff"
@@ -18,7 +20,6 @@ import (
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	exprmodel "github.com/puppetlabs/relay-core/pkg/expr/model"
 	"github.com/puppetlabs/relay-core/pkg/model"
-	"github.com/puppetlabs/relay-core/pkg/util/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -28,11 +29,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func waitForWebhookTriggerResponse(t *testing.T, ctx context.Context, cfg *Config, wt *relayv1beta1.WebhookTrigger) (int, string, string) {
+func waitForWebhookTriggerResponse(t *testing.T, ctx context.Context, eit *EnvironmentInTest, wt *relayv1beta1.WebhookTrigger) (int, string, string) {
 	// Wait for trigger to settle in Knative and pull its URL.
 	var targetURL string
 	require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
-		if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{
+		if err := eit.ControllerClient.Get(ctx, client.ObjectKey{
 			Namespace: wt.GetNamespace(),
 			Name:      wt.GetName(),
 		}, wt); err != nil {
@@ -56,16 +57,16 @@ func waitForWebhookTriggerResponse(t *testing.T, ctx context.Context, cfg *Confi
 
 	r, err := endtoend.Exec(
 		ctx,
-		cfg.Environment.Environment,
+		eit.Environment,
 		fmt.Sprintf("exec wget -q -O - %s", targetURL),
 		endtoend.ExecerWithNamespace(wt.GetNamespace()),
 	)
 	require.NoError(t, err)
-	return r.Code, r.Stdout, r.Stderr
+	return r.ExitCode, r.Stdout, r.Stderr
 }
 
-func assertWebhookTriggerResponseContains(t *testing.T, ctx context.Context, cfg *Config, expected string, wt *relayv1beta1.WebhookTrigger) {
-	code, stdout, stderr := waitForWebhookTriggerResponse(t, ctx, cfg, wt)
+func assertWebhookTriggerResponseContains(t *testing.T, ctx context.Context, eit *EnvironmentInTest, expected string, wt *relayv1beta1.WebhookTrigger) {
+	code, stdout, stderr := waitForWebhookTriggerResponse(t, ctx, eit, wt)
 	assert.Equal(t, 0, code, "unexpected error from script: standard output:\n%s\n\nstandard error:\n%s", stdout, stderr)
 	assert.Contains(t, stdout, expected)
 }
@@ -74,29 +75,31 @@ func TestWebhookTriggerServesResponse(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	WithConfig(t, ctx, []ConfigOption{
-		ConfigWithWebhookTriggerReconciler,
-	}, func(cfg *Config) {
+	WithNamespacedEnvironmentInTest(t, ctx, func(eit *EnvironmentInTest, ns *corev1.Namespace) {
 		tn := &relayv1beta1.Tenant{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "my-tenant",
-				Namespace: cfg.Namespace.GetName(),
+				Namespace: ns.GetName(),
 			},
 			Spec: relayv1beta1.TenantSpec{
 				NamespaceTemplate: relayv1beta1.NamespaceTemplate{
 					Metadata: metav1.ObjectMeta{
-						Name: fmt.Sprintf("%s-child", cfg.Namespace.GetName()),
+						Name: fmt.Sprintf("%s-child", ns.GetName()),
 					},
 				},
 			},
 		}
-		CreateAndWaitForTenant(t, ctx, cfg, tn)
+		CreateAndWaitForTenant(t, ctx, eit, tn)
 
 		// Create a trigger.
 		wt := &relayv1beta1.WebhookTrigger{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "my-trigger",
-				Namespace: cfg.Namespace.GetName(),
+				Namespace: ns.GetName(),
+				Annotations: map[string]string{
+					model.RelayDomainIDAnnotation: ns.GetName(),
+					model.RelayTenantIDAnnotation: tn.GetName(),
+				},
 			},
 			Spec: relayv1beta1.WebhookTriggerSpec{
 				Container: relayv1beta1.Container{
@@ -111,9 +114,9 @@ func TestWebhookTriggerServesResponse(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, wt))
+		require.NoError(t, eit.ControllerClient.Create(ctx, wt))
 
-		assertWebhookTriggerResponseContains(t, ctx, cfg, "Hello, Relay!", wt)
+		assertWebhookTriggerResponseContains(t, ctx, eit, "Hello, Relay!", wt)
 	})
 }
 
@@ -121,29 +124,31 @@ func TestWebhookTriggerScript(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	WithConfig(t, ctx, []ConfigOption{
-		ConfigWithWebhookTriggerReconciler,
-	}, func(cfg *Config) {
+	WithNamespacedEnvironmentInTest(t, ctx, func(eit *EnvironmentInTest, ns *corev1.Namespace) {
 		tn := &relayv1beta1.Tenant{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "my-tenant",
-				Namespace: cfg.Namespace.GetName(),
+				Namespace: ns.GetName(),
 			},
 			Spec: relayv1beta1.TenantSpec{
 				NamespaceTemplate: relayv1beta1.NamespaceTemplate{
 					Metadata: metav1.ObjectMeta{
-						Name: fmt.Sprintf("%s-child", cfg.Namespace.GetName()),
+						Name: fmt.Sprintf("%s-child", ns.GetName()),
 					},
 				},
 			},
 		}
-		CreateAndWaitForTenant(t, ctx, cfg, tn)
+		CreateAndWaitForTenant(t, ctx, eit, tn)
 
 		// Create a trigger.
 		wt := &relayv1beta1.WebhookTrigger{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "my-trigger",
-				Namespace: cfg.Namespace.GetName(),
+				Namespace: ns.GetName(),
+				Annotations: map[string]string{
+					model.RelayDomainIDAnnotation: ns.GetName(),
+					model.RelayTenantIDAnnotation: tn.GetName(),
+				},
 			},
 			Spec: relayv1beta1.WebhookTriggerSpec{
 				Container: relayv1beta1.Container{
@@ -158,9 +163,9 @@ func TestWebhookTriggerScript(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, wt))
+		require.NoError(t, eit.ControllerClient.Create(ctx, wt))
 
-		assertWebhookTriggerResponseContains(t, ctx, cfg, "Hello, Relay!", wt)
+		assertWebhookTriggerResponseContains(t, ctx, eit, "Hello, Relay!", wt)
 	})
 }
 
@@ -189,60 +194,65 @@ func TestWebhookTriggerHasAccessToMetadataAPI(t *testing.T) {
 	}))
 	defer s.Close()
 
-	WithConfig(t, ctx, []ConfigOption{
-		ConfigWithMetadataAPI,
-		ConfigWithTenantReconciler,
-		ConfigWithWebhookTriggerReconciler,
-	}, func(cfg *Config) {
-		// Set a secret and connection for this webhook trigger to look up.
-		cfg.Vault.SetSecret(t, "my-tenant-id", "foo", "Hello")
-		cfg.Vault.SetSecret(t, "my-tenant-id", "accessKeyId", "AKIA123456789")
-		cfg.Vault.SetSecret(t, "my-tenant-id", "secretAccessKey", "that's-a-very-nice-key-you-have-there")
-		cfg.Vault.SetConnection(t, "my-domain-id", "aws", "test", map[string]string{
-			"accessKeyID":     "AKIA123456789",
-			"secretAccessKey": "that's-a-very-nice-key-you-have-there",
+	WithNamespacedEnvironmentInTest(t, ctx, func(eit *EnvironmentInTest, ns *corev1.Namespace) {
+		st, err := tunnel.ApplyHTTP(ctx, eit.ControllerClient, client.ObjectKey{
+			Namespace: ns.GetName(),
+			Name:      "events",
 		})
+		require.NoError(t, err)
 
 		tn := &relayv1beta1.Tenant{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "my-tenant",
-				Namespace: cfg.Namespace.GetName(),
+				Name:      "tenant-" + uuid.NewString(),
+				Namespace: ns.GetName(),
 			},
 			Spec: relayv1beta1.TenantSpec{
 				TriggerEventSink: relayv1beta1.TriggerEventSink{
 					API: &relayv1beta1.APITriggerEventSink{
-						URL:   s.URL,
+						URL:   st.URL(),
 						Token: "foobarbaz",
 					},
 				},
 				NamespaceTemplate: relayv1beta1.NamespaceTemplate{
 					Metadata: metav1.ObjectMeta{
-						Name: fmt.Sprintf("%s-child", cfg.Namespace.GetName()),
+						Name: fmt.Sprintf("%s-child", ns.GetName()),
 					},
 				},
 			},
 		}
-		CreateAndWaitForTenant(t, ctx, cfg, tn)
+
+		// Set a secret and connection for this webhook trigger to look up.
+		WithVault(t, ctx, eit, func(v *Vault) {
+			v.SetSecret(t, ctx, tn.GetName(), "foo", "Hello")
+			v.SetSecret(t, ctx, tn.GetName(), "accessKeyId", "AKIA123456789")
+			v.SetSecret(t, ctx, tn.GetName(), "secretAccessKey", "that's-a-very-nice-key-you-have-there")
+			v.SetConnection(t, ctx, ns.GetName(), "aws", "test", map[string]string{
+				"accessKeyID":     "AKIA123456789",
+				"secretAccessKey": "that's-a-very-nice-key-you-have-there",
+			})
+		})
+
+		CreateAndWaitForTenant(t, ctx, eit, tn)
 
 		// Create a trigger.
 		wt := &relayv1beta1.WebhookTrigger{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "my-trigger",
-				Namespace: cfg.Namespace.GetName(),
+				Namespace: ns.GetName(),
 				Annotations: map[string]string{
-					model.RelayVaultEngineMountAnnotation:    cfg.Vault.SecretsPath,
-					model.RelayVaultConnectionPathAnnotation: "connections/my-domain-id",
-					model.RelayVaultSecretPathAnnotation:     "workflows/my-tenant-id",
-					model.RelayDomainIDAnnotation:            "my-domain-id",
-					model.RelayTenantIDAnnotation:            "my-tenant-id",
+					model.RelayVaultEngineMountAnnotation:    TestVaultEngineTenantPath,
+					model.RelayVaultConnectionPathAnnotation: "connections/" + ns.GetName(),
+					model.RelayVaultSecretPathAnnotation:     "workflows/" + tn.GetName(),
+					model.RelayDomainIDAnnotation:            ns.GetName(),
+					model.RelayTenantIDAnnotation:            tn.GetName(),
 				},
 			},
 			Spec: relayv1beta1.WebhookTriggerSpec{
 				Container: relayv1beta1.Container{
-					Image: "hashicorp/http-echo",
-					Args: []string{
-						"-listen", ":8080",
-						"-text", "Hello, Relay!",
+					Image: "alpine:latest",
+					Input: []string{
+						"apk --no-cache add socat",
+						`exec socat TCP-LISTEN:$PORT,crlf,reuseaddr,fork SYSTEM:'echo "HTTP/1.1 200 OK"; echo "Connection: close"; echo; echo "Hello, Relay!";'`,
 					},
 					Spec: relayv1beta1.NewUnstructuredObject(map[string]interface{}{
 						"secret": map[string]interface{}{
@@ -272,16 +282,16 @@ func TestWebhookTriggerHasAccessToMetadataAPI(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, wt))
+		require.NoError(t, eit.ControllerClient.Create(ctx, wt))
 
 		// Issue a request to spin up a pod.
-		assertWebhookTriggerResponseContains(t, ctx, cfg, "Hello, Relay!", wt)
+		assertWebhookTriggerResponseContains(t, ctx, eit, "Hello, Relay!", wt)
 
 		// Pull the pod and get its IP.
 		pod := &corev1.Pod{}
 		require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
 			pods := &corev1.PodList{}
-			if err := cfg.Environment.ControllerClient.List(ctx, pods, client.InNamespace(tn.Spec.NamespaceTemplate.Metadata.Name), client.MatchingLabels{
+			if err := eit.ControllerClient.List(ctx, pods, client.InNamespace(tn.Spec.NamespaceTemplate.Metadata.Name), client.MatchingLabels{
 				model.RelayControllerWebhookTriggerIDLabel: wt.GetName(),
 			}); err != nil {
 				return true, err
@@ -299,18 +309,20 @@ func TestWebhookTriggerHasAccessToMetadataAPI(t *testing.T) {
 			return true, nil
 		}))
 
-		// Retrieve the spec.
-		req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/spec", cfg.MetadataAPIURL), nil)
-		require.NoError(t, err)
-		req.Header.Set("X-Forwarded-For", pod.Status.PodIP)
-
-		resp, err := http.DefaultClient.Do(req)
-		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, resp.StatusCode)
-
 		var result exprmodel.JSONResultEnvelope
-		require.NoError(t, json.NewDecoder(resp.Body).Decode(&result))
-		assert.True(t, result.Complete)
+		evaluateRequest := func(url string) exprmodel.JSONResultEnvelope {
+			r, err := exec.ShellScript(ctx, eit.RESTConfig, corev1obj.NewPodFromObject(pod), fmt.Sprintf("exec wget -q -O - %s", url), exec.WithContainer(wt.GetName()))
+			require.NoError(t, err)
+			require.Equal(t, 0, r.ExitCode, "unexpected error from script: standard output:\n%s\n\nstandard error:\n%s", r.Stdout, r.Stderr)
+
+			require.NoError(t, json.Unmarshal([]byte(r.Stdout), &result))
+			assert.True(t, result.Complete)
+
+			return result
+		}
+
+		// Retrieve the spec.
+		result = evaluateRequest(fmt.Sprintf("$%s/spec", model.EnvironmentVariableMetadataAPIURL))
 		assert.Equal(t, map[string]interface{}{
 			"secret": "Hello",
 			"connection": map[string]interface{}{
@@ -320,53 +332,27 @@ func TestWebhookTriggerHasAccessToMetadataAPI(t *testing.T) {
 			"foo": "bar",
 		}, result.Value.Data)
 
-		req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("%s/environment", cfg.MetadataAPIURL), nil)
-		require.NoError(t, err)
-		req.Header.Set("X-Forwarded-For", pod.Status.PodIP)
-
-		resp, err = http.DefaultClient.Do(req)
-		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, resp.StatusCode)
-
-		require.NoError(t, json.NewDecoder(resp.Body).Decode(&result))
-		assert.True(t, result.Complete)
+		result = evaluateRequest(fmt.Sprintf("$%s/environment", model.EnvironmentVariableMetadataAPIURL))
 		assert.Equal(t, map[string]interface{}{
 			"AWS_ACCESS_KEY_ID":     "AKIA123456789",
 			"AWS_SECRET_ACCESS_KEY": "that's-a-very-nice-key-you-have-there",
 		}, result.Value.Data)
 
-		req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("%s/environment/AWS_ACCESS_KEY_ID", cfg.MetadataAPIURL), nil)
-		require.NoError(t, err)
-		req.Header.Set("X-Forwarded-For", pod.Status.PodIP)
-
-		resp, err = http.DefaultClient.Do(req)
-		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, resp.StatusCode)
-
-		require.NoError(t, json.NewDecoder(resp.Body).Decode(&result))
-		assert.True(t, result.Complete)
+		result = evaluateRequest(fmt.Sprintf("$%s/environment/AWS_ACCESS_KEY_ID", model.EnvironmentVariableMetadataAPIURL))
 		assert.Equal(t, "AKIA123456789", result.Value.Data)
 
-		req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("%s/environment/AWS_SECRET_ACCESS_KEY", cfg.MetadataAPIURL), nil)
-		require.NoError(t, err)
-		req.Header.Set("X-Forwarded-For", pod.Status.PodIP)
-
-		resp, err = http.DefaultClient.Do(req)
-		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, resp.StatusCode)
-
-		require.NoError(t, json.NewDecoder(resp.Body).Decode(&result))
-		assert.True(t, result.Complete)
+		result = evaluateRequest(fmt.Sprintf("$%s/environment/AWS_SECRET_ACCESS_KEY", model.EnvironmentVariableMetadataAPIURL))
 		assert.Equal(t, "that's-a-very-nice-key-you-have-there", result.Value.Data)
 
 		// Dispatch an event.
-		req.Method = http.MethodPost
-		req.URL.Path = "/events"
-		req.Body = ioutil.NopCloser(bytes.NewBufferString(`{"data":{"test":"value"}}`))
+		err = tunnel.WithHTTPConnection(ctx, eit.RESTConfig, st, s.URL, func(ctx context.Context) {
+			script := fmt.Sprintf(`exec wget -q --post-data '{"data":{"test":"value"}}' --header 'Content-Type: application/json' -O - $%s/events`, model.EnvironmentVariableMetadataAPIURL)
 
-		resp, err = http.DefaultClient.Do(req)
+			r, err := exec.ShellScript(ctx, eit.RESTConfig, corev1obj.NewPodFromObject(pod), script, exec.WithContainer(wt.GetName()))
+			require.NoError(t, err)
+			require.Equal(t, 0, r.ExitCode, "unexpected error from script: standard output:\n%s\n\nstandard error:\n%s", r.Stdout, r.Stderr)
+		})
 		require.NoError(t, err)
-		require.Equal(t, http.StatusAccepted, resp.StatusCode)
 		require.NotEqual(t, 0, reqs)
 	})
 }
@@ -375,15 +361,13 @@ func TestWebhookTriggerTenantUpdatePropagation(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
-	WithConfig(t, ctx, []ConfigOption{
-		ConfigWithWebhookTriggerReconciler,
-	}, func(cfg *Config) {
-		child1 := fmt.Sprintf("%s-child-1", cfg.Namespace.GetName())
-		child2 := fmt.Sprintf("%s-child-2", cfg.Namespace.GetName())
+	WithNamespacedEnvironmentInTest(t, ctx, func(eit *EnvironmentInTest, ns *corev1.Namespace) {
+		child1 := fmt.Sprintf("%s-child-1", ns.GetName())
+		child2 := fmt.Sprintf("%s-child-2", ns.GetName())
 
 		tn := &relayv1beta1.Tenant{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: cfg.Namespace.GetName(),
+				Namespace: ns.GetName(),
 				Name:      "my-test-tenant",
 			},
 			Spec: relayv1beta1.TenantSpec{
@@ -394,14 +378,18 @@ func TestWebhookTriggerTenantUpdatePropagation(t *testing.T) {
 				},
 			},
 		}
-		CreateAndWaitForTenant(t, ctx, cfg, tn)
+		CreateAndWaitForTenant(t, ctx, eit, tn)
 
 		// Create a webhook trigger. The Knative service will come up in the first
 		// namespace.
 		wt := &relayv1beta1.WebhookTrigger{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "my-trigger",
-				Namespace: cfg.Namespace.GetName(),
+				Namespace: ns.GetName(),
+				Annotations: map[string]string{
+					model.RelayDomainIDAnnotation: ns.GetName(),
+					model.RelayTenantIDAnnotation: tn.GetName(),
+				},
 			},
 			Spec: relayv1beta1.WebhookTriggerSpec{
 				Container: relayv1beta1.Container{
@@ -415,11 +403,11 @@ func TestWebhookTriggerTenantUpdatePropagation(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, wt))
+		require.NoError(t, eit.ControllerClient.Create(ctx, wt))
 
 		var ks servingv1.ServiceList
 		require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
-			if err := cfg.Environment.ControllerClient.List(ctx, &ks, client.InNamespace(child1)); err != nil {
+			if err := eit.ControllerClient.List(ctx, &ks, client.InNamespace(child1)); err != nil {
 				return true, err
 			}
 
@@ -432,7 +420,7 @@ func TestWebhookTriggerTenantUpdatePropagation(t *testing.T) {
 
 		// Change the tenant to use a new namespace. The Knative service should then
 		// switch to the new namespace.
-		Mutate(t, ctx, cfg, tn, func() {
+		Mutate(t, ctx, eit, tn, func() {
 			tn.Spec.NamespaceTemplate = relayv1beta1.NamespaceTemplate{
 				Metadata: metav1.ObjectMeta{
 					Name: child2,
@@ -441,7 +429,7 @@ func TestWebhookTriggerTenantUpdatePropagation(t *testing.T) {
 		})
 
 		require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
-			if err := cfg.Environment.ControllerClient.List(ctx, &ks, client.InNamespace(child2)); err != nil {
+			if err := eit.ControllerClient.List(ctx, &ks, client.InNamespace(child2)); err != nil {
 				return true, err
 			}
 
@@ -458,28 +446,30 @@ func TestWebhookTriggerDeletionAfterTenantDeletion(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
-	WithConfig(t, ctx, []ConfigOption{
-		ConfigWithWebhookTriggerReconciler,
-	}, func(cfg *Config) {
+	WithNamespacedEnvironmentInTest(t, ctx, func(eit *EnvironmentInTest, ns *corev1.Namespace) {
 		tn := &relayv1beta1.Tenant{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: cfg.Namespace.GetName(),
+				Namespace: ns.GetName(),
 				Name:      "my-test-tenant",
 			},
 			Spec: relayv1beta1.TenantSpec{
 				NamespaceTemplate: relayv1beta1.NamespaceTemplate{
 					Metadata: metav1.ObjectMeta{
-						Name: fmt.Sprintf("%s-child", cfg.Namespace.GetName()),
+						Name: fmt.Sprintf("%s-child", ns.GetName()),
 					},
 				},
 			},
 		}
-		CreateAndWaitForTenant(t, ctx, cfg, tn)
+		CreateAndWaitForTenant(t, ctx, eit, tn)
 
 		wt := &relayv1beta1.WebhookTrigger{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "my-trigger",
-				Namespace: cfg.Namespace.GetName(),
+				Namespace: ns.GetName(),
+				Annotations: map[string]string{
+					model.RelayDomainIDAnnotation: ns.GetName(),
+					model.RelayTenantIDAnnotation: tn.GetName(),
+				},
 			},
 			Spec: relayv1beta1.WebhookTriggerSpec{
 				Container: relayv1beta1.Container{
@@ -493,16 +483,16 @@ func TestWebhookTriggerDeletionAfterTenantDeletion(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, wt))
+		require.NoError(t, eit.ControllerClient.Create(ctx, wt))
 
 		// Delete tenant first. This should pretty much break the webhook
 		// reconciliation.
-		require.NoError(t, cfg.Environment.ControllerClient.Delete(ctx, tn))
-		require.NoError(t, testutil.WaitForObjectDeletion(ctx, cfg.Environment.ControllerClient, tn))
+		require.NoError(t, eit.ControllerClient.Delete(ctx, tn))
+		require.NoError(t, WaitForObjectDeletion(ctx, eit, tn))
 
 		// Webhook should still be deletable, though.
-		require.NoError(t, cfg.Environment.ControllerClient.Delete(ctx, wt))
-		require.NoError(t, testutil.WaitForObjectDeletion(ctx, cfg.Environment.ControllerClient, wt))
+		require.NoError(t, eit.ControllerClient.Delete(ctx, wt))
+		require.NoError(t, WaitForObjectDeletion(ctx, eit, wt))
 	})
 }
 
@@ -510,29 +500,31 @@ func TestWebhookTriggerKnativeRevisions(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
-	WithConfig(t, ctx, []ConfigOption{
-		ConfigWithWebhookTriggerReconciler,
-	}, func(cfg *Config) {
+	WithNamespacedEnvironmentInTest(t, ctx, func(eit *EnvironmentInTest, ns *corev1.Namespace) {
 		tn := &relayv1beta1.Tenant{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "my-tenant",
-				Namespace: cfg.Namespace.GetName(),
+				Namespace: ns.GetName(),
 			},
 			Spec: relayv1beta1.TenantSpec{
 				NamespaceTemplate: relayv1beta1.NamespaceTemplate{
 					Metadata: metav1.ObjectMeta{
-						Name: fmt.Sprintf("%s-child", cfg.Namespace.GetName()),
+						Name: fmt.Sprintf("%s-child", ns.GetName()),
 					},
 				},
 			},
 		}
-		CreateAndWaitForTenant(t, ctx, cfg, tn)
+		CreateAndWaitForTenant(t, ctx, eit, tn)
 
 		// Create a trigger.
 		wt := &relayv1beta1.WebhookTrigger{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "my-trigger",
-				Namespace: cfg.Namespace.GetName(),
+				Namespace: ns.GetName(),
+				Annotations: map[string]string{
+					model.RelayDomainIDAnnotation: ns.GetName(),
+					model.RelayTenantIDAnnotation: tn.GetName(),
+				},
 			},
 			Spec: relayv1beta1.WebhookTriggerSpec{
 				Container: relayv1beta1.Container{
@@ -546,14 +538,14 @@ func TestWebhookTriggerKnativeRevisions(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, wt))
+		require.NoError(t, eit.ControllerClient.Create(ctx, wt))
 
 		// This shouldn't settle because the given input is not sufficient to
 		// satisfy Knative. We're just going to check to make sure the
 		// respective revisions actually get created.
 		revisions := &servingv1.RevisionList{}
 		require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
-			if err := cfg.Environment.ControllerClient.List(ctx, revisions, client.InNamespace(tn.Spec.NamespaceTemplate.Metadata.Name)); err != nil {
+			if err := eit.ControllerClient.List(ctx, revisions, client.InNamespace(tn.Spec.NamespaceTemplate.Metadata.Name)); err != nil {
 				return true, err
 			}
 
@@ -569,11 +561,11 @@ func TestWebhookTriggerKnativeRevisions(t *testing.T) {
 
 		// Now we'll try to update the input to suggest to Knative to emit a new
 		// revision.
-		Mutate(t, ctx, cfg, wt, func() { wt.Spec.Input = []string{"echo goodbye"} })
+		Mutate(t, ctx, eit, wt, func() { wt.Spec.Input = []string{"echo goodbye"} })
 
 		// We should shortly have two revisions.
 		require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
-			if err := cfg.Environment.ControllerClient.List(ctx, revisions, client.InNamespace(tn.Spec.NamespaceTemplate.Metadata.Name)); err != nil {
+			if err := eit.ControllerClient.List(ctx, revisions, client.InNamespace(tn.Spec.NamespaceTemplate.Metadata.Name)); err != nil {
 				return true, err
 			}
 
@@ -586,49 +578,5 @@ func TestWebhookTriggerKnativeRevisions(t *testing.T) {
 				return true, fmt.Errorf("expected exactly 2 final revisions, got %d", len(revisions.Items))
 			}
 		}))
-	})
-}
-
-func TestWebhookTriggerInGVisor(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
-
-	WithConfig(t, ctx, []ConfigOption{
-		ConfigWithWebhookTriggerReconciler,
-		ConfigWithPodEnforcementAdmission,
-	}, func(cfg *Config) {
-		if cfg.Environment.GVisorRuntimeClassName == "" {
-			t.Skip("gVisor is not available on this platform")
-		}
-
-		tn := &relayv1beta1.Tenant{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "my-tenant",
-				Namespace: cfg.Namespace.GetName(),
-			},
-		}
-		CreateAndWaitForTenant(t, ctx, cfg, tn)
-
-		wt := &relayv1beta1.WebhookTrigger{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "my-trigger",
-				Namespace: cfg.Namespace.GetName(),
-			},
-			Spec: relayv1beta1.WebhookTriggerSpec{
-				Container: relayv1beta1.Container{
-					Image: "alpine:latest",
-					Input: []string{
-						"apk --no-cache add socat",
-						`exec socat TCP-LISTEN:$PORT,crlf,reuseaddr,fork SYSTEM:'echo "HTTP/1.1 200 OK"; echo "Connection: close"; echo; dmesg;'`,
-					},
-				},
-				TenantRef: corev1.LocalObjectReference{
-					Name: tn.GetName(),
-				},
-			},
-		}
-		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, wt))
-
-		assertWebhookTriggerResponseContains(t, ctx, cfg, "gVisor", wt)
 	})
 }

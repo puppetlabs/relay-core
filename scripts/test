@@ -6,10 +6,44 @@ set -euo pipefail
 #
 
 GO="${GO:-go}"
+KUBECTL="${KUBECTL:-kubectl}"
+
+#
+# Variables
+#
+
+RELAY_TEST_E2E_INSTALL_ENVIRONMENT="${RELAY_TEST_E2E_INSTALL_ENVIRONMENT:-true}"
+RELAY_TEST_E2E_KUBECONFIG="${RELAY_TEST_E2E_KUBECONFIG:-}"
+RELAY_TEST_E2E_CONTEXT="${RELAY_TEST_E2E_CONTEXT:-}"
+RELAY_TEST_E2E_MANIFEST="${RELAY_TEST_E2E_MANIFEST:-relay-system}"
 
 #
 #
 #
+
+if [[ -n "${RELAY_TEST_E2E_KUBECONFIG}" ]]; then
+    declare -a kubectl_args
+    [[ -n "${RELAY_TEST_E2E_KUBECONFIG}" ]] && kubectl_args+=( "--kubeconfig=${RELAY_TEST_E2E_KUBECONFIG}" )
+    [[ -n "${RELAY_TEST_E2E_CONTEXT}" ]] && kubectl_args+=( "--context=${RELAY_TEST_E2E_CONTEXT}" )
+
+    case "${RELAY_TEST_E2E_INSTALL_ENVIRONMENT}" in
+        1|t|T|TRUE|true|True)
+            $GO run sigs.k8s.io/kustomize/kustomize/v4 build hack/tests/e2e/manifests/relay-installer \
+                | $GO run github.com/google/ko resolve -f - \
+                | $KUBECTL "${kubectl_args[@]}" apply -f -
+
+            for i in $( seq 10 ); do
+                [[ -n "$( $KUBECTL "${kubectl_args[@]}" get crd relaycores.install.relay.sh --ignore-not-found -o name )" ]] && break
+                sleep 5
+            done
+            $KUBECTL "${kubectl_args[@]}" wait --for=condition=established --timeout=60s crd relaycores.install.relay.sh
+            ;;
+    esac
+
+    $GO run sigs.k8s.io/kustomize/kustomize/v4 build "hack/tests/e2e/manifests/${RELAY_TEST_E2E_MANIFEST}" \
+        | $GO run github.com/google/ko resolve -f - \
+        | $KUBECTL "${kubectl_args[@]}" apply -f -
+fi
 
 export GOLANG_PROTOBUF_REGISTRATION_CONFLICT=warn
 
