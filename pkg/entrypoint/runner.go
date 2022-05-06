@@ -47,8 +47,6 @@ var _ Runner = (*RealRunner)(nil)
 // Many errors that might occur should not necessarily abort the basic command processing
 // Logging these errors should potentially not occur either, as it adds internal information
 // Logging command outputs should default more cleanly to the standard streams
-// Additionally, integration tests will not (currently) have access to the Metadata API
-// and can cause multiple issues...
 func (rr *RealRunner) Run(args ...string) error {
 	if len(args) == 0 {
 		return nil
@@ -66,7 +64,6 @@ func (rr *RealRunner) Run(args ...string) error {
 
 	name, args := args[0], args[1:]
 
-	// TODO Move the bulk of this logic into the "initialization" command/phase
 	mu := rr.Config.MetadataAPIURL
 	if mu != nil {
 		if err := rr.getEnvironmentVariables(ctx, mu); err != nil {
@@ -164,6 +161,8 @@ func (rr *RealRunner) Run(args ...string) error {
 	if err := cmd.Wait(); err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			rr.handleProcessState(ctx, mu, exitErr.ProcessState, whenConditionStatus)
+
+			return nil
 		}
 
 		// FIXME Consider how to represent system errors

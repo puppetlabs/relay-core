@@ -11,7 +11,7 @@ import (
 )
 
 type ActionStatusProcessState struct {
-	ExitCode int `json:"exitCode"`
+	ExitCode int `json:"exit_code"`
 }
 
 type ActionStatusWhenCondition struct {
