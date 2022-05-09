@@ -15,20 +15,24 @@ import (
 )
 
 func ConfigureRun(ctx context.Context, rd *RunDeps, pr *obj.PipelineRun) {
-	ConfigureRunStatus(rd.Run, pr)
+	ConfigureRunStatus(ctx, rd, pr)
 	ConfigureRunStepStatus(ctx, rd, pr)
 }
 
-func ConfigureRunStatus(r *obj.Run, pr *obj.PipelineRun) {
-	r.Object.Status.ObservedGeneration = r.Object.GetGeneration()
+func ConfigureRunStatus(ctx context.Context, rd *RunDeps, pr *obj.PipelineRun) {
+	rd.Run.Object.Status.ObservedGeneration = rd.Run.Object.GetGeneration()
 
 	if then := pr.Object.Status.StartTime; then != nil {
-		r.Object.Status.StartTime = then
+		rd.Run.Object.Status.StartTime = then
 	}
 
 	if then := pr.Object.Status.CompletionTime; then != nil {
-		r.Object.Status.CompletionTime = then
+		rd.Run.Object.Status.CompletionTime = then
 	}
+
+	configMap := configmap.NewLocalConfigMap(rd.MutableConfigMap.Object)
+
+	statuses, _ := configmap.NewActionStatusManager(nil, configMap).List(ctx)
 
 	conds := map[relayv1beta1.RunConditionType]*relayv1beta1.Condition{
 		relayv1beta1.RunCancelled: {},
@@ -37,7 +41,7 @@ func ConfigureRunStatus(r *obj.Run, pr *obj.PipelineRun) {
 		relayv1beta1.RunTimedOut:  {},
 	}
 
-	for _, cond := range r.Object.Status.Conditions {
+	for _, cond := range rd.Run.Object.Status.Conditions {
 		if target, ok := conds[cond.Type]; ok {
 			*target = cond.Condition
 		}
@@ -45,9 +49,8 @@ func ConfigureRunStatus(r *obj.Run, pr *obj.PipelineRun) {
 
 	for runConditionType, runCondition := range conds {
 		UpdateStatusConditionIfTransitioned(runCondition, func() relayv1beta1.Condition {
-			return condition.RunConditionHandlers[runConditionType](r, pr)
+			return condition.RunConditionHandlers[runConditionType](rd.Run, pr, statuses)
 		})
-
 	}
 
 	runConditions := make([]relayv1beta1.RunCondition, 0)
@@ -60,7 +63,7 @@ func ConfigureRunStatus(r *obj.Run, pr *obj.PipelineRun) {
 		}
 	}
 
-	r.Object.Status.Conditions = runConditions
+	rd.Run.Object.Status.Conditions = runConditions
 }
 
 func ConfigureRunStepStatus(ctx context.Context, rd *RunDeps, pr *obj.PipelineRun) {

@@ -2,13 +2,14 @@ package condition
 
 import (
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
+	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/apis"
 )
 
-type RunConditionHandlerFunc func(r *obj.Run, pr *obj.PipelineRun) relayv1beta1.Condition
+type RunConditionHandlerFunc func(r *obj.Run, pr *obj.PipelineRun, statuses []*model.ActionStatus) relayv1beta1.Condition
 
 var (
 	RunConditionHandlers = map[relayv1beta1.RunConditionType]RunConditionHandlerFunc{
@@ -19,7 +20,7 @@ var (
 	}
 )
 
-var runCancelledHandler = RunConditionHandlerFunc(func(r *obj.Run, pr *obj.PipelineRun) relayv1beta1.Condition {
+var runCancelledHandler = RunConditionHandlerFunc(func(r *obj.Run, pr *obj.PipelineRun, statuses []*model.ActionStatus) relayv1beta1.Condition {
 	if r.IsCancelled() {
 		return relayv1beta1.Condition{
 			Status: corev1.ConditionTrue,
@@ -31,7 +32,7 @@ var runCancelledHandler = RunConditionHandlerFunc(func(r *obj.Run, pr *obj.Pipel
 	}
 })
 
-var runCompletedHandler = RunConditionHandlerFunc(func(r *obj.Run, pr *obj.PipelineRun) relayv1beta1.Condition {
+var runCompletedHandler = RunConditionHandlerFunc(func(r *obj.Run, pr *obj.PipelineRun, statuses []*model.ActionStatus) relayv1beta1.Condition {
 	cs := pr.Object.Status.Status.GetCondition(apis.ConditionSucceeded)
 
 	if cs != nil {
@@ -52,14 +53,34 @@ var runCompletedHandler = RunConditionHandlerFunc(func(r *obj.Run, pr *obj.Pipel
 	}
 })
 
-var runSucceededHandler = RunConditionHandlerFunc(func(r *obj.Run, pr *obj.PipelineRun) relayv1beta1.Condition {
+var runSucceededHandler = RunConditionHandlerFunc(func(r *obj.Run, pr *obj.PipelineRun, statuses []*model.ActionStatus) relayv1beta1.Condition {
+	// TODO Return failure status immediately if any step fails
+	// This requires changes to dependent services (external to relay-core)
+	stepFailures := false
+	for _, status := range statuses {
+		if failed, err := status.Failed(); err == nil && failed {
+			stepFailures = true
+			break
+		}
+	}
+
 	cs := pr.Object.Status.Status.GetCondition(apis.ConditionSucceeded)
 
 	if cs != nil {
 		switch cs.Status {
-		case corev1.ConditionTrue, corev1.ConditionFalse:
+		case corev1.ConditionFalse:
 			return relayv1beta1.Condition{
-				Status: cs.Status,
+				Status: corev1.ConditionFalse,
+			}
+		case corev1.ConditionTrue:
+			if stepFailures {
+				return relayv1beta1.Condition{
+					Status: corev1.ConditionFalse,
+				}
+			}
+
+			return relayv1beta1.Condition{
+				Status: corev1.ConditionTrue,
 			}
 		}
 	}
@@ -69,7 +90,7 @@ var runSucceededHandler = RunConditionHandlerFunc(func(r *obj.Run, pr *obj.Pipel
 	}
 })
 
-var runTimedOutHandler = RunConditionHandlerFunc(func(r *obj.Run, pr *obj.PipelineRun) relayv1beta1.Condition {
+var runTimedOutHandler = RunConditionHandlerFunc(func(r *obj.Run, pr *obj.PipelineRun, statuses []*model.ActionStatus) relayv1beta1.Condition {
 	cs := pr.Object.Status.Status.GetCondition(apis.ConditionSucceeded)
 
 	if cs != nil {
