@@ -21,14 +21,12 @@ func TestTenantFinalizer(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
-	WithConfig(t, ctx, []ConfigOption{
-		ConfigWithTenantReconciler,
-	}, func(cfg *Config) {
-		child := fmt.Sprintf("%s-child", cfg.Namespace.GetName())
+	WithNamespacedEnvironmentInTest(t, ctx, func(eit *EnvironmentInTest, ns *corev1.Namespace) {
+		child := fmt.Sprintf("%s-child", ns.GetName())
 
 		tenant := &relayv1beta1.Tenant{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: cfg.Namespace.GetName(),
+				Namespace: ns.GetName(),
 				Name:      "my-test-tenant",
 			},
 			Spec: relayv1beta1.TenantSpec{
@@ -39,11 +37,11 @@ func TestTenantFinalizer(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, tenant))
+		require.NoError(t, eit.ControllerClient.Create(ctx, tenant))
 
 		// Wait for namespace.
 		require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
-			if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{
+			if err := eit.ControllerClient.Get(ctx, client.ObjectKey{
 				Namespace: tenant.GetNamespace(),
 				Name:      tenant.GetName(),
 			}, tenant); err != nil {
@@ -61,14 +59,14 @@ func TestTenantFinalizer(t *testing.T) {
 
 		// Get child namespace.
 		namespace := &corev1.Namespace{}
-		require.NoError(t, cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: child}, namespace))
+		require.NoError(t, eit.ControllerClient.Get(ctx, client.ObjectKey{Name: child}, namespace))
 
 		// Delete tenant.
-		require.NoError(t, cfg.Environment.ControllerClient.Delete(ctx, tenant))
+		require.NoError(t, eit.ControllerClient.Delete(ctx, tenant))
 
 		// Get child namespace again, should be gone after delete.
 		require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
-			if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: child}, namespace); errors.IsNotFound(err) {
+			if err := eit.ControllerClient.Get(ctx, client.ObjectKey{Name: child}, namespace); errors.IsNotFound(err) {
 				return true, nil
 			} else if err != nil {
 				return true, err
@@ -83,13 +81,11 @@ func TestTenantAPITriggerEventSinkMissingSecret(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	WithConfig(t, ctx, []ConfigOption{
-		ConfigWithTenantReconciler,
-	}, func(cfg *Config) {
+	WithNamespacedEnvironmentInTest(t, ctx, func(eit *EnvironmentInTest, ns *corev1.Namespace) {
 		// Create tenant with event sink pointing at nonexistent secret.
 		tenant := &relayv1beta1.Tenant{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: cfg.Namespace.GetName(),
+				Namespace: ns.GetName(),
 				Name:      "my-test-tenant",
 			},
 			Spec: relayv1beta1.TenantSpec{
@@ -108,12 +104,12 @@ func TestTenantAPITriggerEventSinkMissingSecret(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, tenant))
+		require.NoError(t, eit.ControllerClient.Create(ctx, tenant))
 
 		// Wait for tenant to reconcile.
 		var cond relayv1beta1.TenantCondition
 		require.NoError(t, retry.Wait(ctx, func(ctx context.Context) (bool, error) {
-			if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{
+			if err := eit.ControllerClient.Get(ctx, client.ObjectKey{
 				Namespace: tenant.GetNamespace(),
 				Name:      tenant.GetName(),
 			}, tenant); err != nil {
@@ -136,23 +132,21 @@ func TestTenantAPITriggerEventSinkWithSecret(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	WithConfig(t, ctx, []ConfigOption{
-		ConfigWithTenantReconciler,
-	}, func(cfg *Config) {
+	WithNamespacedEnvironmentInTest(t, ctx, func(eit *EnvironmentInTest, ns *corev1.Namespace) {
 		secret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: cfg.Namespace.GetName(),
+				Namespace: ns.GetName(),
 				Name:      "my-test-tenant",
 			},
 			StringData: map[string]string{
 				"token": "test",
 			},
 		}
-		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, secret))
+		require.NoError(t, eit.ControllerClient.Create(ctx, secret))
 
 		tenant := &relayv1beta1.Tenant{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: cfg.Namespace.GetName(),
+				Namespace: ns.GetName(),
 				Name:      "my-test-tenant",
 			},
 			Spec: relayv1beta1.TenantSpec{
@@ -171,7 +165,7 @@ func TestTenantAPITriggerEventSinkWithSecret(t *testing.T) {
 				},
 			},
 		}
-		CreateAndWaitForTenant(t, ctx, cfg, tenant)
+		CreateAndWaitForTenant(t, ctx, eit, tenant)
 	})
 }
 
@@ -179,25 +173,23 @@ func TestTenantAPITriggerEventSinkWithNamespaceAndSecret(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	WithConfig(t, ctx, []ConfigOption{
-		ConfigWithTenantReconciler,
-	}, func(cfg *Config) {
-		child := fmt.Sprintf("%s-child", cfg.Namespace.GetName())
+	WithNamespacedEnvironmentInTest(t, ctx, func(eit *EnvironmentInTest, ns *corev1.Namespace) {
+		child := fmt.Sprintf("%s-child", ns.GetName())
 
 		secret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: cfg.Namespace.GetName(),
+				Namespace: ns.GetName(),
 				Name:      "my-test-tenant",
 			},
 			StringData: map[string]string{
 				"token": "test",
 			},
 		}
-		require.NoError(t, cfg.Environment.ControllerClient.Create(ctx, secret))
+		require.NoError(t, eit.ControllerClient.Create(ctx, secret))
 
 		tenant := &relayv1beta1.Tenant{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: cfg.Namespace.GetName(),
+				Namespace: ns.GetName(),
 				Name:      "my-test-tenant",
 			},
 			Spec: relayv1beta1.TenantSpec{
@@ -221,7 +213,7 @@ func TestTenantAPITriggerEventSinkWithNamespaceAndSecret(t *testing.T) {
 				},
 			},
 		}
-		CreateAndWaitForTenant(t, ctx, cfg, tenant)
+		CreateAndWaitForTenant(t, ctx, eit, tenant)
 	})
 }
 
@@ -229,15 +221,13 @@ func TestTenantNamespaceUpdate(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	WithConfig(t, ctx, []ConfigOption{
-		ConfigWithTenantReconciler,
-	}, func(cfg *Config) {
-		child1 := fmt.Sprintf("%s-child-1", cfg.Namespace.GetName())
-		child2 := fmt.Sprintf("%s-child-2", cfg.Namespace.GetName())
+	WithNamespacedEnvironmentInTest(t, ctx, func(eit *EnvironmentInTest, ns *corev1.Namespace) {
+		child1 := fmt.Sprintf("%s-child-1", ns.GetName())
+		child2 := fmt.Sprintf("%s-child-2", ns.GetName())
 
 		tenant := &relayv1beta1.Tenant{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: cfg.Namespace.GetName(),
+				Namespace: ns.GetName(),
 				Name:      "my-test-tenant",
 			},
 			Spec: relayv1beta1.TenantSpec{
@@ -248,26 +238,26 @@ func TestTenantNamespaceUpdate(t *testing.T) {
 				},
 			},
 		}
-		CreateAndWaitForTenant(t, ctx, cfg, tenant)
+		CreateAndWaitForTenant(t, ctx, eit, tenant)
 
 		// Child namespace should now exist.
 		var ns1 corev1.Namespace
 		require.Equal(t, child1, tenant.Status.Namespace)
-		require.NoError(t, cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: child1}, &ns1))
+		require.NoError(t, eit.ControllerClient.Get(ctx, client.ObjectKey{Name: child1}, &ns1))
 
 		// Change namespace in tenant.
-		Mutate(t, ctx, cfg, tenant, func() {
+		Mutate(t, ctx, eit, tenant, func() {
 			tenant.Spec.NamespaceTemplate.Metadata.Name = child2
 		})
-		WaitForTenant(t, ctx, cfg, tenant)
+		WaitForTenant(t, ctx, eit, tenant)
 
 		// First child namespace should now not exist or have deletion timestamp
 		// set, second should exist.
 		var ns2 corev1.Namespace
 		require.Equal(t, child2, tenant.Status.Namespace)
-		require.NoError(t, cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: child2}, &ns2))
+		require.NoError(t, eit.ControllerClient.Get(ctx, client.ObjectKey{Name: child2}, &ns2))
 
-		if err := cfg.Environment.ControllerClient.Get(ctx, client.ObjectKey{Name: child1}, &ns1); err != nil {
+		if err := eit.ControllerClient.Get(ctx, client.ObjectKey{Name: child1}, &ns1); err != nil {
 			require.True(t, errors.IsNotFound(err))
 		} else {
 			require.NotEmpty(t, ns1.GetDeletionTimestamp())

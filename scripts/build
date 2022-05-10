@@ -12,9 +12,9 @@ KO_BUILD_TARGETS=(
   ./cmd/relay-metadata-api
   ./cmd/relay-metrics
   ./cmd/relay-operator
-  ./cmd/relay-runtime-tools
   ./cmd/relay-operator-vault-init
   ./cmd/relay-operator-webhook-certificate-controller
+  ./cmd/relay-runtime-tools
 )
 
 # Build ko targets.

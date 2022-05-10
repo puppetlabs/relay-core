@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/url"
 	"path"
 	"time"
@@ -346,24 +345,4 @@ func ConfigureRunDeps(ctx context.Context, rd *RunDeps) error {
 	ConfigureUntrustedServiceAccount(rd.UntrustedServiceAccount)
 
 	return nil
-}
-
-func ApplyRunDeps(ctx context.Context, cl client.Client, r *obj.Run, issuer authenticate.Issuer, metadataAPIURL *url.URL, opts ...RunDepsOption) (*RunDeps, error) {
-	rd := NewRunDeps(r, issuer, metadataAPIURL, opts...)
-
-	if lr, err := rd.Load(ctx, cl); err != nil {
-		return nil, err
-	} else if !lr.Upstream {
-		return nil, fmt.Errorf("waiting on Run upstream dependencies")
-	}
-
-	if err := ConfigureRunDeps(ctx, rd); err != nil {
-		return nil, err
-	}
-
-	if err := rd.Persist(ctx, cl); err != nil {
-		return nil, err
-	}
-
-	return rd, nil
 }

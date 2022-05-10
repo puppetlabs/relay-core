@@ -101,9 +101,7 @@ func (rr *RealRunner) Run(args ...string) error {
 	if mu != nil {
 		whenConditionStatus, err = rr.processWhenConditions(ctx, mu)
 		if err != nil {
-			// FIXME Prematurely exit if a system error occurred
-			// This is a temporary solution to handle testing issues
-			log.Println(err)
+			return err
 		} else if whenConditionStatus != model.WhenConditionStatusSatisfied {
 			return nil
 		}
