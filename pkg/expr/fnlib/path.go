@@ -2,10 +2,9 @@ package fnlib
 
 import (
 	"context"
-	"errors"
 	"reflect"
 
-	"github.com/puppetlabs/leg/gvalutil/pkg/eval"
+	"github.com/puppetlabs/leg/errmap/pkg/errmark"
 	"github.com/puppetlabs/relay-core/pkg/expr/fn"
 	"github.com/puppetlabs/relay-core/pkg/expr/model"
 	"github.com/puppetlabs/relay-core/pkg/expr/query"
@@ -48,13 +47,7 @@ func path(ctx context.Context, ev model.Evaluator, objArg, qArg, defArg *pathArg
 	var vr *model.Result
 	vr, objArg.err = query.EvaluateQuery(ctx, ev, query.PathLanguage(), objArg.v, q)
 	if objArg.err != nil {
-		var (
-			iobe *eval.IndexOutOfBoundsError
-			uke  *eval.UnknownKeyError
-		)
-		switch {
-		case errors.As(objArg.err, &iobe), errors.As(objArg.err, &uke):
-		default:
+		if !errmark.Matches(objArg.err, notExistsRule) {
 			defUsable = false
 		}
 	} else if vr.Complete() {

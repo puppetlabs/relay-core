@@ -9,6 +9,7 @@ var (
 		"concat":          concatDescriptor,
 		"convertMarkdown": convertMarkdownDescriptor,
 		"equals":          equalsDescriptor,
+		"exists":          existsDescriptor,
 		"jsonMarshal":     jsonMarshalDescriptor,
 		"jsonUnmarshal":   jsonUnmarshalDescriptor,
 		"merge":           mergeDescriptor,
