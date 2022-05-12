@@ -235,6 +235,23 @@ func TestExpressions(t *testing.T) {
 				Parameters: []model.UnresolvableParameter{{Name: "foo"}},
 			},
 		},
+		{
+			Name:       "unresolvable exists evaluation",
+			Expression: `exists(d.g)`,
+			ExpectedUnresolvable: model.Unresolvable{
+				Parameters: []model.UnresolvableParameter{{Name: "foo"}},
+			},
+		},
+		{
+			Name:       "resolvable exists evaluation for nonexistent key",
+			Expression: `exists(c.nope)`,
+			Expected:   false,
+		},
+		{
+			Name:       "resolvable exists evaluation for existent key",
+			Expression: `exists(c.x)`,
+			Expected:   true,
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {

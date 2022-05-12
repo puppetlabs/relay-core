@@ -8,27 +8,6 @@ import (
 	"github.com/puppetlabs/relay-core/pkg/expr/model"
 )
 
-type evalExpandable struct {
-	eval      gval.Evaluable
-	parameter interface{}
-}
-
-var _ model.Expandable = &evalExpandable{}
-
-func (ee *evalExpandable) Expand(ctx context.Context, depth int) (*model.Result, error) {
-	ctx, u := model.ContextWithNewUnresolvable(ctx)
-
-	v, err := ee.eval(ctx, ee.parameter)
-	if err != nil {
-		return nil, err
-	}
-
-	return &model.Result{
-		Value:        v,
-		Unresolvable: *u,
-	}, nil
-}
-
 func evalIdentFuncKeyword(o *Options, name string, args map[string]gval.Evaluable) gval.Evaluable {
 	return func(ctx context.Context, parameter interface{}) (interface{}, error) {
 		descriptor, err := o.FunctionMap.Descriptor(name)
@@ -40,10 +19,7 @@ func evalIdentFuncKeyword(o *Options, name string, args map[string]gval.Evaluabl
 
 		m := make(map[string]interface{}, len(args))
 		for k, eval := range args {
-			m[k] = &evalExpandable{
-				eval:      eval,
-				parameter: parameter,
-			}
+			m[k] = model.EvalExpandable(eval, parameter)
 		}
 
 		invoker, err := descriptor.KeywordInvoker(o.Evaluator, m)
@@ -75,10 +51,7 @@ func evalIdentFuncPositional(o *Options, name string, args []gval.Evaluable) gva
 
 		l := make([]interface{}, len(args))
 		for i, eval := range args {
-			l[i] = &evalExpandable{
-				eval:      eval,
-				parameter: parameter,
-			}
+			l[i] = model.EvalExpandable(eval, parameter)
 		}
 
 		invoker, err := descriptor.PositionalInvoker(o.Evaluator, l)
