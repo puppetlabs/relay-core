@@ -2,17 +2,12 @@ package app
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/lifecycle"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
-	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
-	exprmodel "github.com/puppetlabs/relay-core/pkg/expr/model"
-	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/selection"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -110,37 +105,6 @@ func ConfigurePipelineParts(ctx context.Context, p *PipelineParts) error {
 			TaskRef: &tektonv1beta1.TaskRef{
 				Name: t.Key.Name,
 			},
-			RunAfter: make([]string, len(ws.DependsOn)),
-		}
-
-		for i, dep := range ws.DependsOn {
-			pt.RunAfter[i] = ModelStepFromName(p.Deps.Run, dep).Hash().HexEncoding()
-		}
-
-		if len(ws.DependsOn) > 0 {
-			simplifiedDependencyProcessing := true
-
-			if ws.When != nil && ws.When.Value() != nil {
-				r, err := exprmodel.EvaluateAll(ctx, evaluate.NewEvaluator(), ws.When.Value())
-				if err != nil {
-					return err
-				}
-				if len(r.Unresolvable.Status) > 0 {
-					simplifiedDependencyProcessing = false
-				}
-			}
-
-			if simplifiedDependencyProcessing {
-				for _, dep := range ws.DependsOn {
-					pt.WhenExpressions = append(pt.WhenExpressions, tektonv1beta1.WhenExpression{
-						Input: fmt.Sprintf("$(tasks.%s.results.%s)",
-							ModelStepFromName(p.Deps.Run, dep).Hash().HexEncoding(),
-							model.StatusPropertySucceeded.String()),
-						Operator: selection.In,
-						Values:   []string{"true"},
-					})
-				}
-			}
 		}
 
 		pt.Workspaces = []tektonv1beta1.WorkspacePipelineTaskBinding{
