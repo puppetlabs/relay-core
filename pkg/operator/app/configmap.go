@@ -177,8 +177,10 @@ func enrichWhenConditions(ctx context.Context, step *relayv1beta1.Step) []interf
 
 	for dependency, useDefault := range useDefaultDependencyFlow {
 		if useDefault {
+			// TODO Implement a more programmatic way of adding expressions without using the explicit expression language.
+			// TODO Consider adding internal conditions to separate generated expressions from user-defined ones.
 			when = append(when,
-				fmt.Sprintf("${status.'%s'.%s}",
+				fmt.Sprintf("${steps.'%s'.%s}",
 					dependency, model.StatusPropertySucceeded.String()))
 		}
 	}
