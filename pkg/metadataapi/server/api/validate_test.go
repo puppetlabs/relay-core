@@ -6,12 +6,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/puppetlabs/relay-core/pkg/expr/serialize"
-	sdktestutil "github.com/puppetlabs/relay-core/pkg/expr/testutil"
 	"github.com/puppetlabs/relay-core/pkg/manager/memory"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/opt"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/sample"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/api"
+	"github.com/puppetlabs/relay-core/pkg/spec"
 	"github.com/puppetlabs/relay-core/pkg/util/testutil"
 	"github.com/puppetlabs/relay-core/pkg/util/typeutil"
 	"github.com/puppetlabs/relay-core/pkg/workflow/validation"
@@ -47,19 +46,16 @@ func TestValidationCapture(t *testing.T) {
 							"current-task": {
 								Image: "relaysh/image:latest",
 								Spec: opt.SampleConfigSpec{
-									"superSecret": serialize.YAMLTree{
-										Tree: sdktestutil.JSONSecret("test-secret-key"),
+									"superSecret": spec.YAMLTree{
+										Tree: "${secrets.test-secret-key}",
 									},
-									"superConnection": serialize.YAMLTree{
-										Tree: sdktestutil.JSONConnection("aws", "test-aws-connection"),
+									"superConnection": spec.YAMLTree{
+										Tree: "${connections.aws.test-aws-connection}",
 									},
-									"mergedConnection": serialize.YAMLTree{
-										Tree: sdktestutil.JSONInvocation("merge", []interface{}{
-											sdktestutil.JSONConnection("aws", "test-aws-connection"),
-											map[string]interface{}{"merge": "me"},
-										}),
+									"mergedConnection": spec.YAMLTree{
+										Tree: "${merge(connections.aws.test-aws-connection, {'merge': 'me'})}",
 									},
-									"superNormal": serialize.YAMLTree{
+									"superNormal": spec.YAMLTree{
 										Tree: "test-normal-value",
 									},
 								},
@@ -85,10 +81,10 @@ func TestValidationCapture(t *testing.T) {
 							"current-task": {
 								Image: "relaysh/kubernetes-step-kubectl:latest",
 								Spec: opt.SampleConfigSpec{
-									"cluster": {
+									"cluster": spec.YAMLTree{
 										Tree: map[string]interface{}{
 											"name":       "test-cluster",
-											"connection": sdktestutil.JSONConnection("kubernetes", "test-kubernetes-connection"),
+											"connection": "${connections.kubernetes.test-kubernetes-connection}",
 										},
 									},
 								},
@@ -119,13 +115,13 @@ func TestValidationCapture(t *testing.T) {
 							"current-task": {
 								Image: "relaysh/kubernetes-step-kubectl:latest",
 								Spec: opt.SampleConfigSpec{
-									"cluster": {
+									"cluster": spec.YAMLTree{
 										Tree: map[string]interface{}{
 											"name":       "test-cluster",
-											"connection": sdktestutil.JSONConnection("kubernetes", "test-kubernetes-connection"),
+											"connection": "${connections.kubernetes.test-kubernetes-connection}",
 										},
 									},
-									"command": serialize.YAMLTree{
+									"command": spec.YAMLTree{
 										Tree: "apply",
 									},
 								},

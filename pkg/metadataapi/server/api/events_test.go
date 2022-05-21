@@ -21,7 +21,7 @@ func TestPostEvent(t *testing.T) {
 
 	sc := &opt.SampleConfig{
 		Triggers: map[string]*opt.SampleConfigTrigger{
-			"test": &opt.SampleConfigTrigger{},
+			"test": {},
 		},
 	}
 

@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/puppetlabs/leg/timeutil/pkg/retry"
-	exprmodel "github.com/puppetlabs/relay-core/pkg/expr/model"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/api"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-pls/pkg/plspb"
@@ -302,7 +301,7 @@ func (rr *RealRunner) getEnvironmentVariables(ctx context.Context, mu *url.URL) 
 	}
 	defer resp.Body.Close()
 
-	var r exprmodel.JSONResultEnvelope
+	var r api.GetSpecResponseEnvelope
 	if err := json.NewDecoder(resp.Body).Decode(&r); err != nil {
 		return err
 	}

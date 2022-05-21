@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/puppetlabs/relay-core/pkg/expr/parse"
 	"github.com/puppetlabs/relay-core/pkg/model"
 )
 
@@ -21,30 +20,18 @@ func (m *EnvironmentManager) Get(ctx context.Context) (*model.Environment, error
 		return nil, err
 	}
 
-	evs := make(map[string]parse.Tree)
-
-	for name, ev := range value.(map[string]interface{}) {
-		evs[name] = parse.Tree(ev)
-	}
-
 	return &model.Environment{
-		Value: evs,
+		Value: value.(map[string]any),
 	}, nil
 }
 
-func (m *EnvironmentManager) Set(ctx context.Context, value map[string]interface{}) (*model.Environment, error) {
+func (m *EnvironmentManager) Set(ctx context.Context, value map[string]any) (*model.Environment, error) {
 	if err := m.kcm.Set(ctx, environmentKey(m.me), value); err != nil {
 		return nil, err
 	}
 
-	evs := make(map[string]parse.Tree)
-
-	for name, ev := range value {
-		evs[name] = parse.Tree(ev)
-	}
-
 	return &model.Environment{
-		Value: evs,
+		Value: value,
 	}, nil
 }
 

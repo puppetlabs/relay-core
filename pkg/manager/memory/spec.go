@@ -4,7 +4,6 @@ import (
 	"context"
 	"sync"
 
-	"github.com/puppetlabs/relay-core/pkg/expr/parse"
 	"github.com/puppetlabs/relay-core/pkg/model"
 )
 
@@ -31,7 +30,7 @@ func (m *SpecManager) Set(ctx context.Context, value map[string]interface{}) (*m
 	defer m.mut.Unlock()
 
 	m.val = &model.Spec{
-		Tree: parse.Tree(value),
+		Tree: value,
 	}
 
 	return m.val, nil
@@ -42,7 +41,7 @@ type SpecManagerOption func(sm *SpecManager)
 func SpecManagerWithInitialSpec(value map[string]interface{}) SpecManagerOption {
 	return func(sm *SpecManager) {
 		sm.val = &model.Spec{
-			Tree: parse.Tree(value),
+			Tree: value,
 		}
 	}
 }

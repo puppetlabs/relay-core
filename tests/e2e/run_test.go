@@ -13,7 +13,7 @@ import (
 	"github.com/puppetlabs/leg/timeutil/pkg/backoff"
 	"github.com/puppetlabs/leg/timeutil/pkg/retry"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
-	exprmodel "github.com/puppetlabs/relay-core/pkg/expr/model"
+	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/api"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/operator/app"
 	"github.com/stretchr/testify/assert"
@@ -283,8 +283,8 @@ func TestRun(t *testing.T) {
 
 		pod := waitForStepPodIP(t, ctx, eit, r, stepName)
 
-		var result exprmodel.JSONResultEnvelope
-		evaluateRequest := func(url string) exprmodel.JSONResultEnvelope {
+		var result api.GetSpecResponseEnvelope
+		evaluateRequest := func(url string) api.GetSpecResponseEnvelope {
 			r, err := exec.ShellScript(ctx, eit.RESTConfig, corev1obj.NewPodFromObject(pod), fmt.Sprintf("exec wget -q -O - %s", url), exec.WithContainer(model.ActionPodStepContainerName))
 			require.NoError(t, err)
 			require.Equal(t, 0, r.ExitCode, "unexpected error from script: standard output:\n%s\n\nstandard error:\n%s", r.Stdout, r.Stderr)

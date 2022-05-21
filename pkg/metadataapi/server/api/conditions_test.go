@@ -9,13 +9,11 @@ import (
 	"testing"
 
 	"github.com/puppetlabs/errawr-go/v2/pkg/errawr"
-	"github.com/puppetlabs/relay-core/pkg/expr/parse"
-	"github.com/puppetlabs/relay-core/pkg/expr/serialize"
-	exprtestutil "github.com/puppetlabs/relay-core/pkg/expr/testutil"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/errors"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/opt"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/sample"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/api"
+	"github.com/puppetlabs/relay-core/pkg/spec"
 	"github.com/puppetlabs/relay-core/pkg/util/testutil"
 	"github.com/stretchr/testify/require"
 )
@@ -28,7 +26,7 @@ func TestGetConditions(t *testing.T) {
 
 	tests := []struct {
 		Name             string
-		Conditions       parse.Tree
+		Conditions       any
 		ExpectedError    errawr.Error
 		ExpectedResolved bool
 		ExpectedSuccess  bool
@@ -36,14 +34,8 @@ func TestGetConditions(t *testing.T) {
 		{
 			Name: "Success",
 			Conditions: []interface{}{
-				exprtestutil.JSONInvocation("equals", []interface{}{
-					exprtestutil.JSONOutput("previous-task", "output1"),
-					"foobar",
-				}),
-				exprtestutil.JSONInvocation("notEquals", []interface{}{
-					exprtestutil.JSONOutput("previous-task", "output1"),
-					"barfoo",
-				}),
+				"${outputs.previous-task.output1 == 'foobar'}",
+				"${outputs.previous-task.output1 != 'barfoo'}",
 			},
 			ExpectedResolved: true,
 			ExpectedSuccess:  true,
@@ -51,14 +43,8 @@ func TestGetConditions(t *testing.T) {
 		{
 			Name: "Failure",
 			Conditions: []interface{}{
-				exprtestutil.JSONInvocation("equals", []interface{}{
-					exprtestutil.JSONOutput("previous-task", "output1"),
-					"foobar",
-				}),
-				exprtestutil.JSONInvocation("notEquals", []interface{}{
-					exprtestutil.JSONOutput("previous-task", "output1"),
-					"foobar",
-				}),
+				"${outputs.previous-task.output1 == 'foobar'}",
+				"${outputs.previous-task.output1 != 'foobar'}",
 			},
 			ExpectedResolved: true,
 			ExpectedSuccess:  false,
@@ -76,21 +62,15 @@ func TestGetConditions(t *testing.T) {
 			ExpectedSuccess:  false,
 		},
 		{
-			Name: "Resolution error (single expression)",
-			Conditions: exprtestutil.JSONInvocation("equals", []interface{}{
-				exprtestutil.JSONParameter("param1"),
-				"foobar",
-			}),
+			Name:             "Resolution error (single expression)",
+			Conditions:       "${parameters.param1 == 'foobar'}",
 			ExpectedResolved: false,
 			ExpectedSuccess:  false,
 		},
 		{
 			Name: "Resolution error (multiple expressions)",
 			Conditions: []interface{}{
-				exprtestutil.JSONInvocation("equals", []interface{}{
-					exprtestutil.JSONParameter("param1"),
-					"foobar",
-				}),
+				"${parameters.param1 == 'foobar'}",
 			},
 			ExpectedResolved: false,
 			ExpectedSuccess:  false,
@@ -115,14 +95,8 @@ func TestGetConditions(t *testing.T) {
 		{
 			Name: "Short-circuit failure ordering variant 1 (failure first)",
 			Conditions: []interface{}{
-				exprtestutil.JSONInvocation("equals", []interface{}{
-					exprtestutil.JSONOutput("previous-task", "output1"),
-					"fubar",
-				}),
-				exprtestutil.JSONInvocation("equals", []interface{}{
-					exprtestutil.JSONParameter("param1"),
-					"fubar",
-				}),
+				"${outputs.previous-task.output1 == 'fubar'}",
+				"${parameters.param1 == 'fubar'}",
 			},
 			ExpectedResolved: true,
 			ExpectedSuccess:  false,
@@ -130,14 +104,8 @@ func TestGetConditions(t *testing.T) {
 		{
 			Name: "Short-circuit failure ordering variant 2 (unresolvable first)",
 			Conditions: []interface{}{
-				exprtestutil.JSONInvocation("equals", []interface{}{
-					exprtestutil.JSONParameter("param1"),
-					"fubar",
-				}),
-				exprtestutil.JSONInvocation("equals", []interface{}{
-					exprtestutil.JSONOutput("previous-task", "output1"),
-					"fubar",
-				}),
+				"${parameters.param1 == 'fubar'}",
+				"${outputs.previous-task.output1 == 'fubar'}",
 			},
 			ExpectedResolved: true,
 			ExpectedSuccess:  false,
@@ -157,7 +125,7 @@ func TestGetConditions(t *testing.T) {
 						Steps: map[string]*opt.SampleConfigStep{
 							"previous-task": {},
 							"current-task": {
-								Conditions: serialize.YAMLTree{
+								Conditions: spec.YAMLTree{
 									Tree: test.Conditions,
 								},
 							},

@@ -5,12 +5,12 @@ import (
 	"fmt"
 
 	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
+	"github.com/puppetlabs/leg/relspec/pkg/evaluate"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
-	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
-	exprmodel "github.com/puppetlabs/relay-core/pkg/expr/model"
 	"github.com/puppetlabs/relay-core/pkg/manager/configmap"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
+	"github.com/puppetlabs/relay-core/pkg/spec"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -168,9 +168,9 @@ func enrichWhenConditions(ctx context.Context, step *relayv1beta1.Step) []interf
 			when = append(when, step.When.Value())
 		}
 
-		if r, err := exprmodel.EvaluateAll(ctx, evaluate.NewEvaluator(), step.When.Value()); err == nil {
-			for _, v := range r.Unresolvable.Status {
-				useDefaultDependencyFlow[v.Name] = false
+		if r, err := evaluate.EvaluateAll(ctx, spec.NewEvaluator(), step.When.Value()); err == nil {
+			for _, v := range r.References.Statuses.UsedReferences() {
+				useDefaultDependencyFlow[v.ID().Action] = false
 			}
 		}
 	}

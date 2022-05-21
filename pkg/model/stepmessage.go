@@ -3,16 +3,14 @@ package model
 import (
 	"context"
 	"time"
-
-	"github.com/puppetlabs/relay-core/pkg/expr/parse"
 )
 
 type ConditionEvaluationResult struct {
-	Expression parse.Tree
+	Expression any
 }
 
 type SchemaValidationResult struct {
-	Expression parse.Tree
+	Expression any
 }
 
 type StepMessage struct {
