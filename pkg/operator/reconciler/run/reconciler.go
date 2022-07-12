@@ -12,7 +12,6 @@ import (
 	"github.com/puppetlabs/leg/storage"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/authenticate"
-	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	"github.com/puppetlabs/relay-core/pkg/operator/app"
 	"github.com/puppetlabs/relay-core/pkg/operator/dependency"
@@ -33,8 +32,7 @@ type Reconciler struct {
 	Client client.Client
 	Scheme *runtime.Scheme
 
-	metrics *controllerObservations
-	issuer  authenticate.Issuer
+	issuer authenticate.Issuer
 }
 
 func NewReconciler(dm *dependency.DependencyManager) *Reconciler {
@@ -44,7 +42,6 @@ func NewReconciler(dm *dependency.DependencyManager) *Reconciler {
 		Client: dm.Manager.GetClient(),
 		Scheme: dm.Manager.GetScheme(),
 
-		metrics: newControllerObservations(dm.Metrics),
 		issuer: authenticate.IssuerFunc(func(ctx context.Context, claims *authenticate.Claims) (authenticate.Raw, error) {
 			raw, err := authenticate.NewKeySignerIssuer(dm.JWTSigner).Issue(ctx, claims)
 			if err != nil {
@@ -97,78 +94,15 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, errmark.MarkTransient(fmt.Errorf("waiting on Run upstream dependencies"))
 	}
 
-	annotations := rd.Run.Object.GetAnnotations()
-	domainID := annotations[model.RelayDomainIDAnnotation]
-
-	var pr *obj.PipelineRun
-	err = r.metrics.trackDurationWithOutcome(metricWorkflowRunStartUpDuration, func() error {
-		if err := app.ConfigureRunDeps(ctx, rd); err != nil {
-			return errmap.Wrap(err, "failed to configure Run dependencies")
-		}
-
-		if err := rd.Persist(ctx, r.Client); err != nil {
-			return errmap.Wrap(err, "failed to persist Run dependencies")
-		}
-
-		if len(rd.Workflow.Object.Spec.Steps) == 0 {
-			return nil
-		}
-
-		// We only need to build the pipeline when the run is
-		// initializing or finalizing. While it's running, constantly persisting
-		// pipeline objects just puts strain on the Tekton webhook server.
-		//
-		// An exception is made of we get out of sync somehow such that the
-		// PipelineRun can't load (e.g. someone deletes it from under us).
-		switch {
-		case run.IsRunning() && !run.IsCancelled():
-			pr = obj.NewPipelineRun(
-				client.ObjectKey{
-					Namespace: rd.WorkflowDeps.TenantDeps.Namespace.Name,
-					Name:      run.Key.Name,
-				},
-			)
-			if ok, err := pr.Load(ctx, r.Client); err != nil {
-				return errmap.Wrap(err, "failed to load PipelineRun")
-			} else if ok {
-				break
-			}
-			fallthrough
-		default:
-			pipeline, err := app.ApplyPipelineParts(ctx, r.Client, rd)
-			if err != nil {
-				return errmap.Wrap(err, "failed to apply Pipeline")
-			}
-
-			pr, err = app.ApplyPipelineRun(ctx, r.Client, pipeline)
-			if err != nil {
-				return errmap.Wrap(err, "failed to apply PipelineRun")
-			}
-		}
-
-		return nil
-	}, withAccountIDTrackDurationOption(domainID))
-	if err != nil {
-		klog.Error(err)
-		retryOnError := true
-		errmark.IfMarked(err, errmark.User, func(err error) {
-			app.ConfigureRunWithSpecificStatus(rd.Run, relayv1beta1.RunSucceeded, corev1.ConditionFalse)
-
-			if ferr := run.PersistStatus(ctx, r.Client); ferr != nil {
-				return
-			}
-
-			retryOnError = false
-		})
-
-		if retryOnError {
-			return ctrl.Result{}, err
-		}
-
-		return ctrl.Result{}, nil
+	if err := app.ConfigureRunDeps(ctx, rd); err != nil {
+		return ctrl.Result{}, errmap.Wrap(err, "failed to configure Run dependencies")
 	}
 
-	if pr == nil {
+	if err := rd.Persist(ctx, r.Client); err != nil {
+		return ctrl.Result{}, errmap.Wrap(err, "failed to persist Run dependencies")
+	}
+
+	if len(rd.Workflow.Object.Spec.Steps) == 0 {
 		app.ConfigureRunWithSpecificStatus(rd.Run, relayv1beta1.RunSucceeded, corev1.ConditionTrue)
 
 		if err := run.PersistStatus(ctx, r.Client); err != nil {
@@ -176,6 +110,40 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		}
 
 		return ctrl.Result{}, nil
+	}
+
+	var pr *obj.PipelineRun
+
+	// We only need to build the pipeline when the run is
+	// initializing or finalizing. While it's running, constantly persisting
+	// pipeline objects just puts strain on the Tekton webhook server.
+	//
+	// An exception is made of we get out of sync somehow such that the
+	// PipelineRun can't load (e.g. someone deletes it from under us).
+	switch {
+	case run.IsRunning() && !run.IsCancelled():
+		pr = obj.NewPipelineRun(
+			client.ObjectKey{
+				Namespace: rd.WorkflowDeps.TenantDeps.Namespace.Name,
+				Name:      run.Key.Name,
+			},
+		)
+		if ok, err := pr.Load(ctx, r.Client); err != nil {
+			return ctrl.Result{}, errmap.Wrap(err, "failed to load PipelineRun")
+		} else if ok {
+			break
+		}
+		fallthrough
+	default:
+		pipeline, err := app.ApplyPipelineParts(ctx, r.Client, rd)
+		if err != nil {
+			return ctrl.Result{}, errmap.Wrap(err, "failed to apply Pipeline")
+		}
+
+		pr, err = app.ApplyPipelineRun(ctx, r.Client, pipeline)
+		if err != nil {
+			return ctrl.Result{}, errmap.Wrap(err, "failed to apply PipelineRun")
+		}
 	}
 
 	app.ConfigureRun(ctx, rd, pr)
