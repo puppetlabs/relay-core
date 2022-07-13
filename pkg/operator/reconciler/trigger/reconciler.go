@@ -29,8 +29,7 @@ type Reconciler struct {
 	Client client.Client
 	Scheme *runtime.Scheme
 
-	metrics *controllerObservations
-	issuer  authenticate.Issuer
+	issuer authenticate.Issuer
 }
 
 func NewReconciler(dm *dependency.DependencyManager) *Reconciler {
@@ -39,8 +38,6 @@ func NewReconciler(dm *dependency.DependencyManager) *Reconciler {
 
 		Client: dm.Manager.GetClient(),
 		Scheme: dm.Manager.GetScheme(),
-
-		metrics: newControllerObservations(dm.Metrics),
 
 		issuer: authenticate.IssuerFunc(func(ctx context.Context, claims *authenticate.Claims) (authenticate.Raw, error) {
 			raw, err := authenticate.NewKeySignerIssuer(dm.JWTSigner).Issue(ctx, claims)
