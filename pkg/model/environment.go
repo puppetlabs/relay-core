@@ -2,12 +2,10 @@ package model
 
 import (
 	"context"
-
-	"github.com/puppetlabs/relay-core/pkg/expr/parse"
 )
 
 type Environment struct {
-	Value map[string]parse.Tree
+	Value map[string]any
 }
 
 type EnvironmentGetterManager interface {
@@ -17,7 +15,7 @@ type EnvironmentGetterManager interface {
 
 type EnvironmentSetterManager interface {
 	// Set stores the environment for this action.
-	Set(ctx context.Context, value map[string]interface{}) (*Environment, error)
+	Set(ctx context.Context, value map[string]any) (*Environment, error)
 }
 
 type EnvironmentManager interface {

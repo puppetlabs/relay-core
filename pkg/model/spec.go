@@ -2,12 +2,10 @@ package model
 
 import (
 	"context"
-
-	"github.com/puppetlabs/relay-core/pkg/expr/parse"
 )
 
 type Spec struct {
-	Tree parse.Tree
+	Tree any
 }
 
 type SpecGetterManager interface {

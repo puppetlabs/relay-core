@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/puppetlabs/relay-core/pkg/expr/parse"
 	"github.com/puppetlabs/relay-core/pkg/manager/configmap"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/stretchr/testify/require"
@@ -18,7 +17,7 @@ func TestConditionManagerWhenConditionsAreDefined(t *testing.T) {
 		Name                        string
 		Action                      model.Action
 		Value                       interface{}
-		ExpectedConditionExpression parse.Tree
+		ExpectedConditionExpression any
 	}{
 		{
 			Name: "Valid step and value",

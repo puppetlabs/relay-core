@@ -23,9 +23,9 @@ func TestPostDecorator(t *testing.T) {
 
 	sc := &opt.SampleConfig{
 		Runs: map[string]*opt.SampleConfigRun{
-			"test": &opt.SampleConfigRun{
+			"test": {
 				Steps: map[string]*opt.SampleConfigStep{
-					"test-task": &opt.SampleConfigStep{},
+					"test-task": {},
 				},
 			},
 		},

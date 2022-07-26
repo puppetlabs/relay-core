@@ -5,12 +5,12 @@ import (
 	"net/http"
 
 	utilapi "github.com/puppetlabs/leg/httputil/api"
-	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
-	expression "github.com/puppetlabs/relay-core/pkg/expr/model"
-	"github.com/puppetlabs/relay-core/pkg/manager/resolve"
+	"github.com/puppetlabs/leg/relspec/pkg/evaluate"
+	"github.com/puppetlabs/relay-core/pkg/manager/specadapter"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/errors"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/middleware"
 	"github.com/puppetlabs/relay-core/pkg/model"
+	"github.com/puppetlabs/relay-core/pkg/spec"
 	"github.com/puppetlabs/relay-core/pkg/util/image"
 	"github.com/puppetlabs/relay-core/pkg/workflow/validation"
 )
@@ -23,31 +23,29 @@ func (s *Server) PostValidate(w http.ResponseWriter, r *http.Request) {
 
 		managers := middleware.Managers(r)
 
-		spec, err := managers.Spec().Get(ctx)
+		data, err := managers.Spec().Get(ctx)
 		if err != nil {
 			utilapi.WriteError(ctx, w, ModelReadError(err))
 
 			return
 		}
 
-		ev := evaluate.NewEvaluator(
-			evaluate.WithConnectionTypeResolver{ConnectionTypeResolver: resolve.NewConnectionTypeResolver(managers.Connections())},
-			evaluate.WithSecretTypeResolver{SecretTypeResolver: resolve.NewSecretTypeResolver(managers.Secrets())},
-			evaluate.WithParameterTypeResolver{ParameterTypeResolver: resolve.NewParameterTypeResolver(managers.Parameters())},
-			evaluate.WithOutputTypeResolver{OutputTypeResolver: resolve.NewOutputTypeResolver(managers.StepOutputs())},
-			evaluate.WithStatusTypeResolver{StatusTypeResolver: resolve.NewStatusTypeResolver(managers.ActionStatus())},
+		ev := spec.NewEvaluator(
+			spec.WithConnectionTypeResolver{ConnectionTypeResolver: specadapter.NewConnectionTypeResolver(managers.Connections())},
+			spec.WithSecretTypeResolver{SecretTypeResolver: specadapter.NewSecretTypeResolver(managers.Secrets())},
+			spec.WithParameterTypeResolver{ParameterTypeResolver: specadapter.NewParameterTypeResolver(managers.Parameters())},
+			spec.WithOutputTypeResolver{OutputTypeResolver: specadapter.NewOutputTypeResolver(managers.StepOutputs())},
+			spec.WithStatusTypeResolver{StatusTypeResolver: specadapter.NewStatusTypeResolver(managers.ActionStatus())},
 		)
 
-		rv, err := expression.EvaluateAll(ctx, ev, spec.Tree)
+		rv, err := evaluate.EvaluateAll(ctx, ev, data.Tree)
 		if err != nil {
 			utilapi.WriteError(ctx, w, errors.NewExpressionEvaluationError(err.Error()))
 
 			return
 		}
 
-		env := expression.NewJSONResultEnvelope(rv)
-
-		if env.Complete {
+		if rv.OK() {
 			am, err := managers.ActionMetadata().Get(ctx)
 			if err != nil {
 				utilapi.WriteError(ctx, w, ModelReadError(err))
@@ -69,15 +67,15 @@ func (s *Server) PostValidate(w http.ResponseWriter, r *http.Request) {
 					addStepMessage(r, err.Error(),
 						nil,
 						&model.SchemaValidationResult{
-							Expression: spec.Tree,
+							Expression: data.Tree,
 						})
 				}
 			} else {
-				if err := schema.ValidateGo(env.Value.Data); err != nil {
+				if err := schema.ValidateGo(rv.Value); err != nil {
 					addStepMessage(r, err.Error(),
 						nil,
 						&model.SchemaValidationResult{
-							Expression: spec.Tree,
+							Expression: data.Tree,
 						})
 				}
 			}

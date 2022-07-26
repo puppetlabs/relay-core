@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/puppetlabs/relay-core/pkg/expr/parse"
 	"github.com/puppetlabs/relay-core/pkg/model"
 )
 
@@ -22,7 +21,7 @@ func (m *SpecManager) Get(ctx context.Context) (*model.Spec, error) {
 	}
 
 	return &model.Spec{
-		Tree: parse.Tree(value),
+		Tree: value,
 	}, nil
 }
 
@@ -32,7 +31,7 @@ func (m *SpecManager) Set(ctx context.Context, value map[string]interface{}) (*m
 	}
 
 	return &model.Spec{
-		Tree: parse.Tree(value),
+		Tree: value,
 	}, nil
 }
 

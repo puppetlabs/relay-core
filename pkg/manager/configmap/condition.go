@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/puppetlabs/relay-core/pkg/expr/parse"
 	"github.com/puppetlabs/relay-core/pkg/model"
 )
 
@@ -22,7 +21,7 @@ func (m *ConditionManager) Get(ctx context.Context) (*model.Condition, error) {
 	}
 
 	return &model.Condition{
-		Tree: parse.Tree(value),
+		Tree: value,
 	}, nil
 }
 
@@ -32,7 +31,7 @@ func (m *ConditionManager) Set(ctx context.Context, value interface{}) (*model.C
 	}
 
 	return &model.Condition{
-		Tree: parse.Tree(value),
+		Tree: value,
 	}, nil
 }
 

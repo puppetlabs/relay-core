@@ -7,12 +7,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/puppetlabs/relay-core/pkg/expr/model"
-	"github.com/puppetlabs/relay-core/pkg/expr/serialize"
-	sdktestutil "github.com/puppetlabs/relay-core/pkg/expr/testutil"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/opt"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/sample"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/api"
+	"github.com/puppetlabs/relay-core/pkg/spec"
 	"github.com/stretchr/testify/require"
 )
 
@@ -27,28 +25,28 @@ func TestGetEnvironment(t *testing.T) {
 			"test-secret-key": "test-secret-value",
 		},
 		Runs: map[string]*opt.SampleConfigRun{
-			"test": &opt.SampleConfigRun{
+			"test": {
 				Steps: map[string]*opt.SampleConfigStep{
-					"previous-task": &opt.SampleConfigStep{
+					"previous-task": {
 						Outputs: map[string]interface{}{
 							"test-output-key": "test-output-value",
 						},
 					},
-					"current-task": &opt.SampleConfigStep{
+					"current-task": {
 						Spec: opt.SampleConfigSpec{
-							"superSecret": serialize.YAMLTree{
-								Tree: sdktestutil.JSONSecret("test-secret-key"),
+							"superSecret": spec.YAMLTree{
+								Tree: "${secrets.test-secret-key}",
 							},
-							"superOutput": serialize.YAMLTree{
-								Tree: sdktestutil.JSONOutput("previous-task", "test-output-key"),
+							"superOutput": spec.YAMLTree{
+								Tree: "${outputs.previous-task.test-output-key}",
 							},
 						},
 						Env: opt.SampleConfigEnvironment{
-							"test-environment-variable-from-secret": serialize.YAMLTree{
-								Tree: sdktestutil.JSONSecret("test-secret-key"),
+							"test-environment-variable-from-secret": spec.YAMLTree{
+								Tree: "${secrets.test-secret-key}",
 							},
-							"test-environment-variable-from-output": serialize.YAMLTree{
-								Tree: sdktestutil.JSONOutput("previous-task", "test-output-key"),
+							"test-environment-variable-from-output": spec.YAMLTree{
+								Tree: "${outputs.previous-task.test-output-key}",
 							},
 						},
 					},
@@ -72,7 +70,7 @@ func TestGetEnvironment(t *testing.T) {
 	h.ServeHTTP(resp, req)
 	require.Equal(t, http.StatusOK, resp.Result().StatusCode)
 
-	var r model.JSONResultEnvelope
+	var r api.GetSpecResponseEnvelope
 	require.NoError(t, json.NewDecoder(resp.Result().Body).Decode(&r))
 	require.Equal(t, map[string]interface{}{
 		"superSecret": "test-secret-value",

@@ -3,13 +3,12 @@ package api
 import (
 	"net/http"
 
-	"github.com/puppetlabs/leg/encoding/transfer"
 	utilapi "github.com/puppetlabs/leg/httputil/api"
-	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
-	"github.com/puppetlabs/relay-core/pkg/expr/model"
-	"github.com/puppetlabs/relay-core/pkg/manager/resolve"
+	"github.com/puppetlabs/leg/relspec/pkg/evaluate"
+	"github.com/puppetlabs/relay-core/pkg/manager/specadapter"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/errors"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/middleware"
+	"github.com/puppetlabs/relay-core/pkg/spec"
 )
 
 func (s *Server) GetEnvironmentVariable(w http.ResponseWriter, r *http.Request) {
@@ -30,15 +29,15 @@ func (s *Server) GetEnvironmentVariable(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	eval := evaluate.NewEvaluator(
-		evaluate.WithConnectionTypeResolver{ConnectionTypeResolver: resolve.NewConnectionTypeResolver(managers.Connections())},
-		evaluate.WithSecretTypeResolver{SecretTypeResolver: resolve.NewSecretTypeResolver(managers.Secrets())},
-		evaluate.WithParameterTypeResolver{ParameterTypeResolver: resolve.NewParameterTypeResolver(managers.Parameters())},
-		evaluate.WithOutputTypeResolver{OutputTypeResolver: resolve.NewOutputTypeResolver(managers.StepOutputs())},
-		evaluate.WithStatusTypeResolver{StatusTypeResolver: resolve.NewStatusTypeResolver(managers.ActionStatus())},
+	eval := spec.NewEvaluator(
+		spec.WithConnectionTypeResolver{ConnectionTypeResolver: specadapter.NewConnectionTypeResolver(managers.Connections())},
+		spec.WithSecretTypeResolver{SecretTypeResolver: specadapter.NewSecretTypeResolver(managers.Secrets())},
+		spec.WithParameterTypeResolver{ParameterTypeResolver: specadapter.NewParameterTypeResolver(managers.Parameters())},
+		spec.WithOutputTypeResolver{OutputTypeResolver: specadapter.NewOutputTypeResolver(managers.StepOutputs())},
+		spec.WithStatusTypeResolver{StatusTypeResolver: specadapter.NewStatusTypeResolver(managers.ActionStatus())},
 	)
 
-	rv, rerr := model.EvaluateAll(ctx, eval, value)
+	rv, rerr := evaluate.EvaluateAll(ctx, eval, value)
 	if rerr != nil {
 		utilapi.WriteError(ctx, w, errors.NewExpressionEvaluationError(rerr.Error()))
 		return
@@ -58,34 +57,19 @@ func (s *Server) GetEnvironment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	eval := evaluate.NewEvaluator(
-		evaluate.WithConnectionTypeResolver{ConnectionTypeResolver: resolve.NewConnectionTypeResolver(managers.Connections())},
-		evaluate.WithSecretTypeResolver{SecretTypeResolver: resolve.NewSecretTypeResolver(managers.Secrets())},
-		evaluate.WithParameterTypeResolver{ParameterTypeResolver: resolve.NewParameterTypeResolver(managers.Parameters())},
-		evaluate.WithOutputTypeResolver{OutputTypeResolver: resolve.NewOutputTypeResolver(managers.StepOutputs())},
-		evaluate.WithStatusTypeResolver{StatusTypeResolver: resolve.NewStatusTypeResolver(managers.ActionStatus())},
+	eval := spec.NewEvaluator(
+		spec.WithConnectionTypeResolver{ConnectionTypeResolver: specadapter.NewConnectionTypeResolver(managers.Connections())},
+		spec.WithSecretTypeResolver{SecretTypeResolver: specadapter.NewSecretTypeResolver(managers.Secrets())},
+		spec.WithParameterTypeResolver{ParameterTypeResolver: specadapter.NewParameterTypeResolver(managers.Parameters())},
+		spec.WithOutputTypeResolver{OutputTypeResolver: specadapter.NewOutputTypeResolver(managers.StepOutputs())},
+		spec.WithStatusTypeResolver{StatusTypeResolver: specadapter.NewStatusTypeResolver(managers.ActionStatus())},
 	)
 
-	complete := true
-	evs := make(map[string]interface{})
-	for name, value := range environment.Value {
-		rv, rerr := model.EvaluateAll(ctx, eval, value)
-		if rerr != nil {
-			utilapi.WriteError(ctx, w, errors.NewExpressionEvaluationError(rerr.Error()))
-			return
-		}
-
-		if !rv.Complete() {
-			complete = false
-		}
-
-		evs[name] = rv.Value
+	rv, err := evaluate.EvaluateAll(ctx, eval, environment.Value)
+	if err != nil {
+		utilapi.WriteError(ctx, w, errors.NewExpressionEvaluationError(err.Error()))
+		return
 	}
 
-	env := &model.JSONResultEnvelope{
-		Value:    transfer.JSONInterface{Data: evs},
-		Complete: complete,
-	}
-
-	utilapi.WriteObjectOK(ctx, w, env)
+	utilapi.WriteObjectOK(ctx, w, NewGetSpecResponseEnvelope(rv))
 }

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/puppetlabs/relay-core/pkg/expr/serialize"
 	"github.com/puppetlabs/relay-core/pkg/manager/memory"
+	"github.com/puppetlabs/relay-core/pkg/spec"
 	yaml "gopkg.in/yaml.v3"
 )
 
@@ -30,7 +30,7 @@ func (scc *SampleConfigConnections) UnmarshalYAML(value *yaml.Node) error {
 	return nil
 }
 
-type SampleConfigSpec map[string]serialize.YAMLTree
+type SampleConfigSpec map[string]spec.YAMLTree
 
 func (sp SampleConfigSpec) Interface() map[string]interface{} {
 	copy := make(map[string]interface{})
@@ -42,7 +42,7 @@ func (sp SampleConfigSpec) Interface() map[string]interface{} {
 	return copy
 }
 
-type SampleConfigEnvironment map[string]serialize.YAMLTree
+type SampleConfigEnvironment map[string]spec.YAMLTree
 
 func (sp SampleConfigEnvironment) Interface() map[string]interface{} {
 	copy := make(map[string]interface{})
@@ -55,7 +55,7 @@ func (sp SampleConfigEnvironment) Interface() map[string]interface{} {
 }
 
 type SampleConfigStep struct {
-	Conditions serialize.YAMLTree      `yaml:"conditions"`
+	Conditions spec.YAMLTree           `yaml:"conditions"`
 	Env        SampleConfigEnvironment `yaml:"env"`
 	Spec       SampleConfigSpec        `yaml:"spec"`
 	Image      string                  `yaml:"image"`

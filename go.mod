@@ -3,9 +3,6 @@ module github.com/puppetlabs/relay-core
 go 1.18
 
 require (
-	github.com/PaesslerAG/gval v1.1.1-0.20210429131240-4f5f9c091d78
-	github.com/generikvault/gvalstrings v0.0.0-20180926130504-471f38f0112a
-	github.com/gomarkdown/markdown v0.0.0-20200513213024-62c5e2c608cc
 	github.com/google/go-containerregistry v0.8.1-0.20220209165246-a44adc326839
 	github.com/google/ko v0.11.2
 	github.com/google/uuid v1.3.0
@@ -20,20 +17,20 @@ require (
 	github.com/hashicorp/vault/api v1.3.0
 	github.com/hashicorp/vault/sdk v0.3.1-0.20220103172553-29ded54520a4
 	github.com/inconshreveable/log15 v0.0.0-20201112154412-8562bdadbbac
-	github.com/mitchellh/mapstructure v1.4.3
+	github.com/mitchellh/mapstructure v1.5.0
 	github.com/puppetlabs/errawr-gen v1.0.1
 	github.com/puppetlabs/errawr-go/v2 v2.2.0
-	github.com/puppetlabs/leg/datastructure v0.1.0
 	github.com/puppetlabs/leg/encoding v0.2.0
 	github.com/puppetlabs/leg/errmap v0.1.1
-	github.com/puppetlabs/leg/gvalutil v0.2.0
+	github.com/puppetlabs/leg/gvalutil v0.3.0
 	github.com/puppetlabs/leg/hashutil v0.1.0
 	github.com/puppetlabs/leg/httputil v0.1.4
 	github.com/puppetlabs/leg/instrumentation v0.1.4
-	github.com/puppetlabs/leg/jsonutil v0.2.2
+	github.com/puppetlabs/leg/jsonutil v0.3.0
 	github.com/puppetlabs/leg/k8sutil v0.7.0
 	github.com/puppetlabs/leg/logging v0.1.0
 	github.com/puppetlabs/leg/mainutil v0.1.2
+	github.com/puppetlabs/leg/relspec v0.1.0
 	github.com/puppetlabs/leg/scheduler v0.1.4
 	github.com/puppetlabs/leg/storage v0.1.1
 	github.com/puppetlabs/leg/timeutil v0.4.2
@@ -41,7 +38,7 @@ require (
 	github.com/puppetlabs/relay-client-go/client v0.4.4
 	github.com/puppetlabs/relay-pls v0.0.0-20201125074651-13575df50b51
 	github.com/spf13/viper v1.10.1
-	github.com/stretchr/testify v1.7.0
+	github.com/stretchr/testify v1.7.1
 	github.com/tektoncd/pipeline v0.32.1
 	github.com/xeipuuv/gojsonschema v1.2.0
 	go.opentelemetry.io/otel v0.20.0
@@ -53,14 +50,14 @@ require (
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/square/go-jose.v2 v2.6.0
 	gopkg.in/yaml.v2 v2.4.0
-	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
+	gopkg.in/yaml.v3 v3.0.0
 	gotest.tools/gotestsum v1.7.0
 	k8s.io/api v0.23.0
 	k8s.io/apiextensions-apiserver v0.23.0
-	k8s.io/apimachinery v0.23.5
+	k8s.io/apimachinery v0.24.0
 	k8s.io/client-go v0.23.0
 	k8s.io/klog/v2 v2.40.1
-	k8s.io/utils v0.0.0-20210930125809-cb0fa318a74b
+	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9
 	knative.dev/pkg v0.0.0-20220118160532-77555ea48cd4
 	knative.dev/serving v0.28.2
 	sigs.k8s.io/controller-runtime v0.11.0
@@ -96,6 +93,7 @@ require (
 	github.com/Masterminds/sprig v2.22.0+incompatible // indirect
 	github.com/Microsoft/go-winio v0.5.1 // indirect
 	github.com/NYTimes/gziphandler v1.1.1 // indirect
+	github.com/PaesslerAG/gval v1.2.0 // indirect
 	github.com/PaesslerAG/jsonpath v0.1.1 // indirect
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
@@ -155,6 +153,7 @@ require (
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
+	github.com/generikvault/gvalstrings v0.0.0-20180926130504-471f38f0112a // indirect
 	github.com/getsentry/raven-go v0.2.0 // indirect
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32 // indirect
 	github.com/go-errors/errors v1.4.1 // indirect
@@ -174,6 +173,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
+	github.com/gomarkdown/markdown v0.0.0-20220510115730-2372b9aa33e5 // indirect
 	github.com/google/go-cmp v0.5.7 // indirect
 	github.com/google/go-metrics-stackdriver v0.2.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
@@ -268,6 +268,7 @@ require (
 	github.com/prometheus/common v0.32.1 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
 	github.com/prometheus/statsd_exporter v0.21.0 // indirect
+	github.com/puppetlabs/leg/datastructure v0.1.0 // indirect
 	github.com/puppetlabs/leg/graph v0.1.1 // indirect
 	github.com/puppetlabs/leg/lifecycle v0.2.0 // indirect
 	github.com/puppetlabs/leg/mathutil v0.1.0 // indirect
@@ -284,6 +285,7 @@ require (
 	github.com/serenize/snaker v0.0.0-20171002133257-c7a77c38c398 // indirect
 	github.com/sethvargo/go-limiter v0.7.1 // indirect
 	github.com/shirou/gopsutil v3.21.5+incompatible // indirect
+	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/shurcooL/httpfs v0.0.0-20190527155220-6a4d4a70508b // indirect
 	github.com/shurcooL/vfsgen v0.0.0-20181202132449-6a9ea43bcacd // indirect
 	github.com/sigstore/cosign v1.3.2-0.20211120003522-90e2dcfe7b92 // indirect
@@ -319,7 +321,7 @@ require (
 	go.uber.org/multierr v1.7.0 // indirect
 	go.uber.org/zap v1.19.1 // indirect
 	golang.org/x/crypto v0.0.0-20220112180741-5e0467b6c7ce // indirect
-	golang.org/x/exp v0.0.0-20210126221216-84987778548c // indirect
+	golang.org/x/exp v0.0.0-20220518171630-0b5c67f07fdf // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220106191415-9b9b3d81d5e3 // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
