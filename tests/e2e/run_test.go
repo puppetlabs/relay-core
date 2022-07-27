@@ -560,3 +560,79 @@ func TestRunStepInitTime(t *testing.T) {
 		}
 	})
 }
+
+func TestDependsOn(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	WithNamespacedEnvironmentInTest(t, ctx, func(eit *EnvironmentInTest, ns *corev1.Namespace) {
+		tenant := &relayv1beta1.Tenant{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: ns.GetName(),
+				Name:      "tenant-" + uuid.NewString(),
+			},
+			Spec: relayv1beta1.TenantSpec{},
+		}
+
+		CreateAndWaitForTenant(t, ctx, eit, tenant)
+
+		step1 := uuid.NewString()
+		step2 := uuid.NewString()
+		w := &relayv1beta1.Workflow{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      uuid.NewString(),
+				Namespace: ns.GetName(),
+			},
+			Spec: relayv1beta1.WorkflowSpec{
+				Steps: []*relayv1beta1.Step{
+					{
+						Name: step1,
+						Container: relayv1beta1.Container{
+							Image: "alpine:latest",
+							Input: []string{
+								"exit 0",
+							},
+						},
+					},
+					{
+						Name: step2,
+						Container: relayv1beta1.Container{
+							Image: "alpine:latest",
+							Input: []string{
+								"exit 0",
+							},
+						},
+						DependsOn: []string{step1},
+					},
+				},
+				TenantRef: corev1.LocalObjectReference{
+					Name: tenant.GetName(),
+				},
+			},
+		}
+		require.NoError(t, eit.ControllerClient.Create(ctx, w))
+
+		r := &relayv1beta1.Run{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: ns.GetName(),
+				Name:      uuid.NewString(),
+				Annotations: map[string]string{
+					model.RelayDomainIDAnnotation: ns.GetName(),
+					model.RelayTenantIDAnnotation: tenant.GetName(),
+				},
+			},
+			Spec: relayv1beta1.RunSpec{
+				WorkflowRef: corev1.LocalObjectReference{
+					Name: w.GetName(),
+				},
+			},
+		}
+		require.NoError(t, eit.ControllerClient.Create(ctx, r))
+
+		waitForStepToSucceed(t, ctx, eit, r, step2)
+
+		for _, step := range r.Status.Steps {
+			require.NotNil(t, step.CompletionTime)
+		}
+	})
+}
