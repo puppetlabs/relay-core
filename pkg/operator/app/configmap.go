@@ -169,8 +169,10 @@ func enrichWhenConditions(ctx context.Context, step *relayv1beta1.Step) []interf
 		}
 
 		if r, err := evaluate.EvaluateAll(ctx, spec.NewEvaluator(), step.When.Value()); err == nil {
-			for _, v := range r.References.Statuses.UsedReferences() {
-				useDefaultDependencyFlow[v.ID().Action] = false
+			if r != nil && r.References != nil && r.References.Statuses != nil {
+				for _, v := range r.References.Statuses.UsedReferences() {
+					useDefaultDependencyFlow[v.ID().Action] = false
+				}
 			}
 		}
 	}
