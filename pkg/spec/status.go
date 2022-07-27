@@ -82,7 +82,7 @@ func (aste *actionStatusTemplateEnvironment) Index(ctx context.Context, idx any)
 		r.SetValue(value)
 	}
 
-	return nil, nil
+	return evaluate.StaticExpandable(r), nil
 }
 
 func (aste *actionStatusTemplateEnvironment) Expand(ctx context.Context, depth int) (*evaluate.Result[*References], error) {
