@@ -22,14 +22,6 @@ func ConfigureRun(ctx context.Context, rd *RunDeps, pr *obj.PipelineRun) {
 func ConfigureRunStatus(ctx context.Context, rd *RunDeps, pr *obj.PipelineRun) {
 	rd.Run.Object.Status.ObservedGeneration = rd.Run.Object.GetGeneration()
 
-	if then := pr.Object.Status.StartTime; then != nil {
-		rd.Run.Object.Status.StartTime = then
-	}
-
-	if then := pr.Object.Status.CompletionTime; then != nil {
-		rd.Run.Object.Status.CompletionTime = then
-	}
-
 	configMap := configmap.NewLocalConfigMap(rd.MutableConfigMap.Object)
 
 	statuses, _ := configmap.NewActionStatusManager(nil, configMap).List(ctx)
@@ -51,6 +43,19 @@ func ConfigureRunStatus(ctx context.Context, rd *RunDeps, pr *obj.PipelineRun) {
 		UpdateStatusConditionIfTransitioned(runCondition, func() relayv1beta1.Condition {
 			return condition.RunConditionHandlers[runConditionType](rd.Run, pr, statuses)
 		})
+	}
+
+	if rd.Run.Object.Status.StartTime == nil {
+		rd.Run.Object.Status.StartTime = &metav1.Time{Time: time.Now()}
+	}
+
+	if rd.Run.Object.Status.CompletionTime == nil {
+		if condition, ok := conds[relayv1beta1.RunCompleted]; ok {
+			if !isConditionEmpty(condition) &&
+				condition.Status == corev1.ConditionTrue {
+				rd.Run.Object.Status.CompletionTime = &condition.LastTransitionTime
+			}
+		}
 	}
 
 	runConditions := make([]relayv1beta1.RunCondition, 0)
