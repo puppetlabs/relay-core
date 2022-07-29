@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"crypto/x509"
 	"encoding/pem"
 	"flag"
@@ -12,9 +11,6 @@ import (
 
 	vaultapi "github.com/hashicorp/vault/api"
 	"github.com/puppetlabs/leg/instrumentation/alerts"
-	"github.com/puppetlabs/leg/instrumentation/metrics"
-	"github.com/puppetlabs/leg/instrumentation/metrics/delegates"
-	metricsserver "github.com/puppetlabs/leg/instrumentation/metrics/server"
 	"github.com/puppetlabs/leg/storage"
 	_ "github.com/puppetlabs/leg/storage/file"
 	_ "github.com/puppetlabs/leg/storage/gcs"
@@ -46,8 +42,8 @@ func main() {
 	imagePullSecret := fs.String("image-pull-secret", "", "the optionally namespaced name of the image pull secret to use for system images")
 	storageAddr := fs.String("storage-addr", "", "the storage URL to upload logs into")
 	numWorkers := fs.Int("num-workers", 2, "the number of worker threads to spawn that process Workflow resources")
-	metricsEnabled := fs.Bool("metrics-enabled", false, "enables the metrics collection and server")
-	metricsServerBindAddr := fs.String("metrics-server-bind-addr", "localhost:3050", "the host:port to bind the metrics server to")
+	_ = fs.Bool("metrics-enabled", false, "enables the metrics collection and server")
+	_ = fs.String("metrics-server-bind-addr", "localhost:3050", "the host:port to bind the metrics server to")
 	jwtSigningKeyFile := fs.String("jwt-signing-key-file", "", "path to a PEM-encoded RSA JWT key to use for signing step tokens")
 	vaultTransitPath := fs.String("vault-transit-path", "transit", "path to the Vault secrets engine to use for encrypting step tokens")
 	vaultTransitKey := fs.String("vault-transit-key", "metadata-api", "the Vault transit key to use")
@@ -91,27 +87,6 @@ func main() {
 
 	if *webhookServerKeyDir == "" {
 		log.Fatal("The webhook server key directory -webhook-server-key-dir must be specified")
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	metricsOpts := metrics.Options{
-		DelegateType:  delegates.PrometheusDelegate,
-		ErrorBehavior: metrics.ErrorBehaviorLog,
-	}
-
-	mets, err := metrics.NewNamespace("workflow_controller", metricsOpts)
-	if err != nil {
-		log.Fatal("Error setting up metrics server")
-	}
-
-	if *metricsEnabled {
-		ms := metricsserver.New(mets, metricsserver.Options{
-			BindAddr: *metricsServerBindAddr,
-		})
-
-		go ms.Run(ctx)
 	}
 
 	kcfg := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
@@ -176,7 +151,7 @@ func main() {
 		RuntimeToolsImage:       *runtimeToolsImage,
 	}
 
-	dm, err := dependency.NewDependencyManager(cfg, kcc, vc, jwtSigner, blobStore, mets)
+	dm, err := dependency.NewDependencyManager(cfg, kcc, vc, jwtSigner, blobStore)
 	if err != nil {
 		log.Fatal("Error creating controller dependency builder", err)
 	}

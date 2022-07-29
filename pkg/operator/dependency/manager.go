@@ -4,7 +4,6 @@ import (
 	"log"
 
 	vaultapi "github.com/hashicorp/vault/api"
-	"github.com/puppetlabs/leg/instrumentation/metrics"
 	"github.com/puppetlabs/leg/storage"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/operator/config"
@@ -46,10 +45,9 @@ type DependencyManager struct {
 	VaultClient   *vaultapi.Client
 	JWTSigner     jose.Signer
 	StorageClient storage.BlobStore
-	Metrics       *metrics.Metrics
 }
 
-func NewDependencyManager(cfg *config.WorkflowControllerConfig, kcc *rest.Config, vc *vaultapi.Client, jwtSigner jose.Signer, bs storage.BlobStore, mets *metrics.Metrics) (*DependencyManager, error) {
+func NewDependencyManager(cfg *config.WorkflowControllerConfig, kcc *rest.Config, vc *vaultapi.Client, jwtSigner jose.Signer, bs storage.BlobStore) (*DependencyManager, error) {
 	mgr, err := ctrl.NewManager(kcc, ctrl.Options{
 		Scheme:             Scheme,
 		MetricsBindAddress: "0",
@@ -72,7 +70,6 @@ func NewDependencyManager(cfg *config.WorkflowControllerConfig, kcc *rest.Config
 		VaultClient:   vc,
 		JWTSigner:     jwtSigner,
 		StorageClient: bs,
-		Metrics:       mets,
 	}
 	return d, nil
 }
