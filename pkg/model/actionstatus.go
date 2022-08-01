@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"time"
 )
 
 type StatusProperty string
@@ -31,10 +32,12 @@ func (wcs WhenConditionStatus) String() string {
 }
 
 type ActionStatusProcessState struct {
-	ExitCode int
+	ExitCode  int
+	Timestamp time.Time
 }
 
 type ActionStatusWhenCondition struct {
+	Timestamp           time.Time
 	WhenConditionStatus WhenConditionStatus
 }
 

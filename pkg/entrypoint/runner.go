@@ -95,12 +95,17 @@ func (rr *RealRunner) Run(args ...string) error {
 		}
 	}
 
-	whenConditionStatus := model.WhenConditionStatusUnknown
+	whenCondition := &model.ActionStatusWhenCondition{
+		Timestamp:           time.Now().UTC(),
+		WhenConditionStatus: model.WhenConditionStatusUnknown,
+	}
+
 	if mu != nil {
-		whenConditionStatus, err = rr.processWhenConditions(ctx, mu)
+		whenCondition, err = rr.processWhenConditions(ctx, mu)
 		if err != nil {
 			return err
-		} else if whenConditionStatus != model.WhenConditionStatusSatisfied {
+		} else if whenCondition == nil ||
+			whenCondition.WhenConditionStatus != model.WhenConditionStatusSatisfied {
 			return nil
 		}
 	}
@@ -156,7 +161,7 @@ func (rr *RealRunner) Run(args ...string) error {
 
 	if err := cmd.Wait(); err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
-			rr.handleProcessState(ctx, mu, exitErr.ProcessState, whenConditionStatus)
+			rr.handleProcessState(ctx, mu, exitErr.ProcessState, whenCondition)
 
 			return nil
 		}
@@ -165,7 +170,7 @@ func (rr *RealRunner) Run(args ...string) error {
 		return err
 	}
 
-	rr.handleProcessState(ctx, mu, cmd.ProcessState, whenConditionStatus)
+	rr.handleProcessState(ctx, mu, cmd.ProcessState, whenCondition)
 
 	return nil
 }
@@ -197,39 +202,42 @@ func updatePath() error {
 	return os.Setenv("PATH", currentPath+":/var/lib/puppet/relay")
 }
 
-func (rr *RealRunner) handleProcessState(ctx context.Context, mu *url.URL, ps *os.ProcessState, wcs model.WhenConditionStatus) {
+func (rr *RealRunner) handleProcessState(ctx context.Context, mu *url.URL, ps *os.ProcessState, wc *model.ActionStatusWhenCondition) {
 	if ps != nil && mu != nil {
 		_ = rr.putStatus(ctx, mu,
 			&model.ActionStatus{
 				ProcessState: &model.ActionStatusProcessState{
-					ExitCode: ps.ExitCode(),
+					ExitCode:  ps.ExitCode(),
+					Timestamp: time.Now().UTC(),
 				},
-				WhenCondition: &model.ActionStatusWhenCondition{
-					WhenConditionStatus: wcs,
-				},
+				WhenCondition: wc,
 			},
 		)
 	}
 }
 
-func (rr *RealRunner) processWhenConditions(ctx context.Context, mu *url.URL) (model.WhenConditionStatus, error) {
+func (rr *RealRunner) processWhenConditions(ctx context.Context, mu *url.URL) (*model.ActionStatusWhenCondition, error) {
 	_ = rr.putStatus(ctx, mu,
 		&model.ActionStatus{
 			WhenCondition: &model.ActionStatusWhenCondition{
+				Timestamp:           time.Now().UTC(),
 				WhenConditionStatus: model.WhenConditionStatusEvaluating,
 			},
 		})
 
 	whenConditionStatus, err := rr.evaluateConditions(ctx, mu)
 
+	whenCondition := &model.ActionStatusWhenCondition{
+		Timestamp:           time.Now().UTC(),
+		WhenConditionStatus: whenConditionStatus,
+	}
+
 	_ = rr.putStatus(ctx, mu,
 		&model.ActionStatus{
-			WhenCondition: &model.ActionStatusWhenCondition{
-				WhenConditionStatus: whenConditionStatus,
-			},
+			WhenCondition: whenCondition,
 		})
 
-	return whenConditionStatus, err
+	return whenCondition, err
 }
 
 func (rr *RealRunner) evaluateConditions(ctx context.Context, mu *url.URL) (model.WhenConditionStatus, error) {
@@ -430,12 +438,14 @@ func mapActionStatusRequest(as *model.ActionStatus) *api.PutActionStatusRequestE
 
 	if as.ProcessState != nil {
 		env.ProcessState = &api.ActionStatusProcessState{
-			ExitCode: as.ProcessState.ExitCode,
+			ExitCode:  as.ProcessState.ExitCode,
+			Timestamp: as.ProcessState.Timestamp,
 		}
 	}
 
 	if as.WhenCondition != nil {
 		env.WhenCondition = &api.ActionStatusWhenCondition{
+			Timestamp:           as.WhenCondition.Timestamp,
 			WhenConditionStatus: as.WhenCondition.WhenConditionStatus,
 		}
 	}
