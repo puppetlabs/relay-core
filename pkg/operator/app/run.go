@@ -114,14 +114,20 @@ func ConfigureStepStatus(ctx context.Context, rd *RunDeps, stepName string, acti
 		Name: stepName,
 	}
 
-	if status.Status != nil {
-		step.StartTime = status.Status.StartTime
-		step.CompletionTime = status.Status.CompletionTime
-	}
-
 	step.Logs = configureStepLogs(status, currentStepStatus)
 
 	actionStatus, _ := configmap.NewActionStatusManager(action, configMap).Get(ctx, action)
+
+	if actionStatus != nil {
+		if actionStatus.WhenCondition != nil &&
+			actionStatus.WhenCondition.WhenConditionStatus == model.WhenConditionStatusSatisfied {
+			step.StartTime = &metav1.Time{Time: actionStatus.WhenCondition.Timestamp}
+		}
+
+		if actionStatus.ProcessState != nil {
+			step.CompletionTime = &metav1.Time{Time: actionStatus.ProcessState.Timestamp}
+		}
+	}
 
 	step.Conditions = ConfigureRunStepStatusConditions(ctx, status, currentStepStatus, actionStatus)
 
@@ -209,7 +215,7 @@ func ConfigureRunStepStatusConditions(ctx context.Context,
 
 	for stepConditionType, stepCondition := range conds {
 		UpdateStatusConditionIfTransitioned(stepCondition, func() relayv1beta1.Condition {
-			return condition.StepConditionHandlers[stepConditionType](status, actionStatus)
+			return condition.StepConditionHandlers[stepConditionType](actionStatus)
 		})
 	}
 
