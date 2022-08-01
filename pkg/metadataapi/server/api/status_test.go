@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/opt"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/sample"
@@ -44,7 +45,8 @@ func TestPutActionStatus(t *testing.T) {
 
 	as := &model.ActionStatus{
 		ProcessState: &model.ActionStatusProcessState{
-			ExitCode: 1,
+			ExitCode:  1,
+			Timestamp: time.Now().UTC(),
 		},
 	}
 

@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	utilapi "github.com/puppetlabs/leg/httputil/api"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/errors"
@@ -11,10 +12,12 @@ import (
 )
 
 type ActionStatusProcessState struct {
-	ExitCode int `json:"exit_code"`
+	ExitCode  int       `json:"exit_code"`
+	Timestamp time.Time `json:"timestamp"`
 }
 
 type ActionStatusWhenCondition struct {
+	Timestamp           time.Time                 `json:"timestamp"`
 	WhenConditionStatus model.WhenConditionStatus `json:"when_condition_status"`
 }
 
@@ -48,12 +51,14 @@ func mapActionStatus(env PutActionStatusRequestEnvelope) *model.ActionStatus {
 
 	if env.ProcessState != nil {
 		as.ProcessState = &model.ActionStatusProcessState{
-			ExitCode: env.ProcessState.ExitCode,
+			ExitCode:  env.ProcessState.ExitCode,
+			Timestamp: env.ProcessState.Timestamp,
 		}
 	}
 
 	if env.WhenCondition != nil {
 		as.WhenCondition = &model.ActionStatusWhenCondition{
+			Timestamp:           env.WhenCondition.Timestamp,
 			WhenConditionStatus: env.WhenCondition.WhenConditionStatus,
 		}
 	}
