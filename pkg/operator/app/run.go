@@ -30,7 +30,6 @@ func ConfigureRunStatus(ctx context.Context, rd *RunDeps, pr *obj.PipelineRun) {
 		relayv1beta1.RunCancelled: {},
 		relayv1beta1.RunCompleted: {},
 		relayv1beta1.RunSucceeded: {},
-		relayv1beta1.RunTimedOut:  {},
 	}
 
 	for _, cond := range rd.Run.Object.Status.Conditions {
@@ -240,7 +239,6 @@ func ConfigureRunWithSpecificStatus(r *obj.Run, rc relayv1beta1.RunConditionType
 		relayv1beta1.RunCancelled: {},
 		relayv1beta1.RunCompleted: {},
 		relayv1beta1.RunSucceeded: {},
-		relayv1beta1.RunTimedOut:  {},
 	}
 
 	for _, cond := range r.Object.Status.Conditions {
