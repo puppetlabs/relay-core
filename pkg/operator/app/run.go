@@ -86,10 +86,8 @@ func ConfigureRunStepStatus(ctx context.Context, rd *RunDeps, pr *obj.PipelineRu
 		action := ModelStep(wr, step)
 		taskName := action.Hash().HexEncoding()
 
-		status, ok := statusByTaskName[taskName]
-		if !ok || status == nil {
-			continue
-		}
+		// FIXME Remove Tekton status entirely once legacy logging is removed
+		status, _ := statusByTaskName[taskName]
 
 		steps = append(steps,
 			ConfigureStepStatus(ctx, rd, step.Name, action,
@@ -123,7 +121,7 @@ func ConfigureStepStatus(ctx context.Context, rd *RunDeps, stepName string, acti
 		}
 	}
 
-	step.Conditions = ConfigureRunStepStatusConditions(ctx, status, currentStepStatus, actionStatus)
+	step.Conditions = ConfigureRunStepStatusConditions(ctx, currentStepStatus, actionStatus)
 
 	if timer, err := configmap.NewTimerManager(action, configMap).Get(ctx, model.TimerStepInit); err == nil {
 		step.InitializationTime = &metav1.Time{Time: timer.Time}
@@ -191,7 +189,7 @@ func ConfigureStepStatus(ctx context.Context, rd *RunDeps, stepName string, acti
 }
 
 func ConfigureRunStepStatusConditions(ctx context.Context,
-	status *tektonv1beta1.PipelineRunTaskRunStatus, currentStepStatus *relayv1beta1.StepStatus,
+	currentStepStatus *relayv1beta1.StepStatus,
 	actionStatus *model.ActionStatus) []relayv1beta1.StepCondition {
 	conds := map[relayv1beta1.StepConditionType]*relayv1beta1.Condition{
 		relayv1beta1.StepCompleted: {},
@@ -268,7 +266,7 @@ func isConditionEmpty(cond *relayv1beta1.Condition) bool {
 
 // FIXME Temporary handling for legacy logs
 func configureStepLogs(status *tektonv1beta1.PipelineRunTaskRunStatus, currentStepStatus *relayv1beta1.StepStatus) []*relayv1beta1.Log {
-	if status.Status == nil || status.Status.PodName == "" {
+	if status == nil || status.Status == nil || status.Status.PodName == "" {
 		return nil
 	}
 
