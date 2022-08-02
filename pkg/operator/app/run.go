@@ -55,12 +55,10 @@ func ConfigureRunStatus(ctx context.Context, rd *RunDeps) {
 
 	runConditions := make([]relayv1beta1.RunCondition, 0)
 	for runConditionType, condition := range conds {
-		if !isConditionEmpty(condition) {
-			runConditions = append(runConditions, relayv1beta1.RunCondition{
-				Condition: *condition,
-				Type:      runConditionType,
-			})
-		}
+		runConditions = append(runConditions, relayv1beta1.RunCondition{
+			Condition: *condition,
+			Type:      runConditionType,
+		})
 	}
 
 	rd.Run.Object.Status.Conditions = runConditions
@@ -217,12 +215,10 @@ func ConfigureRunStepStatusConditions(ctx context.Context,
 
 	stepConditions := make([]relayv1beta1.StepCondition, 0)
 	for stepConditionType, condition := range conds {
-		if !isConditionEmpty(condition) {
-			stepConditions = append(stepConditions, relayv1beta1.StepCondition{
-				Condition: *condition,
-				Type:      stepConditionType,
-			})
-		}
+		stepConditions = append(stepConditions, relayv1beta1.StepCondition{
+			Condition: *condition,
+			Type:      stepConditionType,
+		})
 	}
 
 	return stepConditions
