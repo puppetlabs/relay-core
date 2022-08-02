@@ -15,16 +15,12 @@ import (
 )
 
 func ConfigureRun(ctx context.Context, rd *RunDeps, pr *obj.PipelineRun) {
-	ConfigureRunStatus(ctx, rd, pr)
 	ConfigureRunStepStatus(ctx, rd, pr)
+	ConfigureRunStatus(ctx, rd)
 }
 
-func ConfigureRunStatus(ctx context.Context, rd *RunDeps, pr *obj.PipelineRun) {
+func ConfigureRunStatus(ctx context.Context, rd *RunDeps) {
 	rd.Run.Object.Status.ObservedGeneration = rd.Run.Object.GetGeneration()
-
-	configMap := configmap.NewLocalConfigMap(rd.MutableConfigMap.Object)
-
-	statuses, _ := configmap.NewActionStatusManager(nil, configMap).List(ctx)
 
 	conds := map[relayv1beta1.RunConditionType]*relayv1beta1.Condition{
 		relayv1beta1.RunCancelled: {},
@@ -40,7 +36,7 @@ func ConfigureRunStatus(ctx context.Context, rd *RunDeps, pr *obj.PipelineRun) {
 
 	for runConditionType, runCondition := range conds {
 		UpdateStatusConditionIfTransitioned(runCondition, func() relayv1beta1.Condition {
-			return condition.RunConditionHandlers[runConditionType](rd.Run, pr, statuses)
+			return condition.RunConditionHandlers[runConditionType](rd.Run)
 		})
 	}
 
