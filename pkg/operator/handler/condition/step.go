@@ -22,10 +22,16 @@ var stepCompletedHandler = StepConditionHandlerFunc(func(actionStatus *model.Act
 			return relayv1beta1.Condition{
 				Status: corev1.ConditionTrue,
 			}
-		} else if actionStatus.WhenCondition != nil &&
-			actionStatus.WhenCondition.WhenConditionStatus == model.WhenConditionStatusSatisfied {
-			return relayv1beta1.Condition{
-				Status: corev1.ConditionFalse,
+		} else if actionStatus.WhenCondition != nil {
+			switch actionStatus.WhenCondition.WhenConditionStatus {
+			case model.WhenConditionStatusFailure, model.WhenConditionStatusNotSatisfied:
+				return relayv1beta1.Condition{
+					Status: corev1.ConditionTrue,
+				}
+			case model.WhenConditionStatusSatisfied:
+				return relayv1beta1.Condition{
+					Status: corev1.ConditionFalse,
+				}
 			}
 		}
 	}
