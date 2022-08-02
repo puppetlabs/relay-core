@@ -50,18 +50,27 @@ var runCompletedHandler = RunConditionHandlerFunc(func(r *obj.Run) relayv1beta1.
 var runSucceededHandler = RunConditionHandlerFunc(func(r *obj.Run) relayv1beta1.Condition {
 	status := corev1.ConditionTrue
 	for _, step := range r.Object.Status.Steps {
+		successStatus := corev1.ConditionUnknown
+		skippedStatus := corev1.ConditionUnknown
+
 		for _, condition := range step.Conditions {
 			switch condition.Type {
 			case relayv1beta1.StepSucceeded:
-				switch condition.Status {
-				case corev1.ConditionFalse:
-					return relayv1beta1.Condition{
-						Status: corev1.ConditionFalse,
-					}
-				case corev1.ConditionUnknown:
-					status = corev1.ConditionUnknown
-				}
+				successStatus = condition.Status
+			case relayv1beta1.StepSkipped:
+				skippedStatus = condition.Status
 			}
+		}
+
+		if successStatus == corev1.ConditionFalse &&
+			skippedStatus == corev1.ConditionFalse {
+			return relayv1beta1.Condition{
+				Status: corev1.ConditionFalse,
+			}
+		}
+
+		if successStatus == corev1.ConditionUnknown {
+			status = corev1.ConditionUnknown
 		}
 	}
 
