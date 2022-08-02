@@ -2,13 +2,11 @@ package condition
 
 import (
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
-	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
 	corev1 "k8s.io/api/core/v1"
-	"knative.dev/pkg/apis"
 )
 
-type RunConditionHandlerFunc func(r *obj.Run, pr *obj.PipelineRun, statuses []*model.ActionStatus) relayv1beta1.Condition
+type RunConditionHandlerFunc func(r *obj.Run) relayv1beta1.Condition
 
 var (
 	RunConditionHandlers = map[relayv1beta1.RunConditionType]RunConditionHandlerFunc{
@@ -18,7 +16,7 @@ var (
 	}
 )
 
-var runCancelledHandler = RunConditionHandlerFunc(func(r *obj.Run, pr *obj.PipelineRun, statuses []*model.ActionStatus) relayv1beta1.Condition {
+var runCancelledHandler = RunConditionHandlerFunc(func(r *obj.Run) relayv1beta1.Condition {
 	if r.IsCancelled() {
 		return relayv1beta1.Condition{
 			Status: corev1.ConditionTrue,
@@ -30,60 +28,44 @@ var runCancelledHandler = RunConditionHandlerFunc(func(r *obj.Run, pr *obj.Pipel
 	}
 })
 
-var runCompletedHandler = RunConditionHandlerFunc(func(r *obj.Run, pr *obj.PipelineRun, statuses []*model.ActionStatus) relayv1beta1.Condition {
-	cs := pr.Object.Status.Status.GetCondition(apis.ConditionSucceeded)
-
-	if cs != nil {
-		switch cs.Status {
-		case corev1.ConditionTrue, corev1.ConditionFalse:
-			return relayv1beta1.Condition{
-				Status: corev1.ConditionTrue,
+var runCompletedHandler = RunConditionHandlerFunc(func(r *obj.Run) relayv1beta1.Condition {
+	for _, step := range r.Object.Status.Steps {
+		for _, condition := range step.Conditions {
+			switch condition.Type {
+			case relayv1beta1.StepCompleted:
+				if condition.Status != corev1.ConditionTrue {
+					return relayv1beta1.Condition{
+						Status: corev1.ConditionFalse,
+					}
+				}
 			}
-		}
-
-		return relayv1beta1.Condition{
-			Status: corev1.ConditionFalse,
 		}
 	}
 
 	return relayv1beta1.Condition{
-		Status: corev1.ConditionUnknown,
+		Status: corev1.ConditionTrue,
 	}
 })
 
-var runSucceededHandler = RunConditionHandlerFunc(func(r *obj.Run, pr *obj.PipelineRun, statuses []*model.ActionStatus) relayv1beta1.Condition {
-	// TODO Return failure status immediately if any step fails
-	// This requires changes to dependent services (external to relay-core)
-	stepFailures := false
-	for _, status := range statuses {
-		if failed, err := status.Failed(); err == nil && failed {
-			stepFailures = true
-			break
-		}
-	}
-
-	cs := pr.Object.Status.Status.GetCondition(apis.ConditionSucceeded)
-
-	if cs != nil {
-		switch cs.Status {
-		case corev1.ConditionFalse:
-			return relayv1beta1.Condition{
-				Status: corev1.ConditionFalse,
-			}
-		case corev1.ConditionTrue:
-			if stepFailures {
-				return relayv1beta1.Condition{
-					Status: corev1.ConditionFalse,
+var runSucceededHandler = RunConditionHandlerFunc(func(r *obj.Run) relayv1beta1.Condition {
+	status := corev1.ConditionTrue
+	for _, step := range r.Object.Status.Steps {
+		for _, condition := range step.Conditions {
+			switch condition.Type {
+			case relayv1beta1.StepSucceeded:
+				switch condition.Status {
+				case corev1.ConditionFalse:
+					return relayv1beta1.Condition{
+						Status: corev1.ConditionFalse,
+					}
+				case corev1.ConditionUnknown:
+					status = corev1.ConditionUnknown
 				}
-			}
-
-			return relayv1beta1.Condition{
-				Status: corev1.ConditionTrue,
 			}
 		}
 	}
 
 	return relayv1beta1.Condition{
-		Status: corev1.ConditionUnknown,
+		Status: status,
 	}
 })
