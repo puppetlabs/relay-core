@@ -52,6 +52,14 @@ func (rr *RealRunner) Run(args ...string) error {
 
 	ctx := context.Background()
 
+	// Receive system signals on "rr.signals"
+	if rr.signals == nil {
+		rr.signals = make(chan os.Signal, 1)
+	}
+	defer close(rr.signals)
+	signal.Notify(rr.signals)
+	defer signal.Reset()
+
 	if err := updatePath(); err != nil {
 		log.Println(err)
 	}
@@ -101,7 +109,36 @@ func (rr *RealRunner) Run(args ...string) error {
 	}
 
 	if mu != nil {
-		whenCondition, err = rr.processWhenConditions(ctx, mu)
+		_ = rr.putStatus(ctx, mu,
+			&model.ActionStatus{
+				WhenCondition: &model.ActionStatusWhenCondition{
+					Timestamp:           time.Now().UTC(),
+					WhenConditionStatus: model.WhenConditionStatusEvaluating,
+				},
+			})
+
+		whenContext, cancel := context.WithCancel(ctx)
+
+		go func() {
+			for s := range rr.signals {
+				switch s {
+				case syscall.SIGINT, syscall.SIGKILL, syscall.SIGQUIT, syscall.SIGTERM:
+					cancel()
+				}
+			}
+		}()
+
+		whenConditionStatus, err := rr.evaluateConditions(whenContext, mu)
+
+		whenCondition = &model.ActionStatusWhenCondition{
+			Timestamp:           time.Now().UTC(),
+			WhenConditionStatus: whenConditionStatus,
+		}
+
+		_ = rr.putStatus(ctx, mu,
+			&model.ActionStatus{
+				WhenCondition: whenCondition,
+			})
 		if err != nil {
 			return err
 		} else if whenCondition == nil ||
@@ -109,14 +146,6 @@ func (rr *RealRunner) Run(args ...string) error {
 			return nil
 		}
 	}
-
-	// Receive system signals on "rr.signals"
-	if rr.signals == nil {
-		rr.signals = make(chan os.Signal, 1)
-	}
-	defer close(rr.signals)
-	signal.Notify(rr.signals)
-	defer signal.Reset()
 
 	cmd := exec.Command(name, args...)
 
@@ -147,7 +176,8 @@ func (rr *RealRunner) Run(args ...string) error {
 	go func() {
 		for s := range rr.signals {
 			// Forward signal to main process and all children
-			if s != syscall.SIGCHLD {
+			switch s {
+			case syscall.SIGINT, syscall.SIGKILL, syscall.SIGQUIT, syscall.SIGTERM:
 				_ = syscall.Kill(-cmd.Process.Pid, s.(syscall.Signal))
 			}
 		}
@@ -214,30 +244,6 @@ func (rr *RealRunner) handleProcessState(ctx context.Context, mu *url.URL, ps *o
 			},
 		)
 	}
-}
-
-func (rr *RealRunner) processWhenConditions(ctx context.Context, mu *url.URL) (*model.ActionStatusWhenCondition, error) {
-	_ = rr.putStatus(ctx, mu,
-		&model.ActionStatus{
-			WhenCondition: &model.ActionStatusWhenCondition{
-				Timestamp:           time.Now().UTC(),
-				WhenConditionStatus: model.WhenConditionStatusEvaluating,
-			},
-		})
-
-	whenConditionStatus, err := rr.evaluateConditions(ctx, mu)
-
-	whenCondition := &model.ActionStatusWhenCondition{
-		Timestamp:           time.Now().UTC(),
-		WhenConditionStatus: whenConditionStatus,
-	}
-
-	_ = rr.putStatus(ctx, mu,
-		&model.ActionStatus{
-			WhenCondition: whenCondition,
-		})
-
-	return whenCondition, err
 }
 
 func (rr *RealRunner) evaluateConditions(ctx context.Context, mu *url.URL) (model.WhenConditionStatus, error) {
