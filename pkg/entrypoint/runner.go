@@ -30,7 +30,8 @@ import (
 )
 
 const (
-	DefaultResultsPath = "/tekton/results"
+	DefaultErrorExitCode = -1
+	DefaultResultsPath   = "/tekton/results"
 )
 
 type RealRunner struct {
@@ -51,6 +52,14 @@ func (rr *RealRunner) Run(args ...string) error {
 	}
 
 	ctx := context.Background()
+
+	// Receive system signals on "rr.signals"
+	if rr.signals == nil {
+		rr.signals = make(chan os.Signal, 1)
+	}
+	defer close(rr.signals)
+	signal.Notify(rr.signals)
+	defer signal.Reset()
 
 	if err := updatePath(); err != nil {
 		log.Println(err)
@@ -95,39 +104,14 @@ func (rr *RealRunner) Run(args ...string) error {
 		}
 	}
 
-	cmd := exec.Command(name, args...)
-
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-
-	stdoutPipe, err := cmd.StdoutPipe()
-	if err != nil {
-		return err
-	}
-	stderrPipe, err := cmd.StderrPipe()
-	if err != nil {
-		return err
-	}
-
-	doneOut := make(chan bool)
-	doneErr := make(chan bool)
-
-	scannerOut := bufio.NewScanner(stdoutPipe)
-	scannerErr := bufio.NewScanner(stderrPipe)
-
-	go rr.scan(ctx, mu, scannerOut, os.Stdout, logOut, doneOut)
-	go rr.scan(ctx, mu, scannerErr, os.Stderr, logErr, doneErr)
+	var cmd *exec.Cmd
 
 	whenContext, cancel := context.WithCancel(ctx)
 
-	if rr.signals == nil {
-		rr.signals = make(chan os.Signal, 1)
-	}
-	defer close(rr.signals)
-	signal.Notify(rr.signals)
-	defer signal.Reset()
-
+	// Goroutine for signals forwarding
 	go func() {
 		for s := range rr.signals {
+			// Forward signal to main process and all children
 			switch s {
 			case syscall.SIGINT, syscall.SIGKILL, syscall.SIGQUIT, syscall.SIGTERM:
 				cancel()
@@ -172,9 +156,39 @@ func (rr *RealRunner) Run(args ...string) error {
 		}
 	}
 
+	cmd = exec.Command(name, args...)
+
+	// dedicated PID group used to forward signals to
+	// main process and all children
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+	stderrPipe, err := cmd.StderrPipe()
+	if err != nil {
+		return err
+	}
+
+	doneOut := make(chan bool)
+	doneErr := make(chan bool)
+
+	scannerOut := bufio.NewScanner(stdoutPipe)
+	scannerErr := bufio.NewScanner(stderrPipe)
+
+	if whenContext.Err() != nil {
+		rr.handleProcessState(ctx, mu, nil, whenCondition)
+
+		return nil
+	}
+
 	if err := cmd.Start(); err != nil {
 		return err
 	}
+
+	go rr.scan(ctx, mu, scannerOut, os.Stdout, logOut, doneOut)
+	go rr.scan(ctx, mu, scannerErr, os.Stderr, logErr, doneErr)
 
 	<-doneOut
 	<-doneErr
@@ -186,7 +200,8 @@ func (rr *RealRunner) Run(args ...string) error {
 			return nil
 		}
 
-		// FIXME Consider how to represent system errors
+		rr.handleProcessState(ctx, mu, nil, whenCondition)
+
 		return err
 	}
 
@@ -223,11 +238,15 @@ func updatePath() error {
 }
 
 func (rr *RealRunner) handleProcessState(ctx context.Context, mu *url.URL, ps *os.ProcessState, wc *model.ActionStatusWhenCondition) {
-	if ps != nil && mu != nil {
+	if mu != nil {
+		exitCode := DefaultErrorExitCode
+		if ps != nil {
+			exitCode = ps.ExitCode()
+		}
 		_ = rr.putStatus(ctx, mu,
 			&model.ActionStatus{
 				ProcessState: &model.ActionStatusProcessState{
-					ExitCode:  ps.ExitCode(),
+					ExitCode:  exitCode,
 					Timestamp: time.Now().UTC(),
 				},
 				WhenCondition: wc,
