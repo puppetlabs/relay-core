@@ -30,7 +30,8 @@ import (
 )
 
 const (
-	DefaultResultsPath = "/tekton/results"
+	DefaultErrorExitCode = -1
+	DefaultResultsPath   = "/tekton/results"
 )
 
 type RealRunner struct {
@@ -103,6 +104,25 @@ func (rr *RealRunner) Run(args ...string) error {
 		}
 	}
 
+	var cmd *exec.Cmd
+
+	whenContext, cancel := context.WithCancel(ctx)
+
+	// Goroutine for signals forwarding
+	go func() {
+		for s := range rr.signals {
+			// Forward signal to main process and all children
+			switch s {
+			case syscall.SIGINT, syscall.SIGKILL, syscall.SIGQUIT, syscall.SIGTERM:
+				cancel()
+
+				if cmd != nil && cmd.Process != nil {
+					_ = syscall.Kill(-cmd.Process.Pid, s.(syscall.Signal))
+				}
+			}
+		}
+	}()
+
 	whenCondition := &model.ActionStatusWhenCondition{
 		Timestamp:           time.Now().UTC(),
 		WhenConditionStatus: model.WhenConditionStatusUnknown,
@@ -116,17 +136,6 @@ func (rr *RealRunner) Run(args ...string) error {
 					WhenConditionStatus: model.WhenConditionStatusEvaluating,
 				},
 			})
-
-		whenContext, cancel := context.WithCancel(ctx)
-
-		go func() {
-			for s := range rr.signals {
-				switch s {
-				case syscall.SIGINT, syscall.SIGKILL, syscall.SIGQUIT, syscall.SIGTERM:
-					cancel()
-				}
-			}
-		}()
 
 		whenConditionStatus, err := rr.evaluateConditions(whenContext, mu)
 
@@ -147,7 +156,7 @@ func (rr *RealRunner) Run(args ...string) error {
 		}
 	}
 
-	cmd := exec.Command(name, args...)
+	cmd = exec.Command(name, args...)
 
 	// dedicated PID group used to forward signals to
 	// main process and all children
@@ -168,20 +177,15 @@ func (rr *RealRunner) Run(args ...string) error {
 	scannerOut := bufio.NewScanner(stdoutPipe)
 	scannerErr := bufio.NewScanner(stderrPipe)
 
+	if whenContext.Err() != nil {
+		rr.handleProcessState(ctx, mu, nil, whenCondition)
+
+		return nil
+	}
+
 	if err := cmd.Start(); err != nil {
 		return err
 	}
-
-	// Goroutine for signals forwarding
-	go func() {
-		for s := range rr.signals {
-			// Forward signal to main process and all children
-			switch s {
-			case syscall.SIGINT, syscall.SIGKILL, syscall.SIGQUIT, syscall.SIGTERM:
-				_ = syscall.Kill(-cmd.Process.Pid, s.(syscall.Signal))
-			}
-		}
-	}()
 
 	go rr.scan(ctx, mu, scannerOut, os.Stdout, logOut, doneOut)
 	go rr.scan(ctx, mu, scannerErr, os.Stderr, logErr, doneErr)
@@ -196,7 +200,8 @@ func (rr *RealRunner) Run(args ...string) error {
 			return nil
 		}
 
-		// FIXME Consider how to represent system errors
+		rr.handleProcessState(ctx, mu, nil, whenCondition)
+
 		return err
 	}
 
@@ -233,11 +238,15 @@ func updatePath() error {
 }
 
 func (rr *RealRunner) handleProcessState(ctx context.Context, mu *url.URL, ps *os.ProcessState, wc *model.ActionStatusWhenCondition) {
-	if ps != nil && mu != nil {
+	if mu != nil {
+		exitCode := DefaultErrorExitCode
+		if ps != nil {
+			exitCode = ps.ExitCode()
+		}
 		_ = rr.putStatus(ctx, mu,
 			&model.ActionStatus{
 				ProcessState: &model.ActionStatusProcessState{
-					ExitCode:  ps.ExitCode(),
+					ExitCode:  exitCode,
 					Timestamp: time.Now().UTC(),
 				},
 				WhenCondition: wc,
