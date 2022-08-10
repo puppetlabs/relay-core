@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -21,11 +22,16 @@ import (
 	"time"
 
 	"github.com/puppetlabs/leg/timeutil/pkg/retry"
-	exprmodel "github.com/puppetlabs/relay-core/pkg/expr/model"
+	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/api"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-pls/pkg/plspb"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
+)
+
+const (
+	DefaultErrorExitCode = -1
+	DefaultResultsPath   = "/tekton/results"
 )
 
 type RealRunner struct {
@@ -40,14 +46,20 @@ var _ Runner = (*RealRunner)(nil)
 // Many errors that might occur should not necessarily abort the basic command processing
 // Logging these errors should potentially not occur either, as it adds internal information
 // Logging command outputs should default more cleanly to the standard streams
-// Additionally, integration tests will not (currently) have access to the Metadata API
-// and can cause multiple issues...
 func (rr *RealRunner) Run(args ...string) error {
 	if len(args) == 0 {
 		return nil
 	}
 
 	ctx := context.Background()
+
+	// Receive system signals on "rr.signals"
+	if rr.signals == nil {
+		rr.signals = make(chan os.Signal, 1)
+	}
+	defer close(rr.signals)
+	signal.Notify(rr.signals)
+	defer signal.Reset()
 
 	if err := updatePath(); err != nil {
 		log.Println(err)
@@ -59,7 +71,6 @@ func (rr *RealRunner) Run(args ...string) error {
 
 	name, args := args[0], args[1:]
 
-	// TODO Move the bulk of this logic into the "initialization" command/phase
 	mu := rr.Config.MetadataAPIURL
 	if mu != nil {
 		if err := rr.getEnvironmentVariables(ctx, mu); err != nil {
@@ -93,15 +104,59 @@ func (rr *RealRunner) Run(args ...string) error {
 		}
 	}
 
-	// Receive system signals on "rr.signals"
-	if rr.signals == nil {
-		rr.signals = make(chan os.Signal, 1)
-	}
-	defer close(rr.signals)
-	signal.Notify(rr.signals)
-	defer signal.Reset()
+	var cmd *exec.Cmd
 
-	cmd := exec.Command(name, args...)
+	whenContext, cancel := context.WithCancel(ctx)
+
+	// Goroutine for signals forwarding
+	go func() {
+		for s := range rr.signals {
+			// Forward signal to main process and all children
+			switch s {
+			case syscall.SIGINT, syscall.SIGKILL, syscall.SIGQUIT, syscall.SIGTERM:
+				cancel()
+
+				if cmd != nil && cmd.Process != nil {
+					_ = syscall.Kill(-cmd.Process.Pid, s.(syscall.Signal))
+				}
+			}
+		}
+	}()
+
+	whenCondition := &model.ActionStatusWhenCondition{
+		Timestamp:           time.Now().UTC(),
+		WhenConditionStatus: model.WhenConditionStatusUnknown,
+	}
+
+	if mu != nil {
+		_ = rr.putStatus(ctx, mu,
+			&model.ActionStatus{
+				WhenCondition: &model.ActionStatusWhenCondition{
+					Timestamp:           time.Now().UTC(),
+					WhenConditionStatus: model.WhenConditionStatusEvaluating,
+				},
+			})
+
+		whenConditionStatus, err := rr.evaluateConditions(whenContext, mu)
+
+		whenCondition = &model.ActionStatusWhenCondition{
+			Timestamp:           time.Now().UTC(),
+			WhenConditionStatus: whenConditionStatus,
+		}
+
+		_ = rr.putStatus(ctx, mu,
+			&model.ActionStatus{
+				WhenCondition: whenCondition,
+			})
+		if err != nil {
+			return err
+		} else if whenCondition == nil ||
+			whenCondition.WhenConditionStatus != model.WhenConditionStatusSatisfied {
+			return nil
+		}
+	}
+
+	cmd = exec.Command(name, args...)
 
 	// dedicated PID group used to forward signals to
 	// main process and all children
@@ -122,19 +177,15 @@ func (rr *RealRunner) Run(args ...string) error {
 	scannerOut := bufio.NewScanner(stdoutPipe)
 	scannerErr := bufio.NewScanner(stderrPipe)
 
+	if whenContext.Err() != nil {
+		rr.handleProcessState(ctx, mu, nil, whenCondition)
+
+		return nil
+	}
+
 	if err := cmd.Start(); err != nil {
 		return err
 	}
-
-	// Goroutine for signals forwarding
-	go func() {
-		for s := range rr.signals {
-			// Forward signal to main process and all children
-			if s != syscall.SIGCHLD {
-				_ = syscall.Kill(-cmd.Process.Pid, s.(syscall.Signal))
-			}
-		}
-	}()
 
 	go rr.scan(ctx, mu, scannerOut, os.Stdout, logOut, doneOut)
 	go rr.scan(ctx, mu, scannerErr, os.Stderr, logErr, doneErr)
@@ -143,17 +194,18 @@ func (rr *RealRunner) Run(args ...string) error {
 	<-doneErr
 
 	if err := cmd.Wait(); err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			rr.handleProcessState(ctx, mu, exitErr.ProcessState, whenCondition)
+
+			return nil
+		}
+
+		rr.handleProcessState(ctx, mu, nil, whenCondition)
+
 		return err
 	}
 
-	if cmd.ProcessState != nil && mu != nil {
-		if err := rr.putStatus(ctx, mu,
-			&model.ActionStatus{
-				ExitCode: cmd.ProcessState.ExitCode(),
-			}); err != nil {
-			log.Println(err)
-		}
-	}
+	rr.handleProcessState(ctx, mu, cmd.ProcessState, whenCondition)
 
 	return nil
 }
@@ -185,6 +237,78 @@ func updatePath() error {
 	return os.Setenv("PATH", currentPath+":/var/lib/puppet/relay")
 }
 
+func (rr *RealRunner) handleProcessState(ctx context.Context, mu *url.URL, ps *os.ProcessState, wc *model.ActionStatusWhenCondition) {
+	if mu != nil {
+		exitCode := DefaultErrorExitCode
+		if ps != nil {
+			exitCode = ps.ExitCode()
+		}
+		_ = rr.putStatus(ctx, mu,
+			&model.ActionStatus{
+				ProcessState: &model.ActionStatusProcessState{
+					ExitCode:  exitCode,
+					Timestamp: time.Now().UTC(),
+				},
+				WhenCondition: wc,
+			},
+		)
+	}
+}
+
+func (rr *RealRunner) evaluateConditions(ctx context.Context, mu *url.URL) (model.WhenConditionStatus, error) {
+	ee := &url.URL{Path: "/conditions"}
+
+	req, err := http.NewRequestWithContext(
+		ctx, http.MethodGet, mu.ResolveReference(ee).String(), http.NoBody)
+	if err != nil {
+		return model.WhenConditionStatusFailure, err
+	}
+
+	// TODO This needs to be configurable
+	contextWithTimeout, cancel := context.WithTimeout(ctx, 60*time.Minute)
+	defer cancel()
+
+	success := false
+	err = retry.Wait(contextWithTimeout, func(ctx context.Context) (bool, error) {
+		resp, err := rr.getResponse(ctx, req, []retry.WaitOption{})
+		if err != nil {
+			return retry.Done(err)
+		}
+		defer resp.Body.Close()
+
+		switch resp.StatusCode {
+		case http.StatusOK:
+			var env api.GetConditionsResponseEnvelope
+			if err := json.NewDecoder(resp.Body).Decode(&env); err != nil {
+				if err == io.EOF {
+					success = true
+					return retry.Done(nil)
+				}
+
+				return retry.Done(err)
+			}
+
+			if !env.Resolved {
+				return retry.Repeat(errors.New("conditions not resolved"))
+			}
+
+			success = env.Success
+			return retry.Done(nil)
+		default:
+			return retry.Done(nil)
+		}
+	})
+	if err != nil {
+		return model.WhenConditionStatusFailure, err
+	}
+
+	if !success {
+		return model.WhenConditionStatusNotSatisfied, nil
+	}
+
+	return model.WhenConditionStatusSatisfied, nil
+}
+
 func (rr *RealRunner) getEnvironmentVariables(ctx context.Context, mu *url.URL) error {
 	ee := &url.URL{Path: "/environment"}
 
@@ -200,7 +324,7 @@ func (rr *RealRunner) getEnvironmentVariables(ctx context.Context, mu *url.URL) 
 	}
 	defer resp.Body.Close()
 
-	var r exprmodel.JSONResultEnvelope
+	var r api.GetSpecResponseEnvelope
 	if err := json.NewDecoder(resp.Body).Decode(&r); err != nil {
 		return err
 	}
@@ -302,7 +426,9 @@ func (rr *RealRunner) postLogMessage(ctx context.Context, mu *url.URL, request *
 func (rr *RealRunner) putStatus(ctx context.Context, mu *url.URL, status *model.ActionStatus) error {
 	le := &url.URL{Path: "/status"}
 
-	buf, err := json.Marshal(status)
+	env := mapActionStatusRequest(status)
+
+	buf, err := json.Marshal(env)
 	if err != nil {
 		return err
 	}
@@ -320,6 +446,26 @@ func (rr *RealRunner) putStatus(ctx context.Context, mu *url.URL, status *model.
 	defer resp.Body.Close()
 
 	return nil
+}
+
+func mapActionStatusRequest(as *model.ActionStatus) *api.PutActionStatusRequestEnvelope {
+	env := &api.PutActionStatusRequestEnvelope{}
+
+	if as.ProcessState != nil {
+		env.ProcessState = &api.ActionStatusProcessState{
+			ExitCode:  as.ProcessState.ExitCode,
+			Timestamp: as.ProcessState.Timestamp,
+		}
+	}
+
+	if as.WhenCondition != nil {
+		env.WhenCondition = &api.ActionStatusWhenCondition{
+			Timestamp:           as.WhenCondition.Timestamp,
+			WhenConditionStatus: as.WhenCondition.WhenConditionStatus,
+		}
+	}
+
+	return env
 }
 
 // validateSchemas calls validation endpoints on the metadata-api to validate

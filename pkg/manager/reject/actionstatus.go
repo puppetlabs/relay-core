@@ -8,6 +8,10 @@ import (
 
 type actionStatusManager struct{}
 
+func (*actionStatusManager) List(ctx context.Context) ([]*model.ActionStatus, error) {
+	return nil, model.ErrRejected
+}
+
 func (*actionStatusManager) Get(ctx context.Context, action model.Action) (*model.ActionStatus, error) {
 	return nil, model.ErrRejected
 }

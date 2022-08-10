@@ -64,7 +64,6 @@ func processStatuses(ctx context.Context, c client.Client, meter *metric.Meter) 
 			attrs := []attribute.KeyValue{}
 
 			switch cond.Type {
-			case relayv1beta1.RunCancelled, relayv1beta1.RunSucceeded, relayv1beta1.RunTimedOut:
 			case relayv1beta1.RunCompleted:
 				switch cond.Status {
 				case corev1.ConditionFalse:

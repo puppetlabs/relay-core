@@ -32,10 +32,6 @@ jobs:
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
         restore-keys: |
           ${{ runner.os }}-go-
-    - name: Set up Buildah
-      run: |
-        mkdir -p ~/.config/containers
-        cp -r hack/containers/* ~/.config/containers
     - name: Build
       run: scripts/ci build
     - name: Authenticate to Google Cloud
@@ -55,6 +51,8 @@ jobs:
       matrix:
         include:
         - k3s-image: rancher/k3s:v1.21.9-k3s1
+        - k3s-image: rancher/k3s:v1.20.15-k3s1
+        - k3s-image: rancher/k3s:v1.21.9-k3s1
           gvisor-version: 'latest'
         - k3s-image: rancher/k3s:v1.21.9-k3s1
           gvisor-version: '20220124'
@@ -62,6 +60,7 @@ jobs:
           gvisor-version: '20220124'
     env:
       KUBECONFIG: /tmp/kubeconfig
+      KO_DOCKER_REPO: k3d-registry.localhost:5000
     steps:
     - uses: actions/setup-go@v2
       with:
@@ -76,6 +75,7 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-go-
     - name: Download gVisor
+      if: matrix.gvisor-version
       run: |
         mkdir -p ${{ runner.temp }}/gvisor && cd ${{ runner.temp }}/gvisor
         for binary in runsc containerd-shim-runsc-v1; do
@@ -89,20 +89,30 @@ jobs:
     - id: install-k3d
       name: Install k3d
       run: curl -s https://raw.githubusercontent.com/rancher/k3d/main/install.sh | bash
+    - name: Set up Docker registry
+      run: k3d registry create registry.localhost --port 5000
     - name: Set up Kubernetes cluster
       run: |
-        k3d registry create registry.localhost --port 5000
         k3d cluster create relay-core-test \
+        ${{ matrix.gvisor-version && format('\
+          --volume {0}/gvisor/runsc:/sbin/runsc \
+          --volume {0}/gvisor/containerd-shim-runsc-v1:/sbin/containerd-shim-runsc-v1 \
+          --volume {1}/hack/tests/e2e/gvisor/runsc.toml:/etc/containerd/runsc.toml \
+          --volume {1}/hack/tests/e2e/gvisor/config-v1.19.toml.tmpl:/var/lib/rancher/k3s/agent/etc/containerd/config.toml.tmpl \
+          --volume {1}/hack/tests/e2e/gvisor/runtimeclass-runsc.yaml:/var/lib/rancher/k3s/server/manifests/runtimeclass-runsc.yaml \
+        ', runner.temp, github.workspace) }} \
           --image ${{ matrix.k3s-image }} \
-          --volume ${{ runner.temp }}/gvisor/runsc:/sbin/runsc \
-          --volume ${{ runner.temp }}/gvisor/containerd-shim-runsc-v1:/sbin/containerd-shim-runsc-v1 \
-          --volume ${{ github.workspace }}/hack/k3s/runsc.toml:/etc/containerd/runsc.toml \
-          --volume ${{ github.workspace }}/hack/k3s/config-v1.19.toml.tmpl:/var/lib/rancher/k3s/agent/etc/containerd/config.toml.tmpl \
           --k3s-arg '--flannel-backend=none@server:*' \
           --k3s-arg '--no-deploy=traefik@server:*' \
           --k3s-arg '--disable-network-policy@server:*' \
-          --registry-use k3d-registry.localhost:5000 \
-          --registry-config ${{ github.workspace }}/hack/k3d/registry-config.yaml
+          --registry-use k3d-registry.localhost:5000
+    - name: Review Docker containers
+      if: always()
+      run: docker ps -a
+    - name: Review Docker logs for k3d
+      if: success() || steps.install-k3d.outcome == 'success'
+      run: |
+        k3d node list --no-headers | cut -d' ' -f1 | xargs -n1 docker logs
     - name: Install Calico
       run: |
         kubectl create -f https://docs.projectcalico.org/archive/v3.20/manifests/tigera-operator.yaml
@@ -111,26 +121,12 @@ jobs:
           sleep 5
         done
         kubectl wait --for=condition=established --timeout=60s crd installations.operator.tigera.io
-        kubectl apply -f ${{ github.workspace }}/hack/k3s/calico.yaml
-    - name: Review Docker containers
-      if: always()
-      run: docker ps -a
-    - name: Review Docker logs for k3d
-      if: success() || steps.install-k3d.outcome == 'success'
-      run: |
-        k3d node list --no-headers | cut -d' ' -f1 | xargs -n1 docker logs
+        kubectl apply -f hack/tests/e2e/manifests/calico/installation.yaml
     - name: Test
       env:
         RELAY_TEST_E2E_KUBECONFIG: ${{ env.KUBECONFIG }}
-        RELAY_TEST_E2E_GVISOR_HANDLER: runsc
-      run: |
-        export KO_DOCKER_REPO=localhost:5000
-        go run \
-          github.com/google/ko build \
-            --base-import-paths \
-            --image-refs ${{ runner.temp }}/runtime-tools-image-refs \
-            ./cmd/relay-runtime-tools
-        export RELAY_TEST_INTERNAL_RUNTIME_TOOLS_IMAGE=$(cat ${{ runner.temp }}/runtime-tools-image-refs)
+        RELAY_TEST_E2E_MANIFEST: relay-system${{ matrix.gvisor-version && '-gvisor' }}
+      run:
         scripts/ci test
   deploy:
     needs:

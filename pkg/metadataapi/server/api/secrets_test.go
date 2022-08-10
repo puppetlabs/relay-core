@@ -29,9 +29,9 @@ func TestGetSecret(t *testing.T) {
 			"baz": "",
 		},
 		Runs: map[string]*opt.SampleConfigRun{
-			"test": &opt.SampleConfigRun{
+			"test": {
 				Steps: map[string]*opt.SampleConfigStep{
-					"test-task": &opt.SampleConfigStep{},
+					"test-task": {},
 				},
 			},
 		},

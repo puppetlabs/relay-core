@@ -1,0 +1,7 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- ../../../../../manifests
+images:
+- name: us-docker.pkg.dev/puppet-relay-contrib-oss/relay-core/relay-installer
+  newName: ko://github.com/puppetlabs/relay-core/cmd/relay-installer

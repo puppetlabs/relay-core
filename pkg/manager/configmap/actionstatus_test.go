@@ -25,7 +25,9 @@ func TestActionStatusManager(t *testing.T) {
 				Name: "test-step",
 			},
 			ActionStatus: &model.ActionStatus{
-				ExitCode: 1,
+				ProcessState: &model.ActionStatusProcessState{
+					ExitCode: 1,
+				},
 			},
 		},
 		{
@@ -34,15 +36,15 @@ func TestActionStatusManager(t *testing.T) {
 				Name: "test-trigger",
 			},
 			ActionStatus: &model.ActionStatus{
-				ExitCode: 1,
+				ProcessState: &model.ActionStatusProcessState{
+					ExitCode: 1,
+				},
 			},
 		},
 	}
 
 	for _, test := range tcs {
 		t.Run(test.Name, func(t *testing.T) {
-			t.Parallel()
-
 			obj := &corev1.ConfigMap{}
 			am := configmap.NewActionStatusManager(test.Action, configmap.NewLocalConfigMap(obj))
 
@@ -52,11 +54,21 @@ func TestActionStatusManager(t *testing.T) {
 			actual, err := am.Get(ctx, test.Action)
 			require.NoError(t, err)
 
-			switch test.Action.Type() {
-			case model.ActionTypeStep:
-				require.Equal(t, test.ActionStatus, actual)
-			case model.ActionTypeTrigger:
+			aml, err := am.List(ctx)
+			require.NoError(t, err)
+
+			switch at := test.Action.(type) {
+			case *model.Step:
+				expected := &model.ActionStatus{
+					Name:          at.Name,
+					ProcessState:  test.ActionStatus.ProcessState,
+					WhenCondition: test.ActionStatus.WhenCondition,
+				}
+				require.Equal(t, expected, actual)
+				require.Len(t, aml, 1)
+			case *model.Trigger:
 				require.Nil(t, actual)
+				require.Len(t, aml, 0)
 			default:
 				require.Fail(t, "unexpected action type")
 			}

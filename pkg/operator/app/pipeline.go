@@ -16,9 +16,8 @@ const ToolsWorkspaceName = "tools"
 type PipelineParts struct {
 	Deps *RunDeps
 
-	Tasks      *TaskSet
-	Conditions *ConditionSet
-	Pipeline   *obj.Pipeline
+	Tasks    *TaskSet
+	Pipeline *obj.Pipeline
 }
 
 var _ lifecycle.LabelAnnotatableFrom = &PipelineParts{}
@@ -29,7 +28,6 @@ var _ lifecycle.Persister = &PipelineParts{}
 func (pp *PipelineParts) LabelAnnotateFrom(ctx context.Context, from metav1.Object) {
 	lafs := []lifecycle.LabelAnnotatableFrom{
 		pp.Tasks,
-		pp.Conditions,
 		pp.Pipeline,
 	}
 	for _, laf := range lafs {
@@ -40,7 +38,6 @@ func (pp *PipelineParts) LabelAnnotateFrom(ctx context.Context, from metav1.Obje
 func (pp *PipelineParts) Load(ctx context.Context, cl client.Client) (bool, error) {
 	return lifecycle.Loaders{
 		pp.Tasks,
-		pp.Conditions,
 		pp.Pipeline,
 	}.Load(ctx, cl)
 }
@@ -48,7 +45,6 @@ func (pp *PipelineParts) Load(ctx context.Context, cl client.Client) (bool, erro
 func (pp *PipelineParts) Owned(ctx context.Context, owner lifecycle.TypedObject) error {
 	return lifecycle.OwnablePersisters{
 		pp.Tasks,
-		pp.Conditions,
 		pp.Pipeline,
 	}.Owned(ctx, owner)
 }
@@ -56,7 +52,6 @@ func (pp *PipelineParts) Owned(ctx context.Context, owner lifecycle.TypedObject)
 func (pp *PipelineParts) Persist(ctx context.Context, cl client.Client) error {
 	return lifecycle.OwnablePersisters{
 		pp.Tasks,
-		pp.Conditions,
 		pp.Pipeline,
 	}.Persist(ctx, cl)
 }
@@ -65,8 +60,7 @@ func NewPipelineParts(deps *RunDeps) *PipelineParts {
 	return &PipelineParts{
 		Deps: deps,
 
-		Tasks:      NewTaskSet(deps),
-		Conditions: NewConditionSet(deps),
+		Tasks: NewTaskSet(deps),
 		Pipeline: obj.NewPipeline(
 			client.ObjectKey{
 				Namespace: deps.WorkflowDeps.TenantDeps.Namespace.Name,
@@ -92,10 +86,6 @@ func ConfigurePipelineParts(ctx context.Context, p *PipelineParts) error {
 		return err
 	}
 
-	if err := ConfigureConditionSet(ctx, p.Conditions); err != nil {
-		return err
-	}
-
 	if err := ConfigureTaskSet(ctx, p.Tasks); err != nil {
 		return err
 	}
@@ -115,17 +105,6 @@ func ConfigurePipelineParts(ctx context.Context, p *PipelineParts) error {
 			TaskRef: &tektonv1beta1.TaskRef{
 				Name: t.Key.Name,
 			},
-			RunAfter: make([]string, len(ws.DependsOn)),
-		}
-
-		for i, dep := range ws.DependsOn {
-			pt.RunAfter[i] = ModelStepFromName(p.Deps.Run, dep).Hash().HexEncoding()
-		}
-
-		if cond, ok := p.Conditions.GetByStepName(ws.Name); ok {
-			pt.Conditions = []tektonv1beta1.PipelineTaskCondition{
-				{ConditionRef: cond.Key.Name},
-			}
 		}
 
 		pt.Workspaces = []tektonv1beta1.WorkspacePipelineTaskBinding{

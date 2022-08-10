@@ -4,7 +4,6 @@ import (
 	"context"
 	"sync"
 
-	"github.com/puppetlabs/relay-core/pkg/expr/parse"
 	"github.com/puppetlabs/relay-core/pkg/model"
 )
 
@@ -31,7 +30,7 @@ func (m *ConditionManager) Set(ctx context.Context, value interface{}) (*model.C
 	defer m.mut.Unlock()
 
 	m.val = &model.Condition{
-		Tree: parse.Tree(value),
+		Tree: value,
 	}
 
 	return m.val, nil
@@ -42,7 +41,7 @@ type ConditionManagerOption func(cm *ConditionManager)
 func ConditionManagerWithInitialCondition(value interface{}) ConditionManagerOption {
 	return func(cm *ConditionManager) {
 		cm.val = &model.Condition{
-			Tree: parse.Tree(value),
+			Tree: value,
 		}
 	}
 }

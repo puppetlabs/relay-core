@@ -58,12 +58,6 @@ func (r *RunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 					attribute.String(model.MetricAttributeOutcome, string(model.WorkflowRunStatusFailure)),
 				}
 			}
-		case relayv1beta1.RunTimedOut:
-			if cond.Status == corev1.ConditionTrue {
-				attrs = []attribute.KeyValue{
-					attribute.String(model.MetricAttributeOutcome, string(model.WorkflowRunStatusTimedOut)),
-				}
-			}
 		}
 
 		if len(attrs) > 0 {

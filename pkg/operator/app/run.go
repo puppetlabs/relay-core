@@ -15,29 +15,20 @@ import (
 )
 
 func ConfigureRun(ctx context.Context, rd *RunDeps, pr *obj.PipelineRun) {
-	ConfigureRunStatus(rd.Run, pr)
 	ConfigureRunStepStatus(ctx, rd, pr)
+	ConfigureRunStatus(ctx, rd)
 }
 
-func ConfigureRunStatus(r *obj.Run, pr *obj.PipelineRun) {
-	r.Object.Status.ObservedGeneration = r.Object.GetGeneration()
-
-	if then := pr.Object.Status.StartTime; then != nil {
-		r.Object.Status.StartTime = then
-	}
-
-	if then := pr.Object.Status.CompletionTime; then != nil {
-		r.Object.Status.CompletionTime = then
-	}
+func ConfigureRunStatus(ctx context.Context, rd *RunDeps) {
+	rd.Run.Object.Status.ObservedGeneration = rd.Run.Object.GetGeneration()
 
 	conds := map[relayv1beta1.RunConditionType]*relayv1beta1.Condition{
 		relayv1beta1.RunCancelled: {},
 		relayv1beta1.RunCompleted: {},
 		relayv1beta1.RunSucceeded: {},
-		relayv1beta1.RunTimedOut:  {},
 	}
 
-	for _, cond := range r.Object.Status.Conditions {
+	for _, cond := range rd.Run.Object.Status.Conditions {
 		if target, ok := conds[cond.Type]; ok {
 			*target = cond.Condition
 		}
@@ -45,22 +36,32 @@ func ConfigureRunStatus(r *obj.Run, pr *obj.PipelineRun) {
 
 	for runConditionType, runCondition := range conds {
 		UpdateStatusConditionIfTransitioned(runCondition, func() relayv1beta1.Condition {
-			return condition.RunConditionHandlers[runConditionType](r, pr)
+			return condition.RunConditionHandlers[runConditionType](rd.Run)
 		})
+	}
 
+	if rd.Run.Object.Status.StartTime == nil {
+		rd.Run.Object.Status.StartTime = &metav1.Time{Time: time.Now()}
+	}
+
+	if rd.Run.Object.Status.CompletionTime == nil {
+		if condition, ok := conds[relayv1beta1.RunCompleted]; ok {
+			if !isConditionEmpty(condition) &&
+				condition.Status == corev1.ConditionTrue {
+				rd.Run.Object.Status.CompletionTime = &condition.LastTransitionTime
+			}
+		}
 	}
 
 	runConditions := make([]relayv1beta1.RunCondition, 0)
 	for runConditionType, condition := range conds {
-		if !isConditionEmpty(condition) {
-			runConditions = append(runConditions, relayv1beta1.RunCondition{
-				Condition: *condition,
-				Type:      runConditionType,
-			})
-		}
+		runConditions = append(runConditions, relayv1beta1.RunCondition{
+			Condition: *condition,
+			Type:      runConditionType,
+		})
 	}
 
-	r.Object.Status.Conditions = runConditions
+	rd.Run.Object.Status.Conditions = runConditions
 }
 
 func ConfigureRunStepStatus(ctx context.Context, rd *RunDeps, pr *obj.PipelineRun) {
@@ -85,10 +86,8 @@ func ConfigureRunStepStatus(ctx context.Context, rd *RunDeps, pr *obj.PipelineRu
 		action := ModelStep(wr, step)
 		taskName := action.Hash().HexEncoding()
 
-		status, ok := statusByTaskName[taskName]
-		if !ok || status == nil {
-			continue
-		}
+		// FIXME Remove Tekton status entirely once legacy logging is removed
+		status, _ := statusByTaskName[taskName]
 
 		steps = append(steps,
 			ConfigureStepStatus(ctx, rd, step.Name, action,
@@ -107,14 +106,22 @@ func ConfigureStepStatus(ctx context.Context, rd *RunDeps, stepName string, acti
 		Name: stepName,
 	}
 
-	if status.Status != nil {
-		step.StartTime = status.Status.StartTime
-		step.CompletionTime = status.Status.CompletionTime
-	}
-
 	step.Logs = configureStepLogs(status, currentStepStatus)
 
-	step.Conditions = ConfigureRunStepStatusConditions(ctx, status, currentStepStatus)
+	actionStatus, _ := configmap.NewActionStatusManager(action, configMap).Get(ctx, action)
+
+	if actionStatus != nil {
+		if actionStatus.WhenCondition != nil &&
+			actionStatus.WhenCondition.WhenConditionStatus == model.WhenConditionStatusSatisfied {
+			step.StartTime = &metav1.Time{Time: actionStatus.WhenCondition.Timestamp}
+		}
+
+		if actionStatus.ProcessState != nil {
+			step.CompletionTime = &metav1.Time{Time: actionStatus.ProcessState.Timestamp}
+		}
+	}
+
+	step.Conditions = ConfigureRunStepStatusConditions(ctx, currentStepStatus, actionStatus)
 
 	if timer, err := configmap.NewTimerManager(action, configMap).Get(ctx, model.TimerStepInit); err == nil {
 		step.InitializationTime = &metav1.Time{Time: timer.Time}
@@ -182,7 +189,8 @@ func ConfigureStepStatus(ctx context.Context, rd *RunDeps, stepName string, acti
 }
 
 func ConfigureRunStepStatusConditions(ctx context.Context,
-	status *tektonv1beta1.PipelineRunTaskRunStatus, currentStepStatus *relayv1beta1.StepStatus) []relayv1beta1.StepCondition {
+	currentStepStatus *relayv1beta1.StepStatus,
+	actionStatus *model.ActionStatus) []relayv1beta1.StepCondition {
 	conds := map[relayv1beta1.StepConditionType]*relayv1beta1.Condition{
 		relayv1beta1.StepCompleted: {},
 		relayv1beta1.StepSkipped:   {},
@@ -199,18 +207,16 @@ func ConfigureRunStepStatusConditions(ctx context.Context,
 
 	for stepConditionType, stepCondition := range conds {
 		UpdateStatusConditionIfTransitioned(stepCondition, func() relayv1beta1.Condition {
-			return condition.StepConditionHandlers[stepConditionType](status)
+			return condition.StepConditionHandlers[stepConditionType](actionStatus)
 		})
 	}
 
 	stepConditions := make([]relayv1beta1.StepCondition, 0)
 	for stepConditionType, condition := range conds {
-		if !isConditionEmpty(condition) {
-			stepConditions = append(stepConditions, relayv1beta1.StepCondition{
-				Condition: *condition,
-				Type:      stepConditionType,
-			})
-		}
+		stepConditions = append(stepConditions, relayv1beta1.StepCondition{
+			Condition: *condition,
+			Type:      stepConditionType,
+		})
 	}
 
 	return stepConditions
@@ -229,7 +235,6 @@ func ConfigureRunWithSpecificStatus(r *obj.Run, rc relayv1beta1.RunConditionType
 		relayv1beta1.RunCancelled: {},
 		relayv1beta1.RunCompleted: {},
 		relayv1beta1.RunSucceeded: {},
-		relayv1beta1.RunTimedOut:  {},
 	}
 
 	for _, cond := range r.Object.Status.Conditions {
@@ -261,7 +266,7 @@ func isConditionEmpty(cond *relayv1beta1.Condition) bool {
 
 // FIXME Temporary handling for legacy logs
 func configureStepLogs(status *tektonv1beta1.PipelineRunTaskRunStatus, currentStepStatus *relayv1beta1.StepStatus) []*relayv1beta1.Log {
-	if status.Status == nil || status.Status.PodName == "" {
+	if status == nil || status.Status == nil || status.Status.PodName == "" {
 		return nil
 	}
 

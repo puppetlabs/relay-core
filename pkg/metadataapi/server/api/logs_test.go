@@ -10,11 +10,10 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/puppetlabs/relay-core/pkg/expr/serialize"
-	sdktestutil "github.com/puppetlabs/relay-core/pkg/expr/testutil"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/opt"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/sample"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/api"
+	"github.com/puppetlabs/relay-core/pkg/spec"
 	"github.com/puppetlabs/relay-pls/pkg/plspb"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -31,28 +30,28 @@ func TestPostLog(t *testing.T) {
 			"test-secret-key": "test-secret-value",
 		},
 		Runs: map[string]*opt.SampleConfigRun{
-			"test": &opt.SampleConfigRun{
+			"test": {
 				Steps: map[string]*opt.SampleConfigStep{
-					"previous-task": &opt.SampleConfigStep{
+					"previous-task": {
 						Outputs: map[string]interface{}{
 							"test-output-key": "test-output-value",
 						},
 					},
-					"current-task": &opt.SampleConfigStep{
+					"current-task": {
 						Spec: opt.SampleConfigSpec{
-							"superSecret": serialize.YAMLTree{
-								Tree: sdktestutil.JSONSecret("test-secret-key"),
+							"superSecret": spec.YAMLTree{
+								Tree: "${secrets.test-secret-key}",
 							},
-							"superOutput": serialize.YAMLTree{
-								Tree: sdktestutil.JSONOutput("previous-task", "test-output-key"),
+							"superOutput": spec.YAMLTree{
+								Tree: "${outputs.previous-task.test-output-key}",
 							},
 						},
 						Env: opt.SampleConfigEnvironment{
-							"test-environment-variable-from-secret": serialize.YAMLTree{
-								Tree: sdktestutil.JSONSecret("test-secret-key"),
+							"test-environment-variable-from-secret": spec.YAMLTree{
+								Tree: "${secrets.test-secret-key}",
 							},
-							"test-environment-variable-from-output": serialize.YAMLTree{
-								Tree: sdktestutil.JSONOutput("previous-task", "test-output-key"),
+							"test-environment-variable-from-output": spec.YAMLTree{
+								Tree: "${outputs.previous-task.test-output-key}",
 							},
 						},
 					},

@@ -4,7 +4,6 @@ import (
 	"context"
 	"sync"
 
-	"github.com/puppetlabs/relay-core/pkg/expr/parse"
 	"github.com/puppetlabs/relay-core/pkg/model"
 )
 
@@ -26,18 +25,12 @@ func (m *EnvironmentManager) Get(ctx context.Context) (*model.Environment, error
 	return m.val, nil
 }
 
-func (m *EnvironmentManager) Set(ctx context.Context, value map[string]interface{}) (*model.Environment, error) {
+func (m *EnvironmentManager) Set(ctx context.Context, value map[string]any) (*model.Environment, error) {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
-	evs := make(map[string]parse.Tree)
-
-	for name, ev := range value {
-		evs[name] = parse.Tree(ev)
-	}
-
 	m.val = &model.Environment{
-		Value: evs,
+		Value: value,
 	}
 
 	return m.val, nil
@@ -45,16 +38,10 @@ func (m *EnvironmentManager) Set(ctx context.Context, value map[string]interface
 
 type EnvironmentManagerOption func(em *EnvironmentManager)
 
-func EnvironmentManagerWithInitialEnvironment(value map[string]interface{}) EnvironmentManagerOption {
+func EnvironmentManagerWithInitialEnvironment(value map[string]any) EnvironmentManagerOption {
 	return func(em *EnvironmentManager) {
-		evs := make(map[string]parse.Tree)
-
-		for name, ev := range value {
-			evs[name] = parse.Tree(ev)
-		}
-
 		em.val = &model.Environment{
-			Value: evs,
+			Value: value,
 		}
 	}
 }

@@ -22,7 +22,7 @@ func withMockMetadataAPI(t *testing.T, fn func(ts *httptest.Server), opts mockMe
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		handler, _ := shiftPath(r.URL.Path)
 		switch handler {
-		case "environment", "validate", "logs", "timers":
+		case "conditions", "environment", "logs", "status", "timers", "validate":
 			if _, ok := seed[handler]; !ok {
 				seed[handler] = time.Now()
 			}
@@ -63,23 +63,6 @@ func TestEntrypointRunnerWithoutMetadataAPIURL(t *testing.T) {
 		Runner: &entrypoint.RealRunner{
 			Config: &entrypoint.Config{
 				DefaultTimeout: 3 * time.Second,
-				SecureLogging:  false,
-			},
-		},
-	}
-
-	err := e.Go()
-	require.NoError(t, err)
-}
-
-func TestEntrypointRunnerWithInvalidMetadataAPIURL(t *testing.T) {
-	e := entrypoint.Entrypointer{
-		Entrypoint: "ls",
-		Args:       []string{"-la"},
-		Runner: &entrypoint.RealRunner{
-			Config: &entrypoint.Config{
-				DefaultTimeout: 3 * time.Second,
-				MetadataAPIURL: &url.URL{Scheme: "http", Host: "invalid"},
 				SecureLogging:  false,
 			},
 		},

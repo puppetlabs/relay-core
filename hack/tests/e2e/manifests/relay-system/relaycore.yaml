@@ -1,0 +1,21 @@
+apiVersion: install.relay.sh/v1alpha1
+kind: RelayCore
+metadata:
+  name: relay-core-test
+  namespace: relay-system
+spec:
+  environment: test
+  debug: true
+  metadataAPI:
+    image: ko://github.com/puppetlabs/relay-core/cmd/relay-metadata-api
+  operator:
+    image: ko://github.com/puppetlabs/relay-core/cmd/relay-operator
+    standalone: true
+    tenantNamespace: null
+    admissionWebhookServer:
+      certificateControllerImage: ko://github.com/puppetlabs/relay-core/cmd/relay-operator-webhook-certificate-controller
+    toolInjection:
+      image: ko://github.com/puppetlabs/relay-core/cmd/relay-runtime-tools
+  vault:
+    engine:
+      vaultInitializationImage: ko://github.com/puppetlabs/relay-core/cmd/relay-operator-vault-init

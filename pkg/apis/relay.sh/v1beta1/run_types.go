@@ -45,9 +45,6 @@ const (
 
 	// RunSucceeded indicates a run has succeeded.
 	RunSucceeded RunConditionType = "Succeeded"
-
-	// RunTimedOut indicates a run has timed out.
-	RunTimedOut RunConditionType = "TimedOut"
 )
 
 type RunCondition struct {
@@ -55,7 +52,7 @@ type RunCondition struct {
 
 	// Type is the identifier for this condition.
 	//
-	// +kubebuilder:validation:Enum=Cancelled;Completed;Succeeded;TimedOut
+	// +kubebuilder:validation:Enum=Cancelled;Completed;Succeeded
 	Type RunConditionType `json:"type"`
 }
 

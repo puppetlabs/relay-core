@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/hashicorp/vault/api"
 	"github.com/puppetlabs/relay-core/pkg/manager/vault"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/util/testutil"
@@ -15,7 +16,11 @@ import (
 func TestConnectionManager(t *testing.T) {
 	ctx := context.Background()
 
-	testutil.WithVault(t, func(vcfg *testutil.Vault) {
+	testutil.WithVaultClient(t, func(client *api.Client) {
+		require.NoError(t, client.Sys().Mount("kv-test", &api.MountInput{
+			Type: "kv-v2",
+		}))
+
 		id := uuid.New().String()
 
 		// Write data.
@@ -25,7 +30,7 @@ func TestConnectionManager(t *testing.T) {
 			"flub": "wh\nup",
 		}
 		for k, v := range attrs {
-			_, err := vcfg.Client.Logical().Write(path.Join(vcfg.SecretsPath, "data", "foo", id, k), map[string]interface{}{
+			_, err := client.Logical().Write(path.Join("kv-test/data/foo", id, k), map[string]interface{}{
 				"data": map[string]interface{}{
 					"value": v,
 				},
@@ -34,14 +39,14 @@ func TestConnectionManager(t *testing.T) {
 		}
 
 		// Write pointer.
-		_, err := vcfg.Client.Logical().Write(path.Join(vcfg.SecretsPath, "data", "foo/some-type/test"), map[string]interface{}{
+		_, err := client.Logical().Write("kv-test/data/foo/some-type/test", map[string]interface{}{
 			"data": map[string]interface{}{
 				"value": id,
 			},
 		})
 		require.NoError(t, err)
 
-		cm := vault.NewConnectionManager(vault.NewKVV2Client(vcfg.Client, vcfg.SecretsPath).In("foo"))
+		cm := vault.NewConnectionManager(vault.NewKVV2Client(client, "kv-test").In("foo"))
 
 		conn, err := cm.Get(ctx, "some-type", "test")
 		require.NoError(t, err)

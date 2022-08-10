@@ -6,8 +6,6 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/puppetlabs/relay-core/pkg/expr/parse"
-	"github.com/puppetlabs/relay-core/pkg/expr/testutil"
 	"github.com/puppetlabs/relay-core/pkg/manager/configmap"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/stretchr/testify/require"
@@ -26,14 +24,10 @@ func TestStepMessageManager(t *testing.T) {
 		ID:      uuid.NewString(),
 		Details: errors.New("An error has occurred").Error(),
 		ConditionEvaluationResult: &model.ConditionEvaluationResult{
-			Expression: parse.Tree([]interface{}{
-				testutil.JSONInvocation("equals", []interface{}{
-					testutil.JSONParameter("param1"), "foobar",
-				}),
-				testutil.JSONInvocation("notEquals", []interface{}{
-					testutil.JSONParameter("param2"), "barfoo",
-				}),
-			}),
+			Expression: []interface{}{
+				"${parameters.param1 == 'foobar'}",
+				"${parameters.param2 != 'barfoo'}",
+			},
 		},
 	}
 

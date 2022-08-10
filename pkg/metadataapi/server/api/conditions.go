@@ -7,12 +7,12 @@ import (
 
 	"github.com/google/uuid"
 	utilapi "github.com/puppetlabs/leg/httputil/api"
-	"github.com/puppetlabs/relay-core/pkg/expr/evaluate"
-	expression "github.com/puppetlabs/relay-core/pkg/expr/model"
-	"github.com/puppetlabs/relay-core/pkg/manager/resolve"
+	"github.com/puppetlabs/leg/relspec/pkg/evaluate"
+	"github.com/puppetlabs/relay-core/pkg/manager/specadapter"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/errors"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/middleware"
 	"github.com/puppetlabs/relay-core/pkg/model"
+	"github.com/puppetlabs/relay-core/pkg/spec"
 )
 
 type GetConditionsResponseEnvelope struct {
@@ -42,15 +42,16 @@ func (s *Server) GetConditions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ev := evaluate.NewEvaluator(
-		evaluate.WithConnectionTypeResolver{ConnectionTypeResolver: resolve.NewConnectionTypeResolver(managers.Connections())},
-		evaluate.WithSecretTypeResolver{SecretTypeResolver: resolve.NewSecretTypeResolver(managers.Secrets())},
-		evaluate.WithParameterTypeResolver{ParameterTypeResolver: resolve.NewParameterTypeResolver(managers.Parameters())},
-		evaluate.WithOutputTypeResolver{OutputTypeResolver: resolve.NewOutputTypeResolver(managers.StepOutputs())},
-		evaluate.WithAnswerTypeResolver{AnswerTypeResolver: resolve.NewAnswerTypeResolver(managers.State())},
+	ev := spec.NewEvaluator(
+		spec.WithConnectionTypeResolver{ConnectionTypeResolver: specadapter.NewConnectionTypeResolver(managers.Connections())},
+		spec.WithSecretTypeResolver{SecretTypeResolver: specadapter.NewSecretTypeResolver(managers.Secrets())},
+		spec.WithParameterTypeResolver{ParameterTypeResolver: specadapter.NewParameterTypeResolver(managers.Parameters())},
+		spec.WithOutputTypeResolver{OutputTypeResolver: specadapter.NewOutputTypeResolver(managers.StepOutputs())},
+		spec.WithAnswerTypeResolver{AnswerTypeResolver: specadapter.NewAnswerTypeResolver(managers.State())},
+		spec.WithStatusTypeResolver{StatusTypeResolver: specadapter.NewStatusTypeResolver(managers.ActionStatus())},
 	)
 
-	rv, err := expression.EvaluateAll(ctx, ev, condition.Tree)
+	rv, err := evaluate.EvaluateAll(ctx, ev, condition.Tree)
 	if err != nil {
 		message := err.Error()
 		addStepMessage(r, message,
@@ -71,7 +72,7 @@ check:
 		for _, cond := range vt {
 			result, ok := cond.(bool)
 			if !ok {
-				if rv.Complete() {
+				if rv.OK() {
 					err := errors.NewConditionTypeError(fmt.Sprintf("%T", cond))
 					addStepMessage(r, err.Error(),
 						&model.ConditionEvaluationResult{
@@ -89,7 +90,7 @@ check:
 			}
 		}
 	default:
-		if rv.Complete() {
+		if rv.OK() {
 			err := errors.NewConditionTypeError(fmt.Sprintf("%T", vt))
 			addStepMessage(r, err.Error(),
 				&model.ConditionEvaluationResult{
@@ -101,7 +102,7 @@ check:
 	}
 
 	resp := GetConditionsResponseEnvelope{
-		Resolved: rv.Complete(),
+		Resolved: rv.OK(),
 	}
 
 	if failed {
@@ -115,13 +116,7 @@ check:
 
 	// Not being complete means there are unresolved "expressions" for this tree. These can include
 	// parameters, outputs, secrets, etc.
-	if !rv.Complete() {
-		uerr, ok := rv.Unresolvable.AsError().(*expression.UnresolvableError)
-		if !ok {
-			// This should never happen.
-			utilapi.WriteError(ctx, w, errors.NewModelReadError().WithCause(uerr).Bug())
-		}
-
+	if uerr := rv.References.ToError(); uerr != nil {
 		causes := make([]string, len(uerr.Causes))
 		for i, cause := range uerr.Causes {
 			causes[i] = cause.Error()

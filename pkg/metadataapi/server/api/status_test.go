@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/opt"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/sample"
@@ -43,7 +44,10 @@ func TestPutActionStatus(t *testing.T) {
 	h := api.NewHandler(sample.NewAuthenticator(sc, tokenGenerator.Key()))
 
 	as := &model.ActionStatus{
-		ExitCode: 1,
+		ProcessState: &model.ActionStatusProcessState{
+			ExitCode:  1,
+			Timestamp: time.Now().UTC(),
+		},
 	}
 
 	buf := new(bytes.Buffer)

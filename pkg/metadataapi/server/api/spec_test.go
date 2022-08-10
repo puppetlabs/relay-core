@@ -8,13 +8,11 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/puppetlabs/relay-core/pkg/expr/model"
-	"github.com/puppetlabs/relay-core/pkg/expr/serialize"
-	sdktestutil "github.com/puppetlabs/relay-core/pkg/expr/testutil"
 	"github.com/puppetlabs/relay-core/pkg/manager/memory"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/opt"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/sample"
 	"github.com/puppetlabs/relay-core/pkg/metadataapi/server/api"
+	"github.com/puppetlabs/relay-core/pkg/spec"
 	"github.com/stretchr/testify/require"
 )
 
@@ -51,31 +49,28 @@ func TestGetSpec(t *testing.T) {
 					},
 					"current-task": {
 						Spec: opt.SampleConfigSpec{
-							"superParameter": serialize.YAMLTree{
-								Tree: sdktestutil.JSONParameter("nice-parameter"),
+							"superParameter": spec.YAMLTree{
+								Tree: "${parameters.nice-parameter}",
 							},
-							"superSecret": serialize.YAMLTree{
-								Tree: sdktestutil.JSONSecret("test-secret-key"),
+							"superSecret": spec.YAMLTree{
+								Tree: "${secrets.test-secret-key}",
 							},
-							"superOutput": serialize.YAMLTree{
-								Tree: sdktestutil.JSONOutput("previous-task", "test-output-key"),
+							"superOutput": spec.YAMLTree{
+								Tree: "${outputs.previous-task.test-output-key}",
 							},
-							"structuredOutput": serialize.YAMLTree{
-								Tree: sdktestutil.JSONOutput("previous-task", "test-structured-output-key"),
+							"structuredOutput": spec.YAMLTree{
+								Tree: "${outputs.previous-task.test-structured-output-key}",
 							},
-							"superConnection": serialize.YAMLTree{
-								Tree: sdktestutil.JSONConnection("aws", "test-aws-connection"),
+							"superConnection": spec.YAMLTree{
+								Tree: "${connections.aws.test-aws-connection}",
 							},
-							"mergedConnection": serialize.YAMLTree{
-								Tree: sdktestutil.JSONInvocation("merge", []interface{}{
-									sdktestutil.JSONConnection("aws", "test-aws-connection"),
-									map[string]interface{}{"merge": "me"},
-								}),
+							"mergedConnection": spec.YAMLTree{
+								Tree: "${merge(connections.aws.test-aws-connection, {'merge': 'me'})}",
 							},
-							"superNormal": serialize.YAMLTree{
+							"superNormal": spec.YAMLTree{
 								Tree: "test-normal-value",
 							},
-							"superExpansion": serialize.YAMLTree{
+							"superExpansion": spec.YAMLTree{
 								Tree: "${$}",
 							},
 						},
@@ -101,7 +96,7 @@ func TestGetSpec(t *testing.T) {
 	h.ServeHTTP(resp, req)
 	require.Equal(t, http.StatusOK, resp.Result().StatusCode)
 
-	var r model.JSONResultEnvelope
+	var r api.GetSpecResponseEnvelope
 	require.NoError(t, json.NewDecoder(resp.Result().Body).Decode(&r))
 	require.Equal(t, map[string]interface{}{
 		"superParameter": "nice-value",
@@ -156,7 +151,7 @@ func TestGetSpec(t *testing.T) {
 	h.ServeHTTP(resp, req)
 	require.Equal(t, http.StatusOK, resp.Result().StatusCode)
 
-	r = model.JSONResultEnvelope{}
+	r = api.GetSpecResponseEnvelope{}
 	require.NoError(t, json.NewDecoder(resp.Result().Body).Decode(&r))
 	require.Equal(t, "value", r.Value.Data)
 	require.True(t, r.Complete)
@@ -171,7 +166,7 @@ func TestGetSpec(t *testing.T) {
 	h.ServeHTTP(resp, req)
 	require.Equal(t, http.StatusOK, resp.Result().StatusCode)
 
-	r = model.JSONResultEnvelope{}
+	r = api.GetSpecResponseEnvelope{}
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&r))
 	require.Equal(t, "value", r.Value.Data)
 	require.True(t, r.Complete)

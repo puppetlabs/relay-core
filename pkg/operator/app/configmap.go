@@ -5,10 +5,12 @@ import (
 	"fmt"
 
 	corev1obj "github.com/puppetlabs/leg/k8sutil/pkg/controller/obj/api/corev1"
+	"github.com/puppetlabs/leg/relspec/pkg/evaluate"
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/manager/configmap"
 	"github.com/puppetlabs/relay-core/pkg/model"
 	"github.com/puppetlabs/relay-core/pkg/obj"
+	"github.com/puppetlabs/relay-core/pkg/spec"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -101,11 +103,10 @@ func ConfigureImmutableConfigMapForRun(ctx context.Context, cm *corev1obj.Config
 			}
 		}
 
-		if step.When != nil {
-			if when := step.When.Value(); when != nil {
-				if _, err := configmap.NewConditionManager(sm, lcm).Set(ctx, when); err != nil {
-					return err
-				}
+		when := enrichWhenConditions(ctx, step)
+		if len(when) > 0 {
+			if _, err := configmap.NewConditionManager(sm, lcm).Set(ctx, when); err != nil {
+				return err
 			}
 		}
 
@@ -149,4 +150,42 @@ func configVolumeKey(action model.Action) string {
 
 func scriptConfigMapKey(action model.Action) string {
 	return fmt.Sprintf("%s.%s.script", action.Type().Plural, action.Hash())
+}
+
+func enrichWhenConditions(ctx context.Context, step *relayv1beta1.Step) []interface{} {
+	when := make([]interface{}, 0)
+
+	useDefaultDependencyFlow := map[string]bool{}
+	for _, dependency := range step.DependsOn {
+		useDefaultDependencyFlow[dependency] = true
+	}
+
+	if step.When != nil && step.When.Value() != nil {
+		existing, ok := step.When.Value().([]interface{})
+		if ok {
+			when = append(when, existing...)
+		} else {
+			when = append(when, step.When.Value())
+		}
+
+		if r, err := evaluate.EvaluateAll(ctx, spec.NewEvaluator(), step.When.Value()); err == nil {
+			if r != nil && r.References != nil && r.References.Statuses != nil {
+				for _, v := range r.References.Statuses.UsedReferences() {
+					useDefaultDependencyFlow[v.ID().Action] = false
+				}
+			}
+		}
+	}
+
+	for dependency, useDefault := range useDefaultDependencyFlow {
+		if useDefault {
+			// TODO Implement a more programmatic way of adding expressions without using the explicit expression language.
+			// TODO Consider adding internal conditions to separate generated expressions from user-defined ones.
+			when = append(when,
+				fmt.Sprintf("${steps.'%s'.%s}",
+					dependency, model.StatusPropertySucceeded.String()))
+		}
+	}
+
+	return when
 }
