@@ -73,16 +73,6 @@ func (rr *RealRunner) Run(args ...string) error {
 
 	mu := rr.Config.MetadataAPIURL
 	if mu != nil {
-		if err := rr.getEnvironmentVariables(ctx, mu); err != nil {
-			log.Println(err)
-		}
-
-		if name != path.Join(model.InputScriptMountPath, model.InputScriptName) {
-			if err := rr.validateSchemas(ctx, mu); err != nil {
-				log.Println(err)
-			}
-		}
-
 		if rr.Config.SecureLogging {
 			logOut, err = rr.postLog(ctx, mu, &plspb.LogCreateRequest{
 				Name: "stdout",
@@ -153,6 +143,18 @@ func (rr *RealRunner) Run(args ...string) error {
 		} else if whenCondition == nil ||
 			whenCondition.WhenConditionStatus != model.WhenConditionStatusSatisfied {
 			return nil
+		}
+	}
+
+	if mu != nil {
+		if err := rr.getEnvironmentVariables(ctx, mu); err != nil {
+			log.Println(err)
+		}
+
+		if name != path.Join(model.InputScriptMountPath, model.InputScriptName) {
+			if err := rr.validateSchemas(ctx, mu); err != nil {
+				log.Println(err)
+			}
 		}
 	}
 
