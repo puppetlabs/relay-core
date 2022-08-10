@@ -40,8 +40,6 @@ to (and we may never do so!).
 ## Making changes
 
 * Clone the repository into your own namespace.
-* Always branch off of `development`, our default branch. We use the `master`
-  branch for integration to our production environment.
 * Make commits of logical and atomic units.
 * Check for unnecessary whitespace with `git diff --check` before committing.
 * Make sure your commit messages are in the proper format. We (try to!) follow
