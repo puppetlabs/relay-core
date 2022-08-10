@@ -1,14 +1,13 @@
 # Relay Core
 
-This repository contains the Kubernetes-based execution backend for
-[Relay](https://relay.sh).
+This repository contains a Kubernetes-based execution engine for running workflows or processing webhook triggers.
 
 ## Installation
 
-In the near future, we hope to provide a Helm chart or Kustomizations to let you
-easily deploy this project to your own cluster. In the meantime, please reach
-out to us on [Slack](https://slack.puppet.com/) in the #relay channel and we'll
-help you out!
+```bash
+kustomize build manifests | kubectl apply -f -
+kustomize build examples/install | kubectl apply -f -
+```
 
 ### Requirements
 
