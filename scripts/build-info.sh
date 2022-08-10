@@ -11,7 +11,7 @@ fi
 export RELAY_CORE_BRANCH
 
 export RELAY_CORE_RELEASE_LATEST=
-[ "${RELAY_CORE_BRANCH}" = "master" ] && [ "${GITHUB_EVENT_NAME}" = "push" ] && export RELAY_CORE_RELEASE_LATEST=true
+[ "${RELAY_CORE_BRANCH}" = "main" ] && [ "${GITHUB_EVENT_NAME}" = "push" ] && export RELAY_CORE_RELEASE_LATEST=true
 
 DIRTY=
 [ -n "$(git status --porcelain --untracked-files=no)" ] && DIRTY="-dirty"
@@ -31,7 +31,7 @@ declare -A RELAY_WORKFLOWS
 
 [ -r "$(dirname "$0")/relay-deploy.sh" ] && source "$(dirname "$0")/relay-deploy.sh"
 
-RELAY_WORKFLOWS[master]=nebula-prod-1
+RELAY_WORKFLOWS[main]=nebula-prod-1
 
 if [ -n "${RELAY_CORE_BRANCH}" ]; then
     RELAY_WORKFLOW=${RELAY_WORKFLOWS["$RELAY_CORE_BRANCH"]:-}
