@@ -78,18 +78,6 @@ func (r *RunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		}
 	}
 
-	var initTime time.Time
-	for _, step := range wr.Status.Steps {
-		if step.InitializationTime != nil && (initTime.IsZero() || step.InitializationTime.Time.Before(initTime)) {
-			initTime = step.InitializationTime.Time
-		}
-	}
-
-	if !initTime.IsZero() {
-		initTimeRecorder := metric.Must(*r.meter).NewInt64ValueRecorder(model.MetricWorkflowRunInitTimeSeconds)
-		initTimeRecorder.Record(ctx, int64(initTime.Sub(wr.CreationTimestamp.Time)/time.Second), attrs...)
-	}
-
 	return ctrl.Result{}, nil
 }
 
