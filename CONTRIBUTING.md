@@ -7,11 +7,7 @@ on Relay-related projects are subject to [Puppet Community Code of
 Conduct](https://puppet.com/community/community-guidelines/).
 
 Make sure there's not some existing code or a discussion that covers the change
-you want to make by searching existing Github issues. However, since much of
-Relay's development history happened prior to its public launch,  it's safest to
-[file a Github issue in the Relay
-project](https://github.com/puppetlabs/relay/issues) to chat with the team
-before starting any complex work.
+you want to make by searching existing Github issues.
 
 To make it easier to contribute while still staying in the good graces of our
 (super wonderful!) Legal department, we require a [Developer Certificate of
@@ -23,7 +19,7 @@ the rationale behind the DCO. As a practical matter, this means adding the `-s |
 ## Running tests
 
 The integration tests in this repository require a running Kubernetes cluster
-(not just a control plane). We recommend using [kind](https://kind.sigs.k8s.io/)
+(not just a control plane). We recommend using [k3d](https://github.com/k3d-io/k3d) or [kind](https://kind.sigs.k8s.io/)
 locally. You don't need any special configuration for it to work with our tests.
 
 Assuming you have a Kubeconfig file at `/tmp/kubeconfig` with the current
@@ -55,6 +51,5 @@ to (and we may never do so!).
 
 * [Puppet community guidelines](https://puppet.com/community/community-guidelines)
 * [Puppet community Slack](https://slack.puppet.com)
-* [Relay issue tracker](https://github.com/puppetlabs/relay/issues)
 * [General GitHub documentation](https://help.github.com/)
 * [GitHub pull request documentation](https://help.github.com/articles/creating-a-pull-request/)
