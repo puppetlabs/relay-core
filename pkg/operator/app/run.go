@@ -123,10 +123,6 @@ func ConfigureStepStatus(ctx context.Context, rd *RunDeps, stepName string, acti
 
 	step.Conditions = ConfigureRunStepStatusConditions(ctx, currentStepStatus, actionStatus)
 
-	if timer, err := configmap.NewTimerManager(action, configMap).Get(ctx, model.TimerStepInit); err == nil {
-		step.InitializationTime = &metav1.Time{Time: timer.Time}
-	}
-
 	step.Messages = make([]*relayv1beta1.StepMessage, 0)
 	if messages, err := configmap.NewStepMessageManager(action, configMap).List(ctx); err == nil {
 		for _, message := range messages {

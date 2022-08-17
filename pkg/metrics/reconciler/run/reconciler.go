@@ -2,7 +2,6 @@ package run
 
 import (
 	"context"
-	"time"
 
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/metrics/model"
@@ -63,18 +62,6 @@ func (r *RunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		if len(attrs) > 0 {
 			counter := metric.Must(*r.meter).NewInt64Counter(model.MetricWorkflowRunOutcome)
 			counter.Add(ctx, 1, attrs...)
-		}
-	}
-
-	attrs := []attribute.KeyValue{}
-
-	if wr.Status.CompletionTime != nil {
-		totalTimeRecorder := metric.Must(*r.meter).NewInt64ValueRecorder(model.MetricWorkflowRunTotalTimeSeconds)
-		totalTimeRecorder.Record(ctx, int64(wr.Status.CompletionTime.Sub(wr.CreationTimestamp.Time)/time.Second), attrs...)
-
-		if wr.Status.StartTime != nil {
-			execTimeRecorder := metric.Must(*r.meter).NewInt64ValueRecorder(model.MetricWorkflowRunExecutionTimeSeconds)
-			execTimeRecorder.Record(ctx, int64(wr.Status.CompletionTime.Sub(wr.Status.StartTime.Time)/time.Second), attrs...)
 		}
 	}
 

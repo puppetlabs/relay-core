@@ -21,7 +21,6 @@ type metadataManagers struct {
 	stepMessages   model.StepMessageManager
 	stepOutputs    model.StepOutputManager
 	workflowRuns   model.WorkflowRunManager
-	timers         model.TimerSetterManager
 }
 
 var _ model.MetadataManagers = &metadataManagers{}
@@ -86,10 +85,6 @@ func (mm *metadataManagers) WorkflowRuns() model.WorkflowRunManager {
 	return mm.workflowRuns
 }
 
-func (mm *metadataManagers) Timers() model.TimerSetterManager {
-	return mm.timers
-}
-
 type MetadataBuilder struct {
 	actionMetadata model.ActionMetadataManager
 	actionStatus   model.ActionStatusManager
@@ -106,7 +101,6 @@ type MetadataBuilder struct {
 	stepMessages   model.StepMessageManager
 	stepOutputs    model.StepOutputManager
 	workflowRuns   model.WorkflowRunManager
-	timers         model.TimerSetterManager
 }
 
 func (mb *MetadataBuilder) SetActionMetadata(m model.ActionMetadataManager) *MetadataBuilder {
@@ -184,11 +178,6 @@ func (mb *MetadataBuilder) SetWorkflowRuns(m model.WorkflowRunManager) *Metadata
 	return mb
 }
 
-func (mb *MetadataBuilder) SetTimers(m model.TimerSetterManager) *MetadataBuilder {
-	mb.timers = m
-	return mb
-}
-
 func (mb *MetadataBuilder) Build() model.MetadataManagers {
 	return &metadataManagers{
 		actionMetadata: mb.actionMetadata,
@@ -206,7 +195,6 @@ func (mb *MetadataBuilder) Build() model.MetadataManagers {
 		stepMessages:   mb.stepMessages,
 		stepOutputs:    mb.stepOutputs,
 		workflowRuns:   mb.workflowRuns,
-		timers:         mb.timers,
 	}
 }
 
@@ -227,6 +215,5 @@ func NewMetadataBuilder() *MetadataBuilder {
 		stepMessages:   reject.StepMessageManager,
 		stepOutputs:    reject.StepOutputManager,
 		workflowRuns:   reject.WorkflowRunManager,
-		timers:         reject.TimerManager,
 	}
 }

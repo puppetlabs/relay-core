@@ -131,7 +131,6 @@ func NewAuthenticator(sc *opt.SampleConfig, key interface{}) *Authenticator {
 			}
 
 			stepOutputManager := memory.NewStepOutputManager(step, som)
-			timerManager := memory.NewTimerManager()
 
 			stepDecoratorManager := memory.NewStepDecoratorManager(step, memory.NewStepDecoratorMap())
 
@@ -147,7 +146,6 @@ func NewAuthenticator(sc *opt.SampleConfig, key interface{}) *Authenticator {
 				mgrs.SetStepDecorators(stepDecoratorManager)
 				mgrs.SetStepMessages(stepMessageManager)
 				mgrs.SetStepOutputs(stepOutputManager)
-				mgrs.SetTimers(timerManager)
 			}
 		}
 	}

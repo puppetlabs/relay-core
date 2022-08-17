@@ -88,10 +88,6 @@ func (rr *RealRunner) Run(args ...string) error {
 				log.Println(err)
 			}
 		}
-
-		if err := rr.setStepInitTimer(ctx, mu); err != nil {
-			log.Println(err)
-		}
 	}
 
 	var cmd *exec.Cmd
@@ -486,25 +482,6 @@ func (rr *RealRunner) validateSchemas(ctx context.Context, mu *url.URL) error {
 		return err
 	}
 	defer resp.Body.Close()
-
-	return nil
-}
-
-// FIXME This should send the explicit start time to the endpoint
-func (rr *RealRunner) setStepInitTimer(ctx context.Context, mu *url.URL) error {
-	te := &url.URL{Path: path.Join("/timers", url.PathEscape(model.TimerStepInit))}
-
-	req, err := http.NewRequestWithContext(
-		ctx, http.MethodPut, mu.ResolveReference(te).String(), http.NoBody)
-	if err != nil {
-		return err
-	} else {
-		resp, err := rr.getResponse(ctx, req, []retry.WaitOption{})
-		if err != nil {
-			return err
-		}
-		defer resp.Body.Close()
-	}
 
 	return nil
 }

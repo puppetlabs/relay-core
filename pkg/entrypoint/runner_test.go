@@ -22,7 +22,7 @@ func withMockMetadataAPI(t *testing.T, fn func(ts *httptest.Server), opts mockMe
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		handler, _ := shiftPath(r.URL.Path)
 		switch handler {
-		case "conditions", "environment", "logs", "status", "timers", "validate":
+		case "conditions", "environment", "logs", "status", "validate":
 			if _, ok := seed[handler]; !ok {
 				seed[handler] = time.Now()
 			}
