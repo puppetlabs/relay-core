@@ -178,7 +178,6 @@ func (ka *KubernetesAuthenticator) injector(mgrs *builder.MetadataBuilder, tags 
 		mgrs.SetEnvironment(configmap.NewEnvironmentManager(action, immutableMap))
 		mgrs.SetSpec(configmap.NewSpecManager(action, immutableMap))
 		mgrs.SetState(configmap.NewStateManager(action, mutableMap))
-		mgrs.SetTimers(configmap.NewTimerManager(action, mutableMap))
 
 		logContext := ""
 		switch action.Type() {

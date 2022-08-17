@@ -7,7 +7,6 @@ import (
 	relayv1beta1 "github.com/puppetlabs/relay-core/pkg/apis/relay.sh/v1beta1"
 	"github.com/puppetlabs/relay-core/pkg/metrics/model"
 	"github.com/puppetlabs/relay-core/pkg/metrics/opt"
-	"github.com/puppetlabs/relay-core/pkg/metrics/reconciler/event"
 	"github.com/puppetlabs/relay-core/pkg/metrics/reconciler/run"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
@@ -118,11 +117,6 @@ func main() {
 	}
 
 	err = run.Add(mgr, meter)
-	if err != nil {
-		klog.Fatal(err.Error())
-	}
-
-	err = event.Add(mgr, meter, cfg.EventFilters)
 	if err != nil {
 		klog.Fatal(err.Error())
 	}
