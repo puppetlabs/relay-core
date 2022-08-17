@@ -1,5 +1,13 @@
 name: CI
-on: [push, pull_request]
+
+on:
+  pull_request:
+    paths-ignore:
+      - '*.md'  
+  push:
+    paths-ignore:
+      - '*.md'
+
 jobs:
   init:
     runs-on: ubuntu-latest
