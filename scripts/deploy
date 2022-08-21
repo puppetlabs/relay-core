@@ -13,16 +13,6 @@ curl -LJ -o .deploy/relay \
     "https://github.com/puppetlabs/relay/releases/download/${CLI_VERSION}/relay-${CLI_VERSION}-linux-amd64"
 chmod +x .deploy/relay
 
-mkdir -p ~/.config/relay
-
-cat << EOF > ~/.config/relay/config.yaml
-contexts:
-  staging:
-    apiDomain: https://api.stage.relay-infra.net
-    uiDomain: https://ui.stage.relay-infra.net
-EOF
-
-.deploy/relay context set staging
 echo -n "${RELAY_OPERATIONS_API_TOKEN}" | .deploy/relay auth login --stdin
 
 echo -n "${VERSION}" | .deploy/relay workflow secret set "${RELAY_WORKFLOW}" tasks.image.tag --value-stdin

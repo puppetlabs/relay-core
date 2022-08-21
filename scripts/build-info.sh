@@ -31,7 +31,7 @@ declare -A RELAY_WORKFLOWS
 
 [ -r "$(dirname "$0")/relay-deploy.sh" ] && source "$(dirname "$0")/relay-deploy.sh"
 
-RELAY_WORKFLOWS[main]=nebula-prod-1
+RELAY_WORKFLOWS[main]=relay-deploy-core
 
 if [ -n "${RELAY_CORE_BRANCH}" ]; then
     RELAY_WORKFLOW=${RELAY_WORKFLOWS["$RELAY_CORE_BRANCH"]:-}
